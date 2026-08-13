@@ -11,7 +11,7 @@ import Foundation
 enum SeedContent {
 
     static var catalanStarterDecks: [Phrase] {
-        sounds + cafe + work + castells + segon + pinya + arribada
+        sounds + cafe + work + castells + segon + pinya + arribada + ordres
     }
 
     // MARK: - Sounds
@@ -546,6 +546,148 @@ enum SeedContent {
             translation: "Bye, see you Tuesday!",
             deck: "Castells · Arribada",
             focusNote: "'dimarts' loses the t in speech: 'di-MARS'."
+        ),
+    ]
+
+    // MARK: - Orders shouted at you
+    //
+    // Comprehension, not production. You will never say these — you need to
+    // recognise them instantly, over noise, first time, while under load.
+    //
+    // Given in the plural (-eu, -a't → -eu, us) because they're aimed at the
+    // whole colla. A tècnic correcting one person switches to the singular:
+    // recupereu → recupera, gireu → gira, aguanteu → aguanta. Learn the plural
+    // and the singular will be obvious.
+    //
+    // The focus notes here describe what each one sounds like *shouted at
+    // speed*, which is not the same as how it looks written down.
+
+    static let ordres: [Phrase] = [
+        Phrase(
+            text: "Força!",
+            translation: "Push! / Strength!",
+            deck: "Castells · Ordres",
+            focusNote: "'FOR-sə' — the ç is a plain s. The single most-shouted word in castells."
+        ),
+        Phrase(
+            text: "Aguanteu!",
+            translation: "Hold!",
+            deck: "Castells · Ordres",
+            focusNote: "'ə-gwən-TEU'. Compresses to almost 'gwan-TEU' when it's yelled."
+        ),
+        Phrase(
+            text: "Recupereu!",
+            translation: "Recover your position!",
+            deck: "Castells · Ordres",
+            focusNote: "'rə-ku-pə-REU'. Four syllables that collapse to about two at volume — listen for the -EU ending."
+        ),
+        Phrase(
+            text: "Colzes amunt!",
+            translation: "Elbows up!",
+            deck: "Castells · Ordres",
+            focusNote: "'KOL-zəs ə-MUN'. The final t of amunt disappears entirely."
+        ),
+        Phrase(
+            text: "Les mans més amunt!",
+            translation: "Hands higher!",
+            deck: "Castells · Ordres",
+            focusNote: "Often cut to just 'Més amunt!' — recognise the short form too."
+        ),
+        Phrase(
+            text: "Els peus més a prop del coll!",
+            translation: "Feet closer to the neck!",
+            deck: "Castells · Ordres",
+            focusNote: "'coll' ends in the palatal ll. Frequently shortened to just 'Al coll!'"
+        ),
+        Phrase(
+            text: "Peus endavant!",
+            translation: "Feet forward!",
+            deck: "Castells · Ordres",
+            focusNote: "'peus ən-də-BAN'. Runs as one word — don't wait for a gap that never comes."
+        ),
+        Phrase(
+            text: "Gireu els braços!",
+            translation: "Twist your arms!",
+            deck: "Castells · Ordres",
+            focusNote: "Soft g like 'measure': 'ji-REU'. 'braços' has the ç as s: 'BRA-sus'."
+        ),
+        Phrase(
+            text: "Tireu-vos enrere!",
+            translation: "Lean back!",
+            deck: "Castells · Ordres",
+            focusNote: "'TI-reu-bus ən-RE-rə'. Often just 'Enrere!' on its own."
+        ),
+        Phrase(
+            text: "El cap avall!",
+            translation: "Head down!",
+            deck: "Castells · Ordres",
+            focusNote: "'avall' ends in the palatal ll: 'ə-BALL'. Note it's a b sound for that v."
+        ),
+        Phrase(
+            text: "Braços estirats!",
+            translation: "Arms straight!",
+            deck: "Castells · Ordres",
+            focusNote: "'BRA-sus əs-ti-RATS'. Stress lands hard on the last syllable."
+        ),
+        Phrase(
+            text: "Esquena recta!",
+            translation: "Back straight!",
+            deck: "Castells · Ordres",
+            focusNote: "'əs-KE-nə REK-tə'. Rolled r at the start of recta."
+        ),
+        Phrase(
+            text: "Estrenyeu!",
+            translation: "Squeeze in! / Tighten the pinya!",
+            deck: "Castells · Ordres",
+            focusNote: "'əs-trə-NYEU'. You'll hear this one more than almost anything else."
+        ),
+        Phrase(
+            text: "No us mogueu!",
+            translation: "Don't move!",
+            deck: "Castells · Ordres",
+            focusNote: "'no us mu-GEU' — hard g. Runs together into roughly 'nous-mu-GEU'."
+        ),
+        Phrase(
+            text: "Quiets!",
+            translation: "Still! / Freeze!",
+            deck: "Castells · Ordres",
+            focusNote: "'ki-ETS'. Two syllables, sharp. Means stop everything immediately."
+        ),
+        Phrase(
+            text: "A lloc!",
+            translation: "Into position!",
+            deck: "Castells · Ordres",
+            focusNote: "'ə-LLOK' — palatal ll, hard k. Very short, easy to miss in noise."
+        ),
+        Phrase(
+            text: "Falta pinya aquí!",
+            translation: "We need more people in the base here!",
+            deck: "Castells · Ordres",
+            focusNote: "'FAL-tə PI-nyə ə-KI'. The ny is palatal, the aquí is stressed at the end."
+        ),
+        Phrase(
+            text: "A poc a poc!",
+            translation: "Slowly!",
+            deck: "Castells · Ordres",
+            focusNote: "'ə-pok-ə-POK'. Said to slow a climb that's running away."
+        ),
+        Phrase(
+            text: "Silenci!",
+            translation: "Quiet!",
+            deck: "Castells · Ordres",
+            focusNote: "'si-LEN-si' — the final i is barely voiced. Means the castell is about to go up."
+        ),
+        Phrase(
+            text: "Amunt!",
+            translation: "Up!",
+            deck: "Castells · Ordres",
+            focusNote: "'ə-MUN'. The call to climb. Short, and everything follows from it."
+        ),
+        Phrase(
+            text: "Respireu!",
+            translation: "Breathe!",
+            deck: "Castells · Ordres",
+            focusNote: "'rəs-pi-REU'. Shouted when the pinya is tensing up and holding its breath."
         ),
     ]
 }
