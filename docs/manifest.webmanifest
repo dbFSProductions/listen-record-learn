@@ -1,0 +1,17 @@
+{
+  "name": "Xerra — Catalan pronunciation",
+  "short_name": "Xerra",
+  "description": "Listen, record, compare. A Catalan pronunciation trainer built around your own phrases.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f5f3",
+  "theme_color": "#d4664c",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

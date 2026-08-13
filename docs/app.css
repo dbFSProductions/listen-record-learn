@@ -1,0 +1,341 @@
+/* Xerra — mobile-first, iOS-flavoured. Dark and light both first-class. */
+
+:root {
+  --accent: #d4664c;
+  --accent-soft: rgba(212, 102, 76, 0.12);
+  --you: #e08a2e;
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --surface-2: #ececea;
+  --text: #1c1b1a;
+  --text-2: #6b6864;
+  --text-3: #9a968f;
+  --line: rgba(0, 0, 0, 0.09);
+  --green: #2e9e5b;
+  --amber: #d69a1a;
+  --red: #d3452f;
+  --radius: 14px;
+  --tabbar-h: 58px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #e57e63;
+    --accent-soft: rgba(229, 126, 99, 0.16);
+    --you: #eda545;
+    --bg: #161514;
+    --surface: #201e1d;
+    --surface-2: #2b2827;
+    --text: #f2efec;
+    --text-2: #a8a29b;
+    --text-3: #78726b;
+    --line: rgba(255, 255, 255, 0.1);
+    --green: #4cc47c;
+    --amber: #e9b83f;
+    --red: #f0664e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: contain;
+}
+
+body {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+}
+
+.view {
+  padding: max(env(safe-area-inset-top), 12px) 16px 24px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 1.6rem; margin: 6px 0 16px; letter-spacing: -0.02em; }
+h2 { font-size: 1.05rem; margin: 0; }
+p { margin: 0 0 10px; }
+
+.muted { color: var(--text-2); }
+.tiny { font-size: 0.78rem; }
+.small { font-size: 0.87rem; }
+.center { text-align: center; }
+
+/* ------------------------------------------------------------------ cards */
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+}
+
+.rows { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row:last-child { border-bottom: 0; }
+.row:active { background: var(--surface-2); }
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-weight: 500; }
+.row-sub { font-size: 0.8rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chev { color: var(--text-3); flex: none; }
+
+.section-label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 22px 4px 8px;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+button { font: inherit; }
+
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 12px 16px;
+  font-weight: 550;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.btn:active { transform: scale(0.98); }
+.btn[disabled] { opacity: 0.4; cursor: default; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-row { display: flex; gap: 9px; }
+.btn-row .btn { flex: 1; }
+.btn-danger { color: var(--red); }
+
+.link { background: none; border: 0; color: var(--accent); font-weight: 550; cursor: pointer; padding: 6px; }
+
+/* ----------------------------------------------------------------- tabbar */
+
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--line);
+  z-index: 40;
+}
+.tab {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--text-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+.tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.tab[aria-current="true"] { color: var(--accent); }
+
+/* ------------------------------------------------------------------ drill */
+
+.drill-text {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: 1.55rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+}
+.drill-translation { color: var(--text-2); margin-bottom: 12px; }
+
+.focus-note {
+  background: var(--accent-soft);
+  border-radius: 11px;
+  padding: 10px 12px 11px;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+.focus-note strong {
+  display: block;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 3px;
+}
+
+.progress-pill {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  font-size: 0.82rem;
+}
+
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+
+/* record button */
+.record-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 22px 0 6px; }
+.record {
+  position: relative;
+  width: 78px; height: 78px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--you);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.record.recording { background: var(--red); }
+.record svg { width: 30px; height: 30px; fill: currentColor; }
+.record-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid rgba(211, 69, 47, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.06s linear;
+}
+.record.recording .record-ring { opacity: 1; }
+
+canvas { width: 100%; display: block; }
+.wave-label { font-size: 0.72rem; font-weight: 650; margin-bottom: 3px; }
+
+/* score */
+.score-head { display: flex; align-items: center; gap: 16px; }
+.dial { position: relative; width: 68px; height: 68px; flex: none; }
+.dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dial-value {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 1.25rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.subscores { display: flex; gap: 14px; margin-top: 5px; }
+.subscore-label { font-size: 0.7rem; color: var(--text-3); }
+.subscore-value { font-size: 0.85rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.92rem;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.chip.good { background: color-mix(in srgb, var(--green) 22%, transparent); }
+.chip.ok { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+.chip.bad { background: color-mix(in srgb, var(--red) 24%, transparent); }
+.phoneme-box { background: var(--surface-2); border-radius: 10px; padding: 10px; margin-top: 9px; }
+.phoneme { display: inline-flex; flex-direction: column; align-items: center; padding: 4px 7px; }
+.phoneme code { font-size: 0.8rem; }
+.phoneme span { font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ forms */
+
+label.field { display: block; margin-bottom: 12px; }
+label.field > span { display: block; font-size: 0.78rem; color: var(--text-2); margin-bottom: 5px; }
+input[type="text"], input[type="password"], input[type="search"], textarea, select {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+textarea { min-height: 74px; resize: vertical; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+
+/* ------------------------------------------------------------------ sheet */
+
+.sheet { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; }
+/* `display: flex` beats the `hidden` attribute's default `display: none`, which
+   would leave an invisible full-screen backdrop swallowing every tap. */
+.sheet[hidden], .toast[hidden] { display: none; }
+.sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); }
+.sheet-panel {
+  position: relative;
+  width: 100%;
+  max-height: 88dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 18px 18px 0 0;
+  padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
+  max-width: 640px;
+  margin: 0 auto;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* ------------------------------------------------------------------ toast */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  z-index: 80;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.empty { text-align: center; color: var(--text-2); padding: 48px 20px; }
+.empty svg { width: 44px; height: 44px; stroke: currentColor; fill: none; stroke-width: 1.5; opacity: 0.5; margin-bottom: 10px; }
+
+.notice { border-left: 3px solid var(--amber); padding: 9px 12px; background: var(--surface); border-radius: 0 10px 10px 0; font-size: 0.85rem; color: var(--text-2); }
+.notice.bad { border-left-color: var(--red); }
+.notice.good { border-left-color: var(--green); }
+
+.spinner {
+  width: 15px; height: 15px;
+  border: 2px solid var(--text-3);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
