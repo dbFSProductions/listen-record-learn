@@ -11,13 +11,29 @@ final class Library {
 
     private let phrasesURL = AudioStore.documents.appendingPathComponent("phrases.json")
     private let attemptsURL = AudioStore.documents.appendingPathComponent("attempts.json")
+    private let seededURL = AudioStore.documents.appendingPathComponent("seeded.json")
+
+    /// Seed phrases already offered at least once. Tracked separately from the
+    /// library so new starter content can arrive in a later version without
+    /// resurrecting anything deliberately deleted.
+    private var seededTexts: Set<String> = []
 
     init() {
         load()
-        if phrases.isEmpty {
-            phrases = SeedContent.catalanStarterDecks
-            savePhrases()
+        installNewSeedContent()
+    }
+
+    private func installNewSeedContent() {
+        let existing = Set(phrases.map(\.text))
+        let newcomers = SeedContent.catalanStarterDecks.filter {
+            !existing.contains($0.text) && !seededTexts.contains($0.text)
         }
+        guard !newcomers.isEmpty else { return }
+
+        phrases.append(contentsOf: newcomers)
+        seededTexts.formUnion(SeedContent.catalanStarterDecks.map(\.text))
+        savePhrases()
+        saveSeeded()
     }
 
     // MARK: - Reading
@@ -92,10 +108,15 @@ final class Library {
            let decoded = try? decoder.decode([Attempt].self, from: data) {
             attempts = decoded
         }
+        if let data = try? Data(contentsOf: seededURL),
+           let decoded = try? decoder.decode(Set<String>.self, from: data) {
+            seededTexts = decoded
+        }
     }
 
     private func savePhrases() { write(phrases, to: phrasesURL) }
     private func saveAttempts() { write(attempts, to: attemptsURL) }
+    private func saveSeeded() { write(seededTexts, to: seededURL) }
 
     private func write<T: Encodable>(_ value: T, to url: URL) {
         let encoder = JSONEncoder()

@@ -11,7 +11,7 @@ import Foundation
 enum SeedContent {
 
     static var catalanStarterDecks: [Phrase] {
-        sounds + cafe + work + castells
+        sounds + cafe + work + castells + segon + pinya
     }
 
     // MARK: - Sounds
@@ -223,6 +223,204 @@ enum SeedContent {
             translation: "Climb carefully, all right?",
             deck: "Castells",
             focusNote: "'Puja' has the soft j. That trailing 'eh?' is everywhere in spoken Catalan."
+        ),
+        Phrase(
+            text: "Sóc de la Colla Castellera d'Horta.",
+            translation: "I'm with the Colla Castellera d'Horta.",
+            deck: "Castells",
+            focusNote: "'Horta' starts with a silent h — 'ORR-tə'. 'Colla' has the palatal ll."
+        ),
+    ]
+
+    // MARK: - Calling from segon
+    //
+    // Said upward from the tronc down to the pinya, usually over noise and the
+    // gralles. These are short, loud and imperative on purpose: length is your
+    // enemy up there. Commands aimed at the pinya as a group take the plural
+    // (-eu) ending — estrenyeu, aguanteu, afluixeu.
+
+    static let segon: [Phrase] = [
+        Phrase(
+            text: "Més a la dreta.",
+            translation: "More to the right.",
+            deck: "Castells · Segon",
+            focusNote: "'Més' has a closed é; everything unstressed around it is schwa — 'mes ə lə DRE-tə'."
+        ),
+        Phrase(
+            text: "Més a l'esquerra.",
+            translation: "More to the left.",
+            deck: "Castells · Segon",
+            focusNote: "Open è and a rolled rr: 'əs-KWE-rrə'. Let the r ring or it sounds like 'esquera'."
+        ),
+        Phrase(
+            text: "Un pèl més, només un pèl.",
+            translation: "A touch more, just a touch.",
+            deck: "Castells · Segon",
+            focusNote: "'pèl' is an open è — wider than the é in 'més'. The two vowels in this phrase are deliberately different."
+        ),
+        Phrase(
+            text: "Cap endavant.",
+            translation: "Forward.",
+            deck: "Castells · Segon",
+            focusNote: "Runs together as one word: 'kap-ən-də-BAN'. The final t is barely there."
+        ),
+        Phrase(
+            text: "Cap enrere.",
+            translation: "Back.",
+            deck: "Castells · Segon",
+            focusNote: "'enrere' — 'ən-RE-rə'. Two r's, the first one rolled."
+        ),
+        Phrase(
+            text: "Estrenyeu!",
+            translation: "Squeeze in! (to the pinya)",
+            deck: "Castells · Segon",
+            focusNote: "The palatal ny, then stress right on the end: 'əs-trə-NYEU'. Shout it from the belly."
+        ),
+        Phrase(
+            text: "Afluixeu una mica.",
+            translation: "Loosen off a bit.",
+            deck: "Castells · Segon",
+            focusNote: "'ix' is a sh sound: 'ə-flu-SHEU'. Stress on the final syllable again."
+        ),
+        Phrase(
+            text: "Aguanteu!",
+            translation: "Hold!",
+            deck: "Castells · Segon",
+            focusNote: "'ə-gwən-TEU'. The gua is one quick glide, not two syllables."
+        ),
+        Phrase(
+            text: "Em falta pressió a l'esquena.",
+            translation: "I need more pressure on my back.",
+            deck: "Castells · Segon",
+            focusNote: "'pressió' is three syllables ending stressed: 'prə-si-Ó'."
+        ),
+        Phrase(
+            text: "Massa fort!",
+            translation: "Too hard!",
+            deck: "Castells · Segon",
+            focusNote: "Two stressed syllables back to back. Keep it clipped — this one has to cut through noise."
+        ),
+        Phrase(
+            text: "Prou, així està bé.",
+            translation: "Enough, that's good there.",
+            deck: "Castells · Segon",
+            focusNote: "'així' is stressed on the í: 'ə-SHI'. The ix is a sh again."
+        ),
+        Phrase(
+            text: "Ja estic. No et moguis.",
+            translation: "I'm set. Don't move.",
+            deck: "Castells · Segon",
+            focusNote: "'moguis' has a hard g: 'MO-gis'. 'No et' contracts to roughly 'no-ət'."
+        ),
+        Phrase(
+            text: "Espera, encara no.",
+            translation: "Wait, not yet.",
+            deck: "Castells · Segon",
+            focusNote: "'encara' — 'ən-KA-rə'. Single tapped r in the middle, not rolled."
+        ),
+        Phrase(
+            text: "Ara sí. Amunt!",
+            translation: "Now. Up!",
+            deck: "Castells · Segon",
+            focusNote: "'Amunt' — 'ə-MUN', final t swallowed. This is the one that has to carry."
+        ),
+        Phrase(
+            text: "Agafa'm el canell.",
+            translation: "Grab my wrist.",
+            deck: "Castells · Segon",
+            focusNote: "'canell' ends in the palatal ll — 'kə-NELL', not 'ka-nel'."
+        ),
+        Phrase(
+            text: "La mà una mica més amunt.",
+            translation: "Hand a bit higher.",
+            deck: "Castells · Segon",
+            focusNote: "'mà' is a full open a — one of the few a's here that isn't a schwa."
+        ),
+    ]
+
+    // MARK: - Down in the pinya
+    //
+    // Contrafort and laterals: what gets said around you at the base, where
+    // you can't see much and everything arrives as a shouted instruction.
+
+    static let pinya: [Phrase] = [
+        Phrase(
+            text: "Avui vaig de contrafort.",
+            translation: "I'm going in as contrafort today.",
+            deck: "Castells · Pinya",
+            focusNote: "'vaig' ends in a 'tch' sound: 'batch'. 'contrafort' keeps its final t."
+        ),
+        Phrase(
+            text: "Avui faig de lateral.",
+            translation: "I'm a lateral today.",
+            deck: "Castells · Pinya",
+            focusNote: "'faig' rhymes with 'vaig' — same 'tch' ending."
+        ),
+        Phrase(
+            text: "On em poso?",
+            translation: "Where do I go?",
+            deck: "Castells · Pinya",
+            focusNote: "Three quick syllables, rising at the end. Unstressed o in 'poso' rises toward u."
+        ),
+        Phrase(
+            text: "Aquí falta un contrafort.",
+            translation: "We're a contrafort short here.",
+            deck: "Castells · Pinya",
+            focusNote: "'falta un' links into 'FAL-tə-un' — Catalan runs vowels together across words."
+        ),
+        Phrase(
+            text: "Dona'm la mà.",
+            translation: "Give me your hand.",
+            deck: "Castells · Pinya",
+            focusNote: "'Dona'm' — the attached pronoun keeps stress on DO. 'mà' stays open and long."
+        ),
+        Phrase(
+            text: "Agafa't bé.",
+            translation: "Get a proper grip.",
+            deck: "Castells · Pinya",
+            focusNote: "'bé' is a closed é. Short and firm."
+        ),
+        Phrase(
+            text: "Feu força cap endins.",
+            translation: "Push inward.",
+            deck: "Castells · Pinya",
+            focusNote: "The ç in 'força' is a plain s: 'FOR-sə'."
+        ),
+        Phrase(
+            text: "Tothom a lloc.",
+            translation: "Everyone in position.",
+            deck: "Castells · Pinya",
+            focusNote: "'Tothom' — silent h, 'tu-TOM'. 'lloc' opens with the palatal ll and ends on a hard k."
+        ),
+        Phrase(
+            text: "Silenci, que ja toquen.",
+            translation: "Quiet, the gralles are starting.",
+            deck: "Castells · Pinya",
+            focusNote: "'toquen' — hard k, unstressed final e is schwa: 'TO-kən'."
+        ),
+        Phrase(
+            text: "Ja pugen.",
+            translation: "They're going up.",
+            deck: "Castells · Pinya",
+            focusNote: "Soft j, like the s in 'measure': 'PU-jən'."
+        ),
+        Phrase(
+            text: "Ja baixen, aguanteu!",
+            translation: "They're coming down, hold!",
+            deck: "Castells · Pinya",
+            focusNote: "'baixen' — the ix is sh: 'BA-shən'. This is the moment the pinya must not soften."
+        ),
+        Phrase(
+            text: "No afluixeu fins que baixin del tot.",
+            translation: "Don't loosen until they're all the way down.",
+            deck: "Castells · Pinya",
+            focusNote: "Long one — keep it flowing rather than word by word. 'del tot' is the emphatic bit."
+        ),
+        Phrase(
+            text: "Compte amb el cap!",
+            translation: "Mind your head!",
+            deck: "Castells · Pinya",
+            focusNote: "'Compte' has a silent p: 'KOM-tə'. Urgent and short."
         ),
     ]
 }
