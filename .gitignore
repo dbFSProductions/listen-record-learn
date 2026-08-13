@@ -1,0 +1,28 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Xcode project user state — keep the shared project file, drop personal settings
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Secrets — the Azure key lives in the iOS Keychain, never in the repo.
+# This is here so a stray local config file can't be committed by accident.
+Secrets.plist
+*.env
+
+# macOS
+.DS_Store
