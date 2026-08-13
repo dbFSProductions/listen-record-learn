@@ -11,7 +11,7 @@ import Foundation
 enum SeedContent {
 
     static var catalanStarterDecks: [Phrase] {
-        sounds + cafe + work + castells + segon + pinya
+        sounds + cafe + work + castells + segon + pinya + arribada
     }
 
     // MARK: - Sounds
@@ -421,6 +421,131 @@ enum SeedContent {
             translation: "Mind your head!",
             deck: "Castells · Pinya",
             focusNote: "'Compte' has a silent p: 'KOM-tə'. Urgent and short."
+        ),
+    ]
+
+    // MARK: - Arriving at rehearsal
+    //
+    // The five minutes before anything gets built. All informal (tu), because
+    // that's the register of a colla — nobody at an assaig is using vostè.
+    //
+    // Worth knowing throughout this deck: in Central Catalan the letter v is
+    // pronounced the same as b. Vacances is 'bacances', veig is 'betch'.
+
+    static let arribada: [Phrase] = [
+        Phrase(
+            text: "Ei, bones! Com anem?",
+            translation: "Hey, hi! How's it going?",
+            deck: "Castells · Arribada",
+            focusNote: "'Bones' is the standard casual Catalan hello — 'BO-nəs'. Far more natural here than 'Hola'."
+        ),
+        Phrase(
+            text: "Què tal? Com ha anat la setmana?",
+            translation: "How are you? How's your week been?",
+            deck: "Castells · Arribada",
+            focusNote: "'Què' is an open è. 'com ha anat' runs together — silent h, the vowels link straight through."
+        ),
+        Phrase(
+            text: "Quant de temps! Feia dies que no et veia.",
+            translation: "Long time! I haven't seen you in ages.",
+            deck: "Castells · Arribada",
+            focusNote: "'veia' is 'BE-yə' — that v is a b. 'Quant de temps' compresses to 'kwan-də-TEMS'."
+        ),
+        Phrase(
+            text: "Molt bé, i tu?",
+            translation: "Really well, and you?",
+            deck: "Castells · Arribada",
+            focusNote: "'Molt' drops its t before bé: 'mol-BE'. Rising tone on 'i tu'."
+        ),
+        Phrase(
+            text: "Anar fent, ja saps.",
+            translation: "Getting by, you know how it is.",
+            deck: "Castells · Arribada",
+            focusNote: "The classic Catalan non-answer. 'ə-NA FEN' — final consonants swallowed, said with a shrug."
+        ),
+        Phrase(
+            text: "Vaig tirant.",
+            translation: "I'm getting along all right.",
+            deck: "Castells · Arribada",
+            focusNote: "'Vaig' is 'batch' — v as b, final ig as tch. Two words, four sounds, very common."
+        ),
+        Phrase(
+            text: "Estic fet pols, molta feina aquesta setmana.",
+            translation: "I'm shattered, loads of work this week.",
+            deck: "Castells · Arribada",
+            focusNote: "'fet pols' literally 'made dust' — properly idiomatic. 'aquesta' is 'ə-KES-tə'."
+        ),
+        Phrase(
+            text: "Què tal les vacances?",
+            translation: "How were your holidays?",
+            deck: "Castells · Arribada",
+            focusNote: "'vacances' begins with a b sound: 'bə-KAN-səs'. Three schwas in one word."
+        ),
+        Phrase(
+            text: "On vau anar?",
+            translation: "Where did you go?",
+            deck: "Castells · Arribada",
+            focusNote: "'vau' is 'bau'. Short question, clear rise at the end."
+        ),
+        Phrase(
+            text: "Vam estar una setmana a Menorca.",
+            translation: "We spent a week in Menorca.",
+            deck: "Castells · Arribada",
+            focusNote: "'Vam' is 'bam'. 'una setmana a' links into one run of vowels — don't chop it up."
+        ),
+        Phrase(
+            text: "Que bé! Quina enveja.",
+            translation: "Lovely! I'm jealous.",
+            deck: "Castells · Arribada",
+            focusNote: "'enveja' is 'əm-BE-jə' — b for the v, and a soft j like the s in 'measure'."
+        ),
+        Phrase(
+            text: "I la família, tot bé?",
+            translation: "And the family, all good?",
+            deck: "Castells · Arribada",
+            focusNote: "'família' is stressed on the í: 'fə-MI-li-ə'."
+        ),
+        Phrase(
+            text: "Arribo tard? Ja heu començat?",
+            translation: "Am I late? Have you started?",
+            deck: "Castells · Arribada",
+            focusNote: "'heu' is just 'eu' — silent h. 'començat' has the ç as a plain s."
+        ),
+        Phrase(
+            text: "Avui som pocs, no?",
+            translation: "There aren't many of us today, are there?",
+            deck: "Castells · Arribada",
+            focusNote: "That trailing 'no?' does the work of an English tag question. Keep it light and rising."
+        ),
+        Phrase(
+            text: "Feia temps que no véns.",
+            translation: "You haven't been in a while.",
+            deck: "Castells · Arribada",
+            focusNote: "'véns' has a closed é and starts with a b sound: 'BENS'."
+        ),
+        Phrase(
+            text: "Vaig a canviar-me.",
+            translation: "I'm going to get changed.",
+            deck: "Castells · Arribada",
+            focusNote: "'canviar-me' is 'kəm-bi-A-mə' — the v again as b, stress on the A."
+        ),
+        Phrase(
+            text: "Has portat la faixa?",
+            translation: "Did you bring your sash?",
+            deck: "Castells · Arribada",
+            focusNote: "'Has' is just 'əs'. 'faixa' has the sh sound: 'FA-shə'."
+        ),
+        Phrase(
+            text: "Ens veiem la setmana que ve.",
+            translation: "See you next week.",
+            deck: "Castells · Arribada",
+            focusNote: "'Ens veiem' is 'əns bə-YEM'. 'que ve' closes it off — again, v as b."
+        ),
+        Phrase(
+            text: "Adéu, fins dimarts!",
+            translation: "Bye, see you Tuesday!",
+            deck: "Castells · Arribada",
+            focusNote: "'dimarts' loses the t in speech: 'di-MARS'."
         ),
     ]
 }
