@@ -168,15 +168,45 @@ backup the user has.
   whole app untappable on device while looking completely fine. If taps stop
   registering, check for a visible-but-transparent sheet.
 - Service worker staleness (above) — the first thing to rule out.
+- **Phrases are filtered by `language` everywhere.** A phrase written with the
+  wrong `language` isn't lost, it's *invisible* — saved fine, absent from every
+  list. `library.add` once hardcoded `ca-ES`, so anything added in Spanish mode
+  vanished on save with no error. If a phrase disappears, check its `language`
+  before assuming the write failed.
+
+---
+
+## Checking a change actually works
+
+There's no test runner, but the app can be driven headlessly, which beats
+clicking through it:
+
+```bash
+cd docs && python3 -m http.server 8765 --bind 127.0.0.1 &
+# then Playwright against http://127.0.0.1:8765 — Chromium is usually already
+# present at $PLAYWRIGHT_BROWSERS_PATH; do not run `playwright install`.
+```
+
+Worth asserting on: no console errors on boot, the deck list matches
+`gen-content.py`'s reported counts, a deck opens and `.drill-text` is populated,
+and a phrase added in each language stays visible afterwards. Anything touching
+Azure can't be covered this way — there's no key in CI and no key in the repo.
+
+After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
+either a diff you meant or no diff at all. A silent drop in the phrase count is
+the parser losing a block to a formatting change.
 
 ---
 
 ## State as of 2026-08-14
 
-- Everything to date is on branch `claude/catalan-learning-app-iphone-k407k3`.
-  `main` is still just the initial commit. **This work is not merged.**
-- GitHub Pages is therefore **not live** — `docs/` only publishes from the
-  default branch. Merging to `main` and enabling Pages (main → `/docs`) is what
-  gives a URL openable on the phone.
+- `main` now carries the full v0.1 app — Swift and web. The earlier note that
+  this work sat unmerged on `claude/catalan-learning-app-iphone-k407k3` is out
+  of date.
+- GitHub Pages publishes from the default branch, so once Pages is enabled
+  (main → `/docs`) the PWA is reachable at a URL the phone can install from.
+  Check whether that's actually switched on before telling the user it's live.
+- 102 phrases across eight decks: Sounds, Cafès i sortir, Feina, Castells, and
+  four castells decks for a real rehearsal — Arribada, Pinya, Segon, Ordres.
 - v0.1, the pronunciation core. Spaced repetition, listening/dictation drills,
   and AI-generated content from life context are deliberately **not** built yet.

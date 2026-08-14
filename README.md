@@ -6,12 +6,45 @@ and see exactly where the two differ — waveform, intonation, and a per-word sc
 Built around Central (Barcelona) Catalan, with Spanish (Spain) wired in from the
 start so switching is a setting rather than a rewrite.
 
+There are **two builds of the same app**: a web app you install from a URL, and
+a native iOS one. The web app is the one to use.
+
 ---
 
 ## Getting it onto your phone
 
-You need a Mac with **Xcode 16 or newer** (the project uses synchronised file
-groups, which older Xcode can't open).
+### The web app (recommended)
+
+Nothing to install and nothing to sign — it's a Progressive Web App, so the
+phone treats it as an ordinary app once you add it to the Home Screen.
+
+1. Open the app's URL in **Safari** on the iPhone.
+2. Tap **Share** → **Add to Home Screen**.
+3. Launch it from the icon. It runs full-screen, with no browser chrome.
+4. The first time you record, Safari asks for the microphone. Allow it.
+
+It works offline after the first load, and **Settings → Download all audio**
+caches every phrase so a session needs no signal at all.
+
+Two things to know:
+
+- **Add to Home Screen from Safari specifically.** Chrome and Firefox on iOS
+  can't install a PWA.
+- **Recording needs Azure.** Without a key you can still *hear* phrases through
+  the browser's built-in voice, but Safari won't let a web page capture that
+  audio to a file — so there's no model recording to draw a waveform from or
+  compare against. Listening works; the comparison and scoring don't. See
+  below.
+
+### The native iOS app
+
+`Xerra.xcodeproj` is the original SwiftUI version and still the reference for
+the audio algorithms and the phrase content. Building it needs **Xcode 16 or
+newer**, and running it on a device needs an Xcode new enough to support that
+device's iOS version — which is why this repo's own development Mac can't
+deploy it, and why the web app exists.
+
+If you do have a suitable Mac:
 
 1. Open `Xerra.xcodeproj`.
 2. Select the **Xerra** target → **Signing & Capabilities**.
@@ -24,22 +57,20 @@ groups, which older Xcode can't open).
 6. On the phone: **Settings → General → VPN & Device Management** → trust your
    developer certificate. You only do this once.
 
-### The seven-day thing
-
-On a **free** Apple ID, the app's provisioning profile expires after 7 days and
-it stops launching. Plug in, press ⌘R again, and you get another 7 days. Your
-phrases and recordings survive this — they're stored in the app's Documents
-directory, which reinstalls preserve.
-
-A paid Apple Developer account ($99/yr) extends the profile to a year. Nothing
-in the code changes; it's purely the signing certificate.
+On a **free** Apple ID the provisioning profile expires after 7 days and the app
+stops launching. Plug in, press ⌘R, and you get another 7. Your phrases and
+recordings survive it — they live in the app's Documents directory, which
+reinstalls preserve. A paid account ($99/yr) extends the profile to a year;
+nothing in the code changes.
 
 ---
 
 ## Using it without an Azure key
 
-**The app works fully on first launch with no accounts and no setup.** It falls
-back to:
+Both builds run with no accounts and no setup, but they degrade differently —
+and the difference matters.
+
+**Native app: fully usable.** It falls back to:
 
 - **Voice:** the iOS built-in Catalan voice (offline, free, a bit robotic)
 - **Scoring:** Apple's on-device Catalan speech recogniser (offline, private,
@@ -49,13 +80,23 @@ If iOS has no Catalan voice installed, add one under **Settings → Accessibilit
 → Spoken Content → Voices → Català**. The Enhanced/Premium downloads are
 noticeably better than the default.
 
-## Adding an Azure key (recommended)
+**Web app: listening only.** It can play a phrase through the browser's voice,
+but a web page cannot record what the browser speaks — so there's no model audio
+file, and the waveform comparison and scoring have nothing to compare against.
+That's a Safari limitation rather than something the app is missing. The app
+says so on screen rather than quietly showing you an empty graph.
 
-This is the quality upgrade, and the free tier covers far more than personal use.
+So: on the web app, an Azure key isn't really optional.
+
+## Adding an Azure key
+
+The free tier covers far more than personal use.
 
 1. Create an Azure account, then a **Speech service** resource. Region
-   `westeurope` is a good default.
-2. Copy **Key 1** and the **Location/Region**.
+   `northeurope` is a good default — West Europe is often closed to new
+   customers on capacity grounds.
+2. Copy **Key 1** and the **Location/Region**. Region strings are lowercase with
+   no spaces: `northeurope`, not "North Europe".
 3. In the app: **Settings → Azure voice and scoring**, paste both, tap
    **Save and test**.
 
@@ -69,12 +110,15 @@ What that unlocks:
   this size, and the reason this app can show you *which sound* you missed
   rather than just which word.
 
-The key is stored in the iOS Keychain. It is never written to disk in plaintext
-and never committed.
+The native app stores the key in the iOS Keychain. The web app has no Keychain
+to reach, so it stores the key in the browser's `localStorage` — readable by
+anyone with the unlocked phone. Use a key you're happy to rotate. Either way it
+is never committed.
 
-Every phrase is synthesised **once** and cached on disk, so drilling costs
-nothing after the first play and works with no signal. **Settings → Download all
-audio** warms the whole library before you go out.
+Every phrase is synthesised **once** and cached — on disk natively, in IndexedDB
+on the web — so drilling costs nothing after the first play and works with no
+signal. **Settings → Download all audio** warms the whole library before you go
+out.
 
 ---
 
@@ -104,12 +148,28 @@ audio prefetch and cache.
 
 ### Starter decks
 
+102 phrases across eight decks.
+
 - **Sounds** — targeted at the things that make an English or Spanish speaker
   sound un-Catalan: vowel reduction to schwa, palatal `ll` and `ny`, the voiced
   `j`, final consonants that Spanish would soften
 - **Cafès i sortir** — ordering, the bill, meeting for a vermouth
 - **Feina** — meetings, deadlines, plegar at six
 - **Castells** — colla, pinya, faixa, enxaneta, *fet llenya*, and the motto
+
+Then four decks for actually turning up to a colla, which is where the
+vocabulary stops being a list and starts being something you have to say at
+speed, in a crowd, out of breath:
+
+- **Castells · Arribada** — the small talk of walking in. Greetings, how's your
+  week, who's here
+- **Castells · Pinya** — finding your place in the base: *on em poso*, going in
+  as contrafort or lateral, asking for a hand
+- **Castells · Segon** — the fine positional corrections you'll be given while
+  already standing on someone: a touch left, forward, back
+- **Castells · Ordres** — the shouted ones. *Força*, *aguanteu*, *colzes amunt*.
+  Built to be **recognised**, not produced — you need these to land instantly
+  when someone bellows them from below
 
 Every phrase carries a `focusNote` naming what to listen for, shown while you
 drill.
@@ -119,17 +179,27 @@ drill.
 ## How it's put together
 
 ```
-Xerra/
-  Models/      Phrase, Attempt, Library (JSON-backed store), Language
-  Audio/       Recorder, Player, waveform + pitch analysis, WAV conversion
-  Speech/      TTSProvider protocol, Apple and Azure implementations
-  Scoring/     Azure Pronunciation Assessment, Apple on-device, fallback logic
-  Content/     Seed decks
-  Views/       Drill, decks, phrase list, history, settings
-  Support/     AppSettings, Keychain
+Xerra/           Native SwiftUI app
+  Models/        Phrase, Attempt, Library (JSON-backed store), Language
+  Audio/         Recorder, Player, waveform + pitch analysis, WAV conversion
+  Speech/        TTSProvider protocol, Apple and Azure implementations
+  Scoring/       Azure Pronunciation Assessment, Apple on-device, fallback logic
+  Content/       Seed decks — the source of truth for phrases in both apps
+  Views/         Drill, decks, phrase list, history, settings
+  Support/       AppSettings, Keychain
+
+docs/            The web app. No build step; served as static files.
+  js/app.js      Views, routing, drill loop, canvas rendering
+  js/audio.js    Recording, playback, waveform + pitch analysis
+  js/speech.js   Azure TTS and scoring
+  js/store.js    localStorage for metadata, IndexedDB for audio
+  sw.js          Service worker — offline once installed
+
+tools/           gen-content.py, which regenerates the web app's phrase list
+                 from the Swift seed content so the two can't drift
 ```
 
-Two deliberate choices worth knowing about:
+Three deliberate choices worth knowing about:
 
 **Providers are behind protocols.** `TTSProvider` and the scoring services pick
 the best available engine and degrade cleanly. If Azure is configured but the
@@ -139,6 +209,13 @@ and scored on-device rather than being lost — and the UI says which engine ran
 **Storage is plain JSON, not a database.** `phrases.json` and `attempts.json`
 sit in Documents alongside `ModelAudio/` and `Recordings/`. Inspectable,
 trivially backed up, and no migration to get wrong across the weekly reinstall.
+The web app mirrors that shape in `localStorage` and IndexedDB, and adds
+**Settings → Export / Import** — iOS will evict a web app's storage if it goes
+unused for long enough, so that export is the only real backup there is.
+
+**Pitch is plotted in semitones, not hertz**, relative to each speaker's own
+median. It looks like a bug until you know why: it's what lets a low TTS voice
+and a higher human voice be compared on *melody* rather than on register.
 
 ---
 
