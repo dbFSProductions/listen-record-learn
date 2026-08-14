@@ -845,7 +845,7 @@ function renderSettings() {
       <label class="field"><span>Speech key</span>
         <input type="password" id="s-key" value="${esc(settings.azureKey)}" autocomplete="off" placeholder="Paste your key"></label>
       <label class="field"><span>Region</span>
-        <input type="text" id="s-region" value="${esc(settings.azureRegion)}" autocomplete="off" placeholder="westeurope"></label>
+        <input type="text" id="s-region" value="${esc(settings.azureRegion)}" autocomplete="off" placeholder="northeurope"></label>
       <label class="field"><span>Voice</span>
         <select id="s-voice">
           ${language.voices

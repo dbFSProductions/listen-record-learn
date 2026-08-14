@@ -197,10 +197,13 @@ export const library = {
     return this.drillable(language).filter((p) => p.deck === deck);
   },
 
+  // New phrases belong to whichever language is currently selected. Hardcoding
+  // Catalan here once meant a phrase added in Spanish mode was saved but never
+  // shown again, because the list filters by language.
   add(phrase) {
     this.phrases.push({
       id: uid(),
-      language: "ca-ES",
+      language: settings.language,
       createdAt: new Date().toISOString(),
       ...phrase,
     });
@@ -278,7 +281,7 @@ export const library = {
 const DEFAULT_SETTINGS = {
   language: "ca-ES",
   azureKey: "",
-  azureRegion: "westeurope",
+  azureRegion: "northeurope",
   azureVoice: "ca-ES-JoanaNeural",
   slowRate: 0.65,
   showTranslationUpFront: true,

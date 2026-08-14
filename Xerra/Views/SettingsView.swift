@@ -74,7 +74,7 @@ struct SettingsView: View {
                 everything works, the voice is just less natural and scoring is word-level rather than per-sound.
 
                 With a key you get Azure's Catalan neural voices and per-phoneme pronunciation scoring. \
-                The key is stored in the iOS Keychain. The region must match your Speech resource, e.g. westeurope.
+                The key is stored in the iOS Keychain. The region must match your Speech resource, e.g. northeurope.
                 """)
             }
 
@@ -152,7 +152,7 @@ struct SettingsView: View {
             validationSucceeded = false
             validationMessage = keyField.isEmpty
                 ? "Key removed — using the iOS built-in voice."
-                : "Enter a region as well, e.g. westeurope."
+                : "Enter a region as well, e.g. northeurope."
             return
         }
 

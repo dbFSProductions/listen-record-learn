@@ -24,5 +24,10 @@ xcuserdata/
 Secrets.plist
 *.env
 
+# Local development certificate authority made by tools/serve.py, so the phone
+# can reach the web app over a trusted https origin. Contains a private key,
+# and is specific to one machine's WiFi address. Never commit it.
+tools/.devcert/
+
 # macOS
 .DS_Store

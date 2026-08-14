@@ -47,7 +47,7 @@ final class AppSettings {
         let resolved = Language(rawValue: stored) ?? .catalan
         language = resolved
         azureVoice = defaults.string(forKey: Keys.azureVoice) ?? resolved.defaultAzureVoice
-        azureRegion = defaults.string(forKey: Keys.azureRegion) ?? "westeurope"
+        azureRegion = defaults.string(forKey: Keys.azureRegion) ?? "northeurope"
         slowRate = defaults.object(forKey: Keys.slowRate) as? Double ?? 0.65
         showTranslationUpFront = defaults.object(forKey: Keys.showTranslation) as? Bool ?? true
     }
