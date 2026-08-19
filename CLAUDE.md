@@ -170,6 +170,15 @@ Swift originals in `Xerra/Audio/`. They were verified against a synthetic 150 Hz
 tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
+`docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
+copied it verbatim. The analysis half stays byte-identical between the two —
+change it in one, change it in the other. The *playback* half has now diverged
+deliberately: `comparableLoudness` (ported here from Deb-o-lingo's `48b451a`)
+boosts quiet recordings to roughly TTS loudness at play time only. It never
+touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
+because recordings are captured with `autoGainControl: false` on purpose and the
+pitch tracker needs that honest signal.
+
 Pitch is plotted in **semitones relative to each speaker's own median**, not
 absolute Hz. This is what lets a low TTS voice and a higher human voice be
 compared on *melody* rather than register. It looks like a bug if you don't know

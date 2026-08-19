@@ -1,9 +1,11 @@
 /* Xerra — mobile-first, iOS-flavoured. Dark and light both first-class. */
 
 :root {
-  --accent: #d4664c;
-  --accent-soft: rgba(212, 102, 76, 0.12);
-  --you: #e08a2e;
+  --accent: #da121a;          /* senyera red — the app's action colour */
+  --accent-on: #ffffff;
+  --accent-soft: rgba(218, 18, 26, 0.12);
+  --you: #f0b429;             /* senyera gold, for the "you" waveform */
+  --you-ink: #8a6a00;         /* same idea, dark enough to set text in */
   --bg: #f6f5f3;
   --surface: #ffffff;
   --surface-2: #ececea;
@@ -16,13 +18,33 @@
   --red: #d3452f;
   --radius: 14px;
   --tabbar-h: 58px;
+
+  /* Section accents: the senyera's red and yellow, and the colla's green.
+     `-accent` is the full-strength colour a page or tab is filled with, `-on`
+     is what you can set text in on top of it, `-ink` is the accent as text on
+     the page background, `-soft` is the tint for badges. Every pairing here
+     clears 4.5:1. */
+  --practise-accent: #da121a;
+  --practise-on: #fff8ec;
+  --practise-ink: #b3121b;
+  --practise-soft: rgba(218, 18, 26, 0.14);
+  --phrases-accent: #fcdd09;
+  --phrases-on: #1c1b1a;
+  --phrases-ink: #7d5f00;
+  --phrases-soft: rgba(252, 221, 9, 0.30);
+  --settings-accent: #1e5c34;
+  --settings-on: #fff8ec;
+  --settings-ink: #14532d;
+  --settings-soft: rgba(30, 92, 52, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #e57e63;
-    --accent-soft: rgba(229, 126, 99, 0.16);
-    --you: #eda545;
+    --accent: #f06a70;
+    --accent-on: #23090a;
+    --accent-soft: rgba(240, 106, 112, 0.18);
+    --you: #f5c542;
+    --you-ink: #f5c542;
     --bg: #161514;
     --surface: #201e1d;
     --surface-2: #2b2827;
@@ -33,6 +55,19 @@
     --green: #4cc47c;
     --amber: #e9b83f;
     --red: #f0664e;
+
+    --practise-accent: #d81f27;
+    --practise-on: #fff8ec;
+    --practise-ink: #ff7b7b;
+    --practise-soft: rgba(255, 123, 123, 0.20);
+    --phrases-accent: #fcdd09;
+    --phrases-on: #1c1b1a;
+    --phrases-ink: #f5c542;
+    --phrases-soft: rgba(252, 221, 9, 0.20);
+    --settings-accent: #26743f;
+    --settings-on: #fff8ec;
+    --settings-ink: #5fd58a;
+    --settings-soft: rgba(95, 213, 138, 0.18);
   }
 }
 
@@ -58,6 +93,12 @@ body {
   max-width: 640px;
   margin: 0 auto;
 }
+
+/* One place decides which accent a page (or a tab) is wearing; everything
+   downstream just reads --sec / --sec-ink / --sec-soft. */
+.sec-practise { --sec: var(--practise-accent); --sec-on: var(--practise-on); --sec-ink: var(--practise-ink); --sec-soft: var(--practise-soft); }
+.sec-phrases  { --sec: var(--phrases-accent);  --sec-on: var(--phrases-on);  --sec-ink: var(--phrases-ink);  --sec-soft: var(--phrases-soft); }
+.sec-settings { --sec: var(--settings-accent); --sec-on: var(--settings-on); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
 
 h1 { font-size: 1.6rem; margin: 6px 0 16px; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; margin: 0; }
@@ -129,7 +170,7 @@ button { font: inherit; }
 }
 .btn:active { transform: scale(0.98); }
 .btn[disabled] { opacity: 0.4; cursor: default; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--accent-on); }
 .btn-row { display: flex; gap: 9px; }
 .btn-row .btn { flex: 1; }
 .btn-danger { color: var(--red); }
@@ -163,8 +204,27 @@ button { font: inherit; }
   font-size: 0.66rem;
   cursor: pointer;
 }
+.tab-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 14px 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
 .tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.tab[aria-current="true"] { color: var(--accent); }
+
+/* Only the active tab takes its section colour — three lit tabs would say
+   nothing. It gets the full accent, not a tint, so it reads across the room,
+   and it's the same fill the page above it is wearing. */
+.tab[aria-current="true"] { color: var(--sec-on); }
+.tab[aria-current="true"] .tab-inner {
+  background: var(--sec);
+  border-color: color-mix(in srgb, var(--sec-on) 22%, transparent);
+}
+.tab[aria-current="true"] svg { stroke-width: 2.3; }
 
 /* ------------------------------------------------------------------ drill */
 
@@ -201,6 +261,98 @@ button { font: inherit; }
 }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+
+/* -------------------------------------------------------------- page heads */
+
+/* Practise and Phrases used to open on near-identical lists. Each page now
+   leads with a banner in its own accent, its own mark, and its own subtitle —
+   colour alone wouldn't survive a glance, or a colour-blind reader. */
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0 16px;
+  padding: 13px 14px;
+  border-radius: var(--radius);
+  background: var(--sec);
+  color: var(--sec-on);
+}
+.page-mark {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--sec-on) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sec-on) 34%, transparent);
+  color: var(--sec-on);
+}
+.page-mark svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.page-head-main { flex: 1; min-width: 0; }
+.page-head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--sec-on);
+  letter-spacing: -0.01em;
+}
+/* Full-strength, not faded: dimming this would drop it under 4.5:1 on the
+   band. It reads as secondary by size and weight instead. */
+.page-sub { margin: 1px 0 0; font-size: 0.79rem; font-weight: 500; color: var(--sec-on); }
+.page-head .link { flex: none; color: var(--sec-on); font-weight: 650; }
+
+/* The Phrases banner is squarer and denser than the Practise one, so the two
+   read differently even in a black-and-white screenshot. */
+.page-phrases .page-head { border-radius: 4px 14px 14px 4px; }
+.page-phrases .page-mark { border-radius: 4px; }
+
+/* ------------------------------------------------- practise deck meters */
+
+/* Decks are things you are partway through, so each row shows how far. */
+.deck-meter {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sec) 15%, var(--surface-2));
+  overflow: hidden;
+}
+.deck-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sec);
+}
+
+/* --------------------------------------------------- phrases library rows */
+
+/* Phrases is a reference list, not a queue: flush rows, a spine down the left,
+   and a count on every deck heading. */
+.rows-library .row { padding-left: 12px; border-left: 3px solid transparent; }
+.rows-library .row-title { font-weight: 400; }
+.rows-library .row:active { border-left-color: var(--sec); }
+.rows-library .row-tag {
+  flex: none;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sec-ink);
+  background: var(--sec-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.deck-heading { display: flex; align-items: baseline; gap: 8px; }
+.count-badge {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-ink);
+  background: var(--sec-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0;
+}
 
 /* record button */
 .record-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 22px 0 6px; }

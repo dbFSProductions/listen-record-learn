@@ -6,7 +6,7 @@
 <title>Xerra</title>
 <meta name="description" content="Catalan pronunciation trainer — listen, record, compare.">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#d4664c">
+<meta name="theme-color" content="#da121a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Xerra">
@@ -19,17 +19,23 @@
 <main id="view" class="view"></main>
 
 <nav class="tabbar" id="tabbar">
-  <button class="tab" data-tab="practise" aria-label="Practise">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>
-    <span>Practise</span>
+  <button class="tab sec-practise" data-tab="practise" aria-label="Practise">
+    <span class="tab-inner">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>
+      <span>Practise</span>
+    </span>
   </button>
-  <button class="tab" data-tab="phrases" aria-label="Phrases">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
-    <span>Phrases</span>
+  <button class="tab sec-phrases" data-tab="phrases" aria-label="Phrases">
+    <span class="tab-inner">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M11 9h6M11 13h4"/></svg>
+      <span>Phrases</span>
+    </span>
   </button>
-  <button class="tab" data-tab="settings" aria-label="Settings">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
-    <span>Settings</span>
+  <button class="tab sec-settings" data-tab="settings" aria-label="Settings">
+    <span class="tab-inner">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      <span>Settings</span>
+    </span>
   </button>
 </nav>
 
