@@ -4,7 +4,7 @@
 // front, so the initial load stays light. Azure API calls are never cached —
 // they're POSTs and must always go to the network.
 
-const VERSION = "xerra-v2";
+const VERSION = "xerra-v3";
 const SHELL = [
   "./",
   "./index.html",

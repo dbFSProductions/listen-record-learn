@@ -96,9 +96,38 @@ function stopEverything() {
 
 // ------------------------------------------------------------------ render
 
+// Each section owns an accent and a mark. The tab bar shows them, and so does
+// the page, so a screenshot with the tab bar cropped off still says where you
+// are. The marks differ in shape as well as colour — hue alone is no use at a
+// glance, or to a colour-blind reader.
+const SECTIONS = {
+  practise: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>`,
+  },
+  phrases: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M11 9h6M11 13h4"/></svg>`,
+  },
+  settings: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>`,
+  },
+};
+
+function pageHead(section, title, subtitle, trailing = "") {
+  return `
+    <header class="page-head">
+      <span class="page-mark" aria-hidden="true">${SECTIONS[section].mark}</span>
+      <div class="page-head-main">
+        <h1>${esc(title)}</h1>
+        ${subtitle ? `<p class="page-sub">${esc(subtitle)}</p>` : ""}
+      </div>
+      ${trailing}
+    </header>`;
+}
+
 function render() {
   syncTabs();
   window.scrollTo(0, 0);
+  view.className = `view page page-${state.tab} sec-${state.tab}`;
   if (state.tab === "practise") return state.deck ? renderDrill() : renderDecks();
   if (state.tab === "phrases") return renderPhrases();
   return renderSettings();
@@ -112,7 +141,7 @@ function renderDecks() {
 
   if (!decks.length) {
     view.innerHTML = `
-      <h1>Practise</h1>
+      ${pageHead("practise", "Practise", `Nothing to drill in ${language.name} yet`)}
       <div class="empty">
         <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
         <p>No phrases yet.</p>
@@ -126,6 +155,7 @@ function renderDecks() {
       const phrases = library.inDeck(deck, settings.language);
       const scores = phrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
       const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+      const done = phrases.length ? Math.round((scores.length / phrases.length) * 100) : 0;
       return `
         <button class="row" data-deck="${esc(deck)}">
           <span class="row-main">
@@ -133,6 +163,7 @@ function renderDecks() {
             <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
               scores.length ? ` · ${scores.length} practised` : ""
             }</span>
+            <span class="deck-meter"><i style="width:${done}%"></i></span>
           </span>
           ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
           <span class="chev">›</span>
@@ -140,14 +171,21 @@ function renderDecks() {
     })
     .join("");
 
+  const drillable = library.drillable(settings.language).length;
   view.innerHTML = `
-    <h1>Practise</h1>
+    ${pageHead(
+      "practise",
+      "Practise",
+      `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
+        drillable === 1 ? "" : "s"
+      } ready in ${language.name}`
+    )}
     <div class="rows">${rows}</div>
     <div class="section-label">Everything</div>
     <div class="rows">
       <button class="row" data-deck="*">
         <span class="row-main"><span class="row-title">Shuffle all decks</span><br>
-        <span class="row-sub">${library.drillable(settings.language).length} phrases in ${esc(language.name)}</span></span>
+        <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
         <span class="chev">›</span>
       </button>
     </div>
@@ -716,11 +754,15 @@ function renderPhrases() {
   const decks = library.decks(settings.language);
 
   view.innerHTML = `
-    <div class="topbar">
-      <h1 style="margin:0">Phrases</h1>
-      <button class="link" id="add">+ Add</button>
-    </div>
-    <label class="field"><input type="search" id="search" placeholder="Search"></label>
+    ${pageHead(
+      "phrases",
+      "Phrases",
+      `${phrases.length} in the library · ${decks.length} deck${decks.length === 1 ? "" : "s"}${
+        captures.length ? ` · ${captures.length} awaiting Catalan` : ""
+      }`,
+      `<button class="link" id="add">+ Add</button>`
+    )}
+    <label class="field"><input type="search" id="search" placeholder="Search the library"></label>
     <div id="phrase-list"></div>`;
 
   document.getElementById("add").onclick = () => editPhrase(null);
@@ -740,15 +782,15 @@ function renderPhrases() {
 
     const pendingCaptures = captures.filter(match);
     if (pendingCaptures.length) {
-      sections.push(`<div class="section-label">Jotted down — needs the Catalan</div>
-        <div class="rows">${pendingCaptures.map(rowFor).join("")}</div>`);
+      sections.push(`${deckHeading("Jotted down — needs the Catalan", pendingCaptures.length)}
+        <div class="rows rows-library">${pendingCaptures.map(rowFor).join("")}</div>`);
     }
 
     for (const deck of decks) {
       const inDeck = library.inDeck(deck, settings.language).filter(match);
       if (!inDeck.length) continue;
-      sections.push(`<div class="section-label">${esc(deck)}</div>
-        <div class="rows">${inDeck.map(rowFor).join("")}</div>`);
+      sections.push(`${deckHeading(deck, inDeck.length)}
+        <div class="rows rows-library">${inDeck.map(rowFor).join("")}</div>`);
     }
 
     list.innerHTML =
@@ -762,14 +804,23 @@ function renderPhrases() {
     );
   }
 
+  /* Deck headings carry a count — this page is a catalogue, and a catalogue
+     says how much of everything it holds. */
+  function deckHeading(title, count) {
+    return `<div class="section-label deck-heading"><span>${esc(title)}</span>
+      <span class="count-badge">${count}</span></div>`;
+  }
+
   function rowFor(phrase) {
     const best = library.bestScore(phrase.id);
+    const tries = library.attemptsFor(phrase.id).length;
     return `
       <button class="row" data-edit="${phrase.id}">
         <span class="row-main">
           <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span><br>
           <span class="row-sub">${esc(phrase.text ? phrase.translation : "Tap to add the Catalan")}</span>
         </span>
+        ${tries ? `<span class="row-tag">${tries} ${tries === 1 ? "try" : "tries"}</span>` : ""}
         ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
         <span class="chev">›</span>
       </button>`;
@@ -828,7 +879,7 @@ function renderSettings() {
   const language = LANGUAGES[settings.language];
 
   view.innerHTML = `
-    <h1>Settings</h1>
+    ${pageHead("settings", "Settings", `Voice, scoring and backup · ${language.name}`)}
 
     <div class="card">
       <label class="field"><span>Language</span>

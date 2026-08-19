@@ -16,6 +16,19 @@
   --red: #d3452f;
   --radius: 14px;
   --tabbar-h: 58px;
+
+  /* Section accents. Each tab and its page share one, so the colour tells you
+     where you are. `-ink` is the text-safe shade (>= 4.5:1 on --bg and on the
+     matching -soft tint); `-accent` is for icons, rules and fills only. */
+  --practise-accent: #d4664c;
+  --practise-ink: #a03f27;
+  --practise-soft: rgba(212, 102, 76, 0.13);
+  --phrases-accent: #17808f;
+  --phrases-ink: #0f6273;
+  --phrases-soft: rgba(23, 128, 143, 0.13);
+  --settings-accent: #6355c7;
+  --settings-ink: #4b3fa6;
+  --settings-soft: rgba(99, 85, 199, 0.13);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,6 +46,16 @@
     --green: #4cc47c;
     --amber: #e9b83f;
     --red: #f0664e;
+
+    --practise-accent: #e57e63;
+    --practise-ink: #f0a48c;
+    --practise-soft: rgba(229, 126, 99, 0.18);
+    --phrases-accent: #45b8cc;
+    --phrases-ink: #6fd3e6;
+    --phrases-soft: rgba(69, 184, 204, 0.18);
+    --settings-accent: #9a8ff0;
+    --settings-ink: #b3a8ff;
+    --settings-soft: rgba(154, 143, 240, 0.18);
   }
 }
 
@@ -58,6 +81,12 @@ body {
   max-width: 640px;
   margin: 0 auto;
 }
+
+/* One place decides which accent a page (or a tab) is wearing; everything
+   downstream just reads --sec / --sec-ink / --sec-soft. */
+.sec-practise { --sec: var(--practise-accent); --sec-ink: var(--practise-ink); --sec-soft: var(--practise-soft); }
+.sec-phrases  { --sec: var(--phrases-accent);  --sec-ink: var(--phrases-ink);  --sec-soft: var(--phrases-soft); }
+.sec-settings { --sec: var(--settings-accent); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
 
 h1 { font-size: 1.6rem; margin: 6px 0 16px; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; margin: 0; }
@@ -163,8 +192,26 @@ button { font: inherit; }
   font-size: 0.66rem;
   cursor: pointer;
 }
+.tab-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 14px 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
 .tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.tab[aria-current="true"] { color: var(--accent); }
+
+/* Only the active tab takes its section colour — three lit tabs would say
+   nothing. The pill carries the same accent the page below it wears. */
+.tab[aria-current="true"] { color: var(--sec-ink); }
+.tab[aria-current="true"] .tab-inner {
+  background: var(--sec-soft);
+  border-color: color-mix(in srgb, var(--sec) 30%, transparent);
+}
+.tab[aria-current="true"] svg { stroke-width: 2.2; }
 
 /* ------------------------------------------------------------------ drill */
 
@@ -201,6 +248,96 @@ button { font: inherit; }
 }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+
+/* -------------------------------------------------------------- page heads */
+
+/* Practise and Phrases used to open on near-identical lists. Each page now
+   leads with a banner in its own accent, its own mark, and its own subtitle —
+   colour alone wouldn't survive a glance, or a colour-blind reader. */
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--sec-soft);
+  border: 1px solid color-mix(in srgb, var(--sec) 26%, transparent);
+  border-left: 4px solid var(--sec);
+}
+.page-mark {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--sec) 34%, transparent);
+  color: var(--sec-ink);
+}
+.page-mark svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.page-head-main { flex: 1; min-width: 0; }
+.page-head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--sec-ink);
+}
+.page-sub { margin: 1px 0 0; font-size: 0.8rem; color: var(--text-2); }
+.page-head .link { flex: none; color: var(--sec-ink); }
+
+/* The Phrases banner is squarer and denser than the Practise one, so the two
+   read differently even in a black-and-white screenshot. */
+.page-phrases .page-head { border-radius: 4px 14px 14px 4px; }
+.page-phrases .page-mark { border-radius: 4px; }
+
+/* ------------------------------------------------- practise deck meters */
+
+/* Decks are things you are partway through, so each row shows how far. */
+.deck-meter {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sec) 15%, var(--surface-2));
+  overflow: hidden;
+}
+.deck-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sec);
+}
+
+/* --------------------------------------------------- phrases library rows */
+
+/* Phrases is a reference list, not a queue: flush rows, a spine down the left,
+   and a count on every deck heading. */
+.rows-library .row { padding-left: 12px; border-left: 3px solid transparent; }
+.rows-library .row-title { font-weight: 400; }
+.rows-library .row:active { border-left-color: var(--sec); }
+.rows-library .row-tag {
+  flex: none;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sec-ink);
+  background: var(--sec-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.deck-heading { display: flex; align-items: baseline; gap: 8px; }
+.count-badge {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sec-ink);
+  background: var(--sec-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0;
+}
 
 /* record button */
 .record-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 22px 0 6px; }
