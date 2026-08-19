@@ -122,6 +122,46 @@ export class Recorder {
 
 // ----------------------------------------------------------------- playback
 
+// Recordings are made with autoGainControl off (so the analysis sees an
+// honest signal), which leaves them far quieter than the Azure voices and
+// made the you-vs-model comparison lopsided. Before playing, measure a
+// clip's speech loudness and, if it's meaningfully below where the TTS
+// voices sit, boost it into an in-memory WAV. Peak-capped so it can't clip,
+// boost-capped so a near-silent take doesn't become amplified hiss. Clips
+// already at TTS level (the model audio) pass through untouched.
+
+const TARGET_RMS = 0.12; // ≈ -18 dBFS over the speech, about the Azure level
+const MAX_BOOST = 8;
+
+const loudnessCache = new WeakMap();
+
+export async function comparableLoudness(blob) {
+  if (loudnessCache.has(blob)) return loudnessCache.get(blob);
+  let result = blob;
+  try {
+    const { samples, sampleRate } = await monoSamples(blob);
+    const speech = trimSilence(samples);
+    const level = rms(speech, 0, speech.length);
+    let peak = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const magnitude = Math.abs(samples[i]);
+      if (magnitude > peak) peak = magnitude;
+    }
+    if (level > 0 && peak > 0) {
+      const gain = Math.min(TARGET_RMS / level, MAX_BOOST, 0.98 / peak);
+      if (gain > 1.1) {
+        const boosted = new Float32Array(samples.length);
+        for (let i = 0; i < samples.length; i++) boosted[i] = samples[i] * gain;
+        result = encodeWav(boosted, sampleRate);
+      }
+    }
+  } catch {
+    // Undecodable blob — play it as it came.
+  }
+  loudnessCache.set(blob, result);
+  return result;
+}
+
 export class Player {
   constructor() {
     this.element = null;
@@ -130,8 +170,9 @@ export class Player {
   }
 
   async play(blob, { rate = 1, onEnded = null } = {}) {
+    const playable = await comparableLoudness(blob);
     this.stop();
-    this.url = URL.createObjectURL(blob);
+    this.url = URL.createObjectURL(playable);
     const audio = new Audio(this.url);
     // Time-stretch rather than pitch-shift, so slow playback still sounds
     // like a person. Safari needs the webkit-prefixed form.
