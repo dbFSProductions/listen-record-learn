@@ -445,7 +445,7 @@ function renderComparison() {
     <div class="card" style="margin-top:14px">
       <div class="wave-label" style="color:var(--accent)">Model</div>
       <canvas id="wave-model" height="56"></canvas>
-      <div class="wave-label" style="color:var(--you);margin-top:12px">You</div>
+      <div class="wave-label" style="color:var(--you-ink);margin-top:12px">You</div>
       <canvas id="wave-you" height="56"></canvas>
       ${timing ? `<p class="tiny muted" style="margin:10px 0 0">${esc(timing)}</p>` : ""}
     </div>
