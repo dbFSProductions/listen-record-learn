@@ -796,14 +796,14 @@ function renderStudy() {
     const pendingCaptures = captures.filter(match);
     if (pendingCaptures.length) {
       sections.push(`<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
-        <div class="rows">${pendingCaptures.map(rowFor).join("")}</div>`);
+        <div class="rows rows-spaced">${pendingCaptures.map(rowFor).join("")}</div>`);
     }
 
     for (const deck of decks) {
       const inDeck = library.inDeck(deck, settings.language).filter(match);
       if (!inDeck.length) continue;
       sections.push(`<div class="section-label">${esc(deck)}</div>
-        <div class="rows">${inDeck.map(rowFor).join("")}</div>`);
+        <div class="rows rows-spaced">${inDeck.map(rowFor).join("")}</div>`);
     }
 
     list.innerHTML =
@@ -1210,6 +1210,38 @@ function renderSettings() {
       <p class="tiny muted" style="margin:0">Phrases are stored per language, so switching keeps both sets intact.</p>
     </div>
 
+    <div class="section-label">Playback</div>
+    <div class="card">
+      <label class="field"><span>Slow speed — ${Math.round(settings.slowRate * 100)}%</span>
+        <input type="range" id="s-rate" min="0.4" max="0.9" step="0.05" value="${settings.slowRate}"></label>
+      <div class="switch-row">
+        <span>Show meaning up front</span>
+        <input type="checkbox" id="s-translation" ${settings.showTranslationUpFront ? "checked" : ""}>
+      </div>
+    </div>
+
+    <div class="section-label">Audio</div>
+    <div class="card">
+      <button class="btn" id="s-prefetch" style="width:100%">Download all audio</button>
+      <div id="s-prefetch-status" class="tiny muted" style="margin-top:8px"></div>
+      <button class="btn btn-danger" id="s-clear" style="width:100%;margin-top:10px">Clear audio cache</button>
+      <p class="tiny muted" style="margin:10px 0 0" id="s-usage"></p>
+    </div>
+
+    <div class="section-label">Your data</div>
+    <div class="card">
+      <button class="btn" id="s-export" style="width:100%">Export phrases and scores</button>
+      <label class="btn" style="width:100%;margin-top:10px;cursor:pointer">
+        Import from a file
+        <input type="file" id="s-import" accept="application/json" hidden>
+      </label>
+      <p class="tiny muted" style="margin:10px 0 0">
+        ${library.phrases.length} phrases · ${library.attempts.length} recordings.
+        iOS can clear a web app's storage if it goes unused for a long time, so export
+        anything you'd be sorry to lose.
+      </p>
+    </div>
+
     <div class="section-label">Card assistant</div>
     <div class="card">
       <label class="field"><span>Worker address</span>
@@ -1242,38 +1274,6 @@ function renderSettings() {
       <p class="tiny muted" style="margin:12px 0 0">
         The key is stored only in this browser, on this device. Anyone with access to
         the phone could read it, so use a key you're happy to rotate.
-      </p>
-    </div>
-
-    <div class="section-label">Playback</div>
-    <div class="card">
-      <label class="field"><span>Slow speed — ${Math.round(settings.slowRate * 100)}%</span>
-        <input type="range" id="s-rate" min="0.4" max="0.9" step="0.05" value="${settings.slowRate}"></label>
-      <div class="switch-row">
-        <span>Show meaning up front</span>
-        <input type="checkbox" id="s-translation" ${settings.showTranslationUpFront ? "checked" : ""}>
-      </div>
-    </div>
-
-    <div class="section-label">Audio</div>
-    <div class="card">
-      <button class="btn" id="s-prefetch" style="width:100%">Download all audio</button>
-      <div id="s-prefetch-status" class="tiny muted" style="margin-top:8px"></div>
-      <button class="btn btn-danger" id="s-clear" style="width:100%;margin-top:10px">Clear audio cache</button>
-      <p class="tiny muted" style="margin:10px 0 0" id="s-usage"></p>
-    </div>
-
-    <div class="section-label">Your data</div>
-    <div class="card">
-      <button class="btn" id="s-export" style="width:100%">Export phrases and scores</button>
-      <label class="btn" style="width:100%;margin-top:10px;cursor:pointer">
-        Import from a file
-        <input type="file" id="s-import" accept="application/json" hidden>
-      </label>
-      <p class="tiny muted" style="margin:10px 0 0">
-        ${library.phrases.length} phrases · ${library.attempts.length} recordings.
-        iOS can clear a web app's storage if it goes unused for a long time, so export
-        anything you'd be sorry to lose.
       </p>
     </div>
 

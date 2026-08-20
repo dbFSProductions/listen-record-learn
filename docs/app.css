@@ -139,7 +139,7 @@ p { margin: 0 0 10px; }
 .row:active { background: var(--surface-2); }
 
 /* Variant: each row is its own card with a gap, instead of one fused list.
-   Used for the Practice deck list. */
+   Used for the Practice deck list and the phrase list, so the two match. */
 .rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 10px; }
 .rows-spaced .row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .row-main { flex: 1; min-width: 0; }
