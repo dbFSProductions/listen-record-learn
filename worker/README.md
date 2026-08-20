@@ -2,7 +2,8 @@
 
 This Worker keeps the Gemini API key out of the public web app. It accepts a
 rough Catalan/English card, asks Gemini for structured card details, validates
-the result, and returns it to Xerra.
+the result, and returns it to Xerra. It also answers follow-up questions about
+a card (`/chat`) — grammar, etymology, usage — for the chat panel in the app.
 
 ## One-time deployment
 
@@ -32,3 +33,12 @@ address and passcode on their device.
 The Worker accepts requests only from the published GitHub Pages origin and
 local development by default. If the published origin changes, update
 `ALLOWED_ORIGINS` in `wrangler.toml` and deploy again.
+
+## Updating
+
+Merging changes to `worker/` does **not** update the running Worker — GitHub
+Pages only publishes `docs/`. After any change here, redeploy:
+
+```bash
+cd worker && npx wrangler deploy
+```
