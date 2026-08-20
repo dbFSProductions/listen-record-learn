@@ -462,7 +462,7 @@ input[type="text"], input[type="password"], input[type="search"], textarea, sele
   color: var(--text);
   font: inherit;
 }
-textarea { min-height: 74px; resize: vertical; }
+textarea { min-height: 74px; resize: none; overflow: hidden; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
@@ -579,7 +579,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .chat-msg.assistant { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
 .chat-thinking { padding: 10px 12px 7px; }
 .chat-form { display: flex; gap: 8px; align-items: flex-end; }
-.chat-form textarea { flex: 1; min-height: 44px; resize: none; }
+.chat-form textarea { flex: 1; min-height: 44px; }
 .chat-form .btn { flex: none; }
 .chat-error { margin-top: 10px; }
 

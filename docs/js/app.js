@@ -46,6 +46,32 @@ function toast(message, ms = 2600) {
   toast.timer = setTimeout(() => (toastEl.hidden = true), ms);
 }
 
+/* Text boxes grow to fit what's in them. A textarea that scrolls inside itself
+   is miserable on a phone — a card's notes run to several lines and you can
+   only ever see two of them. Height is driven from here, which is why the CSS
+   leaves textareas at `resize: none` with the overflow hidden. */
+function autosize(field) {
+  if (!(field instanceof HTMLTextAreaElement)) return;
+  field.style.height = "auto";
+  if (!field.scrollHeight) {
+    // Not laid out yet (a hidden section); let the CSS min-height stand.
+    field.style.height = "";
+    return;
+  }
+  // scrollHeight covers the padding box, so the borders have to be added back.
+  const borders = field.offsetHeight - field.clientHeight;
+  field.style.height = `${field.scrollHeight + borders}px`;
+}
+
+function autosizeAll(root = document) {
+  for (const field of root.querySelectorAll("textarea")) autosize(field);
+}
+
+// Typing, pasting, dictating — anything that changes the content resizes it.
+document.addEventListener("input", (event) => autosize(event.target));
+// Rotating the phone rewraps the text, which changes how tall the box must be.
+window.addEventListener("resize", () => autosizeAll());
+
 /* Favourites. A star on every phrase row toggles the flag in place; the
    starred phrases are also gathered into a section at the top of the list and
    into a drillable pseudo-deck on the Practice page. FAVOURITES_DECK is the
@@ -74,6 +100,7 @@ function openSheet(title, html) {
   sheetTitle.textContent = title;
   sheetBody.innerHTML = html;
   sheet.hidden = false;
+  autosizeAll(sheetBody);
 }
 
 function closeSheet() {
@@ -149,10 +176,12 @@ function render() {
   syncTabs();
   window.scrollTo(0, 0);
   view.className = `view page page-${state.tab} sec-${state.tab}`;
-  if (state.tab === "study") return renderStudy();
-  if (state.tab === "practise") return state.deck ? renderDrill() : renderDecks();
-  if (state.tab === "add") return renderAdd();
-  return renderSettings();
+  if (state.tab === "study") renderStudy();
+  else if (state.tab === "practise" && state.deck) renderDrill();
+  else if (state.tab === "practise") renderDecks();
+  else if (state.tab === "add") renderAdd();
+  else renderSettings();
+  autosizeAll(view);
 }
 
 // ------------------------------------------------------------------- decks
@@ -1006,7 +1035,6 @@ function normaliseSentence(value) {
 function renderAdd() {
   const language = LANGUAGES[settings.language];
   const decks = [...new Set([MY_PHRASES, ...library.decks(settings.language)])];
-  const targetPlaceholder = settings.language === "ca-ES" ? "Mes pit" : "Me pones un café";
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
@@ -1020,16 +1048,16 @@ function renderAdd() {
     }
 
     <div class="card add-card">
-      ${composerField("add-target", language.englishName, settings.language, targetPlaceholder, true)}
+      ${composerField("add-target", language.englishName, settings.language, true)}
       <div class="language-divider"><span>or</span></div>
-      ${composerField("add-english", "English", "en-GB", "More pressure from the person behind me", true)}
+      ${composerField("add-english", "English", "en-GB", true)}
 
       <div class="field">
         <div class="field-head">
           <label for="add-situation">Situation <span class="muted">(optional)</span></label>
           <button class="dictate" type="button" data-dictate="add-situation" data-locale="en-GB" aria-label="Dictate the situation">${micIcon()}</button>
         </div>
-        <textarea id="add-situation" rows="2" placeholder="For example: inside a pinya, shouted to the person behind me"></textarea>
+        <textarea id="add-situation" rows="2"></textarea>
       </div>
 
       <label class="field"><span>Deck</span>
@@ -1116,6 +1144,8 @@ function renderAdd() {
       review.hidden = !result.reviewNote;
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
+      // Sized after unhiding — a display:none box has no height to measure.
+      autosizeAll(view);
 
       // A fresh panel per completion: a new card means a new conversation.
       cardChatPanel(document.getElementById("add-chat"), "Ask about this card", () => ({
@@ -1186,7 +1216,7 @@ function cardChatPanel(host, title, getContext) {
     <div class="card chat-card">
       <div class="chat-log" hidden></div>
       <form class="chat-form">
-        <textarea rows="1" placeholder="Is 'paraula' related to 'parable'?" aria-label="${esc(title)}"></textarea>
+        <textarea rows="1" aria-label="${esc(title)}"></textarea>
         <button class="btn btn-primary" type="submit">Ask</button>
       </form>
       <div class="notice bad chat-error" hidden></div>
@@ -1220,6 +1250,7 @@ function cardChatPanel(host, title, getContext) {
 
     history.push({ role: "user", text: question });
     input.value = "";
+    autosize(input);
     errorBox.hidden = true;
     setBusy(true);
     renderLog();
@@ -1230,6 +1261,7 @@ function cardChatPanel(host, title, getContext) {
       // Put the question back so a retry is one tap, not a retype.
       history.pop();
       input.value = question;
+      autosize(input);
       errorBox.textContent = error.message;
       errorBox.hidden = false;
     } finally {
@@ -1254,13 +1286,13 @@ function cardChatPanel(host, title, getContext) {
   }
 }
 
-function composerField(id, label, locale, placeholder, required = false) {
+function composerField(id, label, locale, required = false) {
   return `<div class="field">
     <div class="field-head">
       <label for="${id}">${esc(label)}${required ? "" : ` <span class="muted">(optional)</span>`}</label>
       <button class="dictate" type="button" data-dictate="${id}" data-locale="${locale}" aria-label="Dictate in ${esc(label)}">${micIcon()}</button>
     </div>
-    <textarea id="${id}" rows="3" lang="${locale}" autocapitalize="sentences" placeholder="${esc(placeholder)}"></textarea>
+    <textarea id="${id}" rows="3" lang="${locale}" autocapitalize="sentences"></textarea>
   </div>`;
 }
 
@@ -1292,7 +1324,10 @@ function startDictation(fieldID, locale, button) {
       .join(" ")
       .trim();
     const field = document.getElementById(fieldID);
-    if (field && transcript) field.value = [field.value.trim(), transcript].filter(Boolean).join(" ");
+    if (field && transcript) {
+      field.value = [field.value.trim(), transcript].filter(Boolean).join(" ");
+      autosize(field);
+    }
   };
   recognition.onerror = (event) => {
     if (event.error !== "aborted") toast("Dictation didn't catch that. You can also use the keyboard microphone.");
@@ -1310,19 +1345,19 @@ function editPhrase(phrase) {
   const language = LANGUAGES[settings.language];
   openSheet(
     phrase ? "Edit phrase" : "New phrase",
-    `<label class="field"><span>${esc(language.englishName)}</span>
-       <textarea id="f-text" placeholder="Leave empty to jot the English down for later">${esc(phrase?.text ?? "")}</textarea></label>
+    `<label class="field"><span>${esc(language.englishName)} — leave empty to jot the English down for later</span>
+       <textarea id="f-text">${esc(phrase?.text ?? "")}</textarea></label>
      <label class="field"><span>English</span>
        <textarea id="f-translation">${esc(phrase?.translation ?? "")}</textarea></label>
      <label class="field"><span>Deck</span>
        <input type="text" id="f-deck" list="deck-list" value="${esc(phrase?.deck ?? decks[0] ?? MY_PHRASES)}">
        <datalist id="deck-list">${decks.map((d) => `<option value="${esc(d)}">`).join("")}</datalist></label>
      <label class="field"><span>Situation (optional)</span>
-       <textarea id="f-situation" placeholder="Where and when you would say it">${esc(phrase?.situation ?? "")}</textarea></label>
+       <textarea id="f-situation">${esc(phrase?.situation ?? "")}</textarea></label>
      <label class="field"><span>How it's used (optional)</span>
-       <textarea id="f-usage" placeholder="Register, nuance or a useful alternative">${esc(phrase?.usageNote ?? "")}</textarea></label>
+       <textarea id="f-usage">${esc(phrase?.usageNote ?? "")}</textarea></label>
      <label class="field"><span>Pronunciation note (optional)</span>
-       <textarea id="f-note" placeholder="What to listen for">${esc(phrase?.focusNote ?? "")}</textarea></label>
+       <textarea id="f-note">${esc(phrase?.focusNote ?? "")}</textarea></label>
      <div class="btn-row">
        <button class="btn" data-close-sheet>Cancel</button>
        <button class="btn btn-primary" id="f-save">Save</button>
@@ -1411,24 +1446,23 @@ function renderSettings() {
     <div class="section-label">Card assistant</div>
     <div class="card">
       <label class="field"><span>Worker address</span>
-        <input type="text" id="s-assistant-url" value="${esc(settings.assistantEndpoint)}" autocomplete="off"
-          placeholder="https://xerra-card-assistant.your-name.workers.dev"></label>
+        <input type="text" id="s-assistant-url" value="${esc(settings.assistantEndpoint)}" autocomplete="off"></label>
       <label class="field"><span>Shared app passcode</span>
-        <input type="password" id="s-assistant-passcode" value="${esc(settings.assistantPasscode)}" autocomplete="off"
-          placeholder="The passcode set on the Worker"></label>
+        <input type="password" id="s-assistant-passcode" value="${esc(settings.assistantPasscode)}" autocomplete="off"></label>
       <button class="btn btn-primary" id="s-assistant-test" style="width:100%">Save and test</button>
       <div id="s-assistant-result" style="margin-top:10px"></div>
       <p class="tiny muted" style="margin:12px 0 0">
-        This is the shared Xerra passcode, not your Gemini key. The Gemini key stays encrypted on Cloudflare.
+        The address is the Worker's own URL, from Cloudflare. The passcode is the shared Xerra
+        one, not your Gemini key — that stays encrypted on Cloudflare.
       </p>
     </div>
 
     <div class="section-label">Azure voice and scoring</div>
     <div class="card">
       <label class="field"><span>Speech key</span>
-        <input type="password" id="s-key" value="${esc(settings.azureKey)}" autocomplete="off" placeholder="Paste your key"></label>
+        <input type="password" id="s-key" value="${esc(settings.azureKey)}" autocomplete="off"></label>
       <label class="field"><span>Region</span>
-        <input type="text" id="s-region" value="${esc(settings.azureRegion)}" autocomplete="off" placeholder="northeurope"></label>
+        <input type="text" id="s-region" value="${esc(settings.azureRegion)}" autocomplete="off"></label>
       <label class="field"><span>Voice</span>
         <select id="s-voice">
           ${language.voices
@@ -1438,8 +1472,9 @@ function renderSettings() {
       <button class="btn btn-primary" id="s-test" style="width:100%">Save and test</button>
       <div id="s-test-result" style="margin-top:10px"></div>
       <p class="tiny muted" style="margin:12px 0 0">
-        The key is stored only in this browser, on this device. Anyone with access to
-        the phone could read it, so use a key you're happy to rotate.
+        The region is lowercase with no spaces, like northeurope. The key is stored only in
+        this browser, on this device — anyone with access to the phone could read it, so use
+        a key you're happy to rotate.
       </p>
     </div>
 
