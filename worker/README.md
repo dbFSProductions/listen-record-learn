@@ -36,8 +36,18 @@ local development by default. If the published origin changes, update
 
 ## Updating
 
-Merging changes to `worker/` does **not** update the running Worker — GitHub
-Pages only publishes `docs/`. After any change here, redeploy:
+GitHub Pages only publishes `docs/`, so merging a change to `worker/` doesn't
+by itself update the running Worker. The GitHub Action in
+`.github/workflows/deploy-worker.yml` closes that gap: any push to `main` that
+touches `worker/` redeploys the Worker automatically. It needs a
+`CLOUDFLARE_API_TOKEN` repository secret (GitHub → repo Settings → Secrets and
+variables → Actions), created from the Cloudflare dashboard with the
+"Edit Cloudflare Workers" token template.
+
+Deployed secrets (`GEMINI_API_KEY`, `APP_PASSCODE`) live on Cloudflare and
+survive every redeploy — they never need re-entering.
+
+Manual fallback from a machine with wrangler:
 
 ```bash
 cd worker && npx wrangler deploy

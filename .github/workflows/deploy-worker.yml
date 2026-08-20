@@ -1,0 +1,25 @@
+# Deploys the card-assistant Worker to Cloudflare whenever worker/ changes on
+# main. GitHub Pages handles docs/ on its own; this closes the gap where a
+# merged worker change silently never reached Cloudflare.
+#
+# Needs one repository secret: CLOUDFLARE_API_TOKEN (Cloudflare dashboard →
+# My Profile → API Tokens → "Edit Cloudflare Workers" template). The Gemini
+# key and app passcode live on Cloudflare already and are not involved here.
+name: Deploy card assistant Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy with wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker
