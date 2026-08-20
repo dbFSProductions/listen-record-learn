@@ -1,6 +1,6 @@
 // Xerra — app shell, routing and views.
 
-import { library, settings, audioStore, LANGUAGES, uid } from "./store.js";
+import { library, settings, audioStore, LANGUAGES, MY_PHRASES, uid } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
@@ -44,6 +44,20 @@ function toast(message, ms = 2600) {
   toastEl.hidden = false;
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => (toastEl.hidden = true), ms);
+}
+
+/* Favourites. A star on every phrase row toggles the flag in place; the
+   starred phrases are also gathered into a section at the top of the list and
+   into a drillable pseudo-deck on the Practice page. FAVOURITES_DECK is the
+   deck sentinel for that, the same trick "*" already plays for shuffle-all. */
+const FAVOURITES_DECK = "★";
+const STAR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`;
+
+function starButton(phrase, className = "star") {
+  const on = Boolean(phrase.favourite);
+  return `<button class="${className}" data-fav="${esc(phrase.id)}" aria-pressed="${on}"
+    title="${on ? "Remove from favourites" : "Add to favourites"}"
+    aria-label="${on ? "Remove from favourites" : "Add to favourites"}">${STAR_SVG}</button>`;
 }
 
 function scoreClass(score) {
@@ -158,26 +172,30 @@ function renderDecks() {
     return;
   }
 
-  const rows = decks
-    .map((deck) => {
-      const phrases = library.inDeck(deck, settings.language);
-      const scores = phrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
-      const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-      const done = phrases.length ? Math.round((scores.length / phrases.length) * 100) : 0;
-      return `
-        <button class="row" data-deck="${esc(deck)}">
-          <span class="row-main">
-            <span class="row-title">${esc(deck)}</span><br>
-            <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
-              scores.length ? ` · ${scores.length} practiced` : ""
-            }</span>
-            <span class="deck-meter"><i style="width:${done}%"></i></span>
-          </span>
-          ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
-          <span class="chev">›</span>
-        </button>`;
-    })
-    .join("");
+  const deckRow = (title, phrases, key) => {
+    const scores = phrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
+    const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const done = phrases.length ? Math.round((scores.length / phrases.length) * 100) : 0;
+    return `
+      <button class="row" data-deck="${esc(key)}">
+        <span class="row-main">
+          <span class="row-title">${esc(title)}</span>
+          <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
+            scores.length ? ` · ${scores.length} practiced` : ""
+          }</span>
+          <span class="deck-meter"><i style="width:${done}%"></i></span>
+        </span>
+        ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
+        <span class="chev">›</span>
+      </button>`;
+  };
+
+  // Starred phrases drill as a deck of their own, sitting above the real ones.
+  const favourites = library.favourites(settings.language).filter((p) => p.text.trim());
+  const rows = [
+    ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
+    ...decks.map((deck) => deckRow(deck, library.inDeck(deck, settings.language), deck)),
+  ].join("");
 
   const drillable = library.drillable(settings.language).length;
   view.innerHTML = `
@@ -192,7 +210,7 @@ function renderDecks() {
     <div class="section-label">Everything</div>
     <div class="rows">
       <button class="row" data-deck="*">
-        <span class="row-main"><span class="row-title">Shuffle all decks</span><br>
+        <span class="row-main"><span class="row-title">Shuffle all decks</span>
         <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
         <span class="chev">›</span>
       </button>
@@ -208,6 +226,8 @@ function renderDecks() {
       state.queue =
         deck === "*"
           ? shuffle([...library.drillable(settings.language)])
+          : deck === FAVOURITES_DECK
+          ? favourites
           : library.inDeck(deck, settings.language);
       state.index = 0;
       loadPhrase();
@@ -729,7 +749,7 @@ async function showHistory(phrase) {
            <span class="row-main">
              <span class="row-title">${new Date(attempt.recordedAt).toLocaleString([], {
                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-             })}</span><br>
+             })}</span>
              <span class="row-sub">${esc(attempt.engine)}</span>
            </span>
            ${attempt.overall != null
@@ -793,6 +813,14 @@ function renderStudy() {
     const list = document.getElementById("phrase-list");
     const sections = [];
 
+    // Order: what you starred, then what still needs finishing, then the decks
+    // — with "My phrases" first among them (library.decks sorts it there).
+    const starred = library.favourites(settings.language).filter(match);
+    if (starred.length) {
+      sections.push(`<div class="section-label">Favourites</div>
+        <div class="rows rows-spaced">${starred.map(rowFor).join("")}</div>`);
+    }
+
     const pendingCaptures = captures.filter(match);
     if (pendingCaptures.length) {
       sections.push(`<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
@@ -823,20 +851,31 @@ function renderStudy() {
         editPhrase(library.phrases.find((p) => p.id === button.dataset.edit))
       )
     );
+    // Repaint rather than just flipping the button: the same phrase appears in
+    // the Favourites section as well as its deck, and both stars have to agree.
+    list.querySelectorAll("[data-fav]").forEach((button) =>
+      button.addEventListener("click", () => {
+        library.toggleFavourite(button.dataset.fav);
+        paint(query);
+      })
+    );
   }
 
   function rowFor(phrase) {
     const capture = !phrase.text.trim();
     const best = library.bestScore(phrase.id);
     return `
-      <button class="row" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
-        <span class="row-main">
-          <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span><br>
-          <span class="row-sub">${esc(phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`)}</span>
-        </span>
-        ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
-        <span class="chev">›</span>
-      </button>`;
+      <div class="row">
+        ${starButton(phrase)}
+        <button class="row-open" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
+          <span class="row-main">
+            <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span>
+            <span class="row-sub">${esc(phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`)}</span>
+          </span>
+          ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
+          <span class="chev">›</span>
+        </button>
+      </div>`;
   }
 }
 
@@ -848,7 +887,10 @@ function showPhrase(phrase) {
 
   openSheet(
     phrase.text,
-    `<p class="muted" style="margin-bottom:10px">${esc(phrase.translation)}</p>
+    `<div class="sheet-lede">
+       <p class="muted">${esc(phrase.translation)}</p>
+       ${starButton(phrase)}
+     </div>
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
      ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
@@ -868,7 +910,7 @@ function showPhrase(phrase) {
                 <span class="row-main">
                   <span class="row-title">${new Date(attempt.recordedAt).toLocaleString([], {
                     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                  })}</span><br>
+                  })}</span>
                   <span class="row-sub">${esc(attempt.engine)}</span>
                 </span>
                 ${attempt.overall != null
@@ -913,6 +955,17 @@ function showPhrase(phrase) {
     editPhrase(phrase);
   };
 
+  sheetBody.querySelector("[data-fav]").addEventListener("click", (event) => {
+    const on = library.toggleFavourite(phrase.id);
+    const button = event.currentTarget;
+    button.setAttribute("aria-pressed", String(on));
+    const label = on ? "Remove from favourites" : "Add to favourites";
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    toast(on ? "Added to favourites." : "Removed from favourites.");
+    render(); // the list behind the sheet has a Favourites section to keep true
+  });
+
   // Deleting a phrase takes its recordings with it, so ask for a second tap
   // rather than acting on the first.
   const deleteButton = document.getElementById("p-delete");
@@ -952,7 +1005,7 @@ function normaliseSentence(value) {
 
 function renderAdd() {
   const language = LANGUAGES[settings.language];
-  const decks = [...new Set(["My phrases", ...library.decks(settings.language)])];
+  const decks = [...new Set([MY_PHRASES, ...library.decks(settings.language)])];
   const targetPlaceholder = settings.language === "ca-ES" ? "Mes pit" : "Me pones un café";
 
   view.innerHTML = `
@@ -1262,7 +1315,7 @@ function editPhrase(phrase) {
      <label class="field"><span>English</span>
        <textarea id="f-translation">${esc(phrase?.translation ?? "")}</textarea></label>
      <label class="field"><span>Deck</span>
-       <input type="text" id="f-deck" list="deck-list" value="${esc(phrase?.deck ?? decks[0] ?? "My phrases")}">
+       <input type="text" id="f-deck" list="deck-list" value="${esc(phrase?.deck ?? decks[0] ?? MY_PHRASES)}">
        <datalist id="deck-list">${decks.map((d) => `<option value="${esc(d)}">`).join("")}</datalist></label>
      <label class="field"><span>Situation (optional)</span>
        <textarea id="f-situation" placeholder="Where and when you would say it">${esc(phrase?.situation ?? "")}</textarea></label>
@@ -1287,7 +1340,7 @@ function editPhrase(phrase) {
     const data = {
       text,
       translation,
-      deck: document.getElementById("f-deck").value.trim() || "My phrases",
+      deck: document.getElementById("f-deck").value.trim() || MY_PHRASES,
       situation: document.getElementById("f-situation").value.trim() || null,
       usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,
