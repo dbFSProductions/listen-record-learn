@@ -98,32 +98,19 @@ context, and those are treated as secure. A `file://` open will not work.
 
 ### On the actual phone
 
-`http://192.168.x.x` is **not** a secure context, so the app served that way
-loads and plays audio but cannot reach the microphone — `navigator.mediaDevices`
-is undefined and the app reports "Couldn't start recording." Tapping through
-Safari's self-signed-certificate warning doesn't fix it either: an untrusted
-certificate still blocks the microphone and service worker registration. This
-is observable — serving over HTTPS with a cert the browser doesn't trust makes
-`navigator.serviceWorker.register` fail with "An unknown error occurred when
-fetching the script", while the same app over plain-HTTP localhost registers
-fine.
+The phone runs the published GitHub Pages app
+(`https://dbfsproductions.github.io/listen-record-learn/`) — a proper secure
+context, so microphone and service worker just work. Merge to `main`, let
+Pages rebuild, reload on the phone.
 
-So:
-
-```bash
-python3 tools/serve.py
-```
-
-It mints a local CA in `tools/.devcert/` (gitignored — it holds a private key),
-issues a server certificate for the Mac's current WiFi address, serves HTTPS,
-and offers the CA at `/ca.crt` on a plain-HTTP sidecar one port up, since the
-phone can't use HTTPS until it trusts the certificate it's downloading. On the
-phone: install the profile, **then** Settings → General → About → Certificate
-Trust Settings and switch it on — that last step is the one that gets missed,
-and without it nothing changes.
-
-The CA is reused when the router hands out a new lease; only the leaf is
-reissued, so the phone doesn't have to trust anything twice.
+Don't try to serve the working tree to the phone over the LAN instead:
+`http://192.168.x.x` is **not** a secure context, so the app loads and plays
+audio but cannot reach the microphone — `navigator.mediaDevices` is undefined
+and the app reports "Couldn't start recording." A self-signed certificate
+doesn't fix it; untrusted HTTPS also blocks service worker registration. A
+`tools/serve.py` that solved this with a locally-trusted CA existed before
+Pages was set up; it was removed as a dead workflow (recoverable from git
+history if ever needed).
 
 **The service worker caches aggressively.** When iterating, either hard-reload
 or tick *Update on reload* in DevTools → Application → Service Workers.

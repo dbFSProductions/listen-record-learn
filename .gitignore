@@ -25,13 +25,6 @@ Secrets.plist
 *.env
 .dev.vars
 
-# Local development certificate authority made by tools/serve.py, so the phone
-# can reach the web app over a trusted https origin. Contains a private key,
-# and is specific to one machine's WiFi address. Never commit it.
-tools/.devcert/
-# OpenSSL drops a serial-number sidecar here when serve.py signs a leaf cert.
-tools/.srl
-
 # Wrangler's local scratch state from deploying the card-assistant Worker.
 worker/.wrangler/
 
