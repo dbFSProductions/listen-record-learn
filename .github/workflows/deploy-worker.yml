@@ -10,7 +10,7 @@ name: Deploy card assistant Worker
 on:
   push:
     branches: [main]
-    paths: ["worker/**"]
+    paths: ["worker/**", ".github/workflows/deploy-worker.yml"]
   workflow_dispatch:
 
 jobs:
@@ -23,3 +23,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: worker
+          # The action's default wrangler (3.x) doesn't understand the
+          # [[ratelimits]] binding and would deploy without it.
+          wranglerVersion: "4.124.0"
