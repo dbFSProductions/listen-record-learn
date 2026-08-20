@@ -795,21 +795,29 @@ function renderStudy() {
 
     const pendingCaptures = captures.filter(match);
     if (pendingCaptures.length) {
-      sections.push(`${deckHeading(`Jotted down — needs the ${language.englishName}`, pendingCaptures.length)}
-        <div class="rows rows-library">${pendingCaptures.map(rowFor).join("")}</div>`);
+      sections.push(`<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
+        <div class="rows">${pendingCaptures.map(rowFor).join("")}</div>`);
     }
 
     for (const deck of decks) {
       const inDeck = library.inDeck(deck, settings.language).filter(match);
       if (!inDeck.length) continue;
-      sections.push(`${deckHeading(deck, inDeck.length)}
-        <div class="rows rows-library">${inDeck.map(rowFor).join("")}</div>`);
+      sections.push(`<div class="section-label">${esc(deck)}</div>
+        <div class="rows">${inDeck.map(rowFor).join("")}</div>`);
     }
 
     list.innerHTML =
       sections.join("") ||
       `<div class="empty"><p>${query ? "Nothing matches." : "No phrases yet."}</p></div>`;
 
+    // A finished phrase opens its detail sheet; a capture with no target-language
+    // text yet can't be practised, so it goes straight to the edit form instead.
+    list.querySelectorAll("[data-phrase]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.phrase);
+        if (phrase) showPhrase(phrase);
+      })
+    );
     list.querySelectorAll("[data-edit]").forEach((button) =>
       button.addEventListener("click", () =>
         editPhrase(library.phrases.find((p) => p.id === button.dataset.edit))
@@ -817,27 +825,107 @@ function renderStudy() {
     );
   }
 
-  /* Deck headings carry a count — this page is a catalogue, and a catalogue
-     says how much of everything it holds. */
-  function deckHeading(title, count) {
-    return `<div class="section-label deck-heading"><span>${esc(title)}</span>
-      <span class="count-badge">${count}</span></div>`;
-  }
-
   function rowFor(phrase) {
+    const capture = !phrase.text.trim();
     const best = library.bestScore(phrase.id);
-    const tries = library.attemptsFor(phrase.id).length;
     return `
-      <button class="row" data-edit="${phrase.id}">
+      <button class="row" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
         <span class="row-main">
           <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span><br>
           <span class="row-sub">${esc(phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`)}</span>
         </span>
-        ${tries ? `<span class="row-tag">${tries} ${tries === 1 ? "try" : "tries"}</span>` : ""}
         ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
         <span class="chev">›</span>
       </button>`;
   }
+}
+
+/* Phrase detail sheet, in the Deb-o-lingo style: meaning and notes up top,
+   "Practise now" as the main action, attempts underneath. Edit and Delete are
+   here too — reachable from the list, but deliberately not on the list. */
+function showPhrase(phrase) {
+  const attempts = library.attemptsFor(phrase.id);
+
+  openSheet(
+    phrase.text,
+    `<p class="muted" style="margin-bottom:10px">${esc(phrase.translation)}</p>
+     ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
+     ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
+     ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
+     <div class="btn-row" style="margin-bottom:14px">
+       <button class="btn btn-primary" id="p-practise">Practise now</button>
+       <button class="btn" id="p-edit">Edit</button>
+     </div>
+     ${
+       attempts.length
+         ? `<div class="section-label">Attempts</div>
+            <div class="rows">${attempts
+              .map(
+                (attempt) => `
+              <div class="row" style="cursor:default">
+                <button class="link" data-play="${attempt.id}" style="font-size:1.3rem;padding:0 4px">▶</button>
+                <span class="row-main">
+                  <span class="row-title">${new Date(attempt.recordedAt).toLocaleString([], {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                  })}</span><br>
+                  <span class="row-sub">${esc(attempt.engine)}</span>
+                </span>
+                ${attempt.overall != null
+                  ? `<strong style="color:${scoreColour(attempt.overall)};font-variant-numeric:tabular-nums">${Math.round(attempt.overall)}</strong>`
+                  : ""}
+                <button class="link btn-danger" data-delete="${attempt.id}">Delete</button>
+              </div>`
+              )
+              .join("")}</div>`
+         : `<p class="tiny muted">No attempts yet.</p>`
+     }
+     <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
+  );
+
+  document.getElementById("p-practise").onclick = () => {
+    closeSheet();
+    stopEverything();
+    state.tab = "practise";
+    state.deck = phrase.deck;
+    state.queue = [phrase];
+    state.index = 0;
+    loadPhrase();
+  };
+
+  document.getElementById("p-edit").onclick = () => {
+    closeSheet();
+    editPhrase(phrase);
+  };
+
+  // Deleting a phrase takes its recordings with it, so ask for a second tap
+  // rather than acting on the first.
+  const deleteButton = document.getElementById("p-delete");
+  deleteButton.onclick = async () => {
+    if (deleteButton.dataset.armed !== "1") {
+      deleteButton.dataset.armed = "1";
+      deleteButton.textContent = "Tap again to delete phrase and attempts";
+      return;
+    }
+    await library.remove(phrase.id);
+    closeSheet();
+    toast("Phrase deleted.");
+    render();
+  };
+
+  sheetBody.querySelectorAll("[data-play]").forEach((button) =>
+    button.addEventListener("click", async () => {
+      const blob = await audioStore.getRecording(button.dataset.play);
+      if (blob) player.play(blob);
+      else toast("That recording's audio is missing.");
+    })
+  );
+  sheetBody.querySelectorAll("[data-delete]").forEach((button) =>
+    button.addEventListener("click", async () => {
+      await library.removeAttempt(button.dataset.delete);
+      showPhrase(phrase);
+      render();
+    })
+  );
 }
 
 function normaliseSentence(value) {

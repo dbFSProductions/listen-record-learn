@@ -343,35 +343,6 @@ button { font: inherit; }
   background: var(--sec);
 }
 
-/* --------------------------------------------------- phrases library rows */
-
-/* Phrases is a reference list, not a queue: flush rows, a spine down the left,
-   and a count on every deck heading. */
-.rows-library .row { padding-left: 12px; border-left: 3px solid transparent; }
-.rows-library .row-title { font-weight: 400; }
-.rows-library .row:active { border-left-color: var(--sec); }
-.rows-library .row-tag {
-  flex: none;
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--sec-ink);
-  background: var(--sec-soft);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.deck-heading { display: flex; align-items: baseline; gap: 8px; }
-.count-badge {
-  font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--sec-ink);
-  background: var(--sec-soft);
-  border-radius: 999px;
-  padding: 1px 7px;
-  letter-spacing: 0;
-}
-
 /* record button */
 .record-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 22px 0 6px; }
 .record {
