@@ -39,6 +39,27 @@ const FIELD_LIMITS = {
   reviewNote: 400,
 };
 
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+// Model choice. This Worker was pinned to gemini-3.7-flash the week it shipped,
+// and a Flash model in its first weeks sheds load hard: nearly every card
+// generation came back 503 "model is overloaded", which the app reported as
+// "Gemini is busy right now." The default is deliberately one release behind —
+// same Interactions API, same introductory price, settled capacity.
+// GEMINI_MODEL in wrangler.toml overrides it.
+const DEFAULT_MODEL = "gemini-3.6-flash";
+
+// When the primary is rate-limited, overloaded, or retired, a smaller model
+// answering beats no card at all. Set GEMINI_FALLBACK_MODEL="" to disable.
+const DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite";
+
+// The app aborts at 70s. Retries *and* the fallback model have to finish inside
+// that, or the user sees a generic timeout instead of the real reason.
+const TOTAL_BUDGET_MS = 60_000;
+const HEALTH_BUDGET_MS = 20_000;
+const ATTEMPT_TIMEOUT_MS = 25_000;
+const ATTEMPTS_PER_MODEL = 2;
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
@@ -65,7 +86,17 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       if (!env.GEMINI_API_KEY) return json({ error: "The Gemini key is not configured on the Worker." }, 503, cors);
-      return json({ ok: true, model: env.GEMINI_MODEL || "gemini-3.7-flash" }, 200, cors);
+      // A key that exists is not the same as a model that answers. This used to
+      // check only the former, so Settings said "connected" while every card
+      // failed upstream. Ask the model for one word instead.
+      try {
+        const { model } = await callGemini(env, { input: "Reply with the single word: ok" }, HEALTH_BUDGET_MS);
+        return json({ ok: true, model, configured: modelChain(env) }, 200, cors);
+      } catch (error) {
+        console.error("Health probe failed", error instanceof Error ? error.message : String(error));
+        const message = error instanceof PublicError ? error.message : "The card assistant couldn't reach Gemini.";
+        return json({ error: message, configured: modelChain(env) }, error instanceof PublicError ? error.status : 502, cors);
+      }
     }
 
     if (url.pathname !== "/complete-card" && url.pathname !== "/chat") return json({ error: "Not found." }, 404, cors);
@@ -92,8 +123,39 @@ export default {
   },
 };
 
-async function callGemini(env, requestBody) {
-  const model = env.GEMINI_MODEL || "gemini-3.7-flash";
+function modelChain(env) {
+  const primary = (env.GEMINI_MODEL || "").trim() || DEFAULT_MODEL;
+  const fallbackVar = env.GEMINI_FALLBACK_MODEL;
+  const fallback = (fallbackVar === undefined ? DEFAULT_FALLBACK_MODEL : fallbackVar).trim();
+  return fallback && fallback !== primary ? [primary, fallback] : [primary];
+}
+
+function timeLeft(deadline) {
+  return deadline - Date.now();
+}
+
+// Returns { model, payload } — which model actually answered matters for
+// /health and for the log line when things go wrong.
+async function callGemini(env, requestBody, budgetMs = TOTAL_BUDGET_MS) {
+  const deadline = Date.now() + budgetMs;
+  const chain = modelChain(env);
+  let lastTransient = null;
+
+  for (const model of chain) {
+    try {
+      return { model, payload: await callModel(env, model, requestBody, deadline) };
+    } catch (error) {
+      // A malformed request fails identically on every model; only capacity,
+      // quota, and retired-model errors are worth walking the chain for.
+      if (!(error instanceof TransientError)) throw error;
+      lastTransient = error;
+      if (timeLeft(deadline) < 5_000) break;
+    }
+  }
+  throw lastTransient.asPublicError();
+}
+
+async function callModel(env, model, requestBody, deadline) {
   const body = JSON.stringify({
     model,
     store: false,
@@ -104,49 +166,85 @@ async function callGemini(env, requestBody) {
     ...requestBody,
   });
 
-  // The model's servers shed load with quick 429/5xx errors; those get
-  // retried here so one tap in the app covers a few attempts. A timeout is
-  // never retried — it has already spent the time budget.
-  const attempts = 3;
   for (let attempt = 1; ; attempt += 1) {
+    const budget = Math.min(ATTEMPT_TIMEOUT_MS, timeLeft(deadline));
+    if (budget <= 0) throw new TransientError(model, 504, "no time left in the request budget");
+
     let response;
     try {
-      response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      response = await fetch(GEMINI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": env.GEMINI_API_KEY,
         },
         body,
-        signal: AbortSignal.timeout(55_000),
+        signal: AbortSignal.timeout(budget),
       });
     } catch (error) {
+      // A timeout has already spent its share of the budget; retrying the same
+      // model just burns the rest. Fall through to the next model instead.
       if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-        throw new PublicError("Gemini is taking too long right now. Try again in a moment.", 504);
+        throw new TransientError(model, 504, "timed out");
       }
-      if (attempt < attempts) {
-        await backoff(attempt);
+      if (attempt < ATTEMPTS_PER_MODEL && timeLeft(deadline) > 5_000) {
+        await backoff(attempt, null, deadline);
         continue;
       }
-      throw error;
+      throw new TransientError(model, 502, error instanceof Error ? error.message : "network error");
     }
 
     if (response.ok) return response.json().catch(() => ({}));
 
     const payload = await response.json().catch(() => ({}));
-    console.error("Gemini request failed", response.status, payload?.error?.message ?? "unknown error");
-    const transient = response.status === 429 || response.status >= 500;
-    if (transient && attempt < attempts) {
-      await backoff(attempt);
+    const detail = payload?.error?.message ?? "unknown error";
+    console.error("Gemini request failed", model, response.status, detail);
+
+    // 404 means this model ID is gone or was never real — the next one in the
+    // chain is exactly the right thing to try, but retrying this one is not.
+    if (response.status === 404) throw new TransientError(model, 404, detail);
+    if (response.status !== 429 && response.status < 500) {
+      throw new PublicError("Gemini couldn't answer. Try again shortly.", 502);
+    }
+    if (attempt < ATTEMPTS_PER_MODEL && timeLeft(deadline) > 5_000) {
+      await backoff(attempt, response.headers.get("Retry-After"), deadline);
       continue;
     }
-    if (transient) throw new PublicError("Gemini is busy right now. Try again in a moment.", 502);
-    throw new PublicError("Gemini couldn't answer. Try again shortly.", 502);
+    throw new TransientError(model, response.status, detail);
   }
 }
 
-function backoff(attempt) {
-  return new Promise((resolve) => setTimeout(resolve, attempt * 1200));
+// Exponential with jitter, honouring Retry-After when Gemini sends one, and
+// never sleeping past the deadline the caller is holding.
+function backoff(attempt, retryAfter, deadline) {
+  const advised = Number(retryAfter) * 1000;
+  const base = Number.isFinite(advised) && advised > 0 ? advised : 600 * 2 ** attempt;
+  const wait = Math.min(base + Math.random() * 400, Math.max(0, timeLeft(deadline) - 5_000), 8_000);
+  return new Promise((resolve) => setTimeout(resolve, wait));
+}
+
+// An upstream failure that a different model might not have. Carries enough
+// detail to tell "out of quota" apart from "servers are melting" — the app
+// showed one message for both, which made this impossible to diagnose.
+class TransientError extends Error {
+  constructor(model, status, detail) {
+    super(`${model}: ${status} ${detail}`);
+    this.model = model;
+    this.status = status;
+  }
+
+  asPublicError() {
+    if (this.status === 429) {
+      return new PublicError(`Gemini's quota or rate limit is used up (${this.model}). Try again in a few minutes.`, 429);
+    }
+    if (this.status === 404) {
+      return new PublicError(`Gemini has no model called ${this.model}. Update GEMINI_MODEL on the Worker.`, 502);
+    }
+    if (this.status === 504) {
+      return new PublicError(`Gemini took too long to answer (${this.model}). Try again.`, 504);
+    }
+    return new PublicError(`Gemini is overloaded right now (${this.model}). Try again in a moment.`, 503);
+  }
 }
 
 function outputTextOf(payload) {
@@ -159,7 +257,7 @@ function outputTextOf(payload) {
 }
 
 async function completeCard(draft, env) {
-  const payload = await callGemini(env, {
+  const { payload } = await callGemini(env, {
     input: buildPrompt(draft),
     response_format: {
       type: "text",
@@ -204,7 +302,7 @@ ${JSON.stringify(draft)}`;
 }
 
 async function answerQuestion(chat, env) {
-  const payload = await callGemini(env, { input: buildChatPrompt(chat) });
+  const { payload } = await callGemini(env, { input: buildChatPrompt(chat) });
   const reply = outputTextOf(payload).trim().slice(0, 2400);
   if (!reply) throw new Error("Gemini returned no model output");
   return reply;
