@@ -120,11 +120,23 @@ on the web — so drilling costs nothing after the first play and works with no
 signal. **Settings → Download all audio** warms the whole library before you go
 out.
 
+## Setting up the card assistant
+
+The **Add** page uses Gemini to turn rough Catalan or English into a complete,
+editable study card: corrected spelling and accents, an idiomatic translation,
+the situation where it is actually said, usage context, and a pronunciation
+tip. The public web app never receives the Gemini API key directly. A small
+Cloudflare Worker holds it as an encrypted secret and rate-limits requests.
+
+See [`worker/README.md`](worker/README.md) for the one-time deployment. After
+deploying, enter the Worker address and the separate shared app passcode under
+**Settings → Card assistant** on each device.
+
 ---
 
 ## What's in the app
 
-**Practise** — pick a deck, then for each phrase:
+**Practice** — pick a deck, then for each phrase:
 
 - **Listen** at full speed, or **Slow** (time-stretched, not pitch-shifted)
 - **Record** yourself with a live level ring
@@ -139,9 +151,14 @@ out.
   can tap for phoneme detail
 - **History** — every past attempt at that phrase, with a trend line
 
-**Phrases** — add, edit, search, organise into decks. Saving with only the
-English fills a "jotted down" list, so you can capture something you needed to
-say in the moment and fill in the Catalan later.
+**Study** — search the complete card library, grouped into decks. Tap any card
+to correct or expand its translation, situation, usage note, pronunciation tip,
+or deck.
+
+**Add** — type or dictate whatever you remember in Catalan or English, optionally
+describe the situation, and select a deck. Gemini corrects the phrase, fills the
+other language, and creates an editable situation, usage note and pronunciation
+tip before anything is saved.
 
 **Settings** — language, Azure credentials and voice, slow-playback speed,
 audio prefetch and cache.
@@ -197,6 +214,9 @@ docs/            The web app. No build step; served as static files.
 
 tools/           gen-content.py, which regenerates the web app's phrase list
                  from the Swift seed content so the two can't drift
+
+worker/          Cloudflare Worker that keeps the Gemini key private and powers
+                 the AI-assisted Add page
 ```
 
 Three deliberate choices worth knowing about:

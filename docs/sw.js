@@ -1,10 +1,10 @@
 // Service worker: makes Xerra work with no signal once installed.
 //
 // App shell is precached. The Azure SDK is cached on first use rather than up
-// front, so the initial load stays light. Azure API calls are never cached —
-// they're POSTs and must always go to the network.
+// front, so the initial load stays light. Azure and card-assistant calls are
+// never cached — they're API requests and must always go to the network.
 
-const VERSION = "xerra-v4";
+const VERSION = "xerra-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const SHELL = [
   "./js/app.js",
   "./js/store.js",
   "./js/audio.js",
+  "./js/card-assistant.js",
   "./js/speech.js",
   "./js/content.js",
   "./icons/icon-192.png",

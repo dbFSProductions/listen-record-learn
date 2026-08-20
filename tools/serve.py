@@ -79,13 +79,27 @@ def ensure_ca() -> bool:
     if CA_CERT.exists() and CA_KEY.exists():
         return False
     CERTDIR.mkdir(exist_ok=True)
-    run([
-        "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-        "-keyout", str(CA_KEY), "-out", str(CA_CERT),
-        "-days", CA_DAYS, "-subj", "/CN=Xerra dev CA",
-        "-addext", "basicConstraints=critical,CA:TRUE",
-        "-addext", "keyUsage=critical,keyCertSign,cRLSign",
-    ])
+    # Extensions go through a config file rather than -addext, which the
+    # LibreSSL that ships with macOS doesn't have. Same route the leaf takes.
+    with tempfile.TemporaryDirectory() as tmp:
+        cnf = pathlib.Path(tmp) / "ca.cnf"
+        cnf.write_text(
+            "[req]\n"
+            "distinguished_name = dn\n"
+            "prompt = no\n"
+            "\n"
+            "[dn]\n"
+            "CN = Xerra dev CA\n"
+            "\n"
+            "[v3_ca]\n"
+            "basicConstraints = critical,CA:TRUE\n"
+            "keyUsage = critical,keyCertSign,cRLSign\n"
+        )
+        run([
+            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+            "-keyout", str(CA_KEY), "-out", str(CA_CERT),
+            "-days", CA_DAYS, "-config", str(cnf), "-extensions", "v3_ca",
+        ])
     CA_KEY.chmod(0o600)
     return True
 

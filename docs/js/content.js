@@ -250,10 +250,12 @@ export const SEED_PHRASES = [
     "focusNote": "'ə-gwən-TEU'. The gua is one quick glide, not two syllables."
   },
   {
-    "text": "Em falta pressió a l'esquena.",
-    "translation": "I need more pressure on my back.",
-    "deck": "Castells · Segon",
-    "focusNote": "'pressió' is three syllables ending stressed: 'prə-si-Ó'."
+    "text": "Més pit!",
+    "translation": "More chest! Push in more with your chest!",
+    "deck": "Castells · Pinya",
+    "focusNote": "Two short, stressed beats: MÉS PIT. Keep the final t in 'pit' crisp so the command cuts through the noise.",
+    "situation": "Inside a pinya, shouted to the person behind you when you need them to press forward more firmly with their chest.",
+    "usageNote": "In castells, 'donar pit' means using your chest to press into the back of the person ahead and keep the pinya compact. The clipped command is what you actually shout."
   },
   {
     "text": "Massa fort!",
