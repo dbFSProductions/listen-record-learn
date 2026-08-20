@@ -3,7 +3,13 @@ main = "src/index.js"
 compatibility_date = "2026-08-19"
 
 [vars]
-GEMINI_MODEL = "gemini-3.7-flash"
+# One release behind the newest Flash on purpose: 3.7 Flash shipped 2026-08-13
+# and spent its first weeks returning 503 "model is overloaded" for most card
+# generations. Revisit once its capacity has settled.
+GEMINI_MODEL = "gemini-3.6-flash"
+# Tried only when the primary is rate-limited, overloaded, or retired. Set to
+# "" to fail instead of falling back.
+GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]

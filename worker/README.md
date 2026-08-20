@@ -34,6 +34,36 @@ The Worker accepts requests only from the published GitHub Pages origin and
 local development by default. If the published origin changes, update
 `ALLOWED_ORIGINS` in `wrangler.toml` and deploy again.
 
+**Save and test** asks the Worker to send one real prompt to Gemini, so a green
+result means the model actually answered — not merely that a key is present.
+
+## Choosing the model
+
+Two `[vars]` in `wrangler.toml` control this:
+
+| | |
+|---|---|
+| `GEMINI_MODEL` | Tried first. |
+| `GEMINI_FALLBACK_MODEL` | Tried only when the primary is rate-limited (429), overloaded (5xx), or gone (404). Set to `""` to fail instead. |
+
+`GEMINI_MODEL` deliberately sits one release behind the newest Flash. Pinning it
+to `gemini-3.7-flash` in the week it shipped (2026-08-13) made card generation
+fail almost every time with 503 *model is overloaded* — a brand-new Flash model
+sheds load for its first one to three weeks. Bumping to the newest model the day
+it launches is the thing to avoid here; wait for capacity to settle.
+
+When generation does fail, the error names the cause and the model, so it is
+worth reading rather than just retrying:
+
+- *"quota or rate limit is used up"* — 429. Check the key's quota in Google AI
+  Studio; the free tier does not cover every model.
+- *"overloaded right now"* — 5xx. Google's capacity, not this app. It clears.
+- *"has no model called …"* — 404. The model ID is wrong or retired; update
+  these vars.
+
+Both models are called through the [Interactions API](https://ai.google.dev/api/interactions-api)
+(`POST /v1beta/interactions`) at `thinking_level: "low"`.
+
 ## Updating
 
 GitHub Pages only publishes `docs/`, so merging a change to `worker/` doesn't
