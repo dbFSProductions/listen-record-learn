@@ -3,6 +3,7 @@
 import { library, settings, audioStore, LANGUAGES, uid } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
+import { cardAssistant } from "./card-assistant.js";
 
 const view = document.getElementById("view");
 const tabbar = document.getElementById("tabbar");
@@ -15,7 +16,7 @@ const player = new Player();
 let recorder = new Recorder();
 
 const state = {
-  tab: "practise",
+  tab: "study",
   deck: null,
   queue: [],
   index: 0,
@@ -28,6 +29,7 @@ const state = {
   loadingModel: false,
   scoringNow: false,
   levelTimer: null,
+  dictation: null,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -90,6 +92,8 @@ function stopEverything() {
   player.stop();
   browserSpeech.stop();
   if (recorder.isRecording) recorder.cancel();
+  state.dictation?.abort();
+  state.dictation = null;
   clearInterval(state.levelTimer);
   state.levelTimer = null;
 }
@@ -101,11 +105,14 @@ function stopEverything() {
 // are. The marks differ in shape as well as colour — hue alone is no use at a
 // glance, or to a colour-blind reader.
 const SECTIONS = {
+  study: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>`,
+  },
   practise: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>`,
   },
-  phrases: {
-    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M11 9h6M11 13h4"/></svg>`,
+  add: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>`,
   },
   settings: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>`,
@@ -128,8 +135,9 @@ function render() {
   syncTabs();
   window.scrollTo(0, 0);
   view.className = `view page page-${state.tab} sec-${state.tab}`;
+  if (state.tab === "study") return renderStudy();
   if (state.tab === "practise") return state.deck ? renderDrill() : renderDecks();
-  if (state.tab === "phrases") return renderPhrases();
+  if (state.tab === "add") return renderAdd();
   return renderSettings();
 }
 
@@ -141,11 +149,11 @@ function renderDecks() {
 
   if (!decks.length) {
     view.innerHTML = `
-      ${pageHead("practise", "Practise", `Nothing to drill in ${language.name} yet`)}
+      ${pageHead("practise", "Practice", `Nothing to drill in ${language.name} yet`)}
       <div class="empty">
         <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
         <p>No phrases yet.</p>
-        <p class="small">Add some on the Phrases tab and they'll appear here as decks.</p>
+        <p class="small">Add some on the Add tab and they'll appear here as decks.</p>
       </div>`;
     return;
   }
@@ -161,7 +169,7 @@ function renderDecks() {
           <span class="row-main">
             <span class="row-title">${esc(deck)}</span><br>
             <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
-              scores.length ? ` · ${scores.length} practised` : ""
+              scores.length ? ` · ${scores.length} practiced` : ""
             }</span>
             <span class="deck-meter"><i style="width:${done}%"></i></span>
           </span>
@@ -175,7 +183,7 @@ function renderDecks() {
   view.innerHTML = `
     ${pageHead(
       "practise",
-      "Practise",
+      "Practice",
       `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
         drillable === 1 ? "" : "s"
       } ready in ${language.name}`
@@ -271,6 +279,16 @@ function renderDrill() {
         state.showTranslation
           ? `<p class="drill-translation">${esc(phrase.translation)}</p>`
           : `<button class="link" id="reveal" style="padding-left:0">Show meaning</button>`
+      }
+      ${
+        state.showTranslation && phrase.situation
+          ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>`
+          : ""
+      }
+      ${
+        state.showTranslation && phrase.usageNote
+          ? `<div class="phrase-context"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>`
+          : ""
       }
       ${
         phrase.focusNote
@@ -746,26 +764,25 @@ async function showHistory(phrase) {
   );
 }
 
-// ----------------------------------------------------------------- phrases
+// ------------------------------------------------------------------- study
 
-function renderPhrases() {
+function renderStudy() {
   const phrases = library.forLanguage(settings.language);
   const captures = phrases.filter((p) => !p.text.trim());
   const decks = library.decks(settings.language);
+  const language = LANGUAGES[settings.language];
 
   view.innerHTML = `
     ${pageHead(
-      "phrases",
-      "Phrases",
+      "study",
+      "Study",
       `${phrases.length} in the library · ${decks.length} deck${decks.length === 1 ? "" : "s"}${
-        captures.length ? ` · ${captures.length} awaiting Catalan` : ""
-      }`,
-      `<button class="link" id="add">+ Add</button>`
+        captures.length ? ` · ${captures.length} awaiting ${language.englishName}` : ""
+      }`
     )}
     <label class="field"><input type="search" id="search" placeholder="Search the library"></label>
     <div id="phrase-list"></div>`;
 
-  document.getElementById("add").onclick = () => editPhrase(null);
   const search = document.getElementById("search");
   search.addEventListener("input", () => paint(search.value.trim().toLowerCase()));
   paint("");
@@ -775,14 +792,16 @@ function renderPhrases() {
       !query ||
       phrase.text.toLowerCase().includes(query) ||
       phrase.translation.toLowerCase().includes(query) ||
-      phrase.deck.toLowerCase().includes(query);
+      phrase.deck.toLowerCase().includes(query) ||
+      (phrase.situation ?? "").toLowerCase().includes(query) ||
+      (phrase.usageNote ?? "").toLowerCase().includes(query);
 
     const list = document.getElementById("phrase-list");
     const sections = [];
 
     const pendingCaptures = captures.filter(match);
     if (pendingCaptures.length) {
-      sections.push(`${deckHeading("Jotted down — needs the Catalan", pendingCaptures.length)}
+      sections.push(`${deckHeading(`Jotted down — needs the ${language.englishName}`, pendingCaptures.length)}
         <div class="rows rows-library">${pendingCaptures.map(rowFor).join("")}</div>`);
     }
 
@@ -818,7 +837,7 @@ function renderPhrases() {
       <button class="row" data-edit="${phrase.id}">
         <span class="row-main">
           <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span><br>
-          <span class="row-sub">${esc(phrase.text ? phrase.translation : "Tap to add the Catalan")}</span>
+          <span class="row-sub">${esc(phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`)}</span>
         </span>
         ${tries ? `<span class="row-tag">${tries} ${tries === 1 ? "try" : "tries"}</span>` : ""}
         ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
@@ -827,17 +846,233 @@ function renderPhrases() {
   }
 }
 
+function normaliseSentence(value) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase(settings.language);
+}
+
+// --------------------------------------------------------------------- add
+
+function renderAdd() {
+  const language = LANGUAGES[settings.language];
+  const decks = [...new Set(["My phrases", ...library.decks(settings.language)])];
+  const targetPlaceholder = settings.language === "ca-ES" ? "Mes pit" : "Me pones un café";
+
+  view.innerHTML = `
+    ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
+    <p class="muted add-intro">Enter whatever you remember in ${esc(language.englishName)} or English. The assistant will correct it and build the rest of the card.</p>
+
+    ${
+      settings.hasAssistant
+        ? ""
+        : `<div class="notice add-setup">The card assistant needs its Worker address and passcode.
+             <button class="link" id="open-assistant-settings">Set it up</button></div>`
+    }
+
+    <div class="card add-card">
+      ${composerField("add-target", language.englishName, settings.language, targetPlaceholder, true)}
+      <div class="language-divider"><span>or</span></div>
+      ${composerField("add-english", "English", "en-GB", "More pressure from the person behind me", true)}
+
+      <div class="field">
+        <div class="field-head">
+          <label for="add-situation">Situation <span class="muted">(optional)</span></label>
+          <button class="dictate" type="button" data-dictate="add-situation" data-locale="en-GB" aria-label="Dictate the situation">${micIcon()}</button>
+        </div>
+        <textarea id="add-situation" rows="2" placeholder="For example: inside a pinya, shouted to the person behind me"></textarea>
+      </div>
+
+      <label class="field"><span>Deck</span>
+        <select id="add-deck">
+          ${decks.map((deck) => `<option value="${esc(deck)}">${esc(deck)}</option>`).join("")}
+        </select>
+      </label>
+
+      <button class="btn btn-primary add-complete" id="complete-card">Complete card with AI</button>
+      <div id="add-error" class="notice bad" hidden></div>
+    </div>
+
+    <section id="card-preview" hidden>
+      <div class="section-label">Check the card</div>
+      <div class="card add-card">
+        <div id="review-note" class="notice" hidden></div>
+        <label class="field"><span>How it's used</span>
+          <textarea id="result-usage" rows="3"></textarea></label>
+        <label class="field"><span>Pronunciation tip</span>
+          <textarea id="result-focus" rows="3"></textarea></label>
+        <div class="btn-row">
+          <button class="btn" id="try-again">Try again</button>
+          <button class="btn btn-primary" id="save-card">Save to deck</button>
+        </div>
+      </div>
+    </section>`;
+
+  document.getElementById("open-assistant-settings")?.addEventListener("click", () => {
+    state.tab = "settings";
+    render();
+  });
+
+  view.querySelectorAll("[data-dictate]").forEach((button) => {
+    button.addEventListener("click", () =>
+      startDictation(button.dataset.dictate, button.dataset.locale, button)
+    );
+  });
+
+  const completeButton = document.getElementById("complete-card");
+  const tryAgain = document.getElementById("try-again");
+  completeButton.addEventListener("click", completeCard);
+  tryAgain.addEventListener("click", completeCard);
+  document.getElementById("save-card").addEventListener("click", saveCard);
+
+  async function completeCard() {
+    const target = document.getElementById("add-target").value.trim();
+    const english = document.getElementById("add-english").value.trim();
+    if (!target && !english) {
+      toast(`Enter something in ${language.englishName} or English first.`);
+      return;
+    }
+    if (!settings.hasAssistant) {
+      toast("Set up the card assistant in Settings first.");
+      return;
+    }
+
+    setAddBusy(true);
+    const errorBox = document.getElementById("add-error");
+    errorBox.hidden = true;
+    try {
+      const result = await cardAssistant.complete(
+        {
+          target,
+          english,
+          situation: document.getElementById("add-situation").value.trim(),
+          deck: document.getElementById("add-deck").value,
+          languageCode: settings.language,
+          languageName: language.englishName,
+        },
+        settings
+      );
+      if (state.tab !== "add") return;
+
+      document.getElementById("add-target").value = result.text;
+      document.getElementById("add-english").value = result.translation;
+      document.getElementById("add-situation").value = result.situation;
+      document.getElementById("result-usage").value = result.usageNote;
+      document.getElementById("result-focus").value = result.focusNote;
+
+      const review = document.getElementById("review-note");
+      review.textContent = result.reviewNote;
+      review.hidden = !result.reviewNote;
+      const preview = document.getElementById("card-preview");
+      preview.hidden = false;
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
+  function saveCard() {
+    const text = document.getElementById("add-target").value.trim();
+    const translation = document.getElementById("add-english").value.trim();
+    const deck = document.getElementById("add-deck").value;
+    if (!text || !translation) {
+      toast(`The ${language.englishName} and English are both needed before saving.`);
+      return;
+    }
+    const duplicate = library
+      .forLanguage(settings.language)
+      .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
+    if (duplicate) {
+      toast("That sentence is already in Study.");
+      return;
+    }
+
+    library.add({
+      text,
+      translation,
+      deck,
+      situation: document.getElementById("add-situation").value.trim() || null,
+      usageNote: document.getElementById("result-usage").value.trim() || null,
+      focusNote: document.getElementById("result-focus").value.trim() || null,
+    });
+    renderAdd();
+    toast(`Added to ${deck}.`);
+  }
+
+  function setAddBusy(busy) {
+    completeButton.disabled = busy;
+    tryAgain.disabled = busy;
+    completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
+  }
+}
+
+function composerField(id, label, locale, placeholder, required = false) {
+  return `<div class="field">
+    <div class="field-head">
+      <label for="${id}">${esc(label)}${required ? "" : ` <span class="muted">(optional)</span>`}</label>
+      <button class="dictate" type="button" data-dictate="${id}" data-locale="${locale}" aria-label="Dictate in ${esc(label)}">${micIcon()}</button>
+    </div>
+    <textarea id="${id}" rows="3" lang="${locale}" autocapitalize="sentences" placeholder="${esc(placeholder)}"></textarea>
+  </div>`;
+}
+
+function micIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg>`;
+}
+
+function startDictation(fieldID, locale, button) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    toast("Use the microphone on the iPhone keyboard to dictate here.");
+    document.getElementById(fieldID)?.focus();
+    return;
+  }
+
+  state.dictation?.abort();
+  const recognition = new Recognition();
+  state.dictation = recognition;
+  recognition.lang = locale;
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.onstart = () => {
+    button.classList.add("listening");
+    button.setAttribute("aria-pressed", "true");
+  };
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map((result) => result[0]?.transcript ?? "")
+      .join(" ")
+      .trim();
+    const field = document.getElementById(fieldID);
+    if (field && transcript) field.value = [field.value.trim(), transcript].filter(Boolean).join(" ");
+  };
+  recognition.onerror = (event) => {
+    if (event.error !== "aborted") toast("Dictation didn't catch that. You can also use the keyboard microphone.");
+  };
+  recognition.onend = () => {
+    if (state.dictation === recognition) state.dictation = null;
+    button.classList.remove("listening");
+    button.setAttribute("aria-pressed", "false");
+  };
+  recognition.start();
+}
+
 function editPhrase(phrase) {
   const decks = library.decks(settings.language);
+  const language = LANGUAGES[settings.language];
   openSheet(
     phrase ? "Edit phrase" : "New phrase",
-    `<label class="field"><span>Catalan</span>
+    `<label class="field"><span>${esc(language.englishName)}</span>
        <textarea id="f-text" placeholder="Leave empty to jot the English down for later">${esc(phrase?.text ?? "")}</textarea></label>
      <label class="field"><span>English</span>
        <textarea id="f-translation">${esc(phrase?.translation ?? "")}</textarea></label>
      <label class="field"><span>Deck</span>
        <input type="text" id="f-deck" list="deck-list" value="${esc(phrase?.deck ?? decks[0] ?? "My phrases")}">
        <datalist id="deck-list">${decks.map((d) => `<option value="${esc(d)}">`).join("")}</datalist></label>
+     <label class="field"><span>Situation (optional)</span>
+       <textarea id="f-situation" placeholder="Where and when you would say it">${esc(phrase?.situation ?? "")}</textarea></label>
+     <label class="field"><span>How it's used (optional)</span>
+       <textarea id="f-usage" placeholder="Register, nuance or a useful alternative">${esc(phrase?.usageNote ?? "")}</textarea></label>
      <label class="field"><span>Pronunciation note (optional)</span>
        <textarea id="f-note" placeholder="What to listen for">${esc(phrase?.focusNote ?? "")}</textarea></label>
      <div class="btn-row">
@@ -851,13 +1086,15 @@ function editPhrase(phrase) {
     const text = document.getElementById("f-text").value.trim();
     const translation = document.getElementById("f-translation").value.trim();
     if (!text && !translation) {
-      toast("Add the Catalan or the English — either will do.");
+      toast(`Add the ${language.englishName} or the English — either will do.`);
       return;
     }
     const data = {
       text,
       translation,
       deck: document.getElementById("f-deck").value.trim() || "My phrases",
+      situation: document.getElementById("f-situation").value.trim() || null,
+      usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,
     };
     if (phrase) library.update({ ...phrase, ...data });
@@ -889,6 +1126,21 @@ function renderSettings() {
             .join("")}
         </select></label>
       <p class="tiny muted" style="margin:0">Phrases are stored per language, so switching keeps both sets intact.</p>
+    </div>
+
+    <div class="section-label">Card assistant</div>
+    <div class="card">
+      <label class="field"><span>Worker address</span>
+        <input type="text" id="s-assistant-url" value="${esc(settings.assistantEndpoint)}" autocomplete="off"
+          placeholder="https://xerra-card-assistant.your-name.workers.dev"></label>
+      <label class="field"><span>Shared app passcode</span>
+        <input type="password" id="s-assistant-passcode" value="${esc(settings.assistantPasscode)}" autocomplete="off"
+          placeholder="The passcode set on the Worker"></label>
+      <button class="btn btn-primary" id="s-assistant-test" style="width:100%">Save and test</button>
+      <div id="s-assistant-result" style="margin-top:10px"></div>
+      <p class="tiny muted" style="margin:12px 0 0">
+        This is the shared Xerra passcode, not your Gemini key. The Gemini key stays encrypted on Cloudflare.
+      </p>
     </div>
 
     <div class="section-label">Azure voice and scoring</div>
@@ -951,6 +1203,25 @@ function renderSettings() {
     if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = voices[0].id;
     settings.save();
     render();
+  };
+
+  document.getElementById("s-assistant-test").onclick = async () => {
+    settings.assistantEndpoint = document.getElementById("s-assistant-url").value.trim();
+    settings.assistantPasscode = document.getElementById("s-assistant-passcode").value.trim();
+    settings.save();
+
+    const box = document.getElementById("s-assistant-result");
+    if (!settings.hasAssistant) {
+      box.innerHTML = `<div class="notice">Enter the Worker address and shared passcode.</div>`;
+      return;
+    }
+    box.innerHTML = `<p class="small muted"><span class="spinner"></span> Testing…</p>`;
+    try {
+      const result = await cardAssistant.test(settings);
+      box.innerHTML = `<div class="notice good">Card assistant connected${result.model ? ` · ${esc(result.model)}` : ""}.</div>`;
+    } catch (error) {
+      box.innerHTML = `<div class="notice bad">${esc(error.message)}</div>`;
+    }
   };
 
   document.getElementById("s-rate").oninput = (event) => {

@@ -1,0 +1,15 @@
+name = "xerra-card-assistant"
+main = "src/index.js"
+compatibility_date = "2026-08-19"
+
+[vars]
+GEMINI_MODEL = "gemini-3.7-flash"
+ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
+
+[[ratelimits]]
+name = "AI_RATE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60

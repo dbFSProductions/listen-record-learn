@@ -103,6 +103,20 @@ struct DrillView: View {
                     .foregroundStyle(.tint)
             }
 
+            if let situation = phrase.situation {
+                Label(situation, systemImage: "location.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let usage = phrase.usageNote {
+                Label(usage, systemImage: "bubble.left.and.text.bubble.right")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let focus = phrase.focusNote {
                 HStack(alignment: .top, spacing: 7) {
                     Image(systemName: "ear")

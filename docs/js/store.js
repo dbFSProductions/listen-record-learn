@@ -21,6 +21,7 @@ const DB_NAME = "xerra";
 const DB_VERSION = 1;
 const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
+const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!"]]);
 
 // ---------------------------------------------------------------- IndexedDB
 
@@ -147,6 +148,19 @@ export const library = {
   // anything deliberately deleted.
   installNewSeedContent() {
     const seeded = new Set(readJSON(KEYS.seeded, []));
+    let replacedPhrase = false;
+    for (const phrase of this.phrases) {
+      const replacementText = SEED_REPLACEMENTS.get(phrase.text);
+      const replacement = replacementText && SEED_PHRASES.find((seed) => seed.text === replacementText);
+      if (!replacement || phrase.language !== "ca-ES") continue;
+      Object.assign(phrase, {
+        ...replacement,
+        focusNote: replacement.focusNote || null,
+        situation: replacement.situation || null,
+        usageNote: replacement.usageNote || null,
+      });
+      replacedPhrase = true;
+    }
     const existing = new Set(this.phrases.map((p) => p.text));
     const newcomers = SEED_PHRASES.filter(
       (p) => !existing.has(p.text) && !seeded.has(p.text)
@@ -156,11 +170,13 @@ export const library = {
       translation: p.translation,
       deck: p.deck,
       focusNote: p.focusNote || null,
+      situation: p.situation || null,
+      usageNote: p.usageNote || null,
       language: "ca-ES",
       createdAt: new Date().toISOString(),
     }));
 
-    if (!newcomers.length) return;
+    if (!newcomers.length && !replacedPhrase) return;
     this.phrases.push(...newcomers);
     writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);
     this.savePhrases();
@@ -283,6 +299,8 @@ const DEFAULT_SETTINGS = {
   azureKey: "",
   azureRegion: "northeurope",
   azureVoice: "ca-ES-JoanaNeural",
+  assistantEndpoint: "",
+  assistantPasscode: "",
   slowRate: 0.65,
   showTranslationUpFront: true,
 };
@@ -295,12 +313,16 @@ export const settings = {
   },
 
   save() {
-    const { load, save, hasAzure, ...data } = this;
+    const { load, save, hasAzure, hasAssistant, ...data } = this;
     writeJSON(KEYS.settings, data);
   },
 
   get hasAzure() {
     return Boolean(this.azureKey?.trim() && this.azureRegion?.trim());
+  },
+
+  get hasAssistant() {
+    return Boolean(this.assistantEndpoint?.trim() && this.assistantPasscode?.trim());
   },
 };
 

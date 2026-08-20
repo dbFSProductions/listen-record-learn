@@ -6,7 +6,7 @@ struct RootView: View {
             NavigationStack {
                 DeckListView()
             }
-            .tabItem { Label("Practise", systemImage: "waveform") }
+            .tabItem { Label("Practice", systemImage: "waveform") }
 
             NavigationStack {
                 PhraseListView()
@@ -52,7 +52,7 @@ struct DeckListView: View {
                 }
             }
         }
-        .navigationTitle("Practise")
+        .navigationTitle("Practice")
         .overlay {
             if decks.isEmpty {
                 ContentUnavailableView(

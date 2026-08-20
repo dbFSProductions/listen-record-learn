@@ -23,6 +23,7 @@ xcuserdata/
 # This is here so a stray local config file can't be committed by accident.
 Secrets.plist
 *.env
+.dev.vars
 
 # Local development certificate authority made by tools/serve.py, so the phone
 # can reach the web app over a trusted https origin. Contains a private key,

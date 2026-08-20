@@ -49,12 +49,14 @@ docs/                 The PWA. Served by GitHub Pages, no build step.
   js/app.js           Views, routing, drill loop, canvas rendering (largest file)
   js/audio.js         Recording, playback, waveform + pitch analysis
   js/speech.js        TTS and scoring; Azure SDK wrangling
+  js/card-assistant.js Client for AI-assisted study-card completion
   js/store.js         localStorage (metadata) + IndexedDB (audio blobs)
   js/content.js       GENERATED — do not hand-edit, see below
   sw.js               Service worker, offline cache
   vendor/             Azure Speech JS SDK, vendored deliberately
 
 tools/gen-content.py  Regenerates docs/js/content.js from SeedContent.swift
+worker/               Cloudflare Worker; keeps the Gemini key out of the PWA
 ```
 
 No package.json, no bundler, no test runner. Vanilla ES modules loaded directly

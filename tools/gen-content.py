@@ -24,12 +24,19 @@ def main():
         text = field(block, "text")
         if not text:
             continue
-        phrases.append({
+        phrase = {
             "text": text,
             "translation": field(block, "translation") or "",
             "deck": field(block, "deck") or "Misc",
             "focusNote": field(block, "focusNote"),
-        })
+        }
+        situation = field(block, "situation")
+        usage_note = field(block, "usageNote")
+        if situation:
+            phrase["situation"] = situation
+        if usage_note:
+            phrase["usageNote"] = usage_note
+        phrases.append(phrase)
 
     if len(phrases) < 90:
         sys.exit(f"only parsed {len(phrases)} phrases — the Swift format probably changed")

@@ -9,6 +9,10 @@ struct Phrase: Identifiable, Codable, Hashable {
     var language: Language = .catalan
     /// What to listen for in this phrase — the specific sound or habit it drills.
     var focusNote: String?
+    /// Where and when the phrase would naturally be used.
+    var situation: String?
+    /// Register, pragmatic meaning, or cultural context that helps it land.
+    var usageNote: String?
     var createdAt: Date = Date()
     /// Set when the phrase was jotted down in the moment and still needs
     /// its target-language text filled in.

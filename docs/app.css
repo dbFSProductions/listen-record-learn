@@ -97,7 +97,8 @@ body {
 /* One place decides which accent a page (or a tab) is wearing; everything
    downstream just reads --sec / --sec-ink / --sec-soft. */
 .sec-practise { --sec: var(--practise-accent); --sec-on: var(--practise-on); --sec-ink: var(--practise-ink); --sec-soft: var(--practise-soft); }
-.sec-phrases  { --sec: var(--phrases-accent);  --sec-on: var(--phrases-on);  --sec-ink: var(--phrases-ink);  --sec-soft: var(--phrases-soft); }
+.sec-study    { --sec: var(--phrases-accent);  --sec-on: var(--phrases-on);  --sec-ink: var(--phrases-ink);  --sec-soft: var(--phrases-soft); }
+.sec-add      { --sec: var(--settings-accent); --sec-on: var(--settings-on); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
 .sec-settings { --sec: var(--settings-accent); --sec-on: var(--settings-on); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
 
 h1 { font-size: 1.6rem; margin: 6px 0 16px; letter-spacing: -0.02em; }
@@ -254,6 +255,18 @@ button { font: inherit; }
   margin-bottom: 3px;
 }
 
+.phrase-context {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 9px;
+  margin: 10px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 0.84rem;
+}
+.phrase-context strong { color: var(--text); font-size: 0.75rem; }
+
 .progress-pill {
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
@@ -264,7 +277,7 @@ button { font: inherit; }
 
 /* -------------------------------------------------------------- page heads */
 
-/* Practise and Phrases used to open on near-identical lists. Each page now
+/* Practice and Study used to open on near-identical lists. Each page now
    leads with a banner in its own accent, its own mark, and its own subtitle —
    colour alone wouldn't survive a glance, or a colour-blind reader. */
 
@@ -302,10 +315,10 @@ button { font: inherit; }
 .page-sub { margin: 1px 0 0; font-size: 0.79rem; font-weight: 500; color: var(--sec-on); }
 .page-head .link { flex: none; color: var(--sec-on); font-weight: 650; }
 
-/* The Phrases banner is squarer and denser than the Practise one, so the two
+/* The Study banner is squarer and denser than the Practice one, so the two
    read differently even in a black-and-white screenshot. */
-.page-phrases .page-head { border-radius: 4px 14px 14px 4px; }
-.page-phrases .page-mark { border-radius: 4px; }
+.page-study .page-head { border-radius: 4px 14px 14px 4px; }
+.page-study .page-mark { border-radius: 4px; }
 
 /* ------------------------------------------------- practise deck meters */
 
@@ -418,7 +431,7 @@ canvas { width: 100%; display: block; }
 
 /* ------------------------------------------------------------------ forms */
 
-label.field { display: block; margin-bottom: 12px; }
+label.field, .field { display: block; margin-bottom: 12px; }
 label.field > span { display: block; font-size: 0.78rem; color: var(--text-2); margin-bottom: 5px; }
 input[type="text"], input[type="password"], input[type="search"], textarea, select {
   width: 100%;
@@ -433,6 +446,35 @@ textarea { min-height: 74px; resize: vertical; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+
+/* -------------------------------------------------------------- add card */
+
+.add-intro { margin: -7px 0 16px; }
+.add-setup { margin-bottom: 12px; }
+.add-setup .link { padding-right: 0; }
+.add-card { padding: 16px; }
+.add-card textarea { min-height: 82px; }
+.add-card .add-complete { width: 100%; margin-top: 2px; }
+.add-card .notice { margin-bottom: 12px; }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.field-head label { color: var(--text-2); font-size: 0.78rem; }
+.dictate {
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+}
+.dictate svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.dictate.listening { background: var(--red); color: #fff; animation: dictation-pulse 1.1s ease-in-out infinite; }
+.language-divider { display: flex; align-items: center; gap: 10px; margin: -1px 0 10px; color: var(--text-3); font-size: 0.72rem; text-transform: uppercase; }
+.language-divider::before, .language-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+#card-preview { scroll-margin-top: 12px; }
+@keyframes dictation-pulse { 50% { opacity: 0.62; } }
 
 /* ------------------------------------------------------------------ sheet */
 
