@@ -143,9 +143,52 @@ p { margin: 0 0 10px; }
 .rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 10px; }
 .rows-spaced .row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .row-main { flex: 1; min-width: 0; }
-.row-title { font-weight: 500; }
-.row-sub { font-size: 0.8rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Both of these are blocks that wrap. They used to be inline spans, with the
+   subtitle set `nowrap` + `text-overflow: ellipsis` — but ellipsis and
+   overflow do nothing on an inline box, so instead of truncating, a long
+   subtitle simply refused to wrap and pushed the whole card (and the page)
+   wider than the screen. The Sounds deck, whose phrases carry the longest
+   translations, dragged the entire list off the right edge. Let the text
+   wrap and the card grows to fit it, which is what it looked like it did. */
+.row-title { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.row-sub { display: block; margin-top: 2px; font-size: 0.8rem; color: var(--text-2); overflow-wrap: anywhere; }
 .chev { color: var(--text-3); flex: none; }
+
+/* A phrase row carries a star, so it can't be one big <button> any more —
+   nested buttons aren't valid HTML. The row is a flex container instead, with
+   the star and the "open this phrase" button side by side inside it. */
+.row-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.star {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin: -4px 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.star svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.star[aria-pressed="true"] { color: var(--you-ink); }
+.star[aria-pressed="true"] svg { fill: var(--you); stroke: var(--you-ink); }
+.star:active { background: var(--surface-2); }
 
 .section-label {
   font-size: 0.76rem;
@@ -180,6 +223,7 @@ button { font: inherit; }
 .btn-row { display: flex; gap: 9px; }
 .btn-row .btn { flex: 1; }
 .btn-danger { color: var(--red); }
+
 
 .link { background: none; border: 0; color: var(--accent); font-weight: 550; cursor: pointer; padding: 6px; }
 
@@ -471,6 +515,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   margin: 0 auto;
 }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* The star belongs beside the phrase's meaning, not in the action row — three
+   buttons across a phone wrap "Practise now" onto two lines. */
+.sheet-lede { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.sheet-lede p { flex: 1; min-width: 0; margin: 0; }
+.sheet-lede .star { margin-top: -2px; }
 
 /* ------------------------------------------------------------------ toast */
 

@@ -23,6 +23,11 @@ const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
 const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!"]]);
 
+// The deck anything you write yourself lands in. It sorts ahead of the seed
+// decks everywhere rather than alphabetically, because it's the one you came
+// to look at.
+export const MY_PHRASES = "My phrases";
+
 // ---------------------------------------------------------------- IndexedDB
 
 let dbPromise = null;
@@ -206,11 +211,31 @@ export const library = {
         order.push(phrase.deck);
       }
     }
-    return order.sort((a, b) => a.localeCompare(b, "ca"));
+    return order.sort((a, b) => {
+      if (a === MY_PHRASES) return -1;
+      if (b === MY_PHRASES) return 1;
+      return a.localeCompare(b, "ca");
+    });
   },
 
   inDeck(deck, language) {
     return this.drillable(language).filter((p) => p.deck === deck);
+  },
+
+  // Favourites are a flag on the phrase, not a deck — a phrase keeps the deck
+  // it belongs to and can be starred as well. The flag lives in the phrase
+  // record, so it exports, imports and survives a reinstall with everything
+  // else.
+  favourites(language) {
+    return this.forLanguage(language).filter((p) => p.favourite);
+  },
+
+  toggleFavourite(phraseID) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase) return false;
+    phrase.favourite = !phrase.favourite;
+    this.savePhrases();
+    return phrase.favourite;
   },
 
   // New phrases belong to whichever language is currently selected. Hardcoding
