@@ -775,7 +775,7 @@ function renderStudy() {
   view.innerHTML = `
     ${pageHead(
       "study",
-      "Study",
+      "Phrases",
       `${phrases.length} in the library · ${decks.length} deck${decks.length === 1 ? "" : "s"}${
         captures.length ? ` · ${captures.length} awaiting ${language.englishName}` : ""
       }`
@@ -983,7 +983,7 @@ function renderAdd() {
       .forLanguage(settings.language)
       .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
     if (duplicate) {
-      toast("That sentence is already in Study.");
+      toast("That sentence is already in Phrases.");
       return;
     }
 
