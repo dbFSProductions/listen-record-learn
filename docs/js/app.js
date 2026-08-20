@@ -856,6 +856,7 @@ function showPhrase(phrase) {
        <button class="btn btn-primary" id="p-practise">Practise now</button>
        <button class="btn" id="p-edit">Edit</button>
      </div>
+     <section id="p-chat" hidden style="margin-bottom:14px"></section>
      ${
        attempts.length
          ? `<div class="section-label">Attempts</div>
@@ -881,6 +882,21 @@ function showPhrase(phrase) {
      }
      <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
   );
+
+  if (settings.hasAssistant) {
+    cardChatPanel(document.getElementById("p-chat"), "Ask about this phrase", () => ({
+      languageCode: phrase.language,
+      languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
+      deck: phrase.deck,
+      card: {
+        text: phrase.text,
+        translation: phrase.translation,
+        situation: phrase.situation ?? "",
+        usageNote: phrase.usageNote ?? "",
+        focusNote: phrase.focusNote ?? "",
+      },
+    }));
+  }
 
   document.getElementById("p-practise").onclick = () => {
     closeSheet();
@@ -986,7 +1002,9 @@ function renderAdd() {
           <button class="btn btn-primary" id="save-card">Save to deck</button>
         </div>
       </div>
-    </section>`;
+    </section>
+
+    <section id="add-chat" hidden></section>`;
 
   document.getElementById("open-assistant-settings")?.addEventListener("click", () => {
     state.tab = "settings";
@@ -1045,6 +1063,20 @@ function renderAdd() {
       review.hidden = !result.reviewNote;
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
+
+      // A fresh panel per completion: a new card means a new conversation.
+      cardChatPanel(document.getElementById("add-chat"), "Ask about this card", () => ({
+        languageCode: settings.language,
+        languageName: language.englishName,
+        deck: document.getElementById("add-deck").value,
+        card: {
+          text: document.getElementById("add-target").value.trim(),
+          translation: document.getElementById("add-english").value.trim(),
+          situation: document.getElementById("add-situation").value.trim(),
+          usageNote: document.getElementById("result-usage").value.trim(),
+          focusNote: document.getElementById("result-focus").value.trim(),
+        },
+      }));
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.hidden = false;
@@ -1085,6 +1117,87 @@ function renderAdd() {
     completeButton.disabled = busy;
     tryAgain.disabled = busy;
     completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
+  }
+}
+
+/* Chat about a card, shown under a completed card on Add and on the phrase
+   detail sheet. History lives only as long as the panel does — it's a study
+   aside, not a stored transcript. getContext is called per question so edits
+   to the card are reflected. */
+function cardChatPanel(host, title, getContext) {
+  const history = [];
+  let busy = false;
+
+  host.innerHTML = `
+    <div class="section-label">${esc(title)}</div>
+    <div class="card chat-card">
+      <div class="chat-log" hidden></div>
+      <form class="chat-form">
+        <textarea rows="1" placeholder="Is 'paraula' related to 'parable'?" aria-label="${esc(title)}"></textarea>
+        <button class="btn btn-primary" type="submit">Ask</button>
+      </form>
+      <div class="notice bad chat-error" hidden></div>
+    </div>`;
+  host.hidden = false;
+
+  const log = host.querySelector(".chat-log");
+  const form = host.querySelector(".chat-form");
+  const input = form.querySelector("textarea");
+  const send = form.querySelector("button");
+  const errorBox = host.querySelector(".chat-error");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    ask();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      ask();
+    }
+  });
+
+  async function ask() {
+    const question = input.value.trim();
+    if (!question || busy) return;
+    if (!settings.hasAssistant) {
+      toast("Set up the card assistant in Settings first.");
+      return;
+    }
+
+    history.push({ role: "user", text: question });
+    input.value = "";
+    errorBox.hidden = true;
+    setBusy(true);
+    renderLog();
+    try {
+      const result = await cardAssistant.chat({ ...getContext(), history }, settings);
+      history.push({ role: "assistant", text: result.reply });
+    } catch (error) {
+      // Put the question back so a retry is one tap, not a retype.
+      history.pop();
+      input.value = question;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      setBusy(false);
+      renderLog();
+    }
+  }
+
+  function setBusy(value) {
+    busy = value;
+    send.disabled = value;
+  }
+
+  function renderLog() {
+    log.hidden = !history.length && !busy;
+    log.innerHTML =
+      history
+        .map((turn) => `<div class="chat-msg ${turn.role === "user" ? "user" : "assistant"}">${esc(turn.text)}</div>`)
+        .join("") +
+      (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
+    log.scrollTop = log.scrollHeight;
   }
 }
 

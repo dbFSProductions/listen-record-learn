@@ -18,8 +18,14 @@ async function request(path, settings, options = {}) {
         Authorization: `Bearer ${settings.assistantPasscode.trim()}`,
         ...options.headers,
       },
+      // The Worker gives Gemini up to 55s. Without a deadline here, a stalled
+      // request leaves the button spinning forever with no way to retry.
+      signal: AbortSignal.timeout?.(70_000),
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new Error("The card assistant took too long to answer. Try again.");
+    }
     throw new Error("Couldn't reach the card assistant. Check its address and your connection.");
   }
 
@@ -39,6 +45,13 @@ export const cardAssistant = {
     return request("/complete-card", settings, {
       method: "POST",
       body: JSON.stringify(draft),
+    });
+  },
+
+  chat(payload, settings) {
+    return request("/chat", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
   },
 };
