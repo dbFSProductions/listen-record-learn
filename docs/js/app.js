@@ -16,7 +16,7 @@ const player = new Player();
 let recorder = new Recorder();
 
 const state = {
-  tab: "study",
+  tab: "practise",
   deck: null,
   queue: [],
   index: 0,
@@ -188,7 +188,7 @@ function renderDecks() {
         drillable === 1 ? "" : "s"
       } ready in ${language.name}`
     )}
-    <div class="rows">${rows}</div>
+    <div class="rows rows-spaced">${rows}</div>
     <div class="section-label">Everything</div>
     <div class="rows">
       <button class="row" data-deck="*">
@@ -455,9 +455,8 @@ function renderComparison() {
     <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
 
     <div class="btn-row">
-      <button class="btn" id="play-model" ${state.modelBlob ? "" : "disabled"}>Model</button>
+      <button class="btn" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
       <button class="btn" id="play-you">You</button>
-      <button class="btn btn-primary" id="play-ab" ${state.modelBlob ? "" : "disabled"}>A / B</button>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -565,11 +564,6 @@ function wireComparison() {
   });
   document.getElementById("play-you")?.addEventListener("click", () => {
     if (state.attemptBlob) player.play(state.attemptBlob);
-  });
-  document.getElementById("play-ab")?.addEventListener("click", () => {
-    if (state.modelBlob && state.attemptBlob) {
-      player.playBackToBack(state.modelBlob, state.attemptBlob);
-    }
   });
   document.getElementById("pitch-details")?.addEventListener("toggle", drawCanvases);
 
@@ -775,7 +769,7 @@ function renderStudy() {
   view.innerHTML = `
     ${pageHead(
       "study",
-      "Study",
+      "Phrases",
       `${phrases.length} in the library · ${decks.length} deck${decks.length === 1 ? "" : "s"}${
         captures.length ? ` · ${captures.length} awaiting ${language.englishName}` : ""
       }`
@@ -983,7 +977,7 @@ function renderAdd() {
       .forLanguage(settings.language)
       .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
     if (duplicate) {
-      toast("That sentence is already in Study.");
+      toast("That sentence is already in Phrases.");
       return;
     }
 
