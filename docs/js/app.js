@@ -16,7 +16,7 @@ const player = new Player();
 let recorder = new Recorder();
 
 const state = {
-  tab: "study",
+  tab: "practise",
   deck: null,
   queue: [],
   index: 0,
@@ -188,7 +188,7 @@ function renderDecks() {
         drillable === 1 ? "" : "s"
       } ready in ${language.name}`
     )}
-    <div class="rows">${rows}</div>
+    <div class="rows rows-spaced">${rows}</div>
     <div class="section-label">Everything</div>
     <div class="rows">
       <button class="row" data-deck="*">

@@ -137,6 +137,11 @@ p { margin: 0 0 10px; }
 }
 .row:last-child { border-bottom: 0; }
 .row:active { background: var(--surface-2); }
+
+/* Variant: each row is its own card with a gap, instead of one fused list.
+   Used for the Practice deck list. */
+.rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 10px; }
+.rows-spaced .row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-weight: 500; }
 .row-sub { font-size: 0.8rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
