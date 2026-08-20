@@ -94,38 +94,59 @@ export default {
 
 async function callGemini(env, requestBody) {
   const model = env.GEMINI_MODEL || "gemini-3.7-flash";
-  let response;
-  try {
-    response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": env.GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        model,
-        store: false,
-        // Gemini 3 models think at "high" by default, which routinely takes
-        // longer than this Worker is willing to wait. Neither task here needs
-        // deep reasoning, and "low" keeps answers inside the timeout.
-        generation_config: { thinking_level: "low" },
-        ...requestBody,
-      }),
-      signal: AbortSignal.timeout(55_000),
-    });
-  } catch (error) {
-    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-      throw new PublicError("Gemini is taking too long right now. Try again in a moment.", 504);
-    }
-    throw error;
-  }
+  const body = JSON.stringify({
+    model,
+    store: false,
+    // Gemini 3 models think at "high" by default, which routinely takes
+    // longer than this Worker is willing to wait. Neither task here needs
+    // deep reasoning, and "low" keeps answers inside the timeout.
+    generation_config: { thinking_level: "low" },
+    ...requestBody,
+  });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  // The model's servers shed load with quick 429/5xx errors; those get
+  // retried here so one tap in the app covers a few attempts. A timeout is
+  // never retried — it has already spent the time budget.
+  const attempts = 3;
+  for (let attempt = 1; ; attempt += 1) {
+    let response;
+    try {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": env.GEMINI_API_KEY,
+        },
+        body,
+        signal: AbortSignal.timeout(55_000),
+      });
+    } catch (error) {
+      if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+        throw new PublicError("Gemini is taking too long right now. Try again in a moment.", 504);
+      }
+      if (attempt < attempts) {
+        await backoff(attempt);
+        continue;
+      }
+      throw error;
+    }
+
+    if (response.ok) return response.json().catch(() => ({}));
+
+    const payload = await response.json().catch(() => ({}));
     console.error("Gemini request failed", response.status, payload?.error?.message ?? "unknown error");
+    const transient = response.status === 429 || response.status >= 500;
+    if (transient && attempt < attempts) {
+      await backoff(attempt);
+      continue;
+    }
+    if (transient) throw new PublicError("Gemini is busy right now. Try again in a moment.", 502);
     throw new PublicError("Gemini couldn't answer. Try again shortly.", 502);
   }
-  return payload;
+}
+
+function backoff(attempt) {
+  return new Promise((resolve) => setTimeout(resolve, attempt * 1200));
 }
 
 function outputTextOf(payload) {
