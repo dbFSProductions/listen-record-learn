@@ -455,9 +455,8 @@ function renderComparison() {
     <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
 
     <div class="btn-row">
-      <button class="btn" id="play-model" ${state.modelBlob ? "" : "disabled"}>Model</button>
+      <button class="btn" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
       <button class="btn" id="play-you">You</button>
-      <button class="btn btn-primary" id="play-ab" ${state.modelBlob ? "" : "disabled"}>A / B</button>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -565,11 +564,6 @@ function wireComparison() {
   });
   document.getElementById("play-you")?.addEventListener("click", () => {
     if (state.attemptBlob) player.play(state.attemptBlob);
-  });
-  document.getElementById("play-ab")?.addEventListener("click", () => {
-    if (state.modelBlob && state.attemptBlob) {
-      player.playBackToBack(state.modelBlob, state.attemptBlob);
-    }
   });
   document.getElementById("pitch-details")?.addEventListener("toggle", drawCanvases);
 
