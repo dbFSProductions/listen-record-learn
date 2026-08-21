@@ -63,6 +63,14 @@ No package.json, no bundler, no test runner. Vanilla ES modules loaded directly
 by the browser. Keep it that way unless there's a real reason not to — the lack
 of a build step is why this deploys to a phone at all.
 
+**The Worker serves both apps.** The sister fork Deb-o-lingo has no `worker/`
+of its own — it ships a verbatim copy of `docs/js/card-assistant.js` pointed at
+this same deployment, which works because the Worker takes the target language
+per request and because GitHub Pages serves both apps from the one
+`https://dbfsproductions.github.io` origin already in `ALLOWED_ORIGINS`. So:
+narrowing that list, changing the passcode, or reshaping the `/complete-card`
+and `/chat` payloads breaks the other app too. Both share the one rate limit.
+
 ---
 
 ## Content is generated, not edited
