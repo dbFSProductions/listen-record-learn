@@ -367,12 +367,28 @@ change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
 copied it verbatim. The analysis half stays byte-identical between the two —
-change it in one, change it in the other. The *playback* half has now diverged
-deliberately: `comparableLoudness` (ported here from Deb-o-lingo's `48b451a`)
-boosts quiet recordings to roughly TTS loudness at play time only. It never
+change it in one, change it in the other. The *playback* half has diverged
+deliberately, and is now one function, `forPlayback` (the old
+`comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
+does two things at play time and nothing else: boosts a quiet recording to
+roughly TTS loudness, and drops the dead air before the first word. It never
 touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
 because recordings are captured with `autoGainControl: false` on purpose and the
 pitch tracker needs that honest signal.
+
+Two things about the trim before you tune it:
+
+- It reuses the analysis threshold (0.015 RMS over 256 frames) on purpose. The
+  waveform drawn above the player is of `trimSilence`'d samples, so it never
+  showed the dead air the audio used to open with — reusing the detector is
+  what makes the picture and the sound agree about where the clip starts. Near
+  the threshold, detection can land a few tens of milliseconds late; the 120 ms
+  `LEAD_IN` kept before the detected start is what covers that, so don't cut it
+  to zero to "tighten" playback.
+- **The tail is deliberately left alone.** These decks teach Catalan final
+  consonants, and a trailing trim that misjudges the threshold eats exactly the
+  sound the phrase was chosen to drill. Silence at the end is cheap; a
+  swallowed final -t is not.
 
 Pitch is plotted in **semitones relative to each speaker's own median**, not
 absolute Hz. This is what lets a low TTS voice and a higher human voice be

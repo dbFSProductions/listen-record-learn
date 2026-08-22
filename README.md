@@ -149,7 +149,11 @@ Pick a deck, and for each phrase:
 - **Listen** at full speed, or **Slow** (time-stretched, not pitch-shifted)
 - **Record** yourself with a live level ring
 - **A/B** playback — model then you, back to back, which is the single most
-  useful thing for hearing the gap
+  useful thing for hearing the gap. Playback starts at your first word: the
+  pause between tapping record and actually speaking is skipped, and quiet
+  takes are lifted to roughly the model's loudness. Both happen at play time
+  only — the recording itself, the waveform and the scoring all see the
+  untouched audio
 - **Waveforms** stacked on a shared axis, plus a plain-English note on whether
   you're faster or slower than the model
 - **Intonation** — your pitch contour over the model's, in semitones relative to
