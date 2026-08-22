@@ -122,6 +122,23 @@ r), these teach Catalan (schwa, silent final r, palatal `ll`, voiced `j`). Three
 of Deb-o-lingo's café phrases were dropped rather than duplicated because Xerra
 already said them: the cortado, the bill, and *està boníssim*.
 
+### What sits where in the drill
+
+The card carries the phrase, its translation and the `focusNote` — and nothing
+else. Situation and usage note render *below* the record button, in their own
+card via `drillContext()`: they are reference material, and between the phrase
+and the record button is the worst place for them. The `focusNote` stays on the
+card deliberately, because it is the one thing you want in front of you in the
+moment before you speak.
+
+Two gates carry over from when they lived on the card: nothing shows while
+`showTranslation` is off (a situation can hand you the meaning you asked to
+hide), and the usage note stays out entirely while a level-two question is
+standing — the situation alone is the clue.
+
+Deb-o-lingo's drill card has never shown situation or usage, so there is
+nothing to keep in step here.
+
 ### Editing a card, and the AI rebuild
 
 The edit sheet has a **Rebuild the rest with AI** button (only when the card
