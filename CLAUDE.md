@@ -182,6 +182,34 @@ if you're advising on setup, don't send people there.
 
 ---
 
+## Level two: drilling from memory
+
+A phrase is read aloud until `library.goodAttempts()` reaches `RECALL_AFTER`
+(2), then `library.recallReady()` flips it to a memory question: the drill
+prints the *translation* where the phrase normally goes and withholds three
+things, all of which would answer it — the phrase text, its `focusNote`, and
+the Listen/Slow buttons (the model audio says it out loud). **If you add
+anything to the drill card, decide which side of that line it falls on.**
+
+Three flags in `state` carry it: `recall` (this phrase is a question),
+`revealed` (the answer is on screen — always true at level one) and `peeked`
+(Show me was used rather than remembering). Recording reveals; so does Show me.
+Attempts now carry `mode` — `"listen"`, `"recall"` or `"recall-shown"`. Older
+attempts have no `mode`, which reads as `"listen"`, because that is what they
+were.
+
+An attempt counts toward the two if it scored a pass **or wasn't scored at
+all** — with no Azure key there is no score to judge by, and the alternative is
+that nothing ever leaves level one on the degraded path.
+
+Deliberately *not* done: peeking doesn't demote a phrase, and nothing ever
+comes back down. Spaced repetition is still the unbuilt feature, and a decay
+rule is the shape it should take, not a special case bolted onto this.
+
+Deb-o-lingo has the same feature in the same shape — same constants, same
+flags, same `mode` values. Keep them in step. The Swift app does **not** have
+it, and gains nothing from it while it can't be installed.
+
 ## Audio analysis
 
 The JS waveform and pitch code in `docs/js/audio.js` is a **direct port** of the

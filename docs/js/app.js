@@ -1,6 +1,6 @@
 // Xerra — app shell, routing and views.
 
-import { library, settings, audioStore, LANGUAGES, MY_PHRASES, uid } from "./store.js";
+import { library, settings, audioStore, LANGUAGES, MY_PHRASES, uid, RECALL_AFTER } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
@@ -30,6 +30,13 @@ const state = {
   scoringNow: false,
   levelTimer: null,
   dictation: null,
+
+  // Level two. `recall` says this phrase is a memory question; `revealed` says
+  // the answer is on screen (always true at level one); `peeked` says you
+  // asked to be shown it rather than remembering it.
+  recall: false,
+  revealed: true,
+  peeked: false,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -286,6 +293,9 @@ async function loadPhrase() {
   state.attemptBlob = null;
   state.attemptAnalysis = null;
   state.showTranslation = settings.showTranslationUpFront;
+  state.recall = Boolean(settings.recallMode && phrase && library.recallReady(phrase.id));
+  state.revealed = !state.recall;
+  state.peeked = false;
   scoring.lastError = null;
   if (!phrase) return render();
 
@@ -315,6 +325,10 @@ function renderDrill() {
 
   const hasModel = Boolean(state.modelBlob);
   const attempt = state.attempt;
+  const language = LANGUAGES[phrase.language]?.englishName ?? "the language";
+  // Still being asked: the phrase, its notes and the model audio are all
+  // withheld, because any of them answers the question.
+  const asking = state.recall && !state.revealed;
 
   view.innerHTML = `
     <div class="topbar">
@@ -322,36 +336,62 @@ function renderDrill() {
       <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
     </div>
 
+    ${
+      asking
+        ? `<p class="instruction">From memory — how do you say this in ${esc(language)}?</p>`
+        : state.recall && attempt
+        ? `<p class="instruction">Here's the phrase — how close were you?</p>`
+        : ""
+    }
+
     <div class="card">
-      <p class="drill-text">${esc(phrase.text)}</p>
+      ${state.recall ? `<div class="level-badge">Level 2 · from memory</div>` : ""}
       ${
-        state.showTranslation
-          ? `<p class="drill-translation">${esc(phrase.translation)}</p>`
-          : `<button class="link" id="reveal" style="padding-left:0">Show meaning</button>`
-      }
-      ${
-        state.showTranslation && phrase.situation
-          ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>`
-          : ""
-      }
-      ${
-        state.showTranslation && phrase.usageNote
-          ? `<div class="phrase-context"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>`
-          : ""
-      }
-      ${
-        phrase.focusNote
-          ? `<div class="focus-note"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>`
-          : ""
+        asking
+          ? `<p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
+             ${phrase.situation ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
+             <p class="tiny muted" style="margin:10px 0 0">Say it out loud, then you'll see it.</p>`
+          : `<p class="drill-text">${esc(phrase.text)}</p>
+             ${
+               state.showTranslation
+                 ? `<p class="drill-translation">${esc(phrase.translation)}</p>`
+                 : `<button class="link" id="reveal" style="padding-left:0">Show meaning</button>`
+             }
+             ${
+               state.showTranslation && phrase.situation
+                 ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>`
+                 : ""
+             }
+             ${
+               state.showTranslation && phrase.usageNote
+                 ? `<div class="phrase-context"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>`
+                 : ""
+             }
+             ${
+               phrase.focusNote
+                 ? `<div class="focus-note"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>`
+                 : ""
+             }
+             ${
+               state.peeked
+                 ? `<p class="tiny muted" style="margin:10px 0 0">Shown, not remembered — it'll come round again.</p>`
+                 : ""
+             }`
       }
     </div>
 
-    <div class="btn-row">
-      <button class="btn btn-primary" id="listen">Listen</button>
-      <button class="btn" id="slow">Slow</button>
-    </div>
     ${
-      state.loadingModel
+      asking
+        ? `<button class="btn" id="show-me" style="width:100%">Show me</button>`
+        : `<div class="btn-row">
+             <button class="btn btn-primary" id="listen">Listen</button>
+             <button class="btn" id="slow">Slow</button>
+           </div>`
+    }
+    ${
+      asking
+        ? ""
+        : state.loadingModel
         ? `<p class="small muted" style="margin-top:10px"><span class="spinner"></span> Generating audio…</p>`
         : !hasModel && settings.hasAzure && speech.lastError
         ? `<div class="notice bad" style="margin-top:10px">${esc(speech.lastError)}</div>`
@@ -365,7 +405,9 @@ function renderDrill() {
         <span class="record-ring" id="ring"></span>
         <svg viewBox="0 0 24 24" id="record-icon"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 18v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       </button>
-      <p class="small muted" id="record-label">Tap, say it, tap again</p>
+      <p class="small muted" id="record-label">${
+        asking ? `Tap, say it in ${esc(language)}, tap again` : "Tap, say it, tap again"
+      }</p>
     </div>
 
     <div id="comparison">${attempt ? renderComparison() : ""}</div>
@@ -384,9 +426,15 @@ function renderDrill() {
     state.showTranslation = true;
     render();
   });
-  document.getElementById("listen").onclick = () => playModel(1);
-  document.getElementById("slow").onclick = () => playModel(settings.slowRate);
+  document.getElementById("listen")?.addEventListener("click", () => playModel(1));
+  document.getElementById("slow")?.addEventListener("click", () => playModel(settings.slowRate));
   document.getElementById("record").onclick = toggleRecording;
+  document.getElementById("show-me")?.addEventListener("click", () => {
+    state.revealed = true;
+    state.peeked = true;
+    render();
+    playModel(1);
+  });
   document.getElementById("next").onclick = () => {
     if (state.index >= state.queue.length - 1) return;
     stopEverything();
@@ -455,11 +503,20 @@ async function handleRecording({ blob, duration }) {
   const phrase = currentPhrase();
   if (!phrase) return;
 
+  // The question is over the moment it has been answered — the phrase, its
+  // notes and Listen all come back now, to check yourself against the model.
+  const wasAsked = state.recall;
+  const peeked = state.peeked;
+  state.revealed = true;
+
   const attempt = {
     id: uid(),
     phraseID: phrase.id,
     recordedAt: new Date().toISOString(),
     duration,
+    // How it was drilled. Older attempts carry no mode; they were all read off
+    // the screen, which is what "listen" means.
+    mode: !wasAsked ? "listen" : peeked ? "recall-shown" : "recall",
     overall: null,
     accuracy: null,
     fluency: null,
@@ -483,7 +540,10 @@ async function handleRecording({ blob, duration }) {
   state.scoringNow = settings.hasAzure;
   render();
 
-  if (!settings.hasAzure) return;
+  if (!settings.hasAzure) {
+    announceLevelUp(phrase);
+    return;
+  }
 
   const result = await scoring.score(blob, phrase, settings);
   state.scoringNow = false;
@@ -494,6 +554,15 @@ async function handleRecording({ blob, duration }) {
     state.attempt = attempt;
   }
   render();
+  announceLevelUp(phrase);
+}
+
+/* Say so the once, on the go that tips a phrase over. Silent if it was already
+   a memory question, or if recall is switched off in Settings. */
+function announceLevelUp(phrase) {
+  if (state.recall || !settings.recallMode) return;
+  if (library.goodAttempts(phrase.id) !== RECALL_AFTER) return;
+  toast("Level 2 — next time you'll say this one from memory.", 3600);
 }
 
 function renderComparison() {
@@ -919,6 +988,16 @@ function showPhrase(phrase) {
     `<div class="sheet-lede">
        <p class="muted">${esc(phrase.translation)}</p>
        ${starButton(phrase)}
+     </div>
+     <div class="level-line">
+       <span class="level-badge">Level ${library.recallReady(phrase.id) ? "2" : "1"}</span>
+       <span class="tiny muted">${
+         library.recallReady(phrase.id)
+           ? "Drilled from memory — you get the English and produce the phrase."
+           : `${library.toRecall(phrase.id)} more good ${
+               library.toRecall(phrase.id) === 1 ? "go" : "goes"
+             } and this one turns into a memory question.`
+       }</span>
      </div>
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
@@ -1419,6 +1498,13 @@ function renderSettings() {
         <span>Show meaning up front</span>
         <input type="checkbox" id="s-translation" ${settings.showTranslationUpFront ? "checked" : ""}>
       </div>
+      <div class="switch-row">
+        <span>Level 2 — drill from memory</span>
+        <input type="checkbox" id="s-recall" ${settings.recallMode ? "checked" : ""}>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">Once a phrase has been said well ${RECALL_AFTER} times the drill stops
+        showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
+        "Show me" for when it has gone completely.</p>
     </div>
 
     <div class="section-label">Audio</div>
@@ -1516,6 +1602,11 @@ function renderSettings() {
 
   document.getElementById("s-translation").onchange = (event) => {
     settings.showTranslationUpFront = event.target.checked;
+    settings.save();
+  };
+
+  document.getElementById("s-recall").onchange = (event) => {
+    settings.recallMode = event.target.checked;
     settings.save();
   };
 

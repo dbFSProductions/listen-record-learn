@@ -151,6 +151,14 @@ deploying, enter the Worker address and the separate shared app passcode under
   can tap for phoneme detail
 - **History** — every past attempt at that phrase, with a trend line
 
+Say a phrase well twice and it moves up to **level 2**: the drill stops showing
+it to you and asks in English instead, so you have to produce the Catalan from
+memory before the phrase (and the model audio) come back. Recalling something
+is what fixes it; re-reading it off the screen does much less. **Show me**
+reveals it for when it has gone entirely — that attempt is marked as shown
+rather than remembered. Settings → *Level 2 — drill from memory* turns the
+whole thing off.
+
 **Study** — search the complete card library, grouped into decks. Tap any card
 to correct or expand its translation, situation, usage note, pronunciation tip,
 or deck.
@@ -161,7 +169,7 @@ other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
 
 **Settings** — language, Azure credentials and voice, slow-playback speed,
-audio prefetch and cache.
+level-2 recall, audio prefetch and cache.
 
 ### Starter decks
 

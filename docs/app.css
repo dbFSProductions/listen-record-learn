@@ -470,6 +470,41 @@ button { font: inherit; }
   background: var(--sec);
 }
 
+/* ------------------------------------------------------- level two (recall) */
+
+/* A phrase that has been said well twice stops showing itself: the drill asks
+   in English and you have to produce it. The badge is there so the empty space
+   reads as a question, not as a card that failed to load. */
+
+.instruction { font-weight: 800; font-size: 1.05rem; margin: 0 0 12px; }
+
+.level-badge {
+  display: inline-block;
+  background: var(--purple);
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+/* The English prompt sits where the phrase normally does, so the eye lands in
+   the same place — but in the body face and colour, because it is the question
+   rather than the thing being learned. */
+.recall-prompt {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1.35rem;
+  color: var(--text-2);
+}
+
+.level-line { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
+.level-line .level-badge { margin-bottom: 0; }
+.level-line .tiny { flex: 1 1 180px; }
+
 /* record button */
 .record-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 22px 0 6px; }
 .record {
