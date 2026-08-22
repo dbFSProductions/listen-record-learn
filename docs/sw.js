@@ -4,7 +4,7 @@
 // front, so the initial load stays light. Azure and card-assistant calls are
 // never cached — they're API requests and must always go to the network.
 
-const VERSION = "xerra-v13";
+const VERSION = "xerra-v14";
 const SHELL = [
   "./",
   "./index.html",
@@ -16,6 +16,7 @@ const SHELL = [
   "./js/card-assistant.js",
   "./js/speech.js",
   "./js/content.js",
+  "./vendor/fonts/nunito-latin.woff2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

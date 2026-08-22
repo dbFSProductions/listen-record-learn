@@ -501,11 +501,11 @@ function renderComparison() {
   const timing = timingSummary();
 
   return `
-    <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+    <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
 
     <div class="btn-row">
-      <button class="btn" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
-      <button class="btn" id="play-you">You</button>
+      <button class="btn btn-primary" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
+      <button class="btn btn-you" id="play-you">You</button>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -517,7 +517,7 @@ function renderComparison() {
     </div>
 
     <details class="card" id="pitch-details">
-      <summary style="cursor:pointer;font-weight:550">Intonation</summary>
+      <summary style="cursor:pointer;font-weight:800">Intonation</summary>
       <canvas id="pitch" height="130" style="margin-top:12px"></canvas>
       <p class="tiny muted" style="margin:8px 0 0">
         Both lines are in semitones relative to each speaker's own median, so the

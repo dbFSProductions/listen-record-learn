@@ -63,6 +63,28 @@ No package.json, no bundler, no test runner. Vanilla ES modules loaded directly
 by the browser. Keep it that way unless there's a real reason not to — the lack
 of a build step is why this deploys to a phone at all.
 
+### The palette is Deb-o-lingo's
+
+`docs/app.css` wears the sister fork's colours: bright primaries, chunky
+buttons with a solid darker slab underneath, four coloured tab pills, Nunito
+(vendored in `docs/vendor/fonts/`). The senyera red and gold are gone from the
+chrome. The two apps' palettes are meant to stay in step — change a colour here
+and change it there.
+
+Two things to know before "fixing" it:
+
+- **White on these fills does not clear 4.5:1**, and that is the accepted
+  trade-off of the look, not an oversight. The `-ink` variants are the darkened
+  versions, and they are what text on the page background uses.
+- Each strong colour has a `-dark` twin (`--green-dark`, `--blue-dark`, …).
+  That twin is the *underside* of a pressable control, not a shade for text.
+  Buttons, tabs and the record circle all lose the slab and translate down on
+  `:active`; keep the pair in sync or the press stops looking like a press.
+
+Structure stayed Xerra's — the `.sec-*` section accents, the `page-head`
+banners and the deck meters are all still here, just repainted. Add gets its
+own orange now instead of borrowing Settings' colour.
+
 **The Worker serves both apps.** The sister fork Deb-o-lingo has no `worker/`
 of its own — it ships a verbatim copy of `docs/js/card-assistant.js` pointed at
 this same deployment, which works because the Worker takes the target language
