@@ -1,6 +1,9 @@
 // Xerra — app shell, routing and views.
 
-import { library, settings, audioStore, LANGUAGES, MY_PHRASES, uid, RECALL_AFTER } from "./store.js";
+import {
+  library, settings, audioStore, LANGUAGES, MY_PHRASES, uid, RECALL_AFTER,
+  deckLeaf, familyOpen, setFamilyOpen,
+} from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
@@ -84,6 +87,11 @@ window.addEventListener("resize", () => autosizeAll());
    into a drillable pseudo-deck on the Practice page. FAVOURITES_DECK is the
    deck sentinel for that, the same trick "*" already plays for shuffle-all. */
 const FAVOURITES_DECK = "★";
+
+/* Deck keys for a whole family are prefixed, because a family and one of its
+   decks can share a name — "Castells" is both the family and the general deck
+   inside it. */
+const FAMILY_PREFIX = "family:";
 const STAR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`;
 
 function starButton(phrase, className = "star") {
@@ -208,12 +216,12 @@ function renderDecks() {
     return;
   }
 
-  const deckRow = (title, phrases, key) => {
+  const deckRow = (title, phrases, key, nested = false) => {
     const scores = phrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
     const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
     const done = phrases.length ? Math.round((scores.length / phrases.length) * 100) : 0;
     return `
-      <button class="row" data-deck="${esc(key)}">
+      <button class="row${nested ? " nested" : ""}" data-deck="${esc(key)}">
         <span class="row-main">
           <span class="row-title">${esc(title)}</span>
           <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
@@ -226,11 +234,53 @@ function renderDecks() {
       </button>`;
   };
 
+  /* A family of several decks folds behind one row, so the five castells decks
+     don't push the everyday ones off the screen. The header drills the whole
+     family; the chevron opens it. */
+  const familyRow = (family) => {
+    const phrases = library.inFamily(family.name, settings.language);
+    const open = familyOpen(family.name, family.decks.length);
+    return `
+      <div class="row family-row">
+        <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
+          <span class="row-main">
+            <span class="row-title">${esc(family.name)}</span>
+            <span class="row-sub">${family.decks.length} decks · ${phrases.length} phrases</span>
+          </span>
+        </button>
+        <button class="fold" data-fold="${esc(family.name)}" aria-expanded="${open}"
+                aria-label="${open ? "Fold away" : "Show"} the ${esc(family.name)} decks">
+          <span class="tri">${open ? "▼" : "▶"}</span>
+        </button>
+      </div>`;
+  };
+
   // Starred phrases drill as a deck of their own, sitting above the real ones.
   const favourites = library.favourites(settings.language).filter((p) => p.text.trim());
+  const families = library.deckFamilies(settings.language);
   const rows = [
     ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
-    ...decks.map((deck) => deckRow(deck, library.inDeck(deck, settings.language), deck)),
+    ...families.flatMap((family) => {
+      if (family.decks.length === 1) {
+        const deck = family.decks[0];
+        return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
+      }
+      const open = familyOpen(family.name, family.decks.length);
+      return [
+        familyRow(family),
+        ...(open
+          ? family.decks.map((deck) =>
+              deckRow(
+                // The deck named exactly like its family is the general one.
+                deck === family.name ? "General" : deckLeaf(deck),
+                library.inDeck(deck, settings.language),
+                deck,
+                true
+              )
+            )
+          : []),
+      ];
+    }),
   ].join("");
 
   const drillable = library.drillable(settings.language).length;
@@ -255,6 +305,15 @@ function renderDecks() {
       <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
       the waveform comparison and scoring need one. Add it in Settings.</div>`}`;
 
+  view.querySelectorAll("[data-fold]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const name = button.dataset.fold;
+      const family = families.find((f) => f.name === name);
+      setFamilyOpen(name, !familyOpen(name, family.decks.length));
+      render();
+    })
+  );
+
   view.querySelectorAll("[data-deck]").forEach((button) =>
     button.addEventListener("click", () => {
       const deck = button.dataset.deck;
@@ -264,6 +323,11 @@ function renderDecks() {
           ? shuffle([...library.drillable(settings.language)])
           : deck === FAVOURITES_DECK
           ? favourites
+          : deck.startsWith(FAMILY_PREFIX)
+          ? // A family header drills everything under it, shuffled — the
+            // castells decks are one rehearsal, not five separate ones. The
+            // prefix matters: "Castells" is both a family and a deck in it.
+            shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language))
           : library.inDeck(deck, settings.language);
       state.index = 0;
       loadPhrase();
@@ -925,11 +989,48 @@ function renderStudy() {
         <div class="rows rows-spaced">${pendingCaptures.map(rowFor).join("")}</div>`);
     }
 
-    for (const deck of decks) {
-      const inDeck = library.inDeck(deck, settings.language).filter(match);
-      if (!inDeck.length) continue;
-      sections.push(`<div class="section-label">${esc(deck)}</div>
-        <div class="rows rows-spaced">${inDeck.map(rowFor).join("")}</div>`);
+    /* Decks in families, same as the Practice list: a folded family is one
+       line instead of five deck sections. A search opens everything — a phrase
+       you searched for must never be hiding inside a fold. */
+    for (const family of library.deckFamilies(settings.language)) {
+      const solo = family.decks.length === 1;
+      const open = solo || query || familyOpen(family.name, family.decks.length);
+
+      if (!solo && !open) {
+        const hidden = library.inFamily(family.name, settings.language).filter(match);
+        if (!hidden.length) continue;
+        sections.push(`
+          <div class="rows folded-family">
+            <button class="row" data-fold="${esc(family.name)}">
+              <span class="row-main">
+                <span class="row-title">${esc(family.name)}</span>
+                <span class="row-sub">${family.decks.length} decks · ${hidden.length} phrases · tap to show</span>
+              </span>
+              <span class="chev">›</span>
+            </button>
+          </div>`);
+        continue;
+      }
+
+      const decksWithHits = family.decks
+        .map((deck) => [deck, library.inDeck(deck, settings.language).filter(match)])
+        .filter(([, hits]) => hits.length);
+      if (!decksWithHits.length) continue;
+
+      // An open family says so, and offers the way back — otherwise the only
+      // place to fold it up again would be the Practice tab.
+      if (!solo) {
+        sections.push(`<div class="section-label family-label">
+          <span>${esc(family.name)}</span>
+          ${query ? "" : `<button class="link" data-unfold="${esc(family.name)}">Fold away</button>`}
+        </div>`);
+      }
+      for (const [deck, hits] of decksWithHits) {
+        sections.push(`<div class="section-label${solo ? "" : " nested"}">${esc(
+          solo ? deck : deck === family.name ? "General" : deckLeaf(deck)
+        )}</div>
+          <div class="rows rows-spaced">${hits.map(rowFor).join("")}</div>`);
+      }
     }
 
     list.innerHTML =
@@ -954,6 +1055,18 @@ function renderStudy() {
     list.querySelectorAll("[data-fav]").forEach((button) =>
       button.addEventListener("click", () => {
         library.toggleFavourite(button.dataset.fav);
+        paint(query);
+      })
+    );
+    list.querySelectorAll("[data-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        setFamilyOpen(button.dataset.fold, true);
+        paint(query);
+      })
+    );
+    list.querySelectorAll("[data-unfold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        setFamilyOpen(button.dataset.unfold, false);
         paint(query);
       })
     );

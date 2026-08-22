@@ -35,6 +35,29 @@ const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!
 // to look at.
 export const MY_PHRASES = "My phrases";
 
+/* Decks whose names share a prefix before " · " are one family: Castells,
+   Castells · Pinya, Castells · Ordres and the rest read as a single thing in
+   the lists, and a big family can be folded away. This is a naming convention
+   rather than a field on every phrase, so a deck typed into the Add tab joins
+   a family just by being called "Castells · Whatever". A deck with no " · " is
+   a family of one and never grows a header. */
+const SUBDECK = " · ";
+
+export function deckFamily(deck) {
+  const at = deck.indexOf(SUBDECK);
+  return at === -1 ? deck : deck.slice(0, at);
+}
+
+/** The part after the prefix — what a row says once its family is open. */
+export function deckLeaf(deck) {
+  const at = deck.indexOf(SUBDECK);
+  return at === -1 ? deck : deck.slice(at + SUBDECK.length);
+}
+
+// A family of this many decks or more starts folded. The castells decks alone
+// are five decks and eighty phrases; left open they bury everything else.
+const FOLD_FROM = 3;
+
 // ---------------------------------------------------------------- IndexedDB
 
 let dbPromise = null;
@@ -229,6 +252,23 @@ export const library = {
     return this.drillable(language).filter((p) => p.deck === deck);
   },
 
+  /* The deck list, gathered into families in the same order. `decks()` sorts
+     alphabetically, so a family's members already sit next to each other. */
+  deckFamilies(language) {
+    const families = [];
+    for (const deck of this.decks(language)) {
+      const name = deckFamily(deck);
+      let family = families.find((f) => f.name === name);
+      if (!family) families.push((family = { name, decks: [] }));
+      family.decks.push(deck);
+    }
+    return families;
+  },
+
+  inFamily(family, language) {
+    return this.drillable(language).filter((p) => deckFamily(p.deck) === family);
+  },
+
   // Favourites are a flag on the phrase, not a deck — a phrase keeps the deck
   // it belongs to and can be starred as well. The flag lives in the phrase
   // record, so it exports, imports and survives a reinstall with everything
@@ -355,6 +395,10 @@ const DEFAULT_SETTINGS = {
   slowRate: 0.65,
   showTranslationUpFront: true,
   recallMode: true,
+  // Deck families you have folded open or shut, by name. Anything absent
+  // falls back to the FOLD_FROM rule, so a family you have never touched can
+  // change its mind as decks are added to it.
+  openFamilies: {},
 };
 
 export const settings = {
@@ -377,6 +421,16 @@ export const settings = {
     return Boolean(this.assistantEndpoint?.trim() && this.assistantPasscode?.trim());
   },
 };
+
+/** Is this deck family showing its decks? A big one starts folded. */
+export function familyOpen(name, deckCount) {
+  return settings.openFamilies?.[name] ?? deckCount < FOLD_FROM;
+}
+
+export function setFamilyOpen(name, open) {
+  settings.openFamilies = { ...settings.openFamilies, [name]: open };
+  settings.save();
+}
 
 export const LANGUAGES = {
   "ca-ES": {
