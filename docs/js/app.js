@@ -107,6 +107,85 @@ function starButton(phrase, className = "star") {
 const GOOD = 90;
 const OK = 75;
 
+/* "You might hear back" — two or three things a person actually says in reply,
+   each with a Listen button. Saying your line well is half of it; the half that
+   strands you is the answer, so these are for the ear, not just the page.
+
+   Rendered in three places (the Add tab's review, the phrase sheet, and under
+   the drill) from one function, so they read the same everywhere. */
+function repliesBlock(replies, title = "You might hear back") {
+  if (!replies?.length) return "";
+  return `
+    <div class="section-label">${esc(title)}</div>
+    <ul class="replies">
+      ${replies
+        .map(
+          (reply, i) => `
+        <li class="reply">
+          <button class="reply-play" data-say="${i}" aria-label="Listen to this reply">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <span class="reply-main">
+            <span class="reply-text">${esc(reply.text)}</span>
+            <span class="reply-translation">${esc(reply.translation)}</span>
+          </span>
+        </li>`
+        )
+        .join("")}
+    </ul>`;
+}
+
+/* The replies go through the same Azure voice and the same audio cache as the
+   phrase itself — modelAudio keys on the text, so a reply you've heard once is
+   there offline afterwards. No key, and the browser voice reads it instead. */
+function wireReplies(root, replies, language) {
+  root?.querySelectorAll("[data-say]").forEach((button) =>
+    button.addEventListener("click", async () => {
+      const reply = replies[Number(button.dataset.say)];
+      if (!reply) return;
+      player.stop();
+      browserSpeech.stop();
+      if (button.dataset.busy === "1") return;
+      button.dataset.busy = "1";
+      button.classList.add("busy");
+      try {
+        const blob = await speech.modelAudio({ text: reply.text, language }, settings);
+        if (blob) await player.play(blob);
+        else if (browserSpeech.available(language)) browserSpeech.speak(reply.text, language);
+        else toast("No voice available for this language on this device.");
+      } catch {
+        toast("Couldn't play that reply.");
+      } finally {
+        button.dataset.busy = "0";
+        button.classList.remove("busy");
+      }
+    })
+  );
+}
+
+/* Replies for a card that hasn't got any — the seed decks, and anything added
+   before this existed. It's the same /complete-card call the Add tab makes,
+   with the finished card as the input; everything it returns but the replies is
+   thrown away, so the card itself is never rewritten behind your back. */
+async function fetchReplies(phrase) {
+  const language = LANGUAGES[phrase.language];
+  const result = await cardAssistant.complete(
+    {
+      target: phrase.text,
+      english: phrase.translation,
+      situation: phrase.situation ?? "",
+      deck: phrase.deck,
+      languageCode: phrase.language,
+      languageName: language?.englishName ?? phrase.language,
+    },
+    settings
+  );
+  const replies = Array.isArray(result.replies) ? result.replies : [];
+  const current = library.phrases.find((p) => p.id === phrase.id);
+  if (current) library.update({ ...current, replies });
+  return replies;
+}
+
 function scoreClass(score) {
   if (score == null) return "";
   return score >= GOOD ? "good" : score >= OK ? "ok" : "bad";
@@ -608,6 +687,7 @@ function renderDrill() {
     <div id="comparison">${attempt ? renderComparison() : ""}</div>
 
     ${drillContext(phrase, asking)}
+    ${drillReplies(phrase, asking)}
 
     <div class="btn-row" style="margin-top:18px">
       <button class="btn" id="history">History</button>
@@ -676,6 +756,8 @@ function renderDrill() {
     });
   };
 
+  wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
+
   if (attempt) wireComparison();
   drawCanvases();
 }
@@ -688,6 +770,15 @@ function renderDrill() {
    Still gated on showTranslation, since a situation can hand you the meaning
    you asked to have hidden, and the usage note stays out entirely while a
    level-two question is standing — the situation alone is the clue. */
+/* Below the drill with the rest of the reference material, and behind the same
+   two gates — except that replies are held back harder. A situation is a clue;
+   "we're full, about twenty minutes" is the answer to the question you're being
+   asked to produce, so it stays out while a level-two question is standing. */
+function drillReplies(phrase, asking) {
+  if (!state.showTranslation || asking || !phrase.replies?.length) return "";
+  return `<div class="card drill-replies">${repliesBlock(phrase.replies)}</div>`;
+}
+
 function drillContext(phrase, asking) {
   if (!state.showTranslation) return "";
   const blocks = [
@@ -1185,6 +1276,15 @@ function showPhrase(phrase) {
        <button class="btn btn-primary" id="p-practise">Practise now</button>
        <button class="btn" id="p-edit">Edit</button>
      </div>
+     <section id="p-replies" style="margin-bottom:14px">${repliesBlock(phrase.replies)}</section>
+     ${
+       // The seed decks predate replies, so a card without them offers to go
+       // and get some rather than just not having the section.
+       !phrase.replies?.length && settings.hasAssistant && phrase.text.trim()
+         ? `<button class="btn" id="p-get-replies" style="width:100%;margin-bottom:14px">What might they say back?</button>
+            <div id="p-replies-error" class="notice bad" hidden></div>`
+         : ""
+     }
      <section id="p-chat" hidden style="margin-bottom:14px"></section>
      ${
        attempts.length
@@ -1247,6 +1347,36 @@ function showPhrase(phrase) {
     editPhrase(phrase);
   };
 
+  wireReplies(document.getElementById("p-replies"), phrase.replies ?? [], phrase.language);
+
+  document.getElementById("p-get-replies")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const errorBox = document.getElementById("p-replies-error");
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Asking…`;
+    errorBox.hidden = true;
+    try {
+      const replies = await fetchReplies(phrase);
+      if (!document.getElementById("p-get-replies")) return; // sheet closed
+      if (!replies.length) {
+        errorBox.className = "notice";
+        errorBox.textContent = "Nothing much gets said back to this one.";
+        errorBox.hidden = false;
+        button.remove();
+        return;
+      }
+      // Reopen on the updated record, so the section and the drill agree.
+      showPhrase(library.phrases.find((p) => p.id === phrase.id) ?? phrase);
+      render();
+    } catch (error) {
+      errorBox.className = "notice bad";
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = "What might they say back?";
+    }
+  });
+
   sheetBody.querySelector("[data-fav]").addEventListener("click", (event) => {
     const on = library.toggleFavourite(phrase.id);
     const button = event.currentTarget;
@@ -1298,6 +1428,10 @@ function normaliseSentence(value) {
 function renderAdd() {
   const language = LANGUAGES[settings.language];
   const decks = [...new Set([MY_PHRASES, ...library.decks(settings.language)])];
+  /* Not a form field, so it lives here rather than in the DOM: whatever the
+     last completion returned, saved with the card and replaced by the next
+     "Try again". */
+  let replies = [];
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
@@ -1340,6 +1474,7 @@ function renderAdd() {
           <textarea id="result-usage" rows="3"></textarea></label>
         <label class="field"><span>Pronunciation tip</span>
           <textarea id="result-focus" rows="3"></textarea></label>
+        <section id="result-replies"></section>
         <div class="btn-row">
           <button class="btn" id="try-again">Try again</button>
           <button class="btn btn-primary" id="save-card">Save to deck</button>
@@ -1394,6 +1529,10 @@ function renderAdd() {
       document.getElementById("add-situation").value = result.situation;
       document.getElementById("result-usage").value = result.usageNote;
       document.getElementById("result-focus").value = result.focusNote;
+      replies = Array.isArray(result.replies) ? result.replies : [];
+      const repliesBox = document.getElementById("result-replies");
+      repliesBox.innerHTML = repliesBlock(replies);
+      wireReplies(repliesBox, replies, settings.language);
 
       const review = document.getElementById("review-note");
       review.textContent = result.reviewNote;
@@ -1447,6 +1586,7 @@ function renderAdd() {
       situation: document.getElementById("add-situation").value.trim() || null,
       usageNote: document.getElementById("result-usage").value.trim() || null,
       focusNote: document.getElementById("result-focus").value.trim() || null,
+      replies,
     });
     renderAdd();
     toast(`Added to ${deck}.`);
@@ -1588,7 +1728,8 @@ function editPhrase(phrase, onSaved = null) {
      ${phrase ? `<button class="btn btn-danger" id="f-delete" style="width:100%;margin-top:10px">Delete phrase</button>` : ""}`
   );
 
-  wireEditorAI(phrase, language);
+  // Holds the replies a rebuild produced, so Save can carry them across.
+  const rebuild = wireEditorAI(phrase, language);
 
   document.getElementById("f-save").onclick = () => {
     const text = document.getElementById("f-text").value.trim();
@@ -1604,6 +1745,8 @@ function editPhrase(phrase, onSaved = null) {
       situation: document.getElementById("f-situation").value.trim() || null,
       usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,
+      // A rebuild replaces them; an ordinary edit leaves whatever was there.
+      replies: rebuild.replies ?? phrase?.replies ?? [],
     };
     if (phrase) library.update({ ...phrase, ...data });
     else library.add(data);
@@ -1630,8 +1773,11 @@ function editPhrase(phrase, onSaved = null) {
    untouched side is dropped, exactly as if it had been left blank on the Add
    tab. Change both, or neither, and both go. */
 function wireEditorAI(phrase, language) {
+  /* Mutated in place and read by editPhrase's Save: null means no rebuild
+     happened (or it was undone), so the card keeps the replies it had. */
+  const rebuild = { replies: null };
   const button = document.getElementById("f-ai");
-  if (!button) return;
+  if (!button) return rebuild;
 
   const field = (id) => document.getElementById(id);
   const before = {
@@ -1648,6 +1794,7 @@ function wireEditorAI(phrase, language) {
       ["f-text", before.text], ["f-translation", before.translation],
       ["f-situation", before.situation], ["f-usage", before.usage], ["f-note", before.note],
     ]) field(id).value = value;
+    rebuild.replies = null;
     noteBox.hidden = true;
     autosizeAll(sheetBody);
   };
@@ -1688,6 +1835,8 @@ function wireEditorAI(phrase, language) {
       field("f-situation").value = result.situation;
       field("f-usage").value = result.usageNote;
       field("f-note").value = result.focusNote;
+      // Rebuilt phrase, rebuilt replies — the old ones answered the old card.
+      rebuild.replies = Array.isArray(result.replies) ? result.replies : [];
       autosizeAll(sheetBody);
 
       noteBox.className = "notice";
@@ -1706,6 +1855,8 @@ function wireEditorAI(phrase, language) {
       }
     }
   });
+
+  return rebuild;
 }
 
 // ---------------------------------------------------------------- settings

@@ -183,6 +183,16 @@ written again. Nothing is saved until you tap Save, and there's an Undo. The
 drill has an **Edit** button of its own, for the phrase you have just heard and
 realised you'd never actually say.
 
+**You might hear back** — a card also carries two or three things a person
+actually says in reply, each with its English and a play button: the plain yes,
+the answer you were not hoping for, and the one that asks you something back.
+Ask for a table for three and you get *sí, és clar, per aquí*, *ara mateix no
+en tenim* and *tenen reserva?* — because saying your line perfectly and then
+freezing at the answer is the part that actually goes wrong. They show on the
+card you just made, on the phrase sheet, and under the drill. The starter decks
+came before the feature, so their phrase sheets have a **What might they say
+back?** button.
+
 **Add** — describe the situation, type whatever you remember in Catalan or
 English, and select a deck. (The fields carry the right `lang`, so the iPhone
 keyboard's own dictation key writes into them in the right language.) Gemini corrects the phrase, fills the
