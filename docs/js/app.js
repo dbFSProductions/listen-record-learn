@@ -164,22 +164,22 @@ function wireReplies(root, replies, language) {
 }
 
 /* Replies for a card that hasn't got any — the seed decks, and anything added
-   before this existed. It's the same /complete-card call the Add tab makes,
-   with the finished card as the input; everything it returns but the replies is
-   thrown away, so the card itself is never rewritten behind your back. */
+   before this existed. Its own endpoint, so asking for them can never slow down
+   or fail a card generation, and so the card itself is never rewritten behind
+   your back. */
+function repliesRequest(phrase) {
+  return {
+    text: phrase.text,
+    translation: phrase.translation,
+    situation: phrase.situation ?? "",
+    deck: phrase.deck,
+    languageCode: phrase.language,
+    languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
+  };
+}
+
 async function fetchReplies(phrase) {
-  const language = LANGUAGES[phrase.language];
-  const result = await cardAssistant.complete(
-    {
-      target: phrase.text,
-      english: phrase.translation,
-      situation: phrase.situation ?? "",
-      deck: phrase.deck,
-      languageCode: phrase.language,
-      languageName: language?.englishName ?? phrase.language,
-    },
-    settings
-  );
+  const result = await cardAssistant.replies(repliesRequest(phrase), settings);
   const replies = Array.isArray(result.replies) ? result.replies : [];
   const current = library.phrases.find((p) => p.id === phrase.id);
   if (current) library.update({ ...current, replies });
@@ -1430,8 +1430,10 @@ function renderAdd() {
   const decks = [...new Set([MY_PHRASES, ...library.decks(settings.language)])];
   /* Not a form field, so it lives here rather than in the DOM: whatever the
      last completion returned, saved with the card and replaced by the next
-     "Try again". */
+     "Try again". The token guards against a slow reply landing after you've
+     asked for a different card. */
   let replies = [];
+  let repliesToken = 0;
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
@@ -1529,10 +1531,7 @@ function renderAdd() {
       document.getElementById("add-situation").value = result.situation;
       document.getElementById("result-usage").value = result.usageNote;
       document.getElementById("result-focus").value = result.focusNote;
-      replies = Array.isArray(result.replies) ? result.replies : [];
-      const repliesBox = document.getElementById("result-replies");
-      repliesBox.innerHTML = repliesBlock(replies);
-      wireReplies(repliesBox, replies, settings.language);
+      askForReplies();
 
       const review = document.getElementById("review-note");
       review.textContent = result.reviewNote;
@@ -1590,6 +1589,46 @@ function renderAdd() {
     });
     renderAdd();
     toast(`Added to ${deck}.`);
+  }
+
+  /* Fired after the card is on screen, never awaited. Card generation used to
+     carry the replies, which roughly doubled its output and pushed it past the
+     Worker's per-attempt timeout — the Add tab spun for a minute and then said
+     Gemini was busy. Now the card lands at its old speed and these arrive when
+     they arrive; Save never waits for them, and a failure here costs nothing
+     but the section. */
+  function askForReplies() {
+    const box = document.getElementById("result-replies");
+    const token = ++repliesToken;
+    replies = [];
+    box.innerHTML = `<p class="tiny muted"><span class="spinner"></span> Asking what you'd hear back…</p>`;
+
+    cardAssistant
+      .replies(
+        {
+          text: document.getElementById("add-target").value.trim(),
+          translation: document.getElementById("add-english").value.trim(),
+          situation: document.getElementById("add-situation").value.trim(),
+          deck: document.getElementById("add-deck").value,
+          languageCode: settings.language,
+          languageName: language.englishName,
+        },
+        settings
+      )
+      .then((result) => {
+        if (token !== repliesToken || !document.getElementById("result-replies")) return;
+        replies = Array.isArray(result.replies) ? result.replies : [];
+        const current = document.getElementById("result-replies");
+        current.innerHTML = replies.length
+          ? repliesBlock(replies)
+          : `<p class="tiny muted">Nothing much gets said back to this one.</p>`;
+        wireReplies(current, replies, settings.language);
+      })
+      .catch(() => {
+        if (token !== repliesToken || !document.getElementById("result-replies")) return;
+        document.getElementById("result-replies").innerHTML =
+          `<p class="tiny muted">Couldn't fetch what you'd hear back — the card is fine to save, and the phrase can ask again later.</p>`;
+      });
   }
 
   function setAddBusy(busy) {
