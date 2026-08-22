@@ -397,7 +397,10 @@ function renderDrill() {
   view.innerHTML = `
     <div class="topbar">
       <button class="link" id="back">‹ Decks</button>
-      <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
+      <span class="topbar-end">
+        <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
+        <button class="link" id="drill-edit">Edit</button>
+      </span>
     </div>
 
     ${
@@ -506,6 +509,19 @@ function renderDrill() {
     loadPhrase();
   };
   document.getElementById("history").onclick = () => showHistory(phrase);
+
+  /* Editing from inside the drill, for the phrase you have just heard and
+     realised you would never say. The queue holds the object library.update
+     replaced, and the model audio is cached by text, so the fixed phrase has
+     to go back into the queue and be reloaded rather than just re-rendered. */
+  document.getElementById("drill-edit").onclick = () => {
+    stopEverything();
+    editPhrase(phrase, (updated) => {
+      if (!updated) return;
+      state.queue = state.queue.map((p) => (p.id === updated.id ? updated : p));
+      loadPhrase();
+    });
+  };
 
   if (attempt) wireComparison();
   drawCanvases();
@@ -1532,7 +1548,7 @@ function startDictation(fieldID, locale, button) {
   recognition.start();
 }
 
-function editPhrase(phrase) {
+function editPhrase(phrase, onSaved = null) {
   const decks = library.decks(settings.language);
   const language = LANGUAGES[settings.language];
   openSheet(
@@ -1550,12 +1566,22 @@ function editPhrase(phrase) {
        <textarea id="f-usage">${esc(phrase?.usageNote ?? "")}</textarea></label>
      <label class="field"><span>Pronunciation note (optional)</span>
        <textarea id="f-note">${esc(phrase?.focusNote ?? "")}</textarea></label>
+     ${
+       settings.hasAssistant
+         ? `<button class="btn" id="f-ai" style="width:100%;margin-bottom:10px">Rebuild the rest with AI</button>
+            <div id="f-ai-note" class="notice" hidden></div>
+            <p class="tiny muted" style="margin:0 0 12px">Change the phrase and this rewrites the meaning, the
+              situation and the notes to match. Nothing is saved until you tap Save.</p>`
+         : ""
+     }
      <div class="btn-row">
        <button class="btn" data-close-sheet>Cancel</button>
        <button class="btn btn-primary" id="f-save">Save</button>
      </div>
      ${phrase ? `<button class="btn btn-danger" id="f-delete" style="width:100%;margin-top:10px">Delete phrase</button>` : ""}`
   );
+
+  wireEditorAI(phrase, language);
 
   document.getElementById("f-save").onclick = () => {
     const text = document.getElementById("f-text").value.trim();
@@ -1575,6 +1601,7 @@ function editPhrase(phrase) {
     if (phrase) library.update({ ...phrase, ...data });
     else library.add(data);
     closeSheet();
+    if (onSaved) onSaved(library.phrases.find((p) => p.id === phrase?.id) ?? null);
     render();
   };
 
@@ -1582,6 +1609,95 @@ function editPhrase(phrase) {
     await library.remove(phrase.id);
     closeSheet();
     render();
+  });
+}
+
+/* "Rebuild the rest with AI" — the same /complete-card call the Add tab makes,
+   pointed at a card that already exists. Change 'tallat' to 'espresso' and the
+   translation, situation, usage note and pronunciation tip all follow, instead
+   of the card having to be deleted and written again.
+
+   Which fields get sent matters. Editing the phrase but not the English leaves
+   the two disagreeing, and sending both would ask the assistant to reconcile a
+   contradiction. So whichever side was actually edited is the one sent: the
+   untouched side is dropped, exactly as if it had been left blank on the Add
+   tab. Change both, or neither, and both go. */
+function wireEditorAI(phrase, language) {
+  const button = document.getElementById("f-ai");
+  if (!button) return;
+
+  const field = (id) => document.getElementById(id);
+  const before = {
+    text: field("f-text").value,
+    translation: field("f-translation").value,
+    situation: field("f-situation").value,
+    usage: field("f-usage").value,
+    note: field("f-note").value,
+  };
+  const noteBox = document.getElementById("f-ai-note");
+
+  const restore = () => {
+    for (const [id, value] of [
+      ["f-text", before.text], ["f-translation", before.translation],
+      ["f-situation", before.situation], ["f-usage", before.usage], ["f-note", before.note],
+    ]) field(id).value = value;
+    noteBox.hidden = true;
+    autosizeAll(sheetBody);
+  };
+
+  button.addEventListener("click", async () => {
+    const target = field("f-text").value.trim();
+    const english = field("f-translation").value.trim();
+    if (!target && !english) {
+      toast(`Write something in ${language.englishName} or English first.`);
+      return;
+    }
+
+    const targetEdited = target !== before.text.trim();
+    const englishEdited = english !== before.translation.trim();
+    const onlyOneSide = targetEdited !== englishEdited;
+
+    const label = button.textContent;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Rebuilding…`;
+    noteBox.hidden = true;
+    try {
+      const result = await cardAssistant.complete(
+        {
+          target: onlyOneSide && englishEdited ? "" : target,
+          english: onlyOneSide && targetEdited ? "" : english,
+          situation: field("f-situation").value.trim(),
+          deck: field("f-deck").value.trim() || phrase?.deck || MY_PHRASES,
+          languageCode: settings.language,
+          languageName: language.englishName,
+        },
+        settings
+      );
+      // The sheet may have been closed while it was thinking.
+      if (!field("f-text")) return;
+
+      field("f-text").value = result.text;
+      field("f-translation").value = result.translation;
+      field("f-situation").value = result.situation;
+      field("f-usage").value = result.usageNote;
+      field("f-note").value = result.focusNote;
+      autosizeAll(sheetBody);
+
+      noteBox.className = "notice";
+      noteBox.innerHTML = `${esc(result.reviewNote || "Rebuilt. Check it over, then Save.")}
+        <button class="link" id="f-ai-undo" style="padding:0 0 0 4px">Undo</button>`;
+      noteBox.hidden = false;
+      document.getElementById("f-ai-undo").addEventListener("click", restore);
+    } catch (error) {
+      noteBox.className = "notice bad";
+      noteBox.textContent = error.message;
+      noteBox.hidden = false;
+    } finally {
+      if (document.getElementById("f-ai")) {
+        button.disabled = false;
+        button.textContent = label;
+      }
+    }
   });
 }
 

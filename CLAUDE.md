@@ -122,6 +122,29 @@ r), these teach Catalan (schwa, silent final r, palatal `ll`, voiced `j`). Three
 of Deb-o-lingo's café phrases were dropped rather than duplicated because Xerra
 already said them: the cortado, the bill, and *està boníssim*.
 
+### Editing a card, and the AI rebuild
+
+The edit sheet has a **Rebuild the rest with AI** button (only when the card
+assistant is configured). It calls the same `/complete-card` the Add tab does —
+**the Worker is unchanged**, which matters because it serves Deb-o-lingo too.
+
+The one piece of judgement is which side gets sent. Change the phrase but not
+the English and the two now disagree; sending both would ask the assistant to
+reconcile a contradiction. So `wireEditorAI` snapshots the fields when the
+sheet opens and sends only the side that was actually edited, dropping the
+other as if it had been left blank on the Add tab. Change both, or neither, and
+both go. Nothing is written until Save, and the review notice carries an Undo
+that puts the snapshot back.
+
+The drill has an **Edit** button in its topbar for the phrase you have just
+heard and realised you'd never say. `editPhrase(phrase, onSaved)` takes a
+callback for it: the queue holds the object `library.update` replaced, and the
+model audio is cached by text, so the fixed phrase has to go back into
+`state.queue` and be reloaded — a re-render alone would keep the old text's
+audio.
+
+Deb-o-lingo has both in the same shape. Keep them in step.
+
 ## Content is generated, not edited
 
 `docs/js/content.js` is **generated output**. Editing it directly will get your
