@@ -267,6 +267,11 @@ or tick *Update on reload* in DevTools → Application → Service Workers.
 Confusing "my change didn't apply" symptoms are nearly always this. Bump the
 cache name in `sw.js` when shipping changed assets.
 
+Bumping it is necessary and, on its own, was once not sufficient — see the
+mixed-bundle gotcha below. A local run from a fresh browser profile cannot
+show you any of this: the way to test a deploy is to serve the *old* tree,
+let the worker install, swap the directory for the new tree and reload.
+
 ---
 
 ## Azure, and the degraded path
@@ -417,6 +422,18 @@ backup the user has.
   whole app untappable on device while looking completely fine. If taps stop
   registering, check for a visible-but-transparent sheet.
 - Service worker staleness (above) — the first thing to rule out.
+- **A deploy could leave the app a mix of two versions, permanently.** The
+  install handler precached with `cache.add(url)`, whose fetch goes through the
+  browser's own HTTP cache — and Pages serves everything `max-age=600`. So for
+  ten minutes after a deploy, a brand-new version's cache could be filled with
+  pre-deploy copies of some files and post-deploy copies of others. Cache-first
+  then served that mix until the *next* version bump: a new `index.html` with
+  three tabs next to an old `app.js` that still rendered the old two-tab
+  Practice page, and no amount of reloading fixed it. Precaching now uses
+  `new Request(url, { cache: "reload" })` so a version's cache is all of one
+  version, and navigations are network-first (cache only as the offline
+  fallback) so the HTML can never be staler than the scripts it names. Don't
+  undo either one for "fewer requests".
 - **Phrases are filtered by `language` everywhere.** A phrase written with the
   wrong `language` isn't lost, it's *invisible* — saved fine, absent from every
   list. `library.add` once hardcoded `ca-ES`, so anything added in Spanish mode
