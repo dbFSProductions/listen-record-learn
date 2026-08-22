@@ -450,6 +450,7 @@ button { font: inherit; }
 }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.topbar-end { display: flex; align-items: center; gap: 6px; }
 
 /* -------------------------------------------------------------- page heads */
 

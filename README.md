@@ -163,6 +163,13 @@ whole thing off.
 to correct or expand its translation, situation, usage note, pronunciation tip,
 or deck.
 
+Editing has the assistant behind it too: change *tallat* to *espresso* and
+**Rebuild the rest with AI** rewrites the translation, situation, usage note
+and pronunciation tip to match, rather than the card having to be deleted and
+written again. Nothing is saved until you tap Save, and there's an Undo. The
+drill has an **Edit** button of its own, for the phrase you have just heard and
+realised you'd never actually say.
+
 **Add** — type or dictate whatever you remember in Catalan or English, optionally
 describe the situation, and select a deck. Gemini corrects the phrase, fills the
 other language, and creates an editable situation, usage note and pronunciation
