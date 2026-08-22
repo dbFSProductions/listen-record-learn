@@ -175,8 +175,9 @@ written again. Nothing is saved until you tap Save, and there's an Undo. The
 drill has an **Edit** button of its own, for the phrase you have just heard and
 realised you'd never actually say.
 
-**Add** — describe the situation, type or dictate whatever you remember in
-Catalan or English, and select a deck. Gemini corrects the phrase, fills the
+**Add** — describe the situation, type whatever you remember in Catalan or
+English, and select a deck. (The fields carry the right `lang`, so the iPhone
+keyboard's own dictation key writes into them in the right language.) Gemini corrects the phrase, fills the
 other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
 

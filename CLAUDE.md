@@ -167,6 +167,17 @@ standing — the situation alone is the clue.
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
 
+### The in-page dictation buttons are gone, deliberately
+
+Every composer field used to carry a mic button driving
+`webkitSpeechRecognition`. On the iPhone, which is the only device this app
+runs on, it doesn't work — so they were removed rather than left as decoration.
+What does work is the dictation key on the iOS keyboard itself, and the
+textareas still carry `lang="ca-ES"` / `lang="en-GB"` so that it types the right
+language into the right box. Don't re-add the buttons; if dictation is ever
+worth another go, the thing to test on the actual phone first is whether
+`SpeechRecognition` fires `onresult` at all.
+
 ### The Add tab asks for the situation first
 
 Where you'd be saying it comes before what you'd say. It reads as the odd order
@@ -188,6 +199,12 @@ sheet opens and sends only the side that was actually edited, dropping the
 other as if it had been left blank on the Add tab. Change both, or neither, and
 both go. Nothing is written until Save, and the review notice carries an Undo
 that puts the snapshot back.
+
+The end of a queue is a **Done ✓** button where Next was, not a disabled Next
+— a greyed-out primary button at the end of every deck reads as breakage. And
+"Practise now" on the phrase sheet queues that phrase's whole deck positioned
+at that phrase, not a queue of one, for the same reason: from the merged page
+you reach a phrase and then want to keep going.
 
 The drill has an **Edit** button in its topbar for the phrase you have just
 heard and realised you'd never say. `editPhrase(phrase, onSaved)` takes a
@@ -404,6 +421,11 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice (deck list, library search and the drill), Add,
   Settings. Phrases was merged into Practice.
+- Scoring shows Azure's `PronScore`. Azure has no strictness setting; for a
+  read phrase in a non-en-US locale it is `0.6·min + 0.2 + 0.2` over accuracy,
+  fluency and completeness, and completeness is 100 whenever you say all the
+  words, so the headline sits a few points above the accuracy score. Prosody
+  assessment, which would be the harsher input, is en-US only.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
