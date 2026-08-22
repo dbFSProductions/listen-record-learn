@@ -309,6 +309,16 @@ or tick *Update on reload* in DevTools → Application → Service Workers.
 Confusing "my change didn't apply" symptoms are nearly always this. Bump the
 cache name in `sw.js` when shipping changed assets.
 
+**Two version strings, bumped together:** `VERSION` in `sw.js` and `VERSION` in
+`docs/js/version.js`. They aren't derived from each other — `sw.js` is a classic
+worker and can't import an ES module, and inlining one into the other needs the
+build step this app deliberately doesn't have. Settings shows both instead, as
+*Running* (the executing JavaScript) and *Installed* (read back from
+`caches.keys()`), so forgetting one shows up as two different numbers on the
+screen rather than silently. That panel is also the answer to "is the fix in, or
+has my phone not caught up?" — after a deploy the installed number moves first,
+and the gap is the reload you still owe.
+
 Bumping it is necessary and, on its own, was once not sufficient — see the
 mixed-bundle gotcha below. A local run from a fresh browser profile cannot
 show you any of this: the way to test a deploy is to serve the *old* tree,
