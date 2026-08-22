@@ -11,7 +11,8 @@ import Foundation
 enum SeedContent {
 
     static var catalanStarterDecks: [Phrase] {
-        sounds + cafe + work + castells + segon + pinya + arribada + ordres
+        sounds + greetings + cafe + tapes + market + work
+            + castells + segon + pinya + arribada + ordres
     }
 
     // MARK: - Sounds
@@ -52,6 +53,104 @@ enum SeedContent {
             translation: "Marta eats fish on Mondays.",
             deck: "Sounds",
             focusNote: "'La Marta' with the article before a name — very Catalan. Final -a of Marta is schwa."
+        ),
+    ]
+
+    // MARK: - Every day
+
+    /// The porter, the neighbours, the person behind every counter. Ported
+    /// from the sister app Deb-o-lingo's Spanish course and rewritten for
+    /// Catalan — the phrases are the same day, the focusNotes are not.
+    static let greetings: [Phrase] = [
+        Phrase(
+            text: "Bon dia.",
+            translation: "Good morning.",
+            deck: "Salutacions",
+            focusNote: "Two words, one breath: 'bun DI-ə'. The unstressed o of 'bon' rises to u and the final -a of 'dia' is schwa."
+        ),
+        Phrase(
+            text: "Bona tarda.",
+            translation: "Good afternoon.",
+            deck: "Salutacions",
+            focusNote: "'BO-nə TAR-ðə'. Both final a's are schwa, and the d is soft — tongue on the teeth, nearer the 'th' of 'father' than an English d."
+        ),
+        Phrase(
+            text: "Com està?",
+            translation: "How are you? (formal)",
+            deck: "Salutacions",
+            focusNote: "The 'vostè' form — right for the porter until he switches first. 'kum əs-TA': the o reduces to u, and the stressed à stays wide open."
+        ),
+        Phrase(
+            text: "Molt bé, gràcies. I vostè?",
+            translation: "Very well, thanks. And you?",
+            deck: "Salutacions",
+            focusNote: "'Molt bé' runs together and the t vanishes before the b: 'mol-BE'. 'Gràcies' is two syllables in speech: 'GRA-siəs'."
+        ),
+        Phrase(
+            text: "Fins després!",
+            translation: "See you later!",
+            deck: "Salutacions",
+            focusNote: "'fins dəs-PRES' — the e of 'des-' is unstressed so it is a schwa, and both s's are pronounced. This is how you leave anywhere."
+        ),
+        Phrase(
+            text: "Quina calor que fa avui!",
+            translation: "It's so hot today!",
+            deck: "Salutacions",
+            focusNote: "'Calor' is kə-LO: unstressed a to schwa, and the final r is silent in Central Catalan. Weather is most of doorman conversation."
+        ),
+        Phrase(
+            text: "Quin fred!",
+            translation: "So cold!",
+            deck: "Salutacions",
+            focusNote: "The final d devoices to a t: 'FRET'. Catalan says that consonant out loud where Spanish 'frío' has nothing at all."
+        ),
+        Phrase(
+            text: "Què tal el cap de setmana?",
+            translation: "How was the weekend?",
+            deck: "Salutacions",
+            focusNote: "'Setmana' drops its t in speech: 'səm-MA-nə', two schwas around one full a."
+        ),
+        Phrase(
+            text: "Que tingui un bon dia.",
+            translation: "Have a good day.",
+            deck: "Salutacions",
+            focusNote: "The polite send-off, in the vostè form. 'Tingui' is TIN-gi — the u is silent, it is only there to keep the g hard."
+        ),
+        Phrase(
+            text: "Igualment.",
+            translation: "Likewise — you too.",
+            deck: "Salutacions",
+            focusNote: "i-gwal-MEN, with the final t swallowed after the n. The reply when he wishes you a good day first."
+        ),
+        Phrase(
+            text: "Moltes gràcies.",
+            translation: "Thank you very much.",
+            deck: "Salutacions",
+            focusNote: "MOL-təs GRA-siəs. Both words end in that same unstressed -əs; neither e is a full e."
+        ),
+        Phrase(
+            text: "De res.",
+            translation: "You're welcome.",
+            deck: "Salutacions",
+            focusNote: "'də RES' — the e of 'de' is a schwa, the e of 'res' is stressed and open. Two tiny words, two different e's."
+        ),
+        Phrase(
+            text: "Perdoni, no ho entenc.",
+            translation: "Sorry, I don't understand.",
+            deck: "Salutacions",
+            focusNote: "'No ho' runs together as 'no-u'. 'Entenc' ends in the ng of English 'sing', not a hard k: ən-TENG."
+        ),
+        Phrase(
+            text: "Pot repetir-ho, si us plau?",
+            translation: "Can you repeat that, please?",
+            deck: "Salutacions",
+            focusNote: "'Repetir-ho' is rə-pə-TI-ru: the infinitive r goes silent and the -ho hooks on as a u. 'Si us plau' runs together."
+        ),
+        Phrase(
+            text: "Parlo una mica de català.",
+            translation: "I speak a little Catalan.",
+            deck: "Salutacions",
+            focusNote: "'Parlo' ends in u: PAR-lu. 'Català' is kə-tə-LA — two schwas, then one wide-open stressed a. The phrase that makes everyone patient with you."
         ),
     ]
 
@@ -105,6 +204,268 @@ enum SeedContent {
             translation: "It's on me today.",
             deck: "Cafès i sortir",
             focusNote: "Unstressed o in 'convido' rises toward u: 'kumˈbiðu'."
+        ),
+        Phrase(
+            text: "Un cafè amb llet, si us plau.",
+            translation: "A coffee with milk, please.",
+            deck: "Cafès i sortir",
+            focusNote: "'Llet' opens with the palatal l of 'million', never a Spanish y. 'Amb' is barely there before a consonant: just 'əm'."
+        ),
+        Phrase(
+            text: "Un cafè sol.",
+            translation: "An espresso, black.",
+            deck: "Cafès i sortir",
+            focusNote: "'Sol' means the coffee comes alone. One clean o with no glide off the end, and a light forward l."
+        ),
+        Phrase(
+            text: "Que em pot posar un descafeïnat?",
+            translation: "Could I get a decaf?",
+            deck: "Cafès i sortir",
+            focusNote: "'Que em pot posar...?' is THE ordering formula — learn it once, order anything forever. The ï is its own syllable: dəs-kə-fə-i-NAT."
+        ),
+        Phrase(
+            text: "Em pot cobrar, si us plau?",
+            translation: "Can I pay, please?",
+            deck: "Cafès i sortir",
+            focusNote: "'Cobrar' loses its final r: ku-BRA. Said standing at the bar when you are ready to go."
+        ),
+        Phrase(
+            text: "Un got d'aigua, si us plau.",
+            translation: "A glass of water, please.",
+            deck: "Cafès i sortir",
+            focusNote: "'Got' keeps a crisp final t. 'Aigua' is AY-gwə — that last a is a schwa like every other unstressed one."
+        ),
+        Phrase(
+            text: "Aigua amb gas... sense gas.",
+            translation: "Sparkling water... still water.",
+            deck: "Cafès i sortir",
+            focusNote: "'Sense' is SEN-sə. You will be asked which one, every time — now you own both answers."
+        ),
+        Phrase(
+            text: "Una copa de vi negre.",
+            translation: "A glass of red wine.",
+            deck: "Cafès i sortir",
+            focusNote: "Red wine is 'negre', literally black, never 'vermell'. NE-grə, schwa on the end."
+        ),
+        Phrase(
+            text: "Una copa de vi blanc... rosat.",
+            translation: "A glass of white... of rosé.",
+            deck: "Cafès i sortir",
+            focusNote: "'Blanc' ends in a hard k sound: BLANK. Catalan pronounces that final consonant; Spanish hides it behind the -o of 'blanco'."
+        ),
+        Phrase(
+            text: "Una copa de cava, si us plau.",
+            translation: "A glass of cava, please.",
+            deck: "Cafès i sortir",
+            focusNote: "KA-βə — between vowels the v is a soft b in Central Catalan, and the final a is schwa. Arguably the most important sentence here."
+        ),
+        Phrase(
+            text: "Que teniu taula per a dos?",
+            translation: "Do you have a table for two?",
+            deck: "Cafès i sortir",
+            focusNote: "'Taula' is TAW-lə. Opening a yes/no question with 'Que' is standard Catalan — keep the tone rising at the end."
+        ),
+        Phrase(
+            text: "Què em recomana?",
+            translation: "What do you recommend?",
+            deck: "Cafès i sortir",
+            focusNote: "rə-ku-MA-nə: three unstressed vowels, three reductions — e to schwa, o to u, final a to schwa. Waiters love the question."
+        ),
+        Phrase(
+            text: "Una altra, si us plau.",
+            translation: "Another one, please.",
+            deck: "Cafès i sortir",
+            focusNote: "'Una altra' elides into 'u-NAL-trə'. 'Una altra' for a beer or a glass of wine, 'un altre' for a coffee."
+        ),
+    ]
+
+    // MARK: - Tapes
+
+    static let tapes: [Phrase] = [
+        Phrase(
+            text: "Unes braves, si us plau.",
+            translation: "Some patatas bravas, please.",
+            deck: "Tapes",
+            focusNote: "'Unes' is U-nəs. The v is a b in Central Catalan: BRA-βəs, with the schwa in the ending."
+        ),
+        Phrase(
+            text: "Una de truita.",
+            translation: "One portion of tortilla.",
+            deck: "Tapes",
+            focusNote: "The potato omelette is 'truita' in Catalan: TRUY-tə. 'Una de...' works for anything on the board."
+        ),
+        Phrase(
+            text: "Unes olives.",
+            translation: "Some olives.",
+            deck: "Tapes",
+            focusNote: "u-LI-βəs — the first o is unstressed so it rises to u, the v softens to a b, and -es is schwa plus s."
+        ),
+        Phrase(
+            text: "És per compartir.",
+            translation: "It's for sharing.",
+            deck: "Tapes",
+            focusNote: "'És' is a clear open e. 'Compartir' drops its final r: kum-pər-TI. Four words that say you know how tapes work."
+        ),
+        Phrase(
+            text: "De moment, res més.",
+            translation: "Nothing else for now.",
+            deck: "Tapes",
+            focusNote: "'Moment' is mu-MEN: unstressed o to u, final t swallowed after the n. Buys you time before round two."
+        ),
+        Phrase(
+            text: "M'ho pot posar per emportar?",
+            translation: "Can you box this up for me to take away?",
+            deck: "Tapes",
+            focusNote: "'M'ho' is one syllable, 'mu'. 'Emportar' loses the final r: əm-pur-TA. THE sentence — worth overlearning until it is automatic."
+        ),
+        Phrase(
+            text: "Em pot posar la resta per emportar?",
+            translation: "Can I take the rest to go?",
+            deck: "Tapes",
+            focusNote: "'Resta' is RES-tə. For when it was too good to finish but too good to leave behind."
+        ),
+        Phrase(
+            text: "Una caixa, si us plau.",
+            translation: "A box, please.",
+            deck: "Tapes",
+            focusNote: "'Caixa' is KA-shə — 'ix' is the Catalan sh sound, nothing like a Spanish j."
+        ),
+        Phrase(
+            text: "Me l'emporto.",
+            translation: "I'll take it with me.",
+            deck: "Tapes",
+            focusNote: "It runs as one word, mə-ləm-POR-tu, with the final o a u. Also what you say in a shop once you have decided to buy the thing."
+        ),
+        Phrase(
+            text: "Que teniu res per emportar?",
+            translation: "Do you have anything to go?",
+            deck: "Tapes",
+            focusNote: "'Res' means 'anything' inside a question and 'nothing' in an answer. Clear open e, clear final s."
+        ),
+        Phrase(
+            text: "Puc pagar amb targeta?",
+            translation: "Can I pay by card?",
+            deck: "Tapes",
+            focusNote: "'Targeta' carries the voiced j of English 'measure': tər-ZHE-tə. Never the Spanish jota."
+        ),
+        Phrase(
+            text: "Quant és?",
+            translation: "How much is it?",
+            deck: "Tapes",
+            focusNote: "The t of 'quant' links straight onto the next word: 'kwan-TES'. For counters; at a table you ask for 'el compte' instead."
+        ),
+        Phrase(
+            text: "Ha estat tot boníssim.",
+            translation: "Everything was delicious.",
+            deck: "Tapes",
+            focusNote: "The h is silent and 'ha estat' runs together: 'a-əs-TAT'. The compliment every cook wants to hear."
+        ),
+        Phrase(
+            text: "La propina està inclosa?",
+            translation: "Is the tip included?",
+            deck: "Tapes",
+            focusNote: "pru-PI-nə — unstressed o to u again. Tipping here is small and optional, but the question earns you a smile."
+        ),
+        Phrase(
+            text: "Adéu, fins aviat!",
+            translation: "Bye — see you soon!",
+            deck: "Tapes",
+            focusNote: "'Adéu' stresses the é and ends in a clear w: ə-DEW. 'Aviat' is ə-βi-AT. Warmer than a plain adéu."
+        ),
+    ]
+
+    // MARK: - The market
+
+    static let market: [Phrase] = [
+        Phrase(
+            text: "Posi'm un quart de pernil.",
+            translation: "A quarter kilo of ham, please.",
+            deck: "El mercat",
+            focusNote: "'Posi'm' is the counter-ordering word, the market cousin of 'em pot posar'. 'Pernil' is pər-NIL with a clear final l."
+        ),
+        Phrase(
+            text: "Mig quilo de tomàquets.",
+            translation: "Half a kilo of tomatoes.",
+            deck: "El mercat",
+            focusNote: "'Mig' ends in a tch sound: MITCH. 'Tomàquets' is tu-MA-kəts — the stressed à is the only full vowel in it."
+        ),
+        Phrase(
+            text: "Em pot donar una barra de pa?",
+            translation: "Can I get a baguette?",
+            deck: "El mercat",
+            focusNote: "'Barra' has the rolled rr, a quick drum-roll of the tongue. If it will not roll yet, a long tap passes."
+        ),
+        Phrase(
+            text: "Una mica més, si us plau.",
+            translation: "A bit more, please.",
+            deck: "El mercat",
+            focusNote: "'Mica' is MI-kə, 'més' has a closed é. For when they pause at the scale and look up at you."
+        ),
+        Phrase(
+            text: "Així està bé.",
+            translation: "That's fine like that.",
+            deck: "El mercat",
+            focusNote: "'Així' is ə-SHI — x doing the sh job again. The other answer to the scale-pause. You now control the scale."
+        ),
+        Phrase(
+            text: "A quant va el tomàquet?",
+            translation: "How much are the tomatoes (per kilo)?",
+            deck: "El mercat",
+            focusNote: "Prices by the kilo use 'a quant va...?'. The singular 'el tomàquet' means the produce, not one tomato."
+        ),
+        Phrase(
+            text: "Res més, gràcies.",
+            translation: "Nothing else, thanks.",
+            deck: "El mercat",
+            focusNote: "The answer to 'alguna cosa més?', which you will hear at every counter, every single time."
+        ),
+        Phrase(
+            text: "Aquest, si us plau. No — aquell.",
+            translation: "This one, please. No — that one.",
+            deck: "El mercat",
+            focusNote: "'Aquest' is ə-KET, the s silent. 'Aquell' ends in the palatal ll of 'million'. Pointing is allowed, expected and effective."
+        ),
+        Phrase(
+            text: "M'ho pot tallar fi?",
+            translation: "Can you slice it thin?",
+            deck: "El mercat",
+            focusNote: "'Tallar' has the palatal ll and drops its final r: tə-LLA. Essential for pernil and cheese, where thin is the whole point."
+        ),
+        Phrase(
+            text: "Em pot donar una bossa?",
+            translation: "Can I have a bag?",
+            deck: "El mercat",
+            focusNote: "'Bossa' is BO-sə — the double s stays sharp and unvoiced, unlike the buzzing single s of 'casa'."
+        ),
+        Phrase(
+            text: "Està madur?",
+            translation: "Is it ripe?",
+            deck: "El mercat",
+            focusNote: "mə-DU, soft d and a silent final r. For melons, avocados, and building trust with the fruit man."
+        ),
+        Phrase(
+            text: "És per avui.",
+            translation: "It's for eating today.",
+            deck: "El mercat",
+            focusNote: "'Avui' is ə-VUY, stressed on the end. Say when you will eat it and they will pick you the right one — this is the secret handshake."
+        ),
+        Phrase(
+            text: "Quin està millor avui?",
+            translation: "Which is best today?",
+            deck: "El mercat",
+            focusNote: "'Millor' has the palatal ll and a silent final r: mi-LLO. Vendors light up at this question."
+        ),
+        Phrase(
+            text: "Fins dissabte.",
+            translation: "See you Saturday.",
+            deck: "El mercat",
+            focusNote: "'Dissabte' is di-SAP-tə — the b hardens to a p before the t. Become a regular; it pays off in better tomatoes."
+        ),
+        Phrase(
+            text: "Molt amable, gràcies!",
+            translation: "Very kind of you — thanks!",
+            deck: "El mercat",
+            focusNote: "'Molt amable' links the t straight into the a: 'mol-tə-MA-blə'. The goodbye that makes them remember you tomorrow."
         ),
     ]
 

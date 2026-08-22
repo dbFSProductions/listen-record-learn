@@ -173,14 +173,26 @@ level-2 recall, audio prefetch and cache.
 
 ### Starter decks
 
-102 phrases across eight decks.
+159 phrases across eleven decks.
 
 - **Sounds** — targeted at the things that make an English or Spanish speaker
   sound un-Catalan: vowel reduction to schwa, palatal `ll` and `ny`, the voiced
   `j`, final consonants that Spanish would soften
-- **Cafès i sortir** — ordering, the bill, meeting for a vermouth
+- **Salutacions** — the porter, the neighbours, being polite: good morning,
+  the weather, *que tingui un bon dia*, *no ho entenc*
+- **Cafès i sortir** — ordering, water with or without gas, wine and cava, the
+  bill, meeting for a vermouth
+- **Tapes** — ordering to share, boxing up the leftovers, paying, saying it was
+  delicious
+- **El mercat** — counters and kilos: *posi'm un quart de pernil*, is it ripe,
+  which is best today
 - **Feina** — meetings, deadlines, plegar at six
 - **Castells** — colla, pinya, faixa, enxaneta, *fet llenya*, and the motto
+
+The four everyday decks are the sister app Deb-o-lingo's Spanish course brought
+across and rewritten for Catalan. The sentences are the same day; the
+`focusNote`s are not — they teach schwa, silent final `r`, the palatal `ll` and
+the rest, rather than Castilian's soft c.
 
 Then four decks for actually turning up to a colla, which is where the
 vocabulary stops being a list and starts being something you have to say at
@@ -198,6 +210,13 @@ speed, in a crowd, out of breath:
 
 Every phrase carries a `focusNote` naming what to listen for, shown while you
 drill.
+
+The five castells decks are **folded away by default** on both Practice and
+Phrases — they're eighty of the phrases and they'd bury everything else. Tap
+the Castells row to open it, or tap its title to drill the whole lot shuffled;
+the choice sticks. Searching the library always looks inside a fold. Any decks
+sharing a `Family · Deck` name fold together the same way, so a deck you
+create on the Add tab can join a family just by being named for it.
 
 ---
 

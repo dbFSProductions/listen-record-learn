@@ -95,6 +95,33 @@ and `/chat` payloads breaks the other app too. Both share the one rate limit.
 
 ---
 
+### Deck families
+
+A deck named `Family · Deck` belongs to the family named by the prefix, and a
+family of three or more decks (`FOLD_FROM` in store.js) folds behind one row on
+both Practice and Phrases. This is why the castells decks are called
+`Castells · Pinya` and not `Pinya` — the naming *is* the grouping, so there is
+no extra field on a phrase and a deck typed into the Add tab joins a family
+just by being named for it. `Castells` is both a family and a deck inside it,
+which is why deck keys for a whole family carry the `family:` prefix in
+`app.js`; drop that and the header would drill the eleven-phrase general deck
+instead of all eighty.
+
+What the user folds is remembered by name in `settings.openFamilies`; absent
+means "whatever `FOLD_FROM` says", so a family can change its mind as decks are
+added to it. A search in Phrases opens every fold — a phrase you searched for
+must never be hiding inside one.
+
+### The everyday decks came from Deb-o-lingo
+
+Salutacions, Tapes, El mercat and most of Cafès i sortir are the sister fork's
+Spanish course rewritten in Catalan: same situations, same running order,
+different language and **different focusNotes**. Don't "fix" them by porting
+Deb-o-lingo's notes across — hers teach Castilian (the ce/ci 'th', b=v, tapped
+r), these teach Catalan (schwa, silent final r, palatal `ll`, voiced `j`). Three
+of Deb-o-lingo's café phrases were dropped rather than duplicated because Xerra
+already said them: the cortado, the bill, and *està boníssim*.
+
 ## Content is generated, not edited
 
 `docs/js/content.js` is **generated output**. Editing it directly will get your
@@ -274,7 +301,11 @@ cd docs && python3 -m http.server 8765 --bind 127.0.0.1 &
 
 Worth asserting on: no console errors on boot, the deck list matches
 `gen-content.py`'s reported counts, a deck opens and `.drill-text` is populated,
-and a phrase added in each language stays visible afterwards. Anything touching
+and a phrase added in each language stays visible afterwards. For the folds:
+Practice shows one Castells row rather than five, `[data-fold="Castells"]`
+opens it and the choice survives a reload, `[data-deck="family:Castells"]`
+queues all eighty, and a search in Phrases finds a castells phrase while the
+family is folded. Anything touching
 Azure can't be covered this way — there's no key in CI and no key in the repo.
 
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
@@ -291,7 +322,9 @@ the parser losing a block to a formatting change.
 - GitHub Pages publishes from the default branch, so once Pages is enabled
   (main → `/docs`) the PWA is reachable at a URL the phone can install from.
   Check whether that's actually switched on before telling the user it's live.
-- 102 phrases across eight decks: Sounds, Cafès i sortir, Feina, Castells, and
-  four castells decks for a real rehearsal — Arribada, Pinya, Segon, Ordres.
+- 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
+  El mercat, Feina, Castells, and four castells decks for a real rehearsal —
+  Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
+  Deb-o-lingo (below).
 - v0.1, the pronunciation core. Spaced repetition, listening/dictation drills,
   and AI-generated content from life context are deliberately **not** built yet.

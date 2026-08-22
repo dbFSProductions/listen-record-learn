@@ -221,6 +221,52 @@ p { margin: 0 0 10px; }
 .star[aria-pressed="true"] svg { fill: var(--gold); stroke: var(--gold-dark); }
 .star:active { background: var(--surface-2); }
 
+/* --------------------------------------------------------- deck families */
+
+/* Decks sharing a "Family · Deck" name fold behind one row, so the five
+   castells decks don't bury the everyday ones. The header drills the whole
+   family; the chevron on the right opens it. */
+
+.family-row { padding-right: 6px; }
+.family-row .row-title { font-weight: 800; }
+.fold {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin: -6px 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.fold:active { background: var(--surface-2); }
+.fold .tri { display: block; font-size: 0.8rem; }
+
+/* A deck inside an open family is indented and quieter than its header.
+   `.row` is width:100%, so the indent has to come out of the width or the
+   card hangs off the right edge of the screen. */
+.rows-spaced .row.nested { width: auto; margin-left: 18px; }
+.rows-spaced .row.nested .row-title { font-weight: 500; }
+
+.folded-family .row-title { font-weight: 800; }
+
+.section-label.nested { margin-left: 18px; }
+.section-label.family-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.section-label.family-label .link {
+  padding: 0;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .section-label {
   font-size: 0.76rem;
   text-transform: uppercase;
