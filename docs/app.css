@@ -63,6 +63,8 @@
   --practise-on: #ffffff;
   --practise-ink: #3d8b02;
   --practise-soft: color-mix(in srgb, var(--green) 16%, transparent);
+  /* The Phrases tab is gone, but its blue stayed on as the colour of every
+     link and every "Listen for" note. */
   --phrases-accent: var(--blue);
   --phrases-dark: var(--blue-dark);
   --phrases-on: #ffffff;
@@ -127,7 +129,6 @@ body {
 /* One place decides which accent a page (or a tab) is wearing; everything
    downstream just reads --sec / --sec-ink / --sec-soft. */
 .sec-practise { --sec: var(--practise-accent); --sec-dark: var(--practise-dark); --sec-on: var(--practise-on); --sec-ink: var(--practise-ink); --sec-soft: var(--practise-soft); }
-.sec-study    { --sec: var(--phrases-accent);  --sec-dark: var(--phrases-dark);  --sec-on: var(--phrases-on);  --sec-ink: var(--phrases-ink);  --sec-soft: var(--phrases-soft); }
 .sec-add      { --sec: var(--add-accent);      --sec-dark: var(--add-dark);      --sec-on: var(--add-on);      --sec-ink: var(--add-ink);      --sec-soft: var(--add-soft); }
 .sec-settings { --sec: var(--settings-accent); --sec-dark: var(--settings-dark); --sec-on: var(--settings-on); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
 
@@ -169,7 +170,7 @@ p { margin: 0 0 10px; }
 .row:active { background: var(--surface-2); }
 
 /* Variant: each row is its own card with a gap, instead of one fused list.
-   Used for the Practice deck list and the phrase list, so the two match. */
+   Used for the deck list and for the phrase rows a search turns it into. */
 .rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 10px; }
 .rows-spaced .row { background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); }
 .row-main { flex: 1; min-width: 0; }
@@ -220,6 +221,9 @@ p { margin: 0 0 10px; }
 .star[aria-pressed="true"] { color: var(--gold-dark); }
 .star[aria-pressed="true"] svg { fill: var(--gold); stroke: var(--gold-dark); }
 .star:active { background: var(--surface-2); }
+/* In the drill it sits in the topbar rather than a row, so it loses the
+   negative margin that pulls it level with a row's text. */
+.drill-star { margin: 0; }
 
 /* --------------------------------------------------------- deck families */
 
@@ -340,7 +344,7 @@ button { font: inherit; }
 
 /* ----------------------------------------------------------------- tabbar */
 
-/* Four chunky coloured pills rather than grey glyphs. Every tab wears its own
+/* Chunky coloured pills rather than grey glyphs. Every tab wears its own
    section colour all the time; the current one is the fully lit, raised one
    with a white ring — so the tab bar reads as a colour key for the whole app,
    and "where am I" survives a colour-blind glance through the ring and the
@@ -461,9 +465,9 @@ button { font: inherit; }
 
 /* -------------------------------------------------------------- page heads */
 
-/* Practice and Study used to open on near-identical lists. Each page now
-   leads with a banner in its own accent, its own mark, and its own subtitle —
-   colour alone wouldn't survive a glance, or a colour-blind reader. */
+/* Each page leads with a banner in its own accent, its own mark and its own
+   subtitle — colour alone wouldn't survive a glance, or a colour-blind
+   reader. */
 
 .page-head {
   display: flex;
@@ -500,11 +504,6 @@ button { font: inherit; }
    which on these bright fills would leave it barely there. */
 .page-sub { margin: 1px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--sec-on); opacity: 0.92; }
 .page-head .link { flex: none; color: var(--sec-on); font-weight: 900; }
-
-/* The Study banner is squarer and denser than the Practice one, so the two
-   read differently even in a black-and-white screenshot. */
-.page-study .page-head { border-radius: 4px 16px 16px 4px; }
-.page-study .page-mark { border-radius: 4px; }
 
 /* ------------------------------------------------- practise deck meters */
 

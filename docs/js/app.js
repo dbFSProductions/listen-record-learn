@@ -33,6 +33,7 @@ const state = {
   scoringNow: false,
   levelTimer: null,
   dictation: null,
+  search: "",
 
   // Level two. `recall` says this phrase is a memory question; `revealed` says
   // the answer is on screen (always true at level one); `peeked` says you
@@ -161,9 +162,6 @@ function stopEverything() {
 // are. The marks differ in shape as well as colour — hue alone is no use at a
 // glance, or to a colour-blind reader.
 const SECTIONS = {
-  study: {
-    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>`,
-  },
   practise: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>`,
   },
@@ -191,40 +189,84 @@ function render() {
   syncTabs();
   window.scrollTo(0, 0);
   view.className = `view page page-${state.tab} sec-${state.tab}`;
-  if (state.tab === "study") renderStudy();
-  else if (state.tab === "practise" && state.deck) renderDrill();
-  else if (state.tab === "practise") renderDecks();
+  if (state.tab === "practise" && state.deck) renderDrill();
+  else if (state.tab === "practise") renderPractice();
   else if (state.tab === "add") renderAdd();
   else renderSettings();
   autosizeAll(view);
 }
 
-// ------------------------------------------------------------------- decks
+// ---------------------------------------------------------------- practice
 
-function renderDecks() {
-  const decks = library.decks(settings.language);
+/* One page for browsing and one for drilling was one page too many: both were
+   the same list of the same decks. So the deck list is also the phrase list —
+   empty, the search box keeps out of the way and the page is the deck list it
+   always was; typed into, the decks give way to the phrases that match,
+   wherever they live and whatever is folded away.
+
+   Captures get a section of their own. A phrase jotted down with no Catalan
+   yet can't be drilled, so it belongs to no deck row and would otherwise have
+   nowhere left to be tapped. */
+function renderPractice() {
   const language = LANGUAGES[settings.language];
+  const phrases = library.forLanguage(settings.language);
+  const captures = phrases.filter((p) => !p.text.trim());
+  const decks = library.decks(settings.language);
+  const families = library.deckFamilies(settings.language);
+  const drillable = library.drillable(settings.language).length;
+  // Starred phrases drill as a deck of their own, sitting above the real ones.
+  const favourites = library.favourites(settings.language).filter((p) => p.text.trim());
 
-  if (!decks.length) {
+  if (!phrases.length) {
     view.innerHTML = `
       ${pageHead("practise", "Practice", `Nothing to drill in ${language.name} yet`)}
       <div class="empty">
-        <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>
         <p>No phrases yet.</p>
         <p class="small">Add some on the Add tab and they'll appear here as decks.</p>
       </div>`;
     return;
   }
 
-  const deckRow = (title, phrases, key, nested = false) => {
-    const scores = phrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
+  view.innerHTML = `
+    ${pageHead(
+      "practise",
+      "Practice",
+      drillable
+        ? `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
+            drillable === 1 ? "" : "s"
+          } ready in ${language.name}`
+        : `Nothing to drill in ${language.name} yet`
+    )}
+    <label class="field">
+      <input type="search" id="search" placeholder="Search phrases, decks and notes"
+             value="${esc(state.search)}">
+    </label>
+    <div id="practice-list"></div>`;
+
+  const search = document.getElementById("search");
+  search.addEventListener("input", () => {
+    state.search = search.value;
+    paint();
+  });
+  paint();
+
+  function paint() {
+    const query = state.search.trim().toLowerCase();
+    const list = document.getElementById("practice-list");
+    list.innerHTML = query ? searchResults(query) : deckList();
+    wire(list);
+  }
+
+  function deckRow(title, deckPhrases, key, nested = false) {
+    const scores = deckPhrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
     const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const done = phrases.length ? Math.round((scores.length / phrases.length) * 100) : 0;
+    const done = deckPhrases.length ? Math.round((scores.length / deckPhrases.length) * 100) : 0;
     return `
       <button class="row${nested ? " nested" : ""}" data-deck="${esc(key)}">
         <span class="row-main">
           <span class="row-title">${esc(title)}</span>
-          <span class="row-sub">${phrases.length} phrase${phrases.length === 1 ? "" : "s"}${
+          <span class="row-sub">${deckPhrases.length} phrase${deckPhrases.length === 1 ? "" : "s"}${
             scores.length ? ` · ${scores.length} practiced` : ""
           }</span>
           <span class="deck-meter"><i style="width:${done}%"></i></span>
@@ -232,20 +274,20 @@ function renderDecks() {
         ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
         <span class="chev">›</span>
       </button>`;
-  };
+  }
 
   /* A family of several decks folds behind one row, so the five castells decks
      don't push the everyday ones off the screen. The header drills the whole
      family; the chevron opens it. */
-  const familyRow = (family) => {
-    const phrases = library.inFamily(family.name, settings.language);
+  function familyRow(family) {
+    const inFamily = library.inFamily(family.name, settings.language);
     const open = familyOpen(family.name, family.decks.length);
     return `
       <div class="row family-row">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
           <span class="row-main">
             <span class="row-title">${esc(family.name)}</span>
-            <span class="row-sub">${family.decks.length} decks · ${phrases.length} phrases</span>
+            <span class="row-sub">${family.decks.length} decks · ${inFamily.length} phrases</span>
           </span>
         </button>
         <button class="fold" data-fold="${esc(family.name)}" aria-expanded="${open}"
@@ -253,86 +295,173 @@ function renderDecks() {
           <span class="tri">${open ? "▼" : "▶"}</span>
         </button>
       </div>`;
-  };
+  }
 
-  // Starred phrases drill as a deck of their own, sitting above the real ones.
-  const favourites = library.favourites(settings.language).filter((p) => p.text.trim());
-  const families = library.deckFamilies(settings.language);
-  const rows = [
-    ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
-    ...families.flatMap((family) => {
-      if (family.decks.length === 1) {
-        const deck = family.decks[0];
-        return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
-      }
-      const open = familyOpen(family.name, family.decks.length);
-      return [
-        familyRow(family),
-        ...(open
-          ? family.decks.map((deck) =>
-              deckRow(
-                // The deck named exactly like its family is the general one.
-                deck === family.name ? "General" : deckLeaf(deck),
-                library.inDeck(deck, settings.language),
-                deck,
-                true
+  function deckList() {
+    const rows = [
+      ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
+      ...families.flatMap((family) => {
+        if (family.decks.length === 1) {
+          const deck = family.decks[0];
+          return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
+        }
+        const open = familyOpen(family.name, family.decks.length);
+        return [
+          familyRow(family),
+          ...(open
+            ? family.decks.map((deck) =>
+                deckRow(
+                  // The deck named exactly like its family is the general one.
+                  deck === family.name ? "General" : deckLeaf(deck),
+                  library.inDeck(deck, settings.language),
+                  deck,
+                  true
+                )
               )
-            )
-          : []),
-      ];
-    }),
-  ].join("");
+            : []),
+        ];
+      }),
+    ].join("");
 
-  const drillable = library.drillable(settings.language).length;
-  view.innerHTML = `
-    ${pageHead(
-      "practise",
-      "Practice",
-      `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
-        drillable === 1 ? "" : "s"
-      } ready in ${language.name}`
-    )}
-    <div class="rows rows-spaced">${rows}</div>
-    <div class="section-label">Everything</div>
-    <div class="rows">
-      <button class="row" data-deck="*">
-        <span class="row-main"><span class="row-title">Shuffle all decks</span>
-        <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
+    return `
+      ${rows ? `<div class="rows rows-spaced">${rows}</div>` : ""}
+      ${
+        captures.length
+          ? `<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
+             <div class="rows rows-spaced">${captures.map(phraseRow).join("")}</div>`
+          : ""
+      }
+      ${
+        drillable
+          ? `<div class="section-label">Everything</div>
+             <div class="rows">
+               <button class="row" data-deck="*">
+                 <span class="row-main"><span class="row-title">Shuffle all decks</span>
+                 <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
+                 <span class="chev">›</span>
+               </button>
+             </div>`
+          : ""
+      }
+      ${
+        settings.hasAzure
+          ? ""
+          : `<div class="section-label">Heads up</div>
+             <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
+             the waveform comparison and scoring need one. Add it in Settings.</div>`
+      }`;
+  }
+
+  /* Results are grouped by the deck each phrase actually belongs to, and folds
+     are ignored entirely — a phrase you searched for must never be hiding
+     inside one. */
+  function searchResults(query) {
+    const match = (phrase) =>
+      phrase.text.toLowerCase().includes(query) ||
+      phrase.translation.toLowerCase().includes(query) ||
+      phrase.deck.toLowerCase().includes(query) ||
+      (phrase.situation ?? "").toLowerCase().includes(query) ||
+      (phrase.usageNote ?? "").toLowerCase().includes(query) ||
+      (phrase.focusNote ?? "").toLowerCase().includes(query);
+
+    const hits = phrases.filter(match);
+    if (!hits.length) return `<div class="empty"><p>Nothing matches.</p></div>`;
+
+    const groups = new Map();
+    for (const phrase of hits) {
+      if (!groups.has(phrase.deck)) groups.set(phrase.deck, []);
+      groups.get(phrase.deck).push(phrase);
+    }
+    return [...groups]
+      .map(
+        ([deck, found]) => `
+          <div class="section-label">${esc(deck)}</div>
+          <div class="rows rows-spaced">${found.map(phraseRow).join("")}</div>`
+      )
+      .join("");
+  }
+
+  function wire(list) {
+    list.querySelectorAll("[data-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const name = button.dataset.fold;
+        const family = families.find((f) => f.name === name);
+        setFamilyOpen(name, !familyOpen(name, family.decks.length));
+        paint();
+      })
+    );
+
+    list.querySelectorAll("[data-deck]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const deck = button.dataset.deck;
+        state.deck = deck;
+        state.queue =
+          deck === "*"
+            ? shuffle([...library.drillable(settings.language)])
+            : deck === FAVOURITES_DECK
+            ? [...favourites]
+            : deck.startsWith(FAMILY_PREFIX)
+            ? // A family header drills everything under it, shuffled — the
+              // castells decks are one rehearsal, not five separate ones. The
+              // prefix matters: "Castells" is both a family and a deck in it.
+              shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language))
+            : library.inDeck(deck, settings.language);
+        state.index = 0;
+        loadPhrase();
+      })
+    );
+
+    // A finished phrase opens its detail sheet; a capture with no target-language
+    // text yet can't be practised, so it goes straight to the edit form instead.
+    list.querySelectorAll("[data-phrase]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.phrase);
+        if (phrase) showPhrase(phrase);
+      })
+    );
+    list.querySelectorAll("[data-edit]").forEach((button) =>
+      button.addEventListener("click", () =>
+        editPhrase(library.phrases.find((p) => p.id === button.dataset.edit))
+      )
+    );
+    /* A search result only has to repaint — its rows are the same phrases,
+       restyled. The deck list has to go through render(): the ★ Favourites row
+       above it is a whole deck that just gained or lost a phrase. */
+    list.querySelectorAll("[data-fav]").forEach((button) =>
+      button.addEventListener("click", () => {
+        library.toggleFavourite(button.dataset.fav);
+        if (state.search.trim()) paint();
+        else render();
+      })
+    );
+  }
+}
+
+/* A phrase row: the star, then the phrase and what it means. A capture with no
+   target-language text yet can't be drilled or compared, so its row opens the
+   edit form rather than the detail sheet. */
+function phraseRow(phrase) {
+  const language = LANGUAGES[phrase.language] ?? LANGUAGES[settings.language];
+  const capture = !phrase.text.trim();
+  const best = library.bestScore(phrase.id);
+  return `
+    <div class="row">
+      ${starButton(phrase)}
+      <button class="row-open" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
+        <span class="row-main">
+          <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span>
+          <span class="row-sub">${esc(
+            phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`
+          )}</span>
+        </span>
+        ${
+          best != null
+            ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>`
+            : ""
+        }
         <span class="chev">›</span>
       </button>
-    </div>
-    ${settings.hasAzure ? "" : `<div class="section-label">Heads up</div>
-      <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
-      the waveform comparison and scoring need one. Add it in Settings.</div>`}`;
-
-  view.querySelectorAll("[data-fold]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const name = button.dataset.fold;
-      const family = families.find((f) => f.name === name);
-      setFamilyOpen(name, !familyOpen(name, family.decks.length));
-      render();
-    })
-  );
-
-  view.querySelectorAll("[data-deck]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const deck = button.dataset.deck;
-      state.deck = deck;
-      state.queue =
-        deck === "*"
-          ? shuffle([...library.drillable(settings.language)])
-          : deck === FAVOURITES_DECK
-          ? favourites
-          : deck.startsWith(FAMILY_PREFIX)
-          ? // A family header drills everything under it, shuffled — the
-            // castells decks are one rehearsal, not five separate ones. The
-            // prefix matters: "Castells" is both a family and a deck in it.
-            shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language))
-          : library.inDeck(deck, settings.language);
-      state.index = 0;
-      loadPhrase();
-    })
-  );
+    </div>`;
 }
 
 function shuffle(array) {
@@ -399,6 +528,7 @@ function renderDrill() {
       <button class="link" id="back">‹ Decks</button>
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
+        ${starButton(phrase, "star drill-star")}
         <button class="link" id="drill-edit">Edit</button>
       </span>
     </div>
@@ -500,6 +630,19 @@ function renderDrill() {
     loadPhrase();
   };
   document.getElementById("history").onclick = () => showHistory(phrase);
+
+  /* Starring mid-drill, for the phrase you have just discovered you need more
+     of. The button is updated in place rather than re-rendered — a re-render
+     here would throw away the attempt you are looking at. */
+  view.querySelector(".drill-star").addEventListener("click", (event) => {
+    const on = library.toggleFavourite(phrase.id);
+    const button = event.currentTarget;
+    const label = on ? "Remove from favourites" : "Add to favourites";
+    button.setAttribute("aria-pressed", String(on));
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    toast(on ? "Added to favourites." : "Removed from favourites.");
+  });
 
   /* Editing from inside the drill, for the phrase you have just heard and
      realised you would never say. The queue holds the object library.update
@@ -970,159 +1113,11 @@ async function showHistory(phrase) {
   );
 }
 
-// ------------------------------------------------------------------- study
-
-function renderStudy() {
-  const phrases = library.forLanguage(settings.language);
-  const captures = phrases.filter((p) => !p.text.trim());
-  const decks = library.decks(settings.language);
-  const language = LANGUAGES[settings.language];
-
-  view.innerHTML = `
-    ${pageHead(
-      "study",
-      "Phrases",
-      `${phrases.length} in the library · ${decks.length} deck${decks.length === 1 ? "" : "s"}${
-        captures.length ? ` · ${captures.length} awaiting ${language.englishName}` : ""
-      }`
-    )}
-    <label class="field"><input type="search" id="search" placeholder="Search the library"></label>
-    <div id="phrase-list"></div>`;
-
-  const search = document.getElementById("search");
-  search.addEventListener("input", () => paint(search.value.trim().toLowerCase()));
-  paint("");
-
-  function paint(query) {
-    const match = (phrase) =>
-      !query ||
-      phrase.text.toLowerCase().includes(query) ||
-      phrase.translation.toLowerCase().includes(query) ||
-      phrase.deck.toLowerCase().includes(query) ||
-      (phrase.situation ?? "").toLowerCase().includes(query) ||
-      (phrase.usageNote ?? "").toLowerCase().includes(query);
-
-    const list = document.getElementById("phrase-list");
-    const sections = [];
-
-    // Order: what you starred, then what still needs finishing, then the decks
-    // — with "My phrases" first among them (library.decks sorts it there).
-    const starred = library.favourites(settings.language).filter(match);
-    if (starred.length) {
-      sections.push(`<div class="section-label">Favourites</div>
-        <div class="rows rows-spaced">${starred.map(rowFor).join("")}</div>`);
-    }
-
-    const pendingCaptures = captures.filter(match);
-    if (pendingCaptures.length) {
-      sections.push(`<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
-        <div class="rows rows-spaced">${pendingCaptures.map(rowFor).join("")}</div>`);
-    }
-
-    /* Decks in families, same as the Practice list: a folded family is one
-       line instead of five deck sections. A search opens everything — a phrase
-       you searched for must never be hiding inside a fold. */
-    for (const family of library.deckFamilies(settings.language)) {
-      const solo = family.decks.length === 1;
-      const open = solo || query || familyOpen(family.name, family.decks.length);
-
-      if (!solo && !open) {
-        const hidden = library.inFamily(family.name, settings.language).filter(match);
-        if (!hidden.length) continue;
-        sections.push(`
-          <div class="rows folded-family">
-            <button class="row" data-fold="${esc(family.name)}">
-              <span class="row-main">
-                <span class="row-title">${esc(family.name)}</span>
-                <span class="row-sub">${family.decks.length} decks · ${hidden.length} phrases · tap to show</span>
-              </span>
-              <span class="chev">›</span>
-            </button>
-          </div>`);
-        continue;
-      }
-
-      const decksWithHits = family.decks
-        .map((deck) => [deck, library.inDeck(deck, settings.language).filter(match)])
-        .filter(([, hits]) => hits.length);
-      if (!decksWithHits.length) continue;
-
-      // An open family says so, and offers the way back — otherwise the only
-      // place to fold it up again would be the Practice tab.
-      if (!solo) {
-        sections.push(`<div class="section-label family-label">
-          <span>${esc(family.name)}</span>
-          ${query ? "" : `<button class="link" data-unfold="${esc(family.name)}">Fold away</button>`}
-        </div>`);
-      }
-      for (const [deck, hits] of decksWithHits) {
-        sections.push(`<div class="section-label${solo ? "" : " nested"}">${esc(
-          solo ? deck : deck === family.name ? "General" : deckLeaf(deck)
-        )}</div>
-          <div class="rows rows-spaced">${hits.map(rowFor).join("")}</div>`);
-      }
-    }
-
-    list.innerHTML =
-      sections.join("") ||
-      `<div class="empty"><p>${query ? "Nothing matches." : "No phrases yet."}</p></div>`;
-
-    // A finished phrase opens its detail sheet; a capture with no target-language
-    // text yet can't be practised, so it goes straight to the edit form instead.
-    list.querySelectorAll("[data-phrase]").forEach((button) =>
-      button.addEventListener("click", () => {
-        const phrase = library.phrases.find((p) => p.id === button.dataset.phrase);
-        if (phrase) showPhrase(phrase);
-      })
-    );
-    list.querySelectorAll("[data-edit]").forEach((button) =>
-      button.addEventListener("click", () =>
-        editPhrase(library.phrases.find((p) => p.id === button.dataset.edit))
-      )
-    );
-    // Repaint rather than just flipping the button: the same phrase appears in
-    // the Favourites section as well as its deck, and both stars have to agree.
-    list.querySelectorAll("[data-fav]").forEach((button) =>
-      button.addEventListener("click", () => {
-        library.toggleFavourite(button.dataset.fav);
-        paint(query);
-      })
-    );
-    list.querySelectorAll("[data-fold]").forEach((button) =>
-      button.addEventListener("click", () => {
-        setFamilyOpen(button.dataset.fold, true);
-        paint(query);
-      })
-    );
-    list.querySelectorAll("[data-unfold]").forEach((button) =>
-      button.addEventListener("click", () => {
-        setFamilyOpen(button.dataset.unfold, false);
-        paint(query);
-      })
-    );
-  }
-
-  function rowFor(phrase) {
-    const capture = !phrase.text.trim();
-    const best = library.bestScore(phrase.id);
-    return `
-      <div class="row">
-        ${starButton(phrase)}
-        <button class="row-open" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
-          <span class="row-main">
-            <span class="row-title">${esc(phrase.text || phrase.translation || "Untitled")}</span>
-            <span class="row-sub">${esc(phrase.text ? phrase.translation : `Tap to add the ${language.englishName}`)}</span>
-          </span>
-          ${best != null ? `<strong style="color:${scoreColour(best)};font-variant-numeric:tabular-nums">${Math.round(best)}</strong>` : ""}
-          <span class="chev">›</span>
-        </button>
-      </div>`;
-  }
-}
+// ------------------------------------------------------------ phrase sheet
 
 /* Phrase detail sheet, in the Deb-o-lingo style: meaning and notes up top,
    "Practise now" as the main action, attempts underneath. Edit and Delete are
-   here too — reachable from the list, but deliberately not on the list. */
+   here too — reachable from a search result, but deliberately not on the row. */
 function showPhrase(phrase) {
   const attempts = library.attemptsFor(phrase.id);
 
@@ -1214,7 +1209,7 @@ function showPhrase(phrase) {
     button.setAttribute("aria-label", label);
     button.setAttribute("title", label);
     toast(on ? "Added to favourites." : "Removed from favourites.");
-    render(); // the list behind the sheet has a Favourites section to keep true
+    render(); // the Favourites deck behind the sheet has to keep up
   });
 
   // Deleting a phrase takes its recordings with it, so ask for a second tap
@@ -1260,7 +1255,7 @@ function renderAdd() {
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
-    <p class="muted add-intro">Enter whatever you remember in ${esc(language.englishName)} or English. The assistant will correct it and build the rest of the card.</p>
+    <p class="muted add-intro">Say where you'd be using it, then whatever you remember in ${esc(language.englishName)} or English. The assistant will correct it and build the rest of the card.</p>
 
     ${
       settings.hasAssistant
@@ -1270,10 +1265,6 @@ function renderAdd() {
     }
 
     <div class="card add-card">
-      ${composerField("add-target", language.englishName, settings.language, true)}
-      <div class="language-divider"><span>or</span></div>
-      ${composerField("add-english", "English", "en-GB", true)}
-
       <div class="field">
         <div class="field-head">
           <label for="add-situation">Situation <span class="muted">(optional)</span></label>
@@ -1281,6 +1272,10 @@ function renderAdd() {
         </div>
         <textarea id="add-situation" rows="2"></textarea>
       </div>
+
+      ${composerField("add-target", language.englishName, settings.language, true)}
+      <div class="language-divider"><span>or</span></div>
+      ${composerField("add-english", "English", "en-GB", true)}
 
       <label class="field"><span>Deck</span>
         <select id="add-deck">
@@ -1402,7 +1397,7 @@ function renderAdd() {
       .forLanguage(settings.language)
       .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
     if (duplicate) {
-      toast("That sentence is already in Phrases.");
+      toast("That sentence is already in the library.");
       return;
     }
 

@@ -66,7 +66,7 @@ of a build step is why this deploys to a phone at all.
 ### The palette is Deb-o-lingo's
 
 `docs/app.css` wears the sister fork's colours: bright primaries, chunky
-buttons with a solid darker slab underneath, four coloured tab pills, Nunito
+buttons with a solid darker slab underneath, coloured tab pills, Nunito
 (vendored in `docs/vendor/fonts/`). The senyera red and gold are gone from the
 chrome. The two apps' palettes are meant to stay in step — change a colour here
 and change it there.
@@ -83,7 +83,9 @@ Two things to know before "fixing" it:
 
 Structure stayed Xerra's — the `.sec-*` section accents, the `page-head`
 banners and the deck meters are all still here, just repainted. Add gets its
-own orange now instead of borrowing Settings' colour.
+own orange now instead of borrowing Settings' colour. Phrases' blue outlived
+its tab: `--phrases-ink` is what every `.link` and every "Listen for" note is
+painted with, so the variable stays even though `.sec-study` has gone.
 
 **The Worker serves both apps.** The sister fork Deb-o-lingo has no `worker/`
 of its own — it ships a verbatim copy of `docs/js/card-assistant.js` pointed at
@@ -95,12 +97,38 @@ and `/chat` payloads breaks the other app too. Both share the one rate limit.
 
 ---
 
+### There is one browsing surface, not two
+
+Practice and Phrases were two tabs listing the same decks, so Phrases is gone
+and Practice absorbed it. `renderPractice` is the whole of it: a search box over
+a list that is the deck list while the box is empty and the matching phrases
+once it isn't. Three things had to come with it, and they are the reason not to
+"simplify" the page back into a plain deck list:
+
+- **The star.** Favourites were always a flag on the phrase, drillable as `★
+  Favourites` at the top of the list — but the only place to *set* one was the
+  Phrases page. It is now on every search-result row and in the drill topbar
+  (`.drill-star`), which is the one that matters: you decide a phrase is a
+  favourite while you're failing to say it.
+- **Captures.** A phrase jotted down with no Catalan yet isn't `drillable`, so
+  it belongs to no deck row and would have had nowhere left to be tapped. It
+  gets its own section, and its row opens the editor rather than the sheet.
+- **`showPhrase`.** Kept as-is — the attempt list, delete, and the per-phrase
+  chat live nowhere else. A search result opens it; the drill doesn't.
+
+The search box writes `state.search`, so a full `render()` (a star toggled in
+the sheet, a phrase deleted) doesn't throw the query away. Folds are ignored
+while searching rather than opened — same invariant as before, less machinery.
+
+Deb-o-lingo still has both tabs. This is a deliberate divergence, not drift to
+be tidied up; the drill, the editor and the card assistant stay in step.
+
 ### Deck families
 
 A deck named `Family · Deck` belongs to the family named by the prefix, and a
 family of three or more decks (`FOLD_FROM` in store.js) folds behind one row on
-both Practice and Phrases. This is why the castells decks are called
-`Castells · Pinya` and not `Pinya` — the naming *is* the grouping, so there is
+Practice. This is why the castells decks are called `Castells · Pinya` and not
+`Pinya` — the naming *is* the grouping, so there is
 no extra field on a phrase and a deck typed into the Add tab joins a family
 just by being named for it. `Castells` is both a family and a deck inside it,
 which is why deck keys for a whole family carry the `family:` prefix in
@@ -109,7 +137,7 @@ instead of all eighty.
 
 What the user folds is remembered by name in `settings.openFamilies`; absent
 means "whatever `FOLD_FROM` says", so a family can change its mind as decks are
-added to it. A search in Phrases opens every fold — a phrase you searched for
+added to it. Search results ignore folds entirely — a phrase you searched for
 must never be hiding inside one.
 
 ### The everyday decks came from Deb-o-lingo
@@ -125,7 +153,7 @@ already said them: the cortado, the bill, and *està boníssim*.
 ### What sits where in the drill
 
 The card carries the phrase, its translation and the `focusNote` — and nothing
-else. Situation and usage note render *below* the record button, in their own
+else. The topbar carries the progress pill, the star and Edit. Situation and usage note render *below* the record button, in their own
 card via `drillContext()`: they are reference material, and between the phrase
 and the record button is the worst place for them. The `focusNote` stays on the
 card deliberately, because it is the one thing you want in front of you in the
@@ -138,6 +166,14 @@ standing — the situation alone is the clue.
 
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
+
+### The Add tab asks for the situation first
+
+Where you'd be saying it comes before what you'd say. It reads as the odd order
+for a form — the phrase is the thing being added — but it is the order the
+thought arrives in, and the situation is also what the assistant leans on most
+when it has only a half-remembered phrase to work from. `completeCard` reads
+its fields by id, so the order is presentation only; don't wire logic to it.
 
 ### Editing a card, and the AI rebuild
 
@@ -344,9 +380,13 @@ Worth asserting on: no console errors on boot, the deck list matches
 and a phrase added in each language stays visible afterwards. For the folds:
 Practice shows one Castells row rather than five, `[data-fold="Castells"]`
 opens it and the choice survives a reload, `[data-deck="family:Castells"]`
-queues all eighty, and a search in Phrases finds a castells phrase while the
-family is folded. Anything touching
-Azure can't be covered this way — there's no key in CI and no key in the repo.
+queues all eighty, and typing into `#search` finds a castells phrase while the
+family is folded. For the merged page: `#practice-list [data-phrase]` appears
+only once `#search` has something in it, `.drill-star` flips `aria-pressed` and
+puts a `★ Favourites` row at the top of the list, and a phrase with no Catalan
+text shows up under "Jotted down" with a `[data-edit]` row rather than
+`[data-phrase]`. Anything touching Azure can't be covered this way — there's no
+key in CI and no key in the repo.
 
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
 either a diff you meant or no diff at all. A silent drop in the phrase count is
@@ -362,6 +402,8 @@ the parser losing a block to a formatting change.
 - GitHub Pages publishes from the default branch, so once Pages is enabled
   (main → `/docs`) the PWA is reachable at a URL the phone can install from.
   Check whether that's actually switched on before telling the user it's live.
+- Three tabs: Practice (deck list, library search and the drill), Add,
+  Settings. Phrases was merged into Practice.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
