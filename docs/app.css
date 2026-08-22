@@ -604,6 +604,45 @@ canvas { width: 100%; display: block; }
 .subscore-label { font-size: 0.7rem; font-weight: 700; color: var(--text-3); }
 .subscore-value { font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* ---------------------------------------------------------------- replies */
+
+/* What you'd hear back. The play button leads, because the point of these is
+   to have heard them before someone says one to you at speed. */
+.replies { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--blue) 9%, transparent);
+}
+.reply-play {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-top: -1px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--blue-dark);
+  cursor: pointer;
+}
+.reply-play svg { width: 15px; height: 15px; fill: currentColor; margin-left: 2px; }
+.reply-play:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--blue-dark); }
+.reply-play.busy { opacity: 0.55; }
+.reply-main { flex: 1; min-width: 0; }
+.reply-text { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.reply-translation { display: block; margin-top: 2px; font-size: 0.82rem; color: var(--text-2); overflow-wrap: anywhere; }
+
+/* Under the drill it's reference material like the situation card, so it wears
+   the same margin rather than sitting tight against the comparison. */
+.drill-replies { margin-top: 18px; }
+.drill-replies .section-label { margin: 0 4px 8px; }
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   border: 0;
