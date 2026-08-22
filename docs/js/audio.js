@@ -148,22 +148,51 @@ const TARGET_RMS = 0.12; // ≈ -18 dBFS over the speech, about the Azure level
 const MAX_BOOST = 8;
 const LEAD_IN = 0.12; // seconds of the original quiet kept, so onsets survive
 const MIN_TRIM = 0.15; // below this there's nothing worth rebuilding the clip for
+const FRAME = 256; // the analysis window, so both halves count time the same way
 
 const playbackCache = new WeakMap();
 
-/* Where the speech starts, in samples — the same 256-frame RMS scan the
-   analysis opens with, so playback and the drawn waveform agree on where the
-   clip begins. Deliberately a copy rather than a refactor of trimSilence():
-   that one is in the half of this file that stays byte-identical with
-   Deb-o-lingo's, and it returns samples rather than an offset. Zero means no
-   speech was found, which is the one case where trimming would eat the lot. */
-function speechStart(samples, threshold = 0.015) {
-  const window = 256;
-  let start = 0;
-  while (start + window < samples.length && rms(samples, start, start + window) <= threshold) {
-    start += window;
+/* Where the speech starts, in samples. Zero means "don't trim" — either no
+   clear speech, or a clip too short to judge.
+
+   The threshold is derived from the clip rather than fixed, and that is the
+   whole point of this function existing. A fixed 0.015 RMS works in a quiet
+   room and silently stops working in a normal one: `autoGainControl` is off,
+   so a fan or a street outside puts the room itself above the line, the scan
+   finds "speech" in the first frame, and nothing is trimmed at all. It looks
+   exactly like the feature regressing, because it has.
+
+   So: take the quiet tenth of the clip as the room and the loud twentieth as
+   the voice, and put the line between them. Speech has to clear it for three
+   frames running, so a click or a breath doesn't count as the first word.
+
+   This is where playback and the drawn waveform can now disagree, since the
+   drawing goes through trimSilence()'s fixed threshold — that one is in the
+   half of this file kept byte-identical with Deb-o-lingo's copy. In a noisy
+   room the picture may show a lead-in the sound skips. Getting the silence out
+   of your ears matters more than the two agreeing, and bringing them back into
+   line means changing trimSilence() in both repos at once. */
+function speechStart(samples) {
+  const frames = [];
+  for (let i = 0; i + FRAME <= samples.length; i += FRAME) frames.push(rms(samples, i, i + FRAME));
+  if (frames.length < 8) return 0;
+
+  const sorted = [...frames].sort((a, b) => a - b);
+  const at = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+  const room = at(0.1);
+  const voice = at(0.95);
+  if (voice < room * 2.5) return 0; // all room, or all voice — nothing to cut
+
+  const threshold = Math.max(room * 3, voice * 0.1, 0.008);
+  let run = 0;
+  for (let i = 0; i < frames.length; i++) {
+    if (frames[i] > threshold) {
+      if (++run >= 3) return (i - 2) * FRAME;
+    } else {
+      run = 0;
+    }
   }
-  return start + window >= samples.length ? 0 : start;
+  return 0;
 }
 
 export async function forPlayback(blob) {

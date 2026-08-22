@@ -162,20 +162,30 @@ function writeJSON(key, value) {
   }
 }
 
-/* The one number the app shows and judges by.
+/* The one number the app shows and judges by: your weakest word.
 
-   Azure's PronScore is not it. For a read phrase in a locale without prosody
-   assessment (which is every locale but en-US) it is
-   `0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness sorted
-   lowest first — and completeness is 100 whenever you say all the words while
-   fluency on a five-word phrase is nearly always 95+. Both of the 0.2 slots
-   are pinned near the top, so the blend reads several points above how well
-   you actually said it: accuracy 85 comes out as 90.
+   Every aggregate Azure hands back is generous. PronScore is the worst of them
+   — for a read phrase in a locale without prosody assessment (which is every
+   locale but en-US) it is `0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency
+   and completeness sorted lowest first, and completeness is 100 whenever you
+   say all the words while fluency on a five-word phrase is nearly always 95+,
+   so two of the three slots are pinned near the top. But AccuracyScore is
+   generous too, because it is a mean over the phrase: say four words well and
+   mangle the fifth and it barely moves.
 
-   AccuracyScore is the phoneme-match number, and it is the one that moves.
-   Attempts have always stored both, so this reads back over the whole history
-   without a migration; the blend is only a fallback for anything missing it. */
+   A listener doesn't average you. They hear the word you got wrong. So the
+   score is the lowest word in the phrase, and a word Azure marks as omitted
+   scores zero — not saying it is the worst way of saying it.
+
+   Word detail has been stored on every scored attempt since the first version,
+   so this reads back over the whole history without a migration. The
+   aggregates are the fallback for an attempt that somehow has no words. */
 export function attemptScore(attempt) {
+  const words = attempt?.words ?? [];
+  const scores = words
+    .map((word) => (word.errorType === "Omission" ? 0 : word.score))
+    .filter((score) => typeof score === "number");
+  if (scores.length) return Math.min(...scores);
   return attempt?.accuracy ?? attempt?.overall ?? null;
 }
 

@@ -335,29 +335,35 @@ Deb-o-lingo has the same feature in the same shape — same constants, same
 flags, same `mode` values. Keep them in step. The Swift app does **not** have
 it, and gains nothing from it while it can't be installed.
 
-## The score is accuracy, not Azure's headline
+## The score is your weakest word
 
 Azure has **no strictness setting**. `GradingSystem` only rescales (100-point
 vs 5-point), and the one genuinely harsh input — prosody assessment, which
 scores stress, intonation and rhythm — is **en-US only**, so `ca-ES` can never
 have it. `enableMiscue` is already on, so skipped and invented words do cost.
 
-What made everything read 90+ was the blend. For a read phrase without prosody,
-`PronScore = 0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness
-sorted lowest first. Completeness is 100 whenever you say all the words, and
-fluency on a five-word phrase is nearly always 95+, so both 0.2 slots are
-pinned near the top and only accuracy moves: accuracy 85 surfaces as 90.
+What makes everything read 90+ is aggregation, and every number Azure returns
+is an aggregate. `PronScore` is the worst: for a read phrase without prosody it
+is `0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness sorted
+lowest first, and completeness is 100 whenever you say all the words while
+fluency on a five-word phrase is nearly always 95+, so two slots are pinned
+near the top. Swapping the headline to `AccuracyScore` was tried first and was
+not enough — it is a mean over the phrase, so four good words carry a mangled
+fifth. Real reading: accuracy 88, PronScore 93, and one word at 61.
 
-So `attemptScore()` in store.js is the one number the app shows and judges by,
-and it reads `accuracy ?? overall`. Attempts have always stored both, so this
-applied to the whole existing history without a migration — but it does mean a
-phrase's recorded score dropped by a few points the day it shipped, and some
-level-two phrases went back to level one. That was the point.
+So `attemptScore()` in store.js returns **the lowest word score in the
+attempt**, with an `Omission` counting as zero — not saying a word is the worst
+way of saying it. A listener doesn't average you; they hear the word you got
+wrong. Word detail has been stored on every scored attempt since the first
+version, so this reads back over the whole history without a migration.
+The aggregates are the fallback for an attempt with no word detail.
 
-The bands moved with it: `GOOD` 90 and `OK` 75 in app.js, `RECALL_PASS` 75 in
-store.js, where they were 80/60/60 against the inflated number. `PronScore` is
-still on the card as the "Azure" sub-score — worth seeing, not worth being
-judged by.
+This is a strong claim on the bands, so know what they now mean: `GOOD` 90 in
+app.js means *every word in the phrase* cleared 90, and `RECALL_PASS` 75 in
+store.js means every word cleared 75, twice. That is meant to be hard. All four
+aggregates (accuracy, fluency, completeness, PronScore) stay on the card as
+sub-scores, and the card names the weakest word so the dial points at the chip
+that earned it.
 
 Deb-o-lingo scores Spanish through the same Azure call and has the same
 inflation. If it is ever brought in step, `attemptScore` and the three
@@ -383,11 +389,20 @@ pitch tracker needs that honest signal.
 
 Two things about the trim before you tune it:
 
-- It reuses the analysis threshold (0.015 RMS over 256 frames) on purpose. The
-  waveform drawn above the player is of `trimSilence`'d samples, so it never
-  showed the dead air the audio used to open with — reusing the detector is
-  what makes the picture and the sound agree about where the clip starts. Near
-  the threshold, detection can land a few tens of milliseconds late; the 120 ms
+- **The threshold is derived from the clip, not fixed, and it has to stay that
+  way.** It started as the analysis threshold (0.015 RMS over 256 frames) so
+  that playback and the drawn waveform would agree on where a clip begins. That
+  works in a quiet room and silently stops working in a normal one:
+  `autoGainControl` is off, so a fan or traffic puts the room itself above the
+  line, the scan calls the first frame speech, and nothing is trimmed at all —
+  indistinguishable from the feature having been reverted. `speechStart` now
+  takes the quiet tenth of the clip as the room and the loud twentieth as the
+  voice and puts the line between them, and wants three frames over it in a row
+  so a click isn't the first word. The cost is that in a noisy room the picture
+  (still `trimSilence`, still fixed) can show a lead-in the sound skips; the
+  silence mattered more. Bringing them back into line means changing
+  `trimSilence` in this repo *and* Deb-o-lingo's, together.
+- Detection can still land a few tens of milliseconds late; the 120 ms
   `LEAD_IN` kept before the detected start is what covers that, so don't cut it
   to zero to "tighten" playback.
 - **The tail is deliberately left alone.** These decks teach Catalan final
@@ -482,7 +497,8 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice (deck list, library search and the drill), Add,
   Settings. Phrases was merged into Practice.
-- The score is Azure's `AccuracyScore`, not its `PronScore` — see below.
+- The score is the weakest word in the attempt, not any of Azure's aggregates
+  — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
