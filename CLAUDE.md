@@ -167,6 +167,17 @@ standing — the situation alone is the clue.
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
 
+### The in-page dictation buttons are gone, deliberately
+
+Every composer field used to carry a mic button driving
+`webkitSpeechRecognition`. On the iPhone, which is the only device this app
+runs on, it doesn't work — so they were removed rather than left as decoration.
+What does work is the dictation key on the iOS keyboard itself, and the
+textareas still carry `lang="ca-ES"` / `lang="en-GB"` so that it types the right
+language into the right box. Don't re-add the buttons; if dictation is ever
+worth another go, the thing to test on the actual phone first is whether
+`SpeechRecognition` fires `onresult` at all.
+
 ### The Add tab asks for the situation first
 
 Where you'd be saying it comes before what you'd say. It reads as the odd order
@@ -188,6 +199,12 @@ sheet opens and sends only the side that was actually edited, dropping the
 other as if it had been left blank on the Add tab. Change both, or neither, and
 both go. Nothing is written until Save, and the review notice carries an Undo
 that puts the snapshot back.
+
+The end of a queue is a **Done ✓** button where Next was, not a disabled Next
+— a greyed-out primary button at the end of every deck reads as breakage. And
+"Practise now" on the phrase sheet queues that phrase's whole deck positioned
+at that phrase, not a queue of one, for the same reason: from the merged page
+you reach a phrase and then want to keep going.
 
 The drill has an **Edit** button in its topbar for the phrase you have just
 heard and realised you'd never say. `editPhrase(phrase, onSaved)` takes a
@@ -313,6 +330,34 @@ Deb-o-lingo has the same feature in the same shape — same constants, same
 flags, same `mode` values. Keep them in step. The Swift app does **not** have
 it, and gains nothing from it while it can't be installed.
 
+## The score is accuracy, not Azure's headline
+
+Azure has **no strictness setting**. `GradingSystem` only rescales (100-point
+vs 5-point), and the one genuinely harsh input — prosody assessment, which
+scores stress, intonation and rhythm — is **en-US only**, so `ca-ES` can never
+have it. `enableMiscue` is already on, so skipped and invented words do cost.
+
+What made everything read 90+ was the blend. For a read phrase without prosody,
+`PronScore = 0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness
+sorted lowest first. Completeness is 100 whenever you say all the words, and
+fluency on a five-word phrase is nearly always 95+, so both 0.2 slots are
+pinned near the top and only accuracy moves: accuracy 85 surfaces as 90.
+
+So `attemptScore()` in store.js is the one number the app shows and judges by,
+and it reads `accuracy ?? overall`. Attempts have always stored both, so this
+applied to the whole existing history without a migration — but it does mean a
+phrase's recorded score dropped by a few points the day it shipped, and some
+level-two phrases went back to level one. That was the point.
+
+The bands moved with it: `GOOD` 90 and `OK` 75 in app.js, `RECALL_PASS` 75 in
+store.js, where they were 80/60/60 against the inflated number. `PronScore` is
+still on the card as the "Azure" sub-score — worth seeing, not worth being
+judged by.
+
+Deb-o-lingo scores Spanish through the same Azure call and has the same
+inflation. If it is ever brought in step, `attemptScore` and the three
+constants are the whole change.
+
 ## Audio analysis
 
 The JS waveform and pitch code in `docs/js/audio.js` is a **direct port** of the
@@ -322,12 +367,28 @@ change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
 copied it verbatim. The analysis half stays byte-identical between the two —
-change it in one, change it in the other. The *playback* half has now diverged
-deliberately: `comparableLoudness` (ported here from Deb-o-lingo's `48b451a`)
-boosts quiet recordings to roughly TTS loudness at play time only. It never
+change it in one, change it in the other. The *playback* half has diverged
+deliberately, and is now one function, `forPlayback` (the old
+`comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
+does two things at play time and nothing else: boosts a quiet recording to
+roughly TTS loudness, and drops the dead air before the first word. It never
 touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
 because recordings are captured with `autoGainControl: false` on purpose and the
 pitch tracker needs that honest signal.
+
+Two things about the trim before you tune it:
+
+- It reuses the analysis threshold (0.015 RMS over 256 frames) on purpose. The
+  waveform drawn above the player is of `trimSilence`'d samples, so it never
+  showed the dead air the audio used to open with — reusing the detector is
+  what makes the picture and the sound agree about where the clip starts. Near
+  the threshold, detection can land a few tens of milliseconds late; the 120 ms
+  `LEAD_IN` kept before the detected start is what covers that, so don't cut it
+  to zero to "tighten" playback.
+- **The tail is deliberately left alone.** These decks teach Catalan final
+  consonants, and a trailing trim that misjudges the threshold eats exactly the
+  sound the phrase was chosen to drill. Silence at the end is cheap; a
+  swallowed final -t is not.
 
 Pitch is plotted in **semitones relative to each speaker's own median**, not
 absolute Hz. This is what lets a low TTS voice and a higher human voice be
@@ -404,6 +465,7 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice (deck list, library search and the drill), Add,
   Settings. Phrases was merged into Practice.
+- The score is Azure's `AccuracyScore`, not its `PronScore` — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from

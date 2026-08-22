@@ -651,25 +651,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .add-card textarea { min-height: 82px; }
 .add-card .add-complete { width: 100%; margin-top: 2px; }
 .add-card .notice { margin-bottom: 12px; }
-.field-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.field-head { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
 .field-head label { color: var(--text-2); font-size: 0.78rem; font-weight: 700; }
-.dictate {
-  width: 34px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--green) 14%, transparent);
-  color: var(--practise-ink);
-  cursor: pointer;
-}
-.dictate svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.dictate.listening { background: var(--red); color: #fff; animation: dictation-pulse 1.1s ease-in-out infinite; }
 .language-divider { display: flex; align-items: center; gap: 10px; margin: -1px 0 10px; color: var(--text-3); font-size: 0.72rem; text-transform: uppercase; }
 .language-divider::before, .language-divider::after { content: ""; height: 2px; background: var(--line); flex: 1; }
 #card-preview { scroll-margin-top: 12px; }
-@keyframes dictation-pulse { 50% { opacity: 0.62; } }
 
 /* ------------------------------------------------------------------ sheet */
 

@@ -22,7 +22,7 @@ const KEYS = {
 // from memory. Trying to remember is the part that makes it stick — reading it
 // off the screen a hundredth time doesn't.
 export const RECALL_AFTER = 2;
-const RECALL_PASS = 60; // the same "understandable" line the drill verdict uses
+const RECALL_PASS = 75; // the same "close" line the drill verdict uses
 
 const DB_NAME = "xerra";
 const DB_VERSION = 1;
@@ -160,6 +160,23 @@ function writeJSON(key, value) {
   } catch (error) {
     console.warn("Storage write failed", error);
   }
+}
+
+/* The one number the app shows and judges by.
+
+   Azure's PronScore is not it. For a read phrase in a locale without prosody
+   assessment (which is every locale but en-US) it is
+   `0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness sorted
+   lowest first — and completeness is 100 whenever you say all the words while
+   fluency on a five-word phrase is nearly always 95+. Both of the 0.2 slots
+   are pinned near the top, so the blend reads several points above how well
+   you actually said it: accuracy 85 comes out as 90.
+
+   AccuracyScore is the phoneme-match number, and it is the one that moves.
+   Attempts have always stored both, so this reads back over the whole history
+   without a migration; the blend is only a fallback for anything missing it. */
+export function attemptScore(attempt) {
+  return attempt?.accuracy ?? attempt?.overall ?? null;
 }
 
 export function uid() {
@@ -323,7 +340,7 @@ export const library = {
 
   bestScore(phraseID) {
     const scores = this.attemptsFor(phraseID)
-      .map((a) => a.overall)
+      .map(attemptScore)
       .filter((s) => typeof s === "number");
     return scores.length ? Math.max(...scores) : null;
   },
@@ -333,7 +350,7 @@ export const library = {
      judge it by and a phrase would otherwise never leave level one. */
   goodAttempts(phraseID) {
     return this.attemptsFor(phraseID).filter(
-      (a) => a.overall == null || a.overall >= RECALL_PASS
+      (a) => attemptScore(a) == null || attemptScore(a) >= RECALL_PASS
     ).length;
   },
 

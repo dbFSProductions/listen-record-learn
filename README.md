@@ -149,14 +149,21 @@ Pick a deck, and for each phrase:
 - **Listen** at full speed, or **Slow** (time-stretched, not pitch-shifted)
 - **Record** yourself with a live level ring
 - **A/B** playback — model then you, back to back, which is the single most
-  useful thing for hearing the gap
+  useful thing for hearing the gap. Playback starts at your first word: the
+  pause between tapping record and actually speaking is skipped, and quiet
+  takes are lifted to roughly the model's loudness. Both happen at play time
+  only — the recording itself, the waveform and the scoring all see the
+  untouched audio
 - **Waveforms** stacked on a shared axis, plus a plain-English note on whether
   you're faster or slower than the model
 - **Intonation** — your pitch contour over the model's, in semitones relative to
   each speaker's own median, so a low TTS voice and your voice compare on
   *melody* rather than register
-- **Score** — headline number, accuracy/fluency/completeness, and word chips you
-  can tap for phoneme detail
+- **Score** — the headline is Azure's *accuracy* score, aggregated from the
+  phoneme scores, because its own `PronScore` blends in fluency and
+  completeness, which sit near 100 on any short phrase you say all of, and
+  reads several points kinder than you were. That blend is still shown, as the
+  *Azure* sub-score. Word chips underneath tap for phoneme detail
 - **History** — every past attempt at that phrase, with a trend line
 
 Say a phrase well twice and it moves up to **level 2**: the drill stops showing
@@ -175,8 +182,9 @@ written again. Nothing is saved until you tap Save, and there's an Undo. The
 drill has an **Edit** button of its own, for the phrase you have just heard and
 realised you'd never actually say.
 
-**Add** — describe the situation, type or dictate whatever you remember in
-Catalan or English, and select a deck. Gemini corrects the phrase, fills the
+**Add** — describe the situation, type whatever you remember in Catalan or
+English, and select a deck. (The fields carry the right `lang`, so the iPhone
+keyboard's own dictation key writes into them in the right language.) Gemini corrects the phrase, fills the
 other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
 

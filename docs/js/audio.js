@@ -122,21 +122,52 @@ export class Recorder {
 
 // ----------------------------------------------------------------- playback
 
-// Recordings are made with autoGainControl off (so the analysis sees an
-// honest signal), which leaves them far quieter than the Azure voices and
-// made the you-vs-model comparison lopsided. Before playing, measure a
-// clip's speech loudness and, if it's meaningfully below where the TTS
-// voices sit, boost it into an in-memory WAV. Peak-capped so it can't clip,
-// boost-capped so a near-silent take doesn't become amplified hiss. Clips
-// already at TTS level (the model audio) pass through untouched.
+// Two things are wrong with a stored clip as a thing to listen to, and both
+// are fixed here, at play time only. Nothing below touches the stored blob,
+// the analysis pipeline, or what goes to Azure for scoring: recordings are
+// captured with autoGainControl off on purpose, and the pitch tracker needs
+// that honest signal.
+//
+// Loudness. autoGainControl being off leaves a recording far quieter than the
+// Azure voices, which made the you-vs-model comparison lopsided. Measure the
+// speech and, if it sits meaningfully below where the TTS voices do, boost.
+// Peak-capped so it can't clip, boost-capped so a near-silent take doesn't
+// become amplified hiss. Clips already at TTS level pass through.
+//
+// Dead air at the front. You tap record, then think, then speak, so playback
+// opened with a second of nothing — and the waveform drawn above it doesn't,
+// because the drawing is of trimSilence()'d samples. The picture and the sound
+// disagreed, and A/B put the gap in the wrong place. Playback now starts where
+// the drawing does.
+//
+// Only the front. A Catalan final consonant is exactly the thing these decks
+// teach you not to swallow, and a trailing trim that misjudges the threshold
+// eats it — so the tail is left alone, silence and all.
 
 const TARGET_RMS = 0.12; // ≈ -18 dBFS over the speech, about the Azure level
 const MAX_BOOST = 8;
+const LEAD_IN = 0.12; // seconds of the original quiet kept, so onsets survive
+const MIN_TRIM = 0.15; // below this there's nothing worth rebuilding the clip for
 
-const loudnessCache = new WeakMap();
+const playbackCache = new WeakMap();
 
-export async function comparableLoudness(blob) {
-  if (loudnessCache.has(blob)) return loudnessCache.get(blob);
+/* Where the speech starts, in samples — the same 256-frame RMS scan the
+   analysis opens with, so playback and the drawn waveform agree on where the
+   clip begins. Deliberately a copy rather than a refactor of trimSilence():
+   that one is in the half of this file that stays byte-identical with
+   Deb-o-lingo's, and it returns samples rather than an offset. Zero means no
+   speech was found, which is the one case where trimming would eat the lot. */
+function speechStart(samples, threshold = 0.015) {
+  const window = 256;
+  let start = 0;
+  while (start + window < samples.length && rms(samples, start, start + window) <= threshold) {
+    start += window;
+  }
+  return start + window >= samples.length ? 0 : start;
+}
+
+export async function forPlayback(blob) {
+  if (playbackCache.has(blob)) return playbackCache.get(blob);
   let result = blob;
   try {
     const { samples, sampleRate } = await monoSamples(blob);
@@ -147,18 +178,25 @@ export async function comparableLoudness(blob) {
       const magnitude = Math.abs(samples[i]);
       if (magnitude > peak) peak = magnitude;
     }
-    if (level > 0 && peak > 0) {
-      const gain = Math.min(TARGET_RMS / level, MAX_BOOST, 0.98 / peak);
-      if (gain > 1.1) {
-        const boosted = new Float32Array(samples.length);
-        for (let i = 0; i < samples.length; i++) boosted[i] = samples[i] * gain;
-        result = encodeWav(boosted, sampleRate);
-      }
+
+    const gain =
+      level > 0 && peak > 0 ? Math.min(TARGET_RMS / level, MAX_BOOST, 0.98 / peak) : 1;
+    const boosting = gain > 1.1;
+
+    const from = Math.max(0, speechStart(samples) - Math.round(LEAD_IN * sampleRate));
+    const trimming = from / sampleRate >= MIN_TRIM;
+
+    if (boosting || trimming) {
+      const start = trimming ? from : 0;
+      const scale = boosting ? gain : 1;
+      const prepared = new Float32Array(samples.length - start);
+      for (let i = 0; i < prepared.length; i++) prepared[i] = samples[start + i] * scale;
+      result = encodeWav(prepared, sampleRate);
     }
   } catch {
     // Undecodable blob — play it as it came.
   }
-  loudnessCache.set(blob, result);
+  playbackCache.set(blob, result);
   return result;
 }
 
@@ -170,7 +208,7 @@ export class Player {
   }
 
   async play(blob, { rate = 1, onEnded = null } = {}) {
-    const playable = await comparableLoudness(blob);
+    const playable = await forPlayback(blob);
     this.stop();
     this.url = URL.createObjectURL(playable);
     const audio = new Audio(this.url);

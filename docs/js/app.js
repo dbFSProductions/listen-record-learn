@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, LANGUAGES, MY_PHRASES, uid, RECALL_AFTER,
-  deckLeaf, familyOpen, setFamilyOpen,
+  deckLeaf, familyOpen, setFamilyOpen, attemptScore,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -32,7 +32,6 @@ const state = {
   loadingModel: false,
   scoringNow: false,
   levelTimer: null,
-  dictation: null,
   search: "",
 
   // Level two. `recall` says this phrase is a memory question; `revealed` says
@@ -102,14 +101,20 @@ function starButton(phrase, className = "star") {
     aria-label="${on ? "Remove from favourites" : "Add to favourites"}">${STAR_SVG}</button>`;
 }
 
+/* Bands over the accuracy score, not over Azure's blend. They sit higher than
+   they look: the blend used to arrive pre-inflated, so 80 stood for something
+   nearer 72 of actual accuracy. Green now means green. */
+const GOOD = 90;
+const OK = 75;
+
 function scoreClass(score) {
   if (score == null) return "";
-  return score >= 80 ? "good" : score >= 60 ? "ok" : "bad";
+  return score >= GOOD ? "good" : score >= OK ? "ok" : "bad";
 }
 
 function scoreColour(score) {
   if (score == null) return "var(--text-3)";
-  return score >= 80 ? "var(--green)" : score >= 60 ? "var(--amber)" : "var(--red)";
+  return score >= GOOD ? "var(--green)" : score >= OK ? "var(--amber)" : "var(--red)";
 }
 
 function openSheet(title, html) {
@@ -149,8 +154,6 @@ function stopEverything() {
   player.stop();
   browserSpeech.stop();
   if (recorder.isRecording) recorder.cancel();
-  state.dictation?.abort();
-  state.dictation = null;
   clearInterval(state.levelTimer);
   state.levelTimer = null;
 }
@@ -214,8 +217,6 @@ function renderPractice() {
   const decks = library.decks(settings.language);
   const families = library.deckFamilies(settings.language);
   const drillable = library.drillable(settings.language).length;
-  // Starred phrases drill as a deck of their own, sitting above the real ones.
-  const favourites = library.favourites(settings.language).filter((p) => p.text.trim());
 
   if (!phrases.length) {
     view.innerHTML = `
@@ -297,7 +298,15 @@ function renderPractice() {
       </div>`;
   }
 
+  /* Starred phrases drill as a deck of their own, sitting above the real ones.
+     Read fresh on every paint: a star tapped in a search result has to reach
+     this row when the query is cleared, and paint() doesn't re-run render(). */
+  function starred() {
+    return library.favourites(settings.language).filter((p) => p.text.trim());
+  }
+
   function deckList() {
+    const favourites = starred();
     const rows = [
       ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
       ...families.flatMap((family) => {
@@ -399,7 +408,7 @@ function renderPractice() {
           deck === "*"
             ? shuffle([...library.drillable(settings.language)])
             : deck === FAVOURITES_DECK
-            ? [...favourites]
+            ? starred()
             : deck.startsWith(FAMILY_PREFIX)
             ? // A family header drills everything under it, shuffled — the
               // castells decks are one rehearsal, not five separate ones. The
@@ -525,7 +534,7 @@ function renderDrill() {
 
   view.innerHTML = `
     <div class="topbar">
-      <button class="link" id="back">‹ Decks</button>
+      <button class="link" id="back">‹ Practice</button>
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
         ${starButton(phrase, "star drill-star")}
@@ -602,7 +611,13 @@ function renderDrill() {
 
     <div class="btn-row" style="margin-top:18px">
       <button class="btn" id="history">History</button>
-      <button class="btn btn-primary" id="next" ${state.index >= state.queue.length - 1 ? "disabled" : ""}>Next ›</button>
+      ${
+        // The last phrase used to leave a greyed-out Next sitting there looking
+        // broken. It's the way back to the list instead.
+        state.index >= state.queue.length - 1
+          ? `<button class="btn btn-primary" id="done">Done ✓</button>`
+          : `<button class="btn btn-primary" id="next">Next ›</button>`
+      }
     </div>`;
 
   document.getElementById("back").onclick = () => {
@@ -623,12 +638,16 @@ function renderDrill() {
     render();
     playModel(1);
   });
-  document.getElementById("next").onclick = () => {
-    if (state.index >= state.queue.length - 1) return;
+  document.getElementById("next")?.addEventListener("click", () => {
     stopEverything();
     state.index++;
     loadPhrase();
-  };
+  });
+  document.getElementById("done")?.addEventListener("click", () => {
+    stopEverything();
+    state.deck = null;
+    render();
+  });
   document.getElementById("history").onclick = () => showHistory(phrase);
 
   /* Starring mid-drill, for the phrase you have just discovered you need more
@@ -834,7 +853,7 @@ function renderComparison() {
     ${
       state.scoringNow
         ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
-        : attempt?.overall != null
+        : attemptScore(attempt) != null
         ? renderScore(attempt)
         : scoring.lastError
         ? `<div class="notice bad">${esc(scoring.lastError)}</div>`
@@ -854,24 +873,27 @@ function timingSummary() {
 }
 
 function renderScore(attempt) {
+  const score = attemptScore(attempt);
   const circumference = 2 * Math.PI * 30;
-  const dash = (attempt.overall / 100) * circumference;
+  const dash = (score / 100) * circumference;
 
   const verdict =
-    attempt.overall >= 90
+    score >= 95
       ? "That's the one — say it just like that."
-      : attempt.overall >= 80
+      : score >= GOOD
       ? "Close. A native would follow you without effort."
-      : attempt.overall >= 60
+      : score >= OK
       ? "Understandable, but the tinted words need work."
-      : attempt.overall >= 40
+      : score >= 55
       ? "Some of it landed. Play the model again and copy the rhythm."
       : "Not there yet. Slow it down and go word by word.";
 
+  /* Azure's own blended PronScore sits here rather than in the dial. It is the
+     generous number — worth seeing, not worth being judged by. */
   const sub = [
-    ["Accuracy", attempt.accuracy],
     ["Fluency", attempt.fluency],
     ["Complete", attempt.completeness],
+    ["Azure", attempt.overall],
   ]
     .filter(([, v]) => v != null)
     .map(
@@ -893,11 +915,11 @@ function renderScore(attempt) {
         <div class="dial">
           <svg viewBox="0 0 68 68">
             <circle cx="34" cy="34" r="30" fill="none" stroke="var(--surface-2)" stroke-width="7"/>
-            <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(attempt.overall)}"
+            <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(score)}"
                     stroke-width="7" stroke-linecap="round"
                     stroke-dasharray="${dash} ${circumference}"/>
           </svg>
-          <div class="dial-value">${Math.round(attempt.overall)}</div>
+          <div class="dial-value">${Math.round(score)}</div>
         </div>
         <div>
           <div style="font-weight:600">${verdict}</div>
@@ -909,7 +931,7 @@ function renderScore(attempt) {
       <div id="phoneme-detail"></div>
 
       ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
-      <p class="tiny muted" style="margin-top:6px">Scored by ${esc(attempt.engine)}</p>
+      <p class="tiny muted" style="margin-top:6px">Sound-by-sound accuracy, scored by ${esc(attempt.engine)}</p>
     </div>`;
 }
 
@@ -1060,7 +1082,7 @@ async function showHistory(phrase) {
     return;
   }
 
-  const scores = [...attempts].reverse().map((a) => a.overall).filter((s) => s != null);
+  const scores = [...attempts].reverse().map(attemptScore).filter((s) => s != null);
   let trend = "";
   if (scores.length >= 2) {
     const change = scores[scores.length - 1] - scores[0];
@@ -1087,8 +1109,8 @@ async function showHistory(phrase) {
              })}</span>
              <span class="row-sub">${esc(attempt.engine)}</span>
            </span>
-           ${attempt.overall != null
-             ? `<strong style="color:${scoreColour(attempt.overall)};font-variant-numeric:tabular-nums">${Math.round(attempt.overall)}</strong>`
+           ${attemptScore(attempt) != null
+             ? `<strong style="color:${scoreColour(attemptScore(attempt))};font-variant-numeric:tabular-nums">${Math.round(attemptScore(attempt))}</strong>`
              : ""}
            <button class="link btn-danger" data-delete="${attempt.id}">Delete</button>
          </div>`
@@ -1159,8 +1181,8 @@ function showPhrase(phrase) {
                   })}</span>
                   <span class="row-sub">${esc(attempt.engine)}</span>
                 </span>
-                ${attempt.overall != null
-                  ? `<strong style="color:${scoreColour(attempt.overall)};font-variant-numeric:tabular-nums">${Math.round(attempt.overall)}</strong>`
+                ${attemptScore(attempt) != null
+                  ? `<strong style="color:${scoreColour(attemptScore(attempt))};font-variant-numeric:tabular-nums">${Math.round(attemptScore(attempt))}</strong>`
                   : ""}
                 <button class="link btn-danger" data-delete="${attempt.id}">Delete</button>
               </div>`
@@ -1186,13 +1208,18 @@ function showPhrase(phrase) {
     }));
   }
 
+  /* Practising from the sheet drops you into the phrase's own deck at that
+     phrase, rather than into a queue of one — Next carries on through the rest
+     of the deck instead of being greyed out on arrival. */
   document.getElementById("p-practise").onclick = () => {
     closeSheet();
     stopEverything();
     state.tab = "practise";
     state.deck = phrase.deck;
-    state.queue = [phrase];
-    state.index = 0;
+    const deck = library.inDeck(phrase.deck, phrase.language);
+    const at = deck.findIndex((p) => p.id === phrase.id);
+    state.queue = at === -1 ? [phrase] : deck;
+    state.index = Math.max(0, at);
     loadPhrase();
   };
 
@@ -1268,7 +1295,6 @@ function renderAdd() {
       <div class="field">
         <div class="field-head">
           <label for="add-situation">Situation <span class="muted">(optional)</span></label>
-          <button class="dictate" type="button" data-dictate="add-situation" data-locale="en-GB" aria-label="Dictate the situation">${micIcon()}</button>
         </div>
         <textarea id="add-situation" rows="2"></textarea>
       </div>
@@ -1307,12 +1333,6 @@ function renderAdd() {
   document.getElementById("open-assistant-settings")?.addEventListener("click", () => {
     state.tab = "settings";
     render();
-  });
-
-  view.querySelectorAll("[data-dictate]").forEach((button) => {
-    button.addEventListener("click", () =>
-      startDictation(button.dataset.dictate, button.dataset.locale, button)
-    );
   });
 
   const completeButton = document.getElementById("complete-card");
@@ -1503,58 +1523,17 @@ function cardChatPanel(host, title, getContext) {
   }
 }
 
+/* `lang` on the textarea is what points the iPhone keyboard's own dictation
+   button at the right language, which is the dictation that actually works
+   here — the in-page mic buttons were removed because webkitSpeechRecognition
+   doesn't deliver on iOS. */
 function composerField(id, label, locale, required = false) {
   return `<div class="field">
     <div class="field-head">
       <label for="${id}">${esc(label)}${required ? "" : ` <span class="muted">(optional)</span>`}</label>
-      <button class="dictate" type="button" data-dictate="${id}" data-locale="${locale}" aria-label="Dictate in ${esc(label)}">${micIcon()}</button>
     </div>
     <textarea id="${id}" rows="3" lang="${locale}" autocapitalize="sentences"></textarea>
   </div>`;
-}
-
-function micIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg>`;
-}
-
-function startDictation(fieldID, locale, button) {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) {
-    toast("Use the microphone on the iPhone keyboard to dictate here.");
-    document.getElementById(fieldID)?.focus();
-    return;
-  }
-
-  state.dictation?.abort();
-  const recognition = new Recognition();
-  state.dictation = recognition;
-  recognition.lang = locale;
-  recognition.interimResults = false;
-  recognition.continuous = false;
-  recognition.onstart = () => {
-    button.classList.add("listening");
-    button.setAttribute("aria-pressed", "true");
-  };
-  recognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map((result) => result[0]?.transcript ?? "")
-      .join(" ")
-      .trim();
-    const field = document.getElementById(fieldID);
-    if (field && transcript) {
-      field.value = [field.value.trim(), transcript].filter(Boolean).join(" ");
-      autosize(field);
-    }
-  };
-  recognition.onerror = (event) => {
-    if (event.error !== "aborted") toast("Dictation didn't catch that. You can also use the keyboard microphone.");
-  };
-  recognition.onend = () => {
-    if (state.dictation === recognition) state.dictation = null;
-    button.classList.remove("listening");
-    button.setAttribute("aria-pressed", "false");
-  };
-  recognition.start();
 }
 
 function editPhrase(phrase, onSaved = null) {
