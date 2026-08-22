@@ -877,20 +877,25 @@ function renderScore(attempt) {
   const circumference = 2 * Math.PI * 30;
   const dash = (score / 100) * circumference;
 
+  /* The dial is the weakest word, so the verdict talks about that rather than
+     about the phrase as a whole — "90" now means every single word cleared 90,
+     which is a much harder thing to have done. */
   const verdict =
     score >= 95
-      ? "That's the one — say it just like that."
+      ? "Every word landed. Say it just like that."
       : score >= GOOD
-      ? "Close. A native would follow you without effort."
+      ? "Solid — even your weakest word is close."
       : score >= OK
-      ? "Understandable, but the tinted words need work."
+      ? "Understandable. The tinted words are what's holding it back."
       : score >= 55
       ? "Some of it landed. Play the model again and copy the rhythm."
       : "Not there yet. Slow it down and go word by word.";
 
-  /* Azure's own blended PronScore sits here rather than in the dial. It is the
-     generous number — worth seeing, not worth being judged by. */
+  /* Azure's aggregates sit here rather than in the dial. All three are
+     generous — they average away the one word you got wrong — so they're worth
+     seeing and not worth being judged by. */
   const sub = [
+    ["Accuracy", attempt.accuracy],
     ["Fluency", attempt.fluency],
     ["Complete", attempt.completeness],
     ["Azure", attempt.overall],
@@ -908,6 +913,12 @@ function renderScore(attempt) {
         `<button class="chip ${scoreClass(word.score)}" data-word="${i}">${esc(word.word)}</button>`
     )
     .join("");
+
+  // Whichever chip is reddest is the dial — say so, so the number has somewhere
+  // to point rather than being a verdict from nowhere.
+  const weakest = attempt.words
+    .filter((word) => typeof word.score === "number" || word.errorType === "Omission")
+    .sort((a, b) => (a.errorType === "Omission" ? 0 : a.score) - (b.errorType === "Omission" ? 0 : b.score))[0];
 
   return `
     <div class="card">
@@ -931,7 +942,15 @@ function renderScore(attempt) {
       <div id="phoneme-detail"></div>
 
       ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
-      <p class="tiny muted" style="margin-top:6px">Sound-by-sound accuracy, scored by ${esc(attempt.engine)}</p>
+      <p class="tiny muted" style="margin-top:6px">${
+        weakest
+          ? `The score is your weakest word${
+              weakest.errorType === "Omission"
+                ? ` — “${esc(weakest.word)}” didn't come out at all`
+                : `, “${esc(weakest.word)}”`
+            }. Tap a chip for its sounds. `
+          : ""
+      }Scored by ${esc(attempt.engine)}</p>
     </div>`;
 }
 
