@@ -49,6 +49,15 @@ export const cardAssistant = {
     });
   },
 
+  /* Replies are a separate call on purpose: card generation has to stay the
+     small fast one. See the Worker's REPLIES_SCHEMA comment. */
+  replies(card, settings) {
+    return request("/replies", settings, {
+      method: "POST",
+      body: JSON.stringify(card),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",
