@@ -136,7 +136,15 @@ deploying, enter the Worker address and the separate shared app passcode under
 
 ## What's in the app
 
-**Practice** — pick a deck, then for each phrase:
+**Practice** — the deck list, and the whole library behind it. Type in the
+search box and the decks give way to the phrases that match — by phrase,
+meaning, deck or note, wherever they live and whatever is folded away. Tap one
+to open its card: meaning, situation, usage, attempts, **Practise now**, edit
+and delete. The star on any phrase adds it to **★ Favourites**, which sits at
+the top of the deck list and drills like any other deck; there's a star in the
+drill too, for the phrase you have just realised you need more of.
+
+Pick a deck, and for each phrase:
 
 - **Listen** at full speed, or **Slow** (time-stretched, not pitch-shifted)
 - **Record** yourself with a live level ring
@@ -159,19 +167,16 @@ reveals it for when it has gone entirely — that attempt is marked as shown
 rather than remembered. Settings → *Level 2 — drill from memory* turns the
 whole thing off.
 
-**Study** — search the complete card library, grouped into decks. Tap any card
-to correct or expand its translation, situation, usage note, pronunciation tip,
-or deck.
-
-Editing has the assistant behind it too: change *tallat* to *espresso* and
+Editing a card — its translation, situation, usage note, pronunciation tip or
+deck — has the assistant behind it too: change *tallat* to *espresso* and
 **Rebuild the rest with AI** rewrites the translation, situation, usage note
 and pronunciation tip to match, rather than the card having to be deleted and
 written again. Nothing is saved until you tap Save, and there's an Undo. The
 drill has an **Edit** button of its own, for the phrase you have just heard and
 realised you'd never actually say.
 
-**Add** — type or dictate whatever you remember in Catalan or English, optionally
-describe the situation, and select a deck. Gemini corrects the phrase, fills the
+**Add** — describe the situation, type or dictate whatever you remember in
+Catalan or English, and select a deck. Gemini corrects the phrase, fills the
 other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
 
@@ -218,8 +223,8 @@ speed, in a crowd, out of breath:
 Every phrase carries a `focusNote` naming what to listen for, shown while you
 drill.
 
-The five castells decks are **folded away by default** on both Practice and
-Phrases — they're eighty of the phrases and they'd bury everything else. Tap
+The five castells decks are **folded away by default** — they're eighty of the
+phrases and they'd bury everything else. Tap
 the Castells row to open it, or tap its title to drill the whole lot shuffled;
 the choice sticks. Searching the library always looks inside a fold. Any decks
 sharing a `Family · Deck` name fold together the same way, so a deck you
