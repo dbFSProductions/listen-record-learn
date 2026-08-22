@@ -63,6 +63,28 @@ No package.json, no bundler, no test runner. Vanilla ES modules loaded directly
 by the browser. Keep it that way unless there's a real reason not to — the lack
 of a build step is why this deploys to a phone at all.
 
+### The palette is Deb-o-lingo's
+
+`docs/app.css` wears the sister fork's colours: bright primaries, chunky
+buttons with a solid darker slab underneath, four coloured tab pills, Nunito
+(vendored in `docs/vendor/fonts/`). The senyera red and gold are gone from the
+chrome. The two apps' palettes are meant to stay in step — change a colour here
+and change it there.
+
+Two things to know before "fixing" it:
+
+- **White on these fills does not clear 4.5:1**, and that is the accepted
+  trade-off of the look, not an oversight. The `-ink` variants are the darkened
+  versions, and they are what text on the page background uses.
+- Each strong colour has a `-dark` twin (`--green-dark`, `--blue-dark`, …).
+  That twin is the *underside* of a pressable control, not a shade for text.
+  Buttons, tabs and the record circle all lose the slab and translate down on
+  `:active`; keep the pair in sync or the press stops looking like a press.
+
+Structure stayed Xerra's — the `.sec-*` section accents, the `page-head`
+banners and the deck meters are all still here, just repainted. Add gets its
+own orange now instead of borrowing Settings' colour.
+
 **The Worker serves both apps.** The sister fork Deb-o-lingo has no `worker/`
 of its own — it ships a verbatim copy of `docs/js/card-assistant.js` pointed at
 this same deployment, which works because the Worker takes the target language
@@ -159,6 +181,34 @@ in **North Europe** — West Europe refuses new customers on capacity grounds, s
 if you're advising on setup, don't send people there.
 
 ---
+
+## Level two: drilling from memory
+
+A phrase is read aloud until `library.goodAttempts()` reaches `RECALL_AFTER`
+(2), then `library.recallReady()` flips it to a memory question: the drill
+prints the *translation* where the phrase normally goes and withholds three
+things, all of which would answer it — the phrase text, its `focusNote`, and
+the Listen/Slow buttons (the model audio says it out loud). **If you add
+anything to the drill card, decide which side of that line it falls on.**
+
+Three flags in `state` carry it: `recall` (this phrase is a question),
+`revealed` (the answer is on screen — always true at level one) and `peeked`
+(Show me was used rather than remembering). Recording reveals; so does Show me.
+Attempts now carry `mode` — `"listen"`, `"recall"` or `"recall-shown"`. Older
+attempts have no `mode`, which reads as `"listen"`, because that is what they
+were.
+
+An attempt counts toward the two if it scored a pass **or wasn't scored at
+all** — with no Azure key there is no score to judge by, and the alternative is
+that nothing ever leaves level one on the degraded path.
+
+Deliberately *not* done: peeking doesn't demote a phrase, and nothing ever
+comes back down. Spaced repetition is still the unbuilt feature, and a decay
+rule is the shape it should take, not a special case bolted onto this.
+
+Deb-o-lingo has the same feature in the same shape — same constants, same
+flags, same `mode` values. Keep them in step. The Swift app does **not** have
+it, and gains nothing from it while it can't be installed.
 
 ## Audio analysis
 
