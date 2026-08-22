@@ -416,23 +416,12 @@ function renderDrill() {
       ${
         asking
           ? `<p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
-             ${phrase.situation ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
              <p class="tiny muted" style="margin:10px 0 0">Say it out loud, then you'll see it.</p>`
           : `<p class="drill-text">${esc(phrase.text)}</p>
              ${
                state.showTranslation
                  ? `<p class="drill-translation">${esc(phrase.translation)}</p>`
                  : `<button class="link" id="reveal" style="padding-left:0">Show meaning</button>`
-             }
-             ${
-               state.showTranslation && phrase.situation
-                 ? `<div class="phrase-context"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>`
-                 : ""
-             }
-             ${
-               state.showTranslation && phrase.usageNote
-                 ? `<div class="phrase-context"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>`
-                 : ""
              }
              ${
                phrase.focusNote
@@ -478,6 +467,8 @@ function renderDrill() {
     </div>
 
     <div id="comparison">${attempt ? renderComparison() : ""}</div>
+
+    ${drillContext(phrase, asking)}
 
     <div class="btn-row" style="margin-top:18px">
       <button class="btn" id="history">History</button>
@@ -525,6 +516,29 @@ function renderDrill() {
 
   if (attempt) wireComparison();
   drawCanvases();
+}
+
+/* Where the phrase is said and how it lands — reference material, so it sits
+   below the drill rather than between you and the record button. The
+   "Listen for" note stays up on the card: it is the one thing you want in
+   front of you in the moment before you speak.
+
+   Still gated on showTranslation, since a situation can hand you the meaning
+   you asked to have hidden, and the usage note stays out entirely while a
+   level-two question is standing — the situation alone is the clue. */
+function drillContext(phrase, asking) {
+  if (!state.showTranslation) return "";
+  const blocks = [
+    phrase.situation ? ["Situation", phrase.situation] : null,
+    asking || !phrase.usageNote ? null : ["How it's used", phrase.usageNote],
+  ].filter(Boolean);
+  if (!blocks.length) return "";
+  return `
+    <div class="card drill-context">
+      ${blocks
+        .map(([label, body]) => `<div class="phrase-context"><strong>${label}</strong><span>${esc(body)}</span></div>`)
+        .join("")}
+    </div>`;
 }
 
 function playModel(rate) {

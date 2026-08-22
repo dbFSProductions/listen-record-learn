@@ -443,6 +443,13 @@ button { font: inherit; }
 }
 .phrase-context strong { color: var(--text); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
 
+/* Situation and how-it's-used, in their own card below the drill. The first
+   block loses the divider it wears inside the phrase sheet — the card edge is
+   already doing that job here. */
+.drill-context { margin-top: 18px; }
+.drill-context .phrase-context:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.drill-context .phrase-context:last-child { margin-bottom: 0; }
+
 .progress-pill {
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
