@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, LANGUAGES, MY_PHRASES, uid, RECALL_AFTER,
-  deckLeaf, familyOpen, setFamilyOpen,
+  deckLeaf, familyOpen, setFamilyOpen, attemptScore,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -101,14 +101,20 @@ function starButton(phrase, className = "star") {
     aria-label="${on ? "Remove from favourites" : "Add to favourites"}">${STAR_SVG}</button>`;
 }
 
+/* Bands over the accuracy score, not over Azure's blend. They sit higher than
+   they look: the blend used to arrive pre-inflated, so 80 stood for something
+   nearer 72 of actual accuracy. Green now means green. */
+const GOOD = 90;
+const OK = 75;
+
 function scoreClass(score) {
   if (score == null) return "";
-  return score >= 80 ? "good" : score >= 60 ? "ok" : "bad";
+  return score >= GOOD ? "good" : score >= OK ? "ok" : "bad";
 }
 
 function scoreColour(score) {
   if (score == null) return "var(--text-3)";
-  return score >= 80 ? "var(--green)" : score >= 60 ? "var(--amber)" : "var(--red)";
+  return score >= GOOD ? "var(--green)" : score >= OK ? "var(--amber)" : "var(--red)";
 }
 
 function openSheet(title, html) {
@@ -847,7 +853,7 @@ function renderComparison() {
     ${
       state.scoringNow
         ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
-        : attempt?.overall != null
+        : attemptScore(attempt) != null
         ? renderScore(attempt)
         : scoring.lastError
         ? `<div class="notice bad">${esc(scoring.lastError)}</div>`
@@ -867,24 +873,27 @@ function timingSummary() {
 }
 
 function renderScore(attempt) {
+  const score = attemptScore(attempt);
   const circumference = 2 * Math.PI * 30;
-  const dash = (attempt.overall / 100) * circumference;
+  const dash = (score / 100) * circumference;
 
   const verdict =
-    attempt.overall >= 90
+    score >= 95
       ? "That's the one — say it just like that."
-      : attempt.overall >= 80
+      : score >= GOOD
       ? "Close. A native would follow you without effort."
-      : attempt.overall >= 60
+      : score >= OK
       ? "Understandable, but the tinted words need work."
-      : attempt.overall >= 40
+      : score >= 55
       ? "Some of it landed. Play the model again and copy the rhythm."
       : "Not there yet. Slow it down and go word by word.";
 
+  /* Azure's own blended PronScore sits here rather than in the dial. It is the
+     generous number — worth seeing, not worth being judged by. */
   const sub = [
-    ["Accuracy", attempt.accuracy],
     ["Fluency", attempt.fluency],
     ["Complete", attempt.completeness],
+    ["Azure", attempt.overall],
   ]
     .filter(([, v]) => v != null)
     .map(
@@ -906,11 +915,11 @@ function renderScore(attempt) {
         <div class="dial">
           <svg viewBox="0 0 68 68">
             <circle cx="34" cy="34" r="30" fill="none" stroke="var(--surface-2)" stroke-width="7"/>
-            <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(attempt.overall)}"
+            <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(score)}"
                     stroke-width="7" stroke-linecap="round"
                     stroke-dasharray="${dash} ${circumference}"/>
           </svg>
-          <div class="dial-value">${Math.round(attempt.overall)}</div>
+          <div class="dial-value">${Math.round(score)}</div>
         </div>
         <div>
           <div style="font-weight:600">${verdict}</div>
@@ -922,7 +931,7 @@ function renderScore(attempt) {
       <div id="phoneme-detail"></div>
 
       ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
-      <p class="tiny muted" style="margin-top:6px">Scored by ${esc(attempt.engine)}</p>
+      <p class="tiny muted" style="margin-top:6px">Sound-by-sound accuracy, scored by ${esc(attempt.engine)}</p>
     </div>`;
 }
 
@@ -1073,7 +1082,7 @@ async function showHistory(phrase) {
     return;
   }
 
-  const scores = [...attempts].reverse().map((a) => a.overall).filter((s) => s != null);
+  const scores = [...attempts].reverse().map(attemptScore).filter((s) => s != null);
   let trend = "";
   if (scores.length >= 2) {
     const change = scores[scores.length - 1] - scores[0];
@@ -1100,8 +1109,8 @@ async function showHistory(phrase) {
              })}</span>
              <span class="row-sub">${esc(attempt.engine)}</span>
            </span>
-           ${attempt.overall != null
-             ? `<strong style="color:${scoreColour(attempt.overall)};font-variant-numeric:tabular-nums">${Math.round(attempt.overall)}</strong>`
+           ${attemptScore(attempt) != null
+             ? `<strong style="color:${scoreColour(attemptScore(attempt))};font-variant-numeric:tabular-nums">${Math.round(attemptScore(attempt))}</strong>`
              : ""}
            <button class="link btn-danger" data-delete="${attempt.id}">Delete</button>
          </div>`
@@ -1172,8 +1181,8 @@ function showPhrase(phrase) {
                   })}</span>
                   <span class="row-sub">${esc(attempt.engine)}</span>
                 </span>
-                ${attempt.overall != null
-                  ? `<strong style="color:${scoreColour(attempt.overall)};font-variant-numeric:tabular-nums">${Math.round(attempt.overall)}</strong>`
+                ${attemptScore(attempt) != null
+                  ? `<strong style="color:${scoreColour(attemptScore(attempt))};font-variant-numeric:tabular-nums">${Math.round(attemptScore(attempt))}</strong>`
                   : ""}
                 <button class="link btn-danger" data-delete="${attempt.id}">Delete</button>
               </div>`

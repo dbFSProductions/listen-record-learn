@@ -330,6 +330,34 @@ Deb-o-lingo has the same feature in the same shape — same constants, same
 flags, same `mode` values. Keep them in step. The Swift app does **not** have
 it, and gains nothing from it while it can't be installed.
 
+## The score is accuracy, not Azure's headline
+
+Azure has **no strictness setting**. `GradingSystem` only rescales (100-point
+vs 5-point), and the one genuinely harsh input — prosody assessment, which
+scores stress, intonation and rhythm — is **en-US only**, so `ca-ES` can never
+have it. `enableMiscue` is already on, so skipped and invented words do cost.
+
+What made everything read 90+ was the blend. For a read phrase without prosody,
+`PronScore = 0.6·s0 + 0.2·s1 + 0.2·s2` over accuracy, fluency and completeness
+sorted lowest first. Completeness is 100 whenever you say all the words, and
+fluency on a five-word phrase is nearly always 95+, so both 0.2 slots are
+pinned near the top and only accuracy moves: accuracy 85 surfaces as 90.
+
+So `attemptScore()` in store.js is the one number the app shows and judges by,
+and it reads `accuracy ?? overall`. Attempts have always stored both, so this
+applied to the whole existing history without a migration — but it does mean a
+phrase's recorded score dropped by a few points the day it shipped, and some
+level-two phrases went back to level one. That was the point.
+
+The bands moved with it: `GOOD` 90 and `OK` 75 in app.js, `RECALL_PASS` 75 in
+store.js, where they were 80/60/60 against the inflated number. `PronScore` is
+still on the card as the "Azure" sub-score — worth seeing, not worth being
+judged by.
+
+Deb-o-lingo scores Spanish through the same Azure call and has the same
+inflation. If it is ever brought in step, `attemptScore` and the three
+constants are the whole change.
+
 ## Audio analysis
 
 The JS waveform and pitch code in `docs/js/audio.js` is a **direct port** of the
@@ -421,11 +449,7 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice (deck list, library search and the drill), Add,
   Settings. Phrases was merged into Practice.
-- Scoring shows Azure's `PronScore`. Azure has no strictness setting; for a
-  read phrase in a non-en-US locale it is `0.6·min + 0.2 + 0.2` over accuracy,
-  fluency and completeness, and completeness is 100 whenever you say all the
-  words, so the headline sits a few points above the accuracy score. Prosody
-  assessment, which would be the harsher input, is en-US only.
+- The score is Azure's `AccuracyScore`, not its `PronScore` — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from

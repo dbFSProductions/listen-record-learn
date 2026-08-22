@@ -155,8 +155,11 @@ Pick a deck, and for each phrase:
 - **Intonation** — your pitch contour over the model's, in semitones relative to
   each speaker's own median, so a low TTS voice and your voice compare on
   *melody* rather than register
-- **Score** — headline number, accuracy/fluency/completeness, and word chips you
-  can tap for phoneme detail
+- **Score** — the headline is Azure's *accuracy* score, aggregated from the
+  phoneme scores, because its own `PronScore` blends in fluency and
+  completeness, which sit near 100 on any short phrase you say all of, and
+  reads several points kinder than you were. That blend is still shown, as the
+  *Azure* sub-score. Word chips underneath tap for phoneme detail
 - **History** — every past attempt at that phrase, with a trend line
 
 Say a phrase well twice and it moves up to **level 2**: the drill stops showing
