@@ -383,11 +383,20 @@ pitch tracker needs that honest signal.
 
 Two things about the trim before you tune it:
 
-- It reuses the analysis threshold (0.015 RMS over 256 frames) on purpose. The
-  waveform drawn above the player is of `trimSilence`'d samples, so it never
-  showed the dead air the audio used to open with — reusing the detector is
-  what makes the picture and the sound agree about where the clip starts. Near
-  the threshold, detection can land a few tens of milliseconds late; the 120 ms
+- **The threshold is derived from the clip, not fixed, and it has to stay that
+  way.** It started as the analysis threshold (0.015 RMS over 256 frames) so
+  that playback and the drawn waveform would agree on where a clip begins. That
+  works in a quiet room and silently stops working in a normal one:
+  `autoGainControl` is off, so a fan or traffic puts the room itself above the
+  line, the scan calls the first frame speech, and nothing is trimmed at all —
+  indistinguishable from the feature having been reverted. `speechStart` now
+  takes the quiet tenth of the clip as the room and the loud twentieth as the
+  voice and puts the line between them, and wants three frames over it in a row
+  so a click isn't the first word. The cost is that in a noisy room the picture
+  (still `trimSilence`, still fixed) can show a lead-in the sound skips; the
+  silence mattered more. Bringing them back into line means changing
+  `trimSilence` in this repo *and* Deb-o-lingo's, together.
+- Detection can still land a few tens of milliseconds late; the 120 ms
   `LEAD_IN` kept before the detected start is what covers that, so don't cut it
   to zero to "tighten" playback.
 - **The tail is deliberately left alone.** These decks teach Catalan final
