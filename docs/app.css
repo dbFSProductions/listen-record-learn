@@ -604,6 +604,18 @@ canvas { width: 100%; display: block; }
 .subscore-label { font-size: 0.7rem; font-weight: 700; color: var(--text-3); }
 .subscore-value { font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* The two version numbers in Settings, side by side so a mismatch is obvious. */
+.version-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+.version-row strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
 /* ---------------------------------------------------------------- replies */
 
 /* What you'd hear back. The play button leads, because the point of these is

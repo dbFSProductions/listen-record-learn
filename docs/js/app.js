@@ -7,6 +7,7 @@ import {
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
+import { VERSION } from "./version.js";
 
 const view = document.getElementById("view");
 const tabbar = document.getElementById("tabbar");
@@ -1990,6 +1991,20 @@ function renderSettings() {
       </p>
     </div>
 
+    <div class="section-label">Version</div>
+    <div class="card">
+      <div class="version-row">
+        <span>Running</span>
+        <strong id="s-running">${esc(VERSION)}</strong>
+      </div>
+      <div class="version-row">
+        <span>Installed</span>
+        <strong id="s-installed">…</strong>
+      </div>
+      <p class="tiny muted" id="s-version-note" style="margin:10px 0 0"></p>
+      <button class="btn" id="s-update" style="width:100%;margin-top:10px">Check for an update</button>
+    </div>
+
     <p class="tiny muted center" style="margin-top:22px">Xerra · pronunciation drilling for ${esc(language.name)}</p>`;
 
   document.getElementById("s-language").onchange = (event) => {
@@ -2104,6 +2119,62 @@ function renderSettings() {
   };
 
   showUsage();
+  showVersion();
+
+  document.getElementById("s-update").onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      // Asks the network for sw.js regardless of how fresh the browser thinks
+      // its copy is. If a new one is there, it installs and takes over, and the
+      // two numbers above go out of step until the page is reloaded.
+      await registration?.update();
+    } catch {
+      // Offline, or no worker — showVersion says what it can see either way.
+    }
+    button.disabled = false;
+    button.textContent = "Check for an update";
+    await showVersion({ checked: true });
+  };
+}
+
+/* Two numbers, because "is the fix in?" and "has my phone caught up?" are
+   different questions and only having one of them is what makes a stale app so
+   confusing. "Running" is the version of the JavaScript executing right now;
+   "Installed" is what the service worker has in its cache, read from the cache
+   name. They match in the steady state. After a deploy the installed one moves
+   first, and the gap between them is the reload you still owe. */
+async function showVersion({ checked = false } = {}) {
+  const installedEl = document.getElementById("s-installed");
+  const note = document.getElementById("s-version-note");
+  if (!installedEl || !note) return;
+
+  let installed = null;
+  try {
+    const keys = await caches.keys();
+    installed = keys.filter((key) => key.startsWith("xerra-")).sort().pop() ?? null;
+  } catch {
+    installed = null;
+  }
+  const short = installed ? installed.replace(/^xerra-/, "") : null;
+
+  installedEl.textContent = short ?? "not cached";
+  if (!short) {
+    note.textContent =
+      "No offline copy yet — the app is coming straight from the network, so it's always current.";
+    return;
+  }
+  if (short === VERSION) {
+    note.textContent = checked ? "Up to date." : "Up to date — this is the newest version on your phone.";
+    note.className = "tiny muted";
+    return;
+  }
+  note.textContent = `A newer version (${short}) is installed but isn't running yet. Reload to finish updating.`;
+  note.className = "tiny";
+  note.innerHTML = `${esc(note.textContent)} <button class="link" id="s-reload" style="padding:0 0 0 4px">Reload now</button>`;
+  document.getElementById("s-reload").onclick = () => location.reload();
 }
 
 async function showUsage() {

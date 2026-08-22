@@ -200,7 +200,10 @@ other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
 
 **Settings** — language, Azure credentials and voice, slow-playback speed,
-level-2 recall, audio prefetch and cache.
+level-2 recall, audio prefetch and cache, and a **Version** panel showing what's
+*running* against what's *installed*. Those two differ for exactly as long as it
+takes you to reload after a deploy, which is the difference between "the fix
+isn't working" and "the phone hasn't caught up yet".
 
 ### Starter decks
 
