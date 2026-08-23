@@ -35,6 +35,13 @@ const state = {
   levelTimer: null,
   search: "",
 
+  /* Which deck rows are accordioned open, by deck key. Held here rather than
+     in settings: a family fold is a lasting opinion about a list that is
+     always there, an opened deck is where you are looking right now. It does
+     have to outlive a render() — starring a card from inside an open deck
+     re-renders the page, and the deck has to still be open underneath. */
+  openDecks: new Set(),
+
   // Level two. `recall` says this phrase is a memory question; `revealed` says
   // the answer is on screen (always true at level one); `peeked` says you
   // asked to be shown it rather than remembering it.
@@ -339,22 +346,60 @@ function renderPractice() {
     wire(list);
   }
 
+  /* A deck row does two things now, so it can't be one big button any more:
+     the title drills the deck from the top, the triangle accordions it open
+     to the cards inside. Same shape as a family row, one level down.
+
+     No score and no meter here. A deck is a place you go to practise, and a
+     number averaged over it says nothing you can act on — the weakest-word
+     score that matters is per attempt, on the card, where you earned it. */
   function deckRow(title, deckPhrases, key, nested = false) {
-    const scores = deckPhrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
-    const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const done = deckPhrases.length ? Math.round((scores.length / deckPhrases.length) * 100) : 0;
+    const open = state.openDecks.has(key);
     return `
-      <button class="row${nested ? " nested" : ""}" data-deck="${esc(key)}">
-        <span class="row-main">
-          <span class="row-title">${esc(title)}</span>
-          <span class="row-sub">${deckPhrases.length} phrase${deckPhrases.length === 1 ? "" : "s"}${
-            scores.length ? ` · ${scores.length} practiced` : ""
-          }</span>
-          <span class="deck-meter"><i style="width:${done}%"></i></span>
-        </span>
-        ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
-        <span class="chev">›</span>
-      </button>`;
+      <div class="row deck-row${nested ? " nested" : ""}">
+        <button class="row-open" data-deck="${esc(key)}">
+          <span class="row-main">
+            <span class="row-title">${esc(title)}</span>
+            <span class="row-sub">${deckPhrases.length} phrase${deckPhrases.length === 1 ? "" : "s"}</span>
+          </span>
+        </button>
+        <button class="fold" data-deck-fold="${esc(key)}" aria-expanded="${open}"
+                aria-label="${open ? "Hide" : "Show"} the phrases in ${esc(title)}">
+          <span class="tri">${open ? "▼" : "▶"}</span>
+        </button>
+      </div>
+      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested)).join("") : ""}`;
+  }
+
+  /* A card inside an opened deck. It drills rather than opening the detail
+     sheet: this list exists so you can go straight at the one phrase you know
+     you're getting wrong. The sheet is still a search away. */
+  function deckCardRow(phrase, key, nested) {
+    return `
+      <div class="row nested${nested ? " deep" : ""}">
+        ${starButton(phrase)}
+        <button class="row-open" data-drill="${esc(phrase.id)}" data-drill-deck="${esc(key)}">
+          <span class="row-main">
+            <span class="row-title">${esc(phrase.text)}</span>
+            <span class="row-sub">${esc(phrase.translation)}</span>
+          </span>
+          <span class="chev">›</span>
+        </button>
+      </div>`;
+  }
+
+  /* The queue a deck row drills. Shared with the cards inside it, which drill
+     this same queue positioned at one phrase rather than a queue of one — that
+     is what lets Next carry on through the deck from wherever you jumped in. */
+  function queueFor(deck) {
+    if (deck === "*") return shuffle([...library.drillable(settings.language)]);
+    if (deck === FAVOURITES_DECK) return starred();
+    // A family header drills everything under it, shuffled — the castells decks
+    // are one rehearsal, not five separate ones. The prefix matters: "Castells"
+    // is both a family and a deck in it.
+    if (deck.startsWith(FAMILY_PREFIX))
+      return shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language));
+    return library.inDeck(deck, settings.language);
   }
 
   /* A family of several decks folds behind one row, so the five castells decks
@@ -480,22 +525,34 @@ function renderPractice() {
       })
     );
 
+    list.querySelectorAll("[data-deck-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const key = button.dataset.deckFold;
+        if (state.openDecks.has(key)) state.openDecks.delete(key);
+        else state.openDecks.add(key);
+        paint();
+      })
+    );
+
     list.querySelectorAll("[data-deck]").forEach((button) =>
       button.addEventListener("click", () => {
         const deck = button.dataset.deck;
         state.deck = deck;
-        state.queue =
-          deck === "*"
-            ? shuffle([...library.drillable(settings.language)])
-            : deck === FAVOURITES_DECK
-            ? starred()
-            : deck.startsWith(FAMILY_PREFIX)
-            ? // A family header drills everything under it, shuffled — the
-              // castells decks are one rehearsal, not five separate ones. The
-              // prefix matters: "Castells" is both a family and a deck in it.
-              shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language))
-            : library.inDeck(deck, settings.language);
+        state.queue = queueFor(deck);
         state.index = 0;
+        loadPhrase();
+      })
+    );
+
+    // A card from an opened deck: the deck's own queue, started at that card.
+    list.querySelectorAll("[data-drill]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const deck = button.dataset.drillDeck;
+        const queue = queueFor(deck);
+        const at = queue.findIndex((p) => p.id === button.dataset.drill);
+        state.deck = deck;
+        state.queue = queue;
+        state.index = Math.max(0, at);
         loadPhrase();
       })
     );

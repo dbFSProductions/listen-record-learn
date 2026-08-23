@@ -231,7 +231,8 @@ p { margin: 0 0 10px; }
    castells decks don't bury the everyday ones. The header drills the whole
    family; the chevron on the right opens it. */
 
-.family-row { padding-right: 6px; }
+/* Both carry a fold button on the right, which brings its own space. */
+.family-row, .deck-row { padding-right: 6px; }
 .family-row .row-title { font-weight: 800; }
 .fold {
   flex: none;
@@ -254,6 +255,9 @@ p { margin: 0 0 10px; }
    card hangs off the right edge of the screen. */
 .rows-spaced .row.nested { width: auto; margin-left: 18px; }
 .rows-spaced .row.nested .row-title { font-weight: 500; }
+/* A card inside a deck that is itself inside a family sits one step further
+   in again, so the three levels read as three levels. */
+.rows-spaced .row.nested.deep { margin-left: 36px; }
 
 .folded-family .row-title { font-weight: 800; }
 
@@ -504,24 +508,6 @@ button { font: inherit; }
    which on these bright fills would leave it barely there. */
 .page-sub { margin: 1px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--sec-on); opacity: 0.92; }
 .page-head .link { flex: none; color: var(--sec-on); font-weight: 900; }
-
-/* ------------------------------------------------- practise deck meters */
-
-/* Decks are things you are partway through, so each row shows how far. */
-.deck-meter {
-  display: block;
-  height: 4px;
-  margin-top: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--sec) 15%, var(--surface-2));
-  overflow: hidden;
-}
-.deck-meter i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--sec);
-}
 
 /* ------------------------------------------------------- level two (recall) */
 
