@@ -169,7 +169,7 @@ Pick a deck, and for each phrase:
   it's the reddest chip, and the chips tap for phoneme detail
 - **History** — every past attempt at that phrase, with a trend line
 
-Say a phrase well twice and it moves up to **level 2**: the drill stops showing
+Say a phrase well four times and it moves up to **level 2**: the drill stops showing
 it to you and asks in English instead, so you have to produce the Catalan from
 memory before the phrase (and the model audio) come back. Recalling something
 is what fixes it; re-reading it off the screen does much less. **Show me**

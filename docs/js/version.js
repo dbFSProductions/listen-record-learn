@@ -8,4 +8,4 @@
  * Forgetting to bump one of them isn't silent, though. Settings shows both —
  * this one as "Running", and sw.js's as "Installed", read back from
  * caches.keys(). Drift shows up as two different numbers on the screen. */
-export const VERSION = "v36";
+export const VERSION = "v37";

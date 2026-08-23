@@ -630,7 +630,7 @@ if you're advising on setup, don't send people there.
 ## Level two: drilling from memory
 
 A phrase is read aloud until `library.goodAttempts()` reaches `RECALL_AFTER`
-(2), then `library.recallReady()` flips it to a memory question: the drill
+(4), then `library.recallReady()` flips it to a memory question: the drill
 prints the *translation* where the phrase normally goes and withholds three
 things, all of which would answer it — the phrase text, its `focusNote`, and
 the Listen/Slow buttons (the model audio says it out loud). **If you add
@@ -643,7 +643,7 @@ Attempts now carry `mode` — `"listen"`, `"recall"` or `"recall-shown"`. Older
 attempts have no `mode`, which reads as `"listen"`, because that is what they
 were.
 
-An attempt counts toward the two if it scored a pass **or wasn't scored at
+An attempt counts toward the four if it scored a pass **or wasn't scored at
 all** — with no Azure key there is no score to judge by, and the alternative is
 that nothing ever leaves level one on the degraded path.
 
@@ -680,10 +680,10 @@ The aggregates are the fallback for an attempt with no word detail.
 
 This is a strong claim on the bands, so know what they now mean: `GOOD` 90 in
 app.js means *every word in the phrase* cleared 90, and `RECALL_PASS` 75 in
-store.js means every word cleared 75, twice. That is meant to be hard. All four
-aggregates (accuracy, fluency, completeness, PronScore) stay on the card as
-sub-scores, and the card names the weakest word so the dial points at the chip
-that earned it.
+store.js means every word cleared 75, four times over. That is meant to be
+hard. All four aggregates (accuracy, fluency, completeness, PronScore) stay on
+the card as sub-scores, and the card names the weakest word so the dial points
+at the chip that earned it.
 
 Deb-o-lingo scores Spanish through the same Azure call and is **now in step**:
 same `attemptScore`, same fallbacks, same three constants (its `PASS_GREAT` and
