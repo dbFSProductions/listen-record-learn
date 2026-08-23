@@ -312,6 +312,16 @@ each with its English and a Listen button.
 - The editor's AI rebuild replaces them, because the old ones answered the old
   card; `wireEditorAI` returns the rebuilt set for Save to carry across, and
   Undo puts the originals back.
+- **The chat sees them, and that took a Worker change.** They are printed under
+  the card being looked at, so "what does *marxando* mean?" is a question about
+  that card — but `validateChat` built its `card` from five string fields and
+  dropped everything else, so the tutor answered with no idea what was being
+  pointed at. `card.replies` is now accepted (optional, capped at
+  `MAX_REPLIES`, sanitised like the `/replies` output it comes from) and the
+  prompt says what they are. Additive in both directions: a card without them
+  sends an empty list and the prompt omits the paragraph, so an old client and
+  the new Worker — or the reverse — are fine, and the deploy order doesn't
+  matter for Deb-o-lingo either.
 
 ### The Add review says the card out loud, and can be sent back
 
@@ -639,6 +649,33 @@ what goes to Azure for scoring, because recordings are captured with
 `autoGainControl: false` on purpose and the pitch tracker needs that honest
 signal.
 
+#### One knock used to cancel the whole boost
+
+- **A 20 ms transient decided the gain for the whole clip.** A thumb reaching
+  for stop, a knock on the table, a plosive into the mic — louder than anything
+  actually said. It set `peak`, so `0.98 / peak` pinned the gain at ~1.0,
+  `gain > 1.1` came out false, and **no boost was applied at all**. It also sat
+  inside the trimmed region, so it dragged the average level up and asked for
+  less gain to begin with. Measured on a synthetic take needing 2.9× to reach
+  TTS level: one click took it to 1.0×, and playback came out exactly as faint
+  as it was recorded while the model played at full volume.
+- **It is a cliff, not a slope**, which is why it reads as "playback seems to
+  have got quieter" rather than as a bug: the same voice in the same room is
+  boosted on the go with no knock in it and not on the go with one. Reported
+  from Deb-o-lingo, which shares this file.
+- **`voiceLevels` reads both numbers from the frames that are plausibly
+  voice.** Anything over four times the 90th-percentile frame is a knock, not a
+  word — twelve dB above a loud vowel is not something a person does
+  mid-phrase — and it is left out of both the average and the peak.
+- **What overshoots is soft-limited, not allowed to veto.** `softLimit` bends
+  everything above a 0.7 knee towards a 0.98 ceiling with `tanh`, whose slope
+  is 1 at zero, so the curve meets the straight part cleanly and nothing below
+  the knee is touched. The limiter only runs when there is a boost to catch.
+- **Both halves self-level.** The model goes through `forPlayback` too, so
+  recording and model are both normalised to `TARGET_RMS` and match each other
+  whatever that constant is. The bug was never the constant — it was one of the
+  two being silently skipped. Check it with synthetic WAVs, not by ear.
+
 ### One detector, used three times
 
 `speechBounds` finds where the speech is, and the picture, the sound and the
@@ -782,10 +819,15 @@ drills them, the transcript survives a reload without a second `/interview`
 call, a 503 leaves `#about-retry` which recovers, and `#about-reset` takes two
 taps and leaves the cards alone. The Worker's own half is worth driving
 directly in Node — import `worker/src/index.js`, stub `globalThis.fetch` with
-the Gemini `steps` shape and a fake `AI_RATE_LIMITER`, and check routing, the
-413 on an oversized body, the 16-turn and 40-entry caps, that a malformed card
-in a batch is dropped rather than failing the batch, and that `/complete-card`,
-`/chat` and `/replies` still answer byte-identically for Deb-o-lingo. Anything touching Azure can't be covered this way — there's no
+the Gemini `steps` shape (`{ steps: [{ type: "model_output", content: [{ type:
+"text", text }] }] }`, or `outputTextOf` filters it all away and everything
+500s) and a fake `AI_RATE_LIMITER`, and check routing, the 413 on an oversized
+body, the 16-turn and 40-entry caps, that a malformed card in a batch is
+dropped rather than failing the batch, and that `/complete-card`, `/chat` and
+`/replies` still answer byte-identically for Deb-o-lingo. For the chat's
+replies: the text and its English both reach the prompt, a card without them
+produces the old prompt exactly, a non-array is ignored rather than fatal, and
+more than three are capped. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
 The trim is the one thing worth checking numerically rather than by eye, and it

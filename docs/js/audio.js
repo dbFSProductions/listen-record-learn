@@ -145,6 +145,8 @@ export class Recorder {
 
 const TARGET_RMS = 0.12; // ≈ -18 dBFS over the speech, about the Azure level
 const MAX_BOOST = 8;
+const CEILING = 0.98; // the loudest a boosted sample is allowed to come out
+const KNEE = 0.7; // above this the limiter starts bending rather than scaling
 const LEAD_IN = 0.12; // seconds of the original quiet kept, so onsets survive
 const MIN_TRIM = 0.15; // below this there's nothing worth rebuilding the clip for
 const FRAME = 256; // the analysis window, so both halves count time the same way
@@ -159,21 +161,83 @@ function speechStart(samples) {
   return speechBounds(samples)?.start ?? 0;
 }
 
+/* How loud the voice actually is, and how much room a boost has to leave —
+   both read from the speech with transients thrown out, which is the whole
+   fix here.
+
+   A 20 ms knock — a tap on the phone as you reach for the stop button, the
+   table, a plosive straight into the mic — is louder than anything you said,
+   and it used to poison this twice over. It set `peak`, so `0.98 / peak`
+   pinned the gain near 1.0 and `gain > 1.1` came out false, so *no boost was
+   applied at all*; and it sat inside the trimmed region, so it dragged the
+   average level up and asked for less gain in the first place. The phrase then
+   played back exactly as faintly as it was recorded while the model played at
+   full TTS level. Measured on a synthetic take needing 2.9× to reach TTS
+   level: one click took it to 1.0×.
+
+   Worse, it is a cliff rather than a slope. The same voice in the same room is
+   boosted on the go with no knock in it and not on the go with one, which is
+   what "the playback seems to have got quieter" actually looks like from the
+   outside.
+
+   So both numbers come from the frames that are plausibly voice: anything more
+   than four times the 90th-percentile frame is a knock, not a word — twelve dB
+   above a loud vowel is not something a person does mid-phrase — and it is
+   left out of the average and out of the peak. Whatever it then overshoots by
+   is caught by `softLimit` on the way out, rather than being allowed to veto
+   the boost for the whole phrase. */
+function voiceLevels(samples) {
+  const frames = [];
+  for (let at = 0; at + FRAME <= samples.length; at += FRAME) {
+    frames.push({ at, level: rms(samples, at, at + FRAME) });
+  }
+  const wholeClip = () => ({
+    level: rms(samples, 0, samples.length),
+    headroom: samples.reduce((most, value) => Math.max(most, Math.abs(value)), 0),
+  });
+  if (frames.length < 8) return wholeClip();
+
+  const sorted = frames.map((frame) => frame.level).sort((a, b) => a - b);
+  const line = sorted[Math.floor(0.9 * sorted.length)] * 4;
+
+  let energy = 0;
+  let counted = 0;
+  let headroom = 0;
+  for (const frame of frames) {
+    if (frame.level > line) continue; // a knock, not a word
+    energy += frame.level * frame.level * FRAME;
+    counted += FRAME;
+    for (let i = frame.at; i < frame.at + FRAME; i++) headroom = Math.max(headroom, Math.abs(samples[i]));
+  }
+  if (!counted || !headroom) return wholeClip();
+  return { level: Math.sqrt(energy / counted), headroom };
+}
+
+/* What catches the overshoot. Anything above the knee is bent smoothly towards
+   the ceiling instead of being clipped flat, so the one transient that does go
+   over saturates rather than turning into a square-edged buzz. `tanh` has a
+   slope of 1 at zero, so the curve meets the straight part cleanly and nothing
+   below the knee is touched at all. */
+function softLimit(value) {
+  const magnitude = Math.abs(value);
+  if (magnitude <= KNEE) return value;
+  const over = (magnitude - KNEE) / (CEILING - KNEE);
+  return Math.sign(value) * (KNEE + (CEILING - KNEE) * Math.tanh(over));
+}
+
 export async function forPlayback(blob) {
   if (playbackCache.has(blob)) return playbackCache.get(blob);
   let result = blob;
   try {
     const { samples, sampleRate } = await monoSamples(blob);
-    const speech = trimSilence(samples, sampleRate);
-    const level = rms(speech, 0, speech.length);
-    let peak = 0;
-    for (let i = 0; i < samples.length; i++) {
-      const magnitude = Math.abs(samples[i]);
-      if (magnitude > peak) peak = magnitude;
-    }
+    // Read off the speech, not the whole clip: the lead-in's room noise has no
+    // bearing on how loud the voice is or on how much room it needs.
+    const { level, headroom } = voiceLevels(trimSilence(samples, sampleRate));
 
     const gain =
-      level > 0 && peak > 0 ? Math.min(TARGET_RMS / level, MAX_BOOST, 0.98 / peak) : 1;
+      level > 0 && headroom > 0
+        ? Math.min(TARGET_RMS / level, MAX_BOOST, CEILING / headroom)
+        : 1;
     const boosting = gain > 1.1;
 
     const from = Math.max(0, speechStart(samples) - Math.round(LEAD_IN * sampleRate));
@@ -181,9 +245,12 @@ export async function forPlayback(blob) {
 
     if (boosting || trimming) {
       const start = trimming ? from : 0;
-      const scale = boosting ? gain : 1;
       const prepared = new Float32Array(samples.length - start);
-      for (let i = 0; i < prepared.length; i++) prepared[i] = samples[start + i] * scale;
+      // The limiter only runs when there is a boost to catch. A clip that is
+      // merely being trimmed comes through sample for sample, untouched.
+      for (let i = 0; i < prepared.length; i++) {
+        prepared[i] = boosting ? softLimit(samples[start + i] * gain) : samples[start + i];
+      }
       result = encodeWav(prepared, sampleRate);
     }
   } catch {
