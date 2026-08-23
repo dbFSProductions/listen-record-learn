@@ -736,6 +736,45 @@ signal.
   whatever that constant is. The bug was never the constant — it was one of the
   two being silently skipped. Check it with synthetic WAVs, not by ear.
 
+#### And then the boost only ever went one way
+
+Reported from Deb-o-lingo again, after the knock fix: the recording reached
+`TARGET_RMS` and was *still* the quieter of the two. The bullet above was a
+description of the intent rather than of the code — `boosting = gain > 1.1`
+meant a clip already above the line was passed through at whatever level it
+arrived at, and only recordings are ever below the line, so the model went out
+at Azure's own loudness. Measured on synthetic clips: 5.9 dB between a loud TTS
+clip and a quiet one, with the recording pinned below both.
+
+- **Levelling is symmetric now**: `gain > 1.1 || gain < 0.9`, so a loud TTS clip
+  is brought *down* to the line as well. That is what makes the constant not
+  matter, which is what the bullet above always claimed. Only a boost goes
+  through `softLimit` — turning a clip down cannot clip.
+- **`TARGET_RMS` is 0.16 rather than 0.12**, chosen so the model barely moves
+  and the recording comes up to meet it rather than the whole app getting
+  quieter. `MAX_BOOST` is 12 rather than 8 so a genuinely faint take can reach
+  the new line; the boost lifts the room with the voice, which is the accepted
+  cost of hearing yourself at all.
+- **A plosive no longer holds the gain back.** The peak cap was
+  `CEILING / headroom` — the same "one sample decides the phrase" shape as the
+  knock, worth about a decibel on a take with a hard *p* in it. It is
+  `CEILING * OVERSHOOT / headroom` now, `OVERSHOOT` 2: the limiter was written
+  to catch exactly this.
+- **`voiceLevels` has a floor as well as a lid.** It averaged every frame below
+  the knock line, pauses included — and a recording pauses while a TTS clip is
+  speech end to end, so one measurement meant two different things on the two
+  halves. Frames under a fifth of the 90th-percentile frame are out of the
+  number now, so both are read over the words.
+
+Both apps' copies of `audio.js` carry all of it; check either numerically —
+build the same quiet take twice, once with a 20 ms 0.9-amplitude burst in it,
+run both through `forPlayback` and measure the RMS over the *words* (frames
+between a fifth and four times the 90th-percentile frame). The tapped take and
+the clean one must land within a decibel of each other, a take and a TTS-level
+clip within a decibel of *each other*, three model clips 9 dB apart on the way
+in must come out level, no sample may exceed 0.98, and a clip already at the
+line must come back as the very same blob.
+
 ### One detector, used three times
 
 `speechBounds` finds where the speech is, and the picture, the sound and the
