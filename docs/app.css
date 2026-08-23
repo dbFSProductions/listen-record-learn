@@ -815,6 +815,24 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .chat-form .btn { flex: none; }
 .chat-error { margin-top: 10px; }
 
+/* The assistant speed table. Three columns rather than a real table so it can
+   shrink on a phone without a horizontal scroll — the call name takes what is
+   left after the two numbers have what they need. */
+.speed-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.speed-row:last-of-type { border-bottom: 0; }
+.speed-row > span:not(:first-child) { font-variant-numeric: tabular-nums; font-weight: 800; min-width: 3.4em; text-align: right; }
+.speed-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
+.speed-head > span:not(:first-child) { font-weight: 800; }
+.speed-path { overflow-wrap: anywhere; }
+
 /* The way out of an interview that went somewhere you didn't mean. Under the
    ask box and quiet, because clearing the conversation is the rare thing to
    want on a page whose whole job is adding to it. */

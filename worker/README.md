@@ -16,6 +16,16 @@ down with it:
 | `/about-cards` | An About me transcript → three to five cards. The only call that writes several cards, so it gets a longer per-attempt budget and a smaller card shape. |
 | `/health` | Asks the model for one word, so "connected" means a model actually answered. |
 
+Each endpoint picks its own model and patience. `/interview` and `/chat` are
+short conversational prose, so they lead with `GEMINI_FAST_MODEL` and keep
+`GEMINI_MODEL` as their fallback — the usual chain inverted — and give up on a
+stalled model after 10s rather than 25s. The card calls keep the bigger model.
+Setting `GEMINI_FAST_MODEL` equal to `GEMINI_MODEL` undoes that split.
+
+Every response carries `ms`, `model` and `models` (how many were tried; more
+than one means the first failed). The app records them and shows medians per
+endpoint under **Settings → Card assistant speed**.
+
 **This Worker serves the sister fork Deb-o-lingo as well as Xerra**, which
 takes the target language per request. `/complete-card`, `/chat` and `/replies`
 are what it calls; changing their payloads, the passcode or `ALLOWED_ORIGINS`

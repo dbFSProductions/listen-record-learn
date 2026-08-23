@@ -16,6 +16,7 @@ const KEYS = {
   settings: "xerra.settings",
   seeded: "xerra.seeded",
   aboutMe: "xerra.aboutMe",
+  aiLog: "xerra.aiLog",
 };
 
 // Level two. A phrase is read aloud until it has been said well twice; after
@@ -461,6 +462,68 @@ export const library = {
     aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
   },
 };
+
+/* How long the card assistant's calls actually take.
+
+   Written for one question — "is it slow, and slow where?" — because until
+   this existed the only evidence was how long the button felt like it spun
+   for, and that can't tell a slow model from a slow connection from a silent
+   fallback after the first model timed out.
+
+   Kept small and deliberately *not* in export/import: it is diagnostics about
+   this device's last few calls, not anything you would be sad to lose. Rolling,
+   so it can't grow without bound in a storage the browser may evict under
+   pressure anyway. */
+const AI_LOG_KEEP = 30;
+
+export const aiLog = {
+  entries: [],
+
+  load() {
+    const stored = readJSON(KEYS.aiLog, null);
+    this.entries = Array.isArray(stored) ? stored.slice(-AI_LOG_KEEP) : [];
+  },
+
+  record(entry) {
+    this.entries.push({ ...entry, at: new Date().toISOString() });
+    if (this.entries.length > AI_LOG_KEEP) this.entries = this.entries.slice(-AI_LOG_KEEP);
+    writeJSON(KEYS.aiLog, this.entries);
+  },
+
+  clear() {
+    this.entries = [];
+    writeJSON(KEYS.aiLog, this.entries);
+  },
+
+  /* One row per endpoint: how many calls, and the median round trip and Worker
+     time. Median rather than mean because one 25-second timeout in a run of
+     eight would drag an average somewhere no single call ever was. */
+  summary() {
+    const byPath = new Map();
+    for (const entry of this.entries) {
+      if (!byPath.has(entry.path)) byPath.set(entry.path, []);
+      byPath.get(entry.path).push(entry);
+    }
+    return [...byPath]
+      .map(([path, calls]) => ({
+        path,
+        calls: calls.length,
+        failed: calls.filter((call) => !call.ok).length,
+        fellBack: calls.filter((call) => call.fellBack).length,
+        ms: median(calls.map((call) => call.ms)),
+        workerMs: median(calls.map((call) => call.workerMs).filter((value) => typeof value === "number")),
+        model: calls.filter((call) => call.model).slice(-1)[0]?.model ?? null,
+      }))
+      .sort((a, b) => (b.ms ?? 0) - (a.ms ?? 0));
+  },
+};
+
+function median(values) {
+  const sorted = values.filter((value) => typeof value === "number").sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
 
 /* The About me interview: the English conversation the assistant's questions
    and the learner's answers accumulate in.

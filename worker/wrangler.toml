@@ -10,6 +10,11 @@ GEMINI_MODEL = "gemini-3.6-flash"
 # Tried only when the primary is rate-limited, overloaded, or retired. Set to
 # "" to fail instead of falling back.
 GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+# Leads the chain for the two short conversational calls, /interview and /chat,
+# which don't need the bigger model to ask where you live. They still fall back
+# to GEMINI_MODEL if this one fails. Set it equal to GEMINI_MODEL to put those
+# calls back on the big model without a code change.
+GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
 ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]
