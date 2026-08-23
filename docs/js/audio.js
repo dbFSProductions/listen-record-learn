@@ -129,10 +129,15 @@ export class Recorder {
 // that honest signal.
 //
 // Loudness. autoGainControl being off leaves a recording far quieter than the
-// Azure voices, which made the you-vs-model comparison lopsided. Measure the
-// speech and, if it sits meaningfully below where the TTS voices do, boost.
-// Peak-capped so it can't clip, boost-capped so a near-silent take doesn't
-// become amplified hiss. Clips already at TTS level pass through.
+// Azure voices, which made the you-vs-model comparison lopsided. Both halves
+// are measured over their own speech and brought to the same line: a quiet
+// take is boosted up to it, and a TTS clip that arrives above it is brought
+// down. Matching is the whole job, so it has to work in both directions —
+// only ever boosting left the model wherever Azure happened to put it, and
+// Azure puts it above the line a recording can reach, so You stayed the
+// quieter of the two however hard the boost worked. Boost-capped so a
+// near-silent take doesn't become amplified hiss, and soft-limited on the way
+// out so a peak can't clip.
 //
 // Dead air at the front. You tap record, then think, then speak, so playback
 // opened with a second of nothing. It starts at speechStart() instead — the
@@ -143,9 +148,22 @@ export class Recorder {
 // decks teach you not to swallow, and a trailing trim that misjudges the
 // threshold eats it — so playback leaves the tail alone, silence and all.
 
-const TARGET_RMS = 0.12; // ≈ -18 dBFS over the speech, about the Azure level
-const MAX_BOOST = 8;
+const TARGET_RMS = 0.16; // ≈ -16 dBFS over the speech, about where Azure lands
+const MAX_BOOST = 12;
 const CEILING = 0.98; // the loudest a boosted sample is allowed to come out
+/* How far over the ceiling a peak may go before the gain is held back. The
+   limiter exists to catch the occasional transient, so a plosive shouldn't
+   also be allowed to veto the boost for the whole phrase the way a knock used
+   to — at 1.0 the peak decides the gain again, just with a politer name.
+
+   The number comes from the crest factor, the peak over the level of the
+   words. The cap binds once the crest is over `CEILING * OVERSHOOT /
+   TARGET_RMS`, so 1.25 covers everything up to a crest of about 7.7 — speech
+   sits around 4 to 8, and a TTS clip is flatter than that, nearer 3. Past
+   there this falls short of the line rather than limiting harder, which is
+   the right way round: a clip a decibel quiet is a clip a decibel quiet, and
+   a clip the limiter has reshaped is a clip that sounds wrong. */
+const OVERSHOOT = 1.25;
 const KNEE = 0.7; // above this the limiter starts bending rather than scaling
 const LEAD_IN = 0.12; // seconds of the original quiet kept, so onsets survive
 const MIN_TRIM = 0.15; // below this there's nothing worth rebuilding the clip for
@@ -180,12 +198,17 @@ function speechStart(samples) {
    what "the playback seems to have got quieter" actually looks like from the
    outside.
 
-   So both numbers come from the frames that are plausibly voice: anything more
-   than four times the 90th-percentile frame is a knock, not a word — twelve dB
-   above a loud vowel is not something a person does mid-phrase — and it is
-   left out of the average and out of the peak. Whatever it then overshoots by
-   is caught by `softLimit` on the way out, rather than being allowed to veto
-   the boost for the whole phrase. */
+   So both numbers come from the frames that are plausibly voice, and that is
+   a window with a lid and a floor. Anything more than four times the
+   90th-percentile frame is a knock, not a word — twelve dB above a loud vowel
+   is not something a person does mid-phrase. Anything under a fifth of it is
+   the gap between two words, not a word either, and counting those is what
+   made this measure the two halves differently: a recording pauses and a TTS
+   clip is speech end to end, so the pauses dragged the recording's average
+   down and asked for a boost that then overshot the model it was supposed to
+   match. Both are now read over the words alone. Whatever the boost then
+   overshoots by is caught by `softLimit` on the way out, rather than being
+   allowed to veto the boost for the whole phrase. */
 function voiceLevels(samples) {
   const frames = [];
   for (let at = 0; at + FRAME <= samples.length; at += FRAME) {
@@ -198,13 +221,16 @@ function voiceLevels(samples) {
   if (frames.length < 8) return wholeClip();
 
   const sorted = frames.map((frame) => frame.level).sort((a, b) => a - b);
-  const line = sorted[Math.floor(0.9 * sorted.length)] * 4;
+  const loud = sorted[Math.floor(0.9 * sorted.length)];
+  const knock = loud * 4;
+  const quiet = loud * 0.2;
 
   let energy = 0;
   let counted = 0;
   let headroom = 0;
   for (const frame of frames) {
-    if (frame.level > line) continue; // a knock, not a word
+    if (frame.level > knock) continue; // a knock, not a word
+    if (frame.level < quiet) continue; // the gap between words, not a word
     energy += frame.level * frame.level * FRAME;
     counted += FRAME;
     for (let i = frame.at; i < frame.at + FRAME; i++) headroom = Math.max(headroom, Math.abs(samples[i]));
@@ -234,22 +260,29 @@ export async function forPlayback(blob) {
     // bearing on how loud the voice is or on how much room it needs.
     const { level, headroom } = voiceLevels(trimSilence(samples, sampleRate));
 
+    // Towards the line from whichever side the clip is on. A boost is capped
+    // — not past MAX_BOOST, and not so far that the limiter is doing more than
+    // catching transients — but an attenuation has nothing to cap: bringing a
+    // loud TTS clip down can neither clip nor amplify a room.
     const gain =
       level > 0 && headroom > 0
-        ? Math.min(TARGET_RMS / level, MAX_BOOST, CEILING / headroom)
+        ? Math.min(TARGET_RMS / level, MAX_BOOST, (CEILING * OVERSHOOT) / headroom)
         : 1;
-    const boosting = gain > 1.1;
+    // Under a decibel either way is not worth rebuilding the clip for.
+    const levelling = gain > 1.1 || gain < 0.9;
 
     const from = Math.max(0, speechStart(samples) - Math.round(LEAD_IN * sampleRate));
     const trimming = from / sampleRate >= MIN_TRIM;
 
-    if (boosting || trimming) {
+    if (levelling || trimming) {
       const start = trimming ? from : 0;
       const prepared = new Float32Array(samples.length - start);
       // The limiter only runs when there is a boost to catch. A clip that is
-      // merely being trimmed comes through sample for sample, untouched.
+      // merely being trimmed, or turned down, comes through sample for sample.
+      const limiting = levelling && gain > 1;
       for (let i = 0; i < prepared.length; i++) {
-        prepared[i] = boosting ? softLimit(samples[start + i] * gain) : samples[start + i];
+        const sample = levelling ? samples[start + i] * gain : samples[start + i];
+        prepared[i] = limiting ? softLimit(sample) : sample;
       }
       result = encodeWav(prepared, sampleRate);
     }
