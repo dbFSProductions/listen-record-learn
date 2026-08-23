@@ -235,7 +235,10 @@ having can be kept on the card.
 - The sheet is where a note can be dropped again (`Forget this`). The drill
   prints them and otherwise keeps out of the way.
 
-Deb-o-lingo has the chat panel but not this; it is worth porting.
+Deb-o-lingo now has this too, in the same shape — the panel, the keep button,
+the printed notes and the same two gates. Keep them in step. Its notes live in
+their own store keyed by phrase id rather than on the phrase, because a course
+phrase over there is code; the rest reads the same.
 
 ### The in-page dictation buttons are gone, deliberately
 
@@ -309,6 +312,16 @@ each with its English and a Listen button.
 - The editor's AI rebuild replaces them, because the old ones answered the old
   card; `wireEditorAI` returns the rebuilt set for Save to carry across, and
   Undo puts the originals back.
+- **The chat sees them, and that took a Worker change.** They are printed under
+  the card being looked at, so "what does *marxando* mean?" is a question about
+  that card — but `validateChat` built its `card` from five string fields and
+  dropped everything else, so the tutor answered with no idea what was being
+  pointed at. `card.replies` is now accepted (optional, capped at
+  `MAX_REPLIES`, sanitised like the `/replies` output it comes from) and the
+  prompt says what they are. Additive in both directions: a card without them
+  sends an empty list and the prompt omits the paragraph, so an old client and
+  the new Worker — or the reverse — are fine, and the deploy order doesn't
+  matter for Deb-o-lingo either.
 
 ### The Add review says the card out loud, and can be sent back
 
@@ -339,8 +352,11 @@ screen.
   fallback line) because otherwise a completion with no `reviewNote` would have
   nowhere to hang it.
 
-Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
-rather than diverging on.
+Deb-o-lingo's Add tab is the same code one fork over and now has all of this —
+the replies, the preview line, "Generate again" and Undo. Keep them in step.
+One difference to know about: its review's two buttons stack, because at 390px
+"Generate again" and "Save it" both wrapped; the rule is the same
+`#card-preview .btn-row { flex-direction: column; }` this file already has.
 
 ### Not every call is the same size of job
 
@@ -353,7 +369,10 @@ below said what that was costing. What is true of them now:
   chain *inverted* — the quick model first, the big one still there as its
   fallback. `GEMINI_FAST_MODEL` in `wrangler.toml` overrides it; set it equal to
   `GEMINI_MODEL` and those calls go back on the big model with no code change.
-  Note this reaches Deb-o-lingo too, because `/chat` is shared.
+  Note this reaches Deb-o-lingo too, because `/chat` is shared — including the
+  card's `replies`, which that call now carries as well. A slightly longer
+  prompt on a smaller model: verified to compose, but if chat answers get worse
+  this is the first knob, not the prompt.
 - **The light calls also fail over sooner.** `SHORT_TIMEOUT_MS` (10s) instead of
   the 25s window sized for card generation. An interview question that has not
   arrived in ten seconds is not arriving, and the old window spent a short
@@ -367,6 +386,13 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
+
+**`aiLog` is Xerra-only, so `card-assistant.js` is no longer the verbatim copy
+Deb-o-lingo took.** The timing lives in `request()`, which is the one place
+every call goes through, so porting it means taking `aiLog` in store.js and the
+Settings panel with it. Worth doing over there — the question it answers ("slow
+model, slow connection, or a silent fallback?") is the same on that phone — but
+until someone does, don't "fix" the two files back into agreement.
 
 `aiLog` in store.js keeps the last 30 calls on the device and Settings renders
 them as **Card assistant speed**: median round trip against median Gemini time,
@@ -449,11 +475,16 @@ v2 list.
 - **Clearing the interview is armed, and leaves the cards alone.** It is the
   only way back from a conversation that went somewhere you didn't mean. The
   cards it already wrote are ordinary cards; deleting those is the phrase
-  sheet's job.
+  sheet's job. The button is rendered once and shown by `paintLog` the moment
+  there is a transcript — answering a question only repaints the log, so
+  rendering it conditionally meant the way out didn't appear until you left the
+  page and came back, which is when you are least likely to look for it.
 
-Deb-o-lingo has none of this yet. The Worker half already serves it — the
-endpoints take the language per request like the others — so a port is client
-work only.
+Deb-o-lingo has this as **Sobre mí** — same two endpoints, same persisted
+transcript, same guards, no Worker change needed. The one divergence is
+deliberate: its cards ride the path as a generated *unit* rather than sitting
+in a deck, because it has no deck list. The reset-button fix above came from
+there.
 
 ### Editing a card, and the AI rebuild
 
@@ -546,6 +577,16 @@ screen rather than silently. That panel is also the answer to "is the fix in, or
 has my phone not caught up?" — after a deploy the installed number moves first,
 and the gap is the reload you still owe.
 
+**Say the two numbers out loud whenever you hand work over.** Every pull
+request and every merge should end with the pair written out — `js/version.js`
+first, then `sw.js`'s — because that Settings panel is the only way to tell
+"the fix is in" from "the phone hasn't caught up", and the check is worthless
+without knowing what number to expect. So: state them in the PR body, and state
+them again when reporting a change as done, rather than leaving them to be dug
+out of the diff. `.github/pull_request_template.md` has a slot for them (and
+for the "does this touch `worker/**`" question) so the PR half is structural
+rather than a thing to remember. Same rule in Deb-o-lingo.
+
 Bumping it is necessary and, on its own, was once not sufficient — see the
 mixed-bundle gotcha below. A local run from a fresh browser profile cannot
 show you any of this: the way to test a deploy is to serve the *old* tree,
@@ -589,7 +630,7 @@ if you're advising on setup, don't send people there.
 ## Level two: drilling from memory
 
 A phrase is read aloud until `library.goodAttempts()` reaches `RECALL_AFTER`
-(2), then `library.recallReady()` flips it to a memory question: the drill
+(4), then `library.recallReady()` flips it to a memory question: the drill
 prints the *translation* where the phrase normally goes and withholds three
 things, all of which would answer it — the phrase text, its `focusNote`, and
 the Listen/Slow buttons (the model audio says it out loud). **If you add
@@ -602,7 +643,7 @@ Attempts now carry `mode` — `"listen"`, `"recall"` or `"recall-shown"`. Older
 attempts have no `mode`, which reads as `"listen"`, because that is what they
 were.
 
-An attempt counts toward the two if it scored a pass **or wasn't scored at
+An attempt counts toward the four if it scored a pass **or wasn't scored at
 all** — with no Azure key there is no score to judge by, and the alternative is
 that nothing ever leaves level one on the degraded path.
 
@@ -639,14 +680,14 @@ The aggregates are the fallback for an attempt with no word detail.
 
 This is a strong claim on the bands, so know what they now mean: `GOOD` 90 in
 app.js means *every word in the phrase* cleared 90, and `RECALL_PASS` 75 in
-store.js means every word cleared 75, twice. That is meant to be hard. All four
-aggregates (accuracy, fluency, completeness, PronScore) stay on the card as
-sub-scores, and the card names the weakest word so the dial points at the chip
-that earned it.
+store.js means every word cleared 75, four times over. That is meant to be
+hard. All four aggregates (accuracy, fluency, completeness, PronScore) stay on
+the card as sub-scores, and the card names the weakest word so the dial points
+at the chip that earned it.
 
-Deb-o-lingo scores Spanish through the same Azure call and has the same
-inflation. If it is ever brought in step, `attemptScore` and the three
-constants are the whole change.
+Deb-o-lingo scores Spanish through the same Azure call and is **now in step**:
+same `attemptScore`, same fallbacks, same three constants (its `PASS_GREAT` and
+`PASS_OK` are this file's `GOOD` and `OK`). Keep them that way.
 
 ## Audio analysis
 
@@ -655,17 +696,45 @@ Swift originals in `Xerra/Audio/`. They were verified against a synthetic 150 Hz
 tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
-`docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
-copied it verbatim. It **has now diverged on both halves**, and the analysis
-side is the one that needs porting back: `trimSilence`, `speechBounds` and
-`analyse`'s duration are all changed here and unchanged there. The *playback*
-half diverged earlier and is one function, `forPlayback` (the old
-`comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
-does two things at play time and nothing else: boosts a quiet recording to
-roughly TTS loudness, and drops the dead air before the first word. It never
-touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
-because recordings are captured with `autoGainControl: false` on purpose and the
-pitch tracker needs that honest signal.
+`docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, and the
+two are **back in step on both halves** — the file is a verbatim copy there
+apart from two comments, where the tail-pad argument names a Spanish final -s
+rather than a Catalan final -t. Change either repo's copy and change the
+other's, then re-verify numerically.
+
+`forPlayback` is the playback half: it does two things at play time and nothing
+else — boosts a quiet recording to roughly TTS loudness, and drops the dead air
+before the first word. It never touches stored blobs, the analysis pipeline, or
+what goes to Azure for scoring, because recordings are captured with
+`autoGainControl: false` on purpose and the pitch tracker needs that honest
+signal.
+
+#### One knock used to cancel the whole boost
+
+- **A 20 ms transient decided the gain for the whole clip.** A thumb reaching
+  for stop, a knock on the table, a plosive into the mic — louder than anything
+  actually said. It set `peak`, so `0.98 / peak` pinned the gain at ~1.0,
+  `gain > 1.1` came out false, and **no boost was applied at all**. It also sat
+  inside the trimmed region, so it dragged the average level up and asked for
+  less gain to begin with. Measured on a synthetic take needing 2.9× to reach
+  TTS level: one click took it to 1.0×, and playback came out exactly as faint
+  as it was recorded while the model played at full volume.
+- **It is a cliff, not a slope**, which is why it reads as "playback seems to
+  have got quieter" rather than as a bug: the same voice in the same room is
+  boosted on the go with no knock in it and not on the go with one. Reported
+  from Deb-o-lingo, which shares this file.
+- **`voiceLevels` reads both numbers from the frames that are plausibly
+  voice.** Anything over four times the 90th-percentile frame is a knock, not a
+  word — twelve dB above a loud vowel is not something a person does
+  mid-phrase — and it is left out of both the average and the peak.
+- **What overshoots is soft-limited, not allowed to veto.** `softLimit` bends
+  everything above a 0.7 knee towards a 0.98 ceiling with `tanh`, whose slope
+  is 1 at zero, so the curve meets the straight part cleanly and nothing below
+  the knee is touched. The limiter only runs when there is a boost to catch.
+- **Both halves self-level.** The model goes through `forPlayback` too, so
+  recording and model are both normalised to `TARGET_RMS` and match each other
+  whatever that constant is. The bug was never the constant — it was one of the
+  two being silently skipped. Check it with synthetic WAVs, not by ear.
 
 ### One detector, used three times
 
@@ -810,10 +879,15 @@ drills them, the transcript survives a reload without a second `/interview`
 call, a 503 leaves `#about-retry` which recovers, and `#about-reset` takes two
 taps and leaves the cards alone. The Worker's own half is worth driving
 directly in Node — import `worker/src/index.js`, stub `globalThis.fetch` with
-the Gemini `steps` shape and a fake `AI_RATE_LIMITER`, and check routing, the
-413 on an oversized body, the 16-turn and 40-entry caps, that a malformed card
-in a batch is dropped rather than failing the batch, and that `/complete-card`,
-`/chat` and `/replies` still answer byte-identically for Deb-o-lingo. Anything touching Azure can't be covered this way — there's no
+the Gemini `steps` shape (`{ steps: [{ type: "model_output", content: [{ type:
+"text", text }] }] }`, or `outputTextOf` filters it all away and everything
+500s) and a fake `AI_RATE_LIMITER`, and check routing, the 413 on an oversized
+body, the 16-turn and 40-entry caps, that a malformed card in a batch is
+dropped rather than failing the batch, and that `/complete-card`, `/chat` and
+`/replies` still answer byte-identically for Deb-o-lingo. For the chat's
+replies: the text and its English both reach the prompt, a card without them
+produces the old prompt exactly, a non-array is ignored rather than fatal, and
+more than three are capped. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
 The trim is the one thing worth checking numerically rather than by eye, and it
@@ -847,11 +921,11 @@ the parser losing a block to a formatting change.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself
-  and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
-  and the Worker change is additive so it stays working.
+  and can be undone and generated again. All of it is in Deb-o-lingo too now.
 - **About me** is a deck the app writes about the user, from an English
   interview — `/interview` and `/about-cards` on the Worker, `aboutMe` in
-  store.js, `renderAbout` in app.js. Also Xerra only, also additive.
+  store.js, `renderAbout` in app.js. Additive, and now ported to Deb-o-lingo
+  as **Sobre mí** with no Worker change.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
