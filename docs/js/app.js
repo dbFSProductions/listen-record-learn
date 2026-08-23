@@ -197,9 +197,7 @@ function repliesRequest(phrase) {
 async function fetchReplies(phrase) {
   const result = await cardAssistant.replies(repliesRequest(phrase), settings);
   const replies = Array.isArray(result.replies) ? result.replies : [];
-  const current = library.phrases.find((p) => p.id === phrase.id);
-  if (current) library.update({ ...current, replies });
-  return replies;
+  return library.setReplies(phrase.id, replies);
 }
 
 function scoreClass(score) {
@@ -833,6 +831,39 @@ function renderDrill() {
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
 
+  /* Fetching them mid-drill. The card is repainted in place rather than through
+     render(), which would take the attempt you're looking at off the screen —
+     and library.setReplies mutates the phrase the queue is holding, so what
+     comes back is on the card you're practising, not on a copy of it. */
+  document.getElementById("drill-get-replies")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const errorBox = document.getElementById("drill-replies-error");
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Asking…`;
+    errorBox.hidden = true;
+    try {
+      const replies = await fetchReplies(phrase);
+      const card = view.querySelector(".drill-replies");
+      // Moved on, or the phrase was edited out from under it, while we waited.
+      if (!card || currentPhrase()?.id !== phrase.id) return;
+      if (!replies.length) {
+        errorBox.className = "notice";
+        errorBox.textContent = "Nothing much gets said back to this one.";
+        errorBox.hidden = false;
+        button.remove();
+        return;
+      }
+      card.innerHTML = repliesBlock(replies);
+      wireReplies(card, replies, phrase.language);
+    } catch (error) {
+      errorBox.className = "notice bad";
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = "What might they say back?";
+    }
+  });
+
   /* The same panel the phrase sheet and the Add tab use, with somewhere to put
      an answer. Keeping one repaints the notes section in place rather than
      re-rendering: a render() here would take the attempt you are looking at
@@ -866,9 +897,24 @@ function renderDrill() {
    two gates — except that replies are held back harder. A situation is a clue;
    "we're full, about twenty minutes" is the answer to the question you're being
    asked to produce, so it stays out while a level-two question is standing. */
+/* What you'd hear back, and — for a card that hasn't got any — the offer to go
+   and find out. The seed decks predate the field, and the moment you want them
+   is the moment you've just said the line and wondered what happens next, so
+   the offer belongs here and not only on the phrase sheet.
+
+   The offer sits behind the same gate as the replies it would fill in: out
+   while a level-two question is standing, and out while the meaning is hidden.
+   Pressing it puts three answers with their English on the screen, so it can't
+   be on the near side of a line the replies themselves are on the far side of. */
 function drillReplies(phrase, asking) {
-  if (!state.showTranslation || asking || !phrase.replies?.length) return "";
-  return `<div class="card drill-replies">${repliesBlock(phrase.replies)}</div>`;
+  if (!state.showTranslation || asking) return "";
+  if (phrase.replies?.length) return `<div class="card drill-replies">${repliesBlock(phrase.replies)}</div>`;
+  if (!settings.hasAssistant || !phrase.text.trim()) return "";
+  return `
+    <div class="card drill-replies">
+      <button class="btn" id="drill-get-replies" style="width:100%">What might they say back?</button>
+      <div id="drill-replies-error" class="notice bad" hidden></div>
+    </div>`;
 }
 
 /* Answers you kept from a chat, printed back under the card you kept them on.
@@ -1492,9 +1538,10 @@ function showPhrase(phrase) {
         button.remove();
         return;
       }
-      // Reopen on the updated record, so the section and the drill agree.
-      showPhrase(library.phrases.find((p) => p.id === phrase.id) ?? phrase);
-      render();
+      const section = document.getElementById("p-replies");
+      section.innerHTML = repliesBlock(replies);
+      wireReplies(section, replies, phrase.language);
+      button.remove();
     } catch (error) {
       errorBox.className = "notice bad";
       errorBox.textContent = error.message;

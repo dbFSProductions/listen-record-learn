@@ -324,6 +324,18 @@ export const library = {
     this.savePhrases();
   },
 
+  /* Replies fetched for a card that predates the field. Mutated in place, like
+     the note and the star: `update` would replace the object, and the drill is
+     holding a reference to it in `state.queue` — the phrase you're practising
+     would keep the empty replies it was rendered with. */
+  setReplies(phraseID, replies) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase) return [];
+    phrase.replies = replies;
+    this.savePhrases();
+    return replies;
+  },
+
   toggleFavourite(phraseID) {
     const phrase = this.phrases.find((p) => p.id === phraseID);
     if (!phrase) return false;

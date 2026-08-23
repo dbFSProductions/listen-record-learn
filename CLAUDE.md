@@ -285,9 +285,21 @@ each with its English and a Listen button.
   is sanitised away rather than failed on, and the prompt says to return an
   empty list where nothing is ever said back (a shouted casteller order, a
   phrase that ends the exchange).
-- **The seed decks predate the field**, so the phrase sheet offers *What might
-  they say back?*, which calls `/replies` with the finished card. The card
-  itself is never rewritten behind your back.
+- **The seed decks predate the field**, so *What might they say back?* offers to
+  go and get some, on the phrase sheet **and in the drill** — the moment you
+  want them is the moment you've just said the line and wondered what happens
+  next. Either way it calls `/replies` with the finished card; the card itself
+  is never rewritten behind your back.
+- **`library.setReplies` mutates in place**, like `keepNote` and
+  `toggleFavourite`, and that is what makes the drill's offer work at all:
+  `update` replaces the object, and the queue is holding a reference to it, so
+  the phrase you are practising would keep the empty replies it was rendered
+  with. Fetching from the sheet now repaints its own section instead of
+  reopening the sheet on a replacement record, for the same reason.
+- **The offer sits behind the same gate as the replies it would fill in** — out
+  while a level-two question is standing, out while the meaning is hidden.
+  Pressing it puts three answers and their English on the screen, so it can't
+  be on the near side of a line the replies are on the far side of.
 - Replies play through `speech.modelAudio`, which keys its cache on the text,
   so a reply you've heard once is available offline like any phrase.
 - **They are held back harder than the usage note in the drill.** A situation is
@@ -666,7 +678,11 @@ text shows up under "Jotted down" with a `[data-edit]` row rather than
 there at level one and absent while a level-two question stands, `.chat-keep`
 puts a `.kept-note` under the card and flips to `Kept on the card ✓`, the note
 is on that phrase only and survives Next and coming back, and `Forget this` on
-the phrase sheet removes it. The Add review can be driven with the assistant stubbed —
+the phrase sheet removes it. With `/replies` stubbed: `#drill-get-replies` is
+offered on a card without them and absent while a level-two question stands, a
+503 puts the button back enabled, an empty list removes it with a note, and a
+successful fetch paints `.drill-replies` with working `[data-say]` buttons that
+survive Next and coming back without a second call. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
