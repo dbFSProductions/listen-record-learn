@@ -636,6 +636,38 @@ canvas { width: 100%; display: block; }
 .reply-text { display: block; font-weight: 700; overflow-wrap: anywhere; }
 .reply-translation { display: block; margin-top: 2px; font-size: 0.82rem; color: var(--text-2); overflow-wrap: anywhere; }
 
+/* The card you're about to save, said out loud. Same shape as a reply — play
+   button, the line, its English — because it does the same job one step up, so
+   it wears the Add tab's orange and a slightly bigger text. */
+.preview-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 13%, transparent);
+}
+.preview-line .reply-play {
+  width: 38px;
+  height: 38px;
+  background: var(--orange);
+  box-shadow: 0 3px 0 var(--orange-dark);
+}
+.preview-line .reply-play:active { box-shadow: 0 1px 0 var(--orange-dark); }
+.preview-line .reply-play svg { width: 17px; height: 17px; }
+.preview-line .reply-text { font-size: 1.08rem; }
+
+/* The fields "Generate again" re-reads are at the top of the page, so the way
+   back to them is spelled out next to the button rather than assumed. */
+.regen-hint { margin: 14px 4px 0; }
+.regen-hint .link { padding: 0; }
+/* At phone width "Generate again" and "Save to deck" cannot share a row
+   without one of them wrapping onto a second line and making both buttons
+   tall, so the review stacks them — same order as the row they replace,
+   secondary above primary, Save nearest the thumb. */
+#card-preview .btn-row { flex-direction: column; }
+
 /* Under the drill it's reference material like the situation card, so it wears
    the same margin rather than sitting tight against the comparison. */
 .drill-replies { margin-top: 18px; }

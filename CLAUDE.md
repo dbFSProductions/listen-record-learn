@@ -265,6 +265,38 @@ each with its English and a Listen button.
   card; `wireEditorAI` returns the rebuilt set for Save to carry across, and
   Undo puts the originals back.
 
+### The Add review says the card out loud, and can be sent back
+
+A generated card used to be checkable only by reading it. The review panel now
+opens with a **preview line** — the phrase, its English, and a play button in
+the Add tab's orange — built out of the same parts as a reply because it does
+the same job one step up. `sayAloud` is that shared behaviour, lifted out of
+`wireReplies`: stop whatever is playing, Azure audio if there's a key, browser
+voice if there isn't, busy flag on the button itself so several can sit on one
+screen.
+
+- **The preview reads the field, not a snapshot of the completion.** The phrase
+  stays editable right up until Save, and a preview saying something other than
+  what is in the box would be worse than no preview. The line follows what you
+  type into the phrase and English boxes for the same reason.
+- **"Try again" is now "Generate again", and the way back to the inputs is
+  spelled out.** It always re-read the composer fields; the trouble was that
+  they're at the top of the page and it's at the bottom, so on a phone they are
+  never on screen together and it read as "roll the dice again". The hint line
+  scrolls the composer into view and puts the cursor in Situation — which is
+  usually the field that needed to be clearer.
+- **Undo withdraws the whole completion.** The completion overwrites all three
+  inputs with its corrected versions, so re-steering it meant editing the
+  assistant's rewrite of your words rather than your words. Undo puts the raw
+  three back, hides the review and the chat, and bumps `repliesToken` — a reply
+  still in flight answers a card that no longer exists. Same shape as the
+  editor's rebuild Undo, and the review note is always shown now (with a
+  fallback line) because otherwise a completion with no `reviewNote` would have
+  nowhere to hang it.
+
+Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
+rather than diverging on.
+
 ### Editing a card, and the AI rebuild
 
 The edit sheet has a **Rebuild the rest with AI** button (only when the card
@@ -570,7 +602,11 @@ score or a `.deck-meter`. For the merged page: `#practice-list [data-phrase]` ap
 only once `#search` has something in it, `.drill-star` flips `aria-pressed` and
 puts a `★ Favourites` row at the top of the list, and a phrase with no Catalan
 text shows up under "Jotted down" with a `[data-edit]` row rather than
-`[data-phrase]`. Anything touching Azure can't be covered this way — there's no
+`[data-phrase]`. The Add review can be driven with the assistant stubbed —
+Playwright's `page.route` over `/complete-card` and `/replies` — which covers
+the preview line following an edit to the phrase box, `#edit-inputs` focusing
+`#add-situation`, `#try-again` sending the edited situation back, and
+`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
@@ -591,7 +627,8 @@ the parser losing a block to a formatting change.
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
-  phrase sheet and under the drill. Xerra only so far; Deb-o-lingo is unchanged
+  phrase sheet and under the drill. The Add review also plays the card itself
+  and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
   and the Worker change is additive so it stays working.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.

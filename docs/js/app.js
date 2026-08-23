@@ -148,27 +148,35 @@ function repliesBlock(replies, title = "You might hear back") {
    there offline afterwards. No key, and the browser voice reads it instead. */
 function wireReplies(root, replies, language) {
   root?.querySelectorAll("[data-say]").forEach((button) =>
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const reply = replies[Number(button.dataset.say)];
-      if (!reply) return;
-      player.stop();
-      browserSpeech.stop();
-      if (button.dataset.busy === "1") return;
-      button.dataset.busy = "1";
-      button.classList.add("busy");
-      try {
-        const blob = await speech.modelAudio({ text: reply.text, language }, settings);
-        if (blob) await player.play(blob);
-        else if (browserSpeech.available(language)) browserSpeech.speak(reply.text, language);
-        else toast("No voice available for this language on this device.");
-      } catch {
-        toast("Couldn't play that reply.");
-      } finally {
-        button.dataset.busy = "0";
-        button.classList.remove("busy");
-      }
+      if (reply) sayAloud(button, reply.text, language, "Couldn't play that reply.");
     })
   );
+}
+
+/* One tap, one voice. Stops whatever is playing, then the Azure audio for this
+   text if there is a key (cached by text, so it's there offline afterwards) and
+   the browser voice if there isn't. The button carries its own busy flag rather
+   than a shared one — several of these can be on screen at once. */
+async function sayAloud(button, text, language, failed = "Couldn't play that.") {
+  if (!text.trim()) return;
+  player.stop();
+  browserSpeech.stop();
+  if (button.dataset.busy === "1") return;
+  button.dataset.busy = "1";
+  button.classList.add("busy");
+  try {
+    const blob = await speech.modelAudio({ text, language }, settings);
+    if (blob) await player.play(blob);
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language);
+    else toast("No voice available for this language on this device.");
+  } catch {
+    toast(failed);
+  } finally {
+    button.dataset.busy = "0";
+    button.classList.remove("busy");
+  }
 }
 
 /* Replies for a card that hasn't got any — the seed decks, and anything added
@@ -1530,13 +1538,25 @@ function renderAdd() {
       <div class="section-label">Check the card</div>
       <div class="card add-card">
         <div id="review-note" class="notice" hidden></div>
+        <div class="preview-line">
+          <button class="reply-play" id="preview-say" aria-label="Listen to this card">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <span class="reply-main">
+            <span class="reply-text" id="preview-text"></span>
+            <span class="reply-translation" id="preview-translation"></span>
+          </span>
+        </div>
         <label class="field"><span>How it's used</span>
           <textarea id="result-usage" rows="3"></textarea></label>
         <label class="field"><span>Pronunciation tip</span>
           <textarea id="result-focus" rows="3"></textarea></label>
         <section id="result-replies"></section>
+        <p class="tiny muted regen-hint">Not what you meant?
+          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
+          above, then generate again.</p>
         <div class="btn-row">
-          <button class="btn" id="try-again">Try again</button>
+          <button class="btn" id="try-again">Generate again</button>
           <button class="btn btn-primary" id="save-card">Save to deck</button>
         </div>
       </div>
@@ -1555,6 +1575,34 @@ function renderAdd() {
   tryAgain.addEventListener("click", completeCard);
   document.getElementById("save-card").addEventListener("click", saveCard);
 
+  /* Hear the card before you commit it. Same button and same voice as a reply,
+     one size up, and it reads the field rather than a snapshot — the phrase is
+     editable right up until Save, and a preview that says something other than
+     what's in the box would be worse than no preview at all. */
+  document.getElementById("preview-say").addEventListener("click", (event) => {
+    const text = document.getElementById("add-target").value.trim();
+    if (!text) return toast(`There's no ${language.englishName} to say yet.`);
+    sayAloud(event.currentTarget, text, settings.language, "Couldn't play the card.");
+  });
+
+  // Both fields stay live, so the preview line follows what you type into them.
+  for (const id of ["add-target", "add-english"])
+    document.getElementById(id).addEventListener("input", paintPreview);
+
+  /* "Generate again" is at the bottom of the review, the fields it re-reads are
+     at the top of the page, and on a phone they are not on screen together. */
+  document.getElementById("edit-inputs").addEventListener("click", () => {
+    document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("add-situation").focus({ preventScroll: true });
+  });
+
+  function paintPreview() {
+    document.getElementById("preview-text").textContent =
+      document.getElementById("add-target").value.trim() || `No ${language.englishName} yet`;
+    document.getElementById("preview-translation").textContent =
+      document.getElementById("add-english").value.trim();
+  }
+
   async function completeCard() {
     const target = document.getElementById("add-target").value.trim();
     const english = document.getElementById("add-english").value.trim();
@@ -1566,6 +1614,16 @@ function renderAdd() {
       toast("Set up the card assistant in Settings first.");
       return;
     }
+
+    /* What you typed, kept raw, so the review's Undo can put your own words
+       back. The completion overwrites all three inputs with its corrected
+       versions, and "be clearer about the situation" is much easier from what
+       you wrote than from the assistant's rewrite of it. */
+    const before = {
+      target: document.getElementById("add-target").value,
+      english: document.getElementById("add-english").value,
+      situation: document.getElementById("add-situation").value,
+    };
 
     setAddBusy(true);
     const errorBox = document.getElementById("add-error");
@@ -1589,11 +1647,14 @@ function renderAdd() {
       document.getElementById("add-situation").value = result.situation;
       document.getElementById("result-usage").value = result.usageNote;
       document.getElementById("result-focus").value = result.focusNote;
+      paintPreview();
       askForReplies();
 
       const review = document.getElementById("review-note");
-      review.textContent = result.reviewNote;
-      review.hidden = !result.reviewNote;
+      review.innerHTML = `${esc(result.reviewNote || "Built from what you typed. Check it over, then Save.")}
+        <button class="link" id="undo-complete" style="padding:0 0 0 4px">Undo</button>`;
+      review.hidden = false;
+      document.getElementById("undo-complete").addEventListener("click", undoCompletion);
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
       // Sized after unhiding — a display:none box has no height to measure.
@@ -1617,6 +1678,23 @@ function renderAdd() {
       errorBox.hidden = false;
     } finally {
       setAddBusy(false);
+    }
+
+    /* Undo withdraws the whole completion, not just the wording: the usage
+       note, the tip and the replies all answered the card that is being taken
+       back. You are left with what you typed, in the boxes you typed it in. */
+    function undoCompletion() {
+      document.getElementById("add-target").value = before.target;
+      document.getElementById("add-english").value = before.english;
+      document.getElementById("add-situation").value = before.situation;
+      // A reply still in flight now answers a card that no longer exists.
+      repliesToken++;
+      replies = [];
+      document.getElementById("card-preview").hidden = true;
+      document.getElementById("add-chat").hidden = true;
+      paintPreview();
+      autosizeAll(view);
+      document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -1689,10 +1767,14 @@ function renderAdd() {
       });
   }
 
+  /* Both buttons run the same completion, and after the first one the review's
+     is the one you're looking at — so it gets its own spinner rather than just
+     greying out while a button off the top of the screen does the talking. */
   function setAddBusy(busy) {
     completeButton.disabled = busy;
     tryAgain.disabled = busy;
     completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
+    tryAgain.innerHTML = busy ? `<span class="spinner"></span> Generating…` : "Generate again";
   }
 }
 
