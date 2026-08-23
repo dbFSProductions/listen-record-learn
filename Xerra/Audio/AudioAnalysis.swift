@@ -76,24 +76,119 @@ enum AudioAnalysis {
 
     static func waveform(url: URL, bins: Int = 120) -> [Float] {
         guard let loaded = monoSamples(url: url) else { return [] }
-        return waveform(samples: trimSilence(loaded.samples), bins: bins)
+        return waveform(samples: trimSilence(loaded.samples, sampleRate: loaded.sampleRate), bins: bins)
     }
 
+    /// RMS of one window of samples.
+    static func rms(_ samples: [Float], from index: Int, count: Int) -> Float {
+        let end = min(index + count, samples.count)
+        guard index < end else { return 0 }
+        var value: Float = 0
+        samples[index..<end].withUnsafeBufferPointer { pointer in
+            guard let base = pointer.baseAddress else { return }
+            vDSP_rmsqv(base, 1, &value, vDSP_Length(pointer.count))
+        }
+        return value
+    }
+
+    /// Where the speech is in a clip, or nil when there is nothing to judge by
+    /// — too short, all room, or all voice.
+    ///
+    /// The threshold is derived from the clip rather than fixed, and that is
+    /// the whole point of this function. A fixed 0.015 RMS works in a quiet
+    /// room and silently stops working in a normal one: recordings are captured
+    /// with automatic gain off, so a fan or a street outside puts the room
+    /// itself above the line, the scan calls the first frame speech, and
+    /// nothing is trimmed at all — the waveform opens with a second of dead air
+    /// and `timingRatio` reports you at twice the model's length when you were
+    /// close to it.
+    ///
+    /// So: take the quietest frames as the room and the loud twentieth as the
+    /// voice, and put the line between them. The room is read at the 2nd
+    /// percentile rather than the tenth because a TTS clip is speech almost end
+    /// to end, and its tenth percentile lands inside a syllable. The line is
+    /// capped well under the voice so a loud room cannot drag it up to the
+    /// speech's own level and start eating syllables: both ways of being wrong
+    /// here should be "trim less", never "trim into the phrase". Speech has to
+    /// clear the line for three frames running at each end, so a click or a
+    /// breath is not the first word or the last one.
+    static func speechBounds(_ samples: [Float]) -> Range<Int>? {
+        let frame = 256
+        var frames: [Float] = []
+        frames.reserveCapacity(samples.count / frame + 1)
+        var index = 0
+        while index + frame <= samples.count {
+            frames.append(rms(samples, from: index, count: frame))
+            index += frame
+        }
+        guard frames.count >= 8 else { return nil }
+
+        let sorted = frames.sorted()
+        func at(_ p: Double) -> Float {
+            sorted[min(sorted.count - 1, Int(p * Double(sorted.count)))]
+        }
+        let room = at(0.02)
+        let voice = at(0.95)
+        guard voice >= room * 2.5 else { return nil } // all room, or all voice
+
+        let threshold = min(max(room * 3, max(voice * 0.1, 0.008)), voice * 0.35)
+        let run = 3
+
+        var start: Int?
+        var streak = 0
+        for i in frames.indices {
+            if frames[i] > threshold {
+                streak += 1
+                if streak >= run {
+                    start = (i - run + 1) * frame
+                    break
+                }
+            } else {
+                streak = 0
+            }
+        }
+        guard let from = start else { return nil }
+
+        var end = samples.count
+        streak = 0
+        for i in frames.indices.reversed() {
+            if frames[i] > threshold {
+                streak += 1
+                if streak >= run {
+                    end = (i + run) * frame
+                    break
+                }
+            } else {
+                streak = 0
+            }
+        }
+        return from..<max(from + frame, min(samples.count, end))
+    }
+
+    /// Kept past the last speech frame. The tail is where a Catalan final
+    /// consonant lives, and it is quieter than the vowel before it — the
+    /// release of a final -t sits under the line that found the word, so the
+    /// detector stops at the vowel and this is what saves the consonant.
+    static let tailPad = 0.25
+
     /// Drops leading and trailing near-silence so two clips line up on their
-    /// speech, not on however long you fumbled for the stop button.
-    static func trimSilence(_ samples: [Float], threshold: Float = 0.015) -> [Float] {
+    /// speech, not on however long you fumbled for the stop button — and so the
+    /// length this leaves is of the phrase, not of the room before it.
+    ///
+    /// The clip-derived bounds are the real answer; the fixed-threshold scan is
+    /// the fallback for a clip they cannot judge, which is also what this used
+    /// to do to everything.
+    static func trimSilence(_ samples: [Float], sampleRate: Double = 48000, threshold: Float = 0.015) -> [Float] {
         guard !samples.isEmpty else { return samples }
         let window = 256
 
+        if let speech = speechBounds(samples) {
+            let end = min(samples.count, speech.upperBound + Int(tailPad * sampleRate))
+            if end > speech.lowerBound { return Array(samples[speech.lowerBound..<end]) }
+        }
+
         func isLoud(from index: Int) -> Bool {
-            let end = min(index + window, samples.count)
-            guard index < end else { return false }
-            var rms: Float = 0
-            samples[index..<end].withUnsafeBufferPointer { pointer in
-                guard let base = pointer.baseAddress else { return }
-                vDSP_rmsqv(base, 1, &rms, vDSP_Length(pointer.count))
-            }
-            return rms > threshold
+            rms(samples, from: index, count: window) > threshold
         }
 
         var start = 0
@@ -137,7 +232,8 @@ enum AudioAnalysis {
 
     static func pitchContour(url: URL) -> [Double?] {
         guard let loaded = monoSamples(url: url) else { return [] }
-        return pitchContour(samples: trimSilence(loaded.samples), sampleRate: loaded.sampleRate)
+        return pitchContour(samples: trimSilence(loaded.samples, sampleRate: loaded.sampleRate),
+                            sampleRate: loaded.sampleRate)
     }
 
     private static func fundamental(frame: [Float], sampleRate: Double, minLag: Int, maxLag: Int) -> Double? {
@@ -216,9 +312,21 @@ enum AudioAnalysis {
     static func timingRatio(model: URL, attempt: URL) -> Double? {
         guard let modelAudio = monoSamples(url: model),
               let attemptAudio = monoSamples(url: attempt) else { return nil }
-        let modelDuration = Double(trimSilence(modelAudio.samples).count) / modelAudio.sampleRate
-        let attemptDuration = Double(trimSilence(attemptAudio.samples).count) / attemptAudio.sampleRate
+        let modelDuration = speechSeconds(modelAudio)
+        let attemptDuration = speechSeconds(attemptAudio)
         guard modelDuration > 0.05, attemptDuration > 0.05 else { return nil }
         return attemptDuration / modelDuration
+    }
+
+    /// How long the speech in a clip lasts, measured between the speech bounds
+    /// rather than across the trimmed window: the tail pad protects the drawn
+    /// waveform from losing a final consonant, and a TTS clip stops the moment
+    /// it stops and has no room to pad into. Counting the pad would make every
+    /// recording read a fifth slower than it is.
+    private static func speechSeconds(_ audio: (samples: [Float], sampleRate: Double)) -> Double {
+        if let speech = speechBounds(audio.samples) {
+            return Double(speech.count) / audio.sampleRate
+        }
+        return Double(trimSilence(audio.samples, sampleRate: audio.sampleRate).count) / audio.sampleRate
     }
 }
