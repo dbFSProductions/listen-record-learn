@@ -204,6 +204,39 @@ standing — the situation alone is the clue.
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
 
+### Asking about the phrase you are practising, and keeping the answer
+
+Getting a phrase right and not knowing *why* it is right is where practice
+stalls — you say *que tingui un bon dia* perfectly and still can't see what
+`tingui` is doing. So the drill carries the same `cardChatPanel` the phrase
+sheet and the Add tab use, at the bottom of the page, and an answer worth
+having can be kept on the card.
+
+- **Kept per answer, not per conversation.** A chat wanders; the one paragraph
+  that explained the subjunctive is the part you want under the phrase next
+  time. The button lives inside the answer bubble, and the question that drew
+  it is stored with it — an answer with no question in front of it reads like
+  a note someone else left.
+- **`notes` lives on the phrase**, for the same reason `favourite` does: it
+  exports, imports and survives the weekly reinstall with the rest of the card.
+  `library.keepNote`/`forgetNote` mutate in place like `toggleFavourite`, so
+  the object in `state.queue` stays current — don't reach for `library.update`
+  here, which replaces the object and would leave the drill holding the old one.
+- **Both halves pick their side of the level-two line, and they pick
+  differently.** The printed notes are reference material like the situation
+  card: out while a question is standing *and* out while the meaning is hidden,
+  because a note about a phrase quotes it and always explains it. The ask box
+  shows nothing until you type, so it only goes out while the question is
+  standing — but it does have to go, because the answer it fetches is built
+  from the card and would otherwise be the way round the question.
+- **Keeping a note repaints `#drill-notes` in place rather than re-rendering.**
+  A `render()` in the drill takes the attempt you are looking at off the
+  screen, which is the same reason the star updates itself by hand.
+- The sheet is where a note can be dropped again (`Forget this`). The drill
+  prints them and otherwise keeps out of the way.
+
+Deb-o-lingo has the chat panel but not this; it is worth porting.
+
 ### The in-page dictation buttons are gone, deliberately
 
 Every composer field used to carry a mic button driving
@@ -498,9 +531,10 @@ tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
-copied it verbatim. The analysis half stays byte-identical between the two —
-change it in one, change it in the other. The *playback* half has diverged
-deliberately, and is now one function, `forPlayback` (the old
+copied it verbatim. It **has now diverged on both halves**, and the analysis
+side is the one that needs porting back: `trimSilence`, `speechBounds` and
+`analyse`'s duration are all changed here and unchanged there. The *playback*
+half diverged earlier and is one function, `forPlayback` (the old
 `comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
 does two things at play time and nothing else: boosts a quiet recording to
 roughly TTS loudness, and drops the dead air before the first word. It never
@@ -508,28 +542,54 @@ touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
 because recordings are captured with `autoGainControl: false` on purpose and the
 pitch tracker needs that honest signal.
 
-Two things about the trim before you tune it:
+### One detector, used three times
 
-- **The threshold is derived from the clip, not fixed, and it has to stay that
-  way.** It started as the analysis threshold (0.015 RMS over 256 frames) so
-  that playback and the drawn waveform would agree on where a clip begins. That
-  works in a quiet room and silently stops working in a normal one:
-  `autoGainControl` is off, so a fan or traffic puts the room itself above the
-  line, the scan calls the first frame speech, and nothing is trimmed at all —
-  indistinguishable from the feature having been reverted. `speechStart` now
-  takes the quiet tenth of the clip as the room and the loud twentieth as the
-  voice and puts the line between them, and wants three frames over it in a row
-  so a click isn't the first word. The cost is that in a noisy room the picture
-  (still `trimSilence`, still fixed) can show a lead-in the sound skips; the
-  silence mattered more. Bringing them back into line means changing
-  `trimSilence` in this repo *and* Deb-o-lingo's, together.
+`speechBounds` finds where the speech is, and the picture, the sound and the
+pacing note all ask it. That is the whole of the fix, and the history is why it
+has to stay that way:
+
+- **A fixed threshold silently stops working in a real room.** 0.015 RMS over
+  256-sample frames is right in a quiet one. `autoGainControl` is off, so a fan
+  or traffic puts the room itself over the line, the scan calls the first frame
+  speech, and nothing is trimmed at all — indistinguishable from the feature
+  having been reverted. Measured: at 0.02 RMS of room noise the old scan cut
+  nothing off a 1.2 s lead-in.
+- **Playback got the clip-derived threshold first, and the drawing and the
+  duration were left behind.** So the waveform still opened with a second of
+  dead air the sound skipped, and — worse — the pacing note under it measures
+  the *trimmed* clip, so it read a take that was 1.07× the model's length as
+  **2.2× as long, "try running the words together more"**. The note was
+  scolding you for the pause before you started talking.
+- **The room is read from the quietest frames (2nd percentile), not the quiet
+  tenth.** A TTS clip is speech almost end to end, so its tenth percentile
+  lands inside a syllable and sets the line above the dips between them, which
+  shortened the *model's* measured length by a tenth and inflated every ratio.
+  Where there is real room noise the two percentiles are within a few per cent
+  of each other, so this costs nothing on the recordings.
+- **Both ways of being wrong must be "trim less".** The threshold is capped
+  well under the voice (`voice * 0.35`) so a loud room can't drag `room * 3` up
+  to the speech's own level and start eating syllables. When the room is within
+  ~8 dB of the voice the cap puts the line under the noise, the scan triggers
+  immediately and nothing is trimmed — the safe failure, and the right one.
+- **Three frames in a row at each end**, so a click, a breath or the stop
+  button isn't the first word or the last one.
 - Detection can still land a few tens of milliseconds late; the 120 ms
-  `LEAD_IN` kept before the detected start is what covers that, so don't cut it
-  to zero to "tighten" playback.
-- **The tail is deliberately left alone.** These decks teach Catalan final
-  consonants, and a trailing trim that misjudges the threshold eats exactly the
-  sound the phrase was chosen to drill. Silence at the end is cheap; a
+  `LEAD_IN` kept before the detected start is what covers that in playback, so
+  don't cut it to zero to "tighten" it.
+- **The tail is padded, not cut close.** These decks teach Catalan final
+  consonants; the release of a final -t is quieter than the vowel before it and
+  sits under the line that found the word, so the detector stops at the vowel
+  and `TAIL_PAD` (0.25 s) is what saves the consonant. Playback trims the front
+  only and leaves the tail alone entirely. Silence at the end is cheap; a
   swallowed final -t is not.
+- **The duration is measured between the bounds, not across the padded
+  window.** A TTS clip stops when it stops and has no room to pad into, so
+  counting the pad would make every recording read a fifth slower than it is —
+  the pacing note lying in the same direction, for a new reason.
+
+The fallback, for a clip the bounds can't judge — under eight frames, all room,
+or all voice — is the old fixed-threshold scan, which is why the synthetic
+150 Hz tone still passes through untouched and still reads 150 Hz.
 
 Pitch is plotted in **semitones relative to each speaker's own median**, not
 absolute Hz. This is what lets a low TTS voice and a higher human voice be
@@ -602,12 +662,27 @@ score or a `.deck-meter`. For the merged page: `#practice-list [data-phrase]` ap
 only once `#search` has something in it, `.drill-star` flips `aria-pressed` and
 puts a `★ Favourites` row at the top of the list, and a phrase with no Catalan
 text shows up under "Jotted down" with a `[data-edit]` row rather than
-`[data-phrase]`. The Add review can be driven with the assistant stubbed —
+`[data-phrase]`. For the drill's chat, with `/chat` stubbed: `#drill-chat` is
+there at level one and absent while a level-two question stands, `.chat-keep`
+puts a `.kept-note` under the card and flips to `Kept on the card ✓`, the note
+is on that phrase only and survives Next and coming back, and `Forget this` on
+the phrase sheet removes it. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
 `#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
+
+The trim is the one thing worth checking numerically rather than by eye, and it
+can be done without a microphone: build synthetic clips — a lead-in of room
+noise at a given RMS, then a modulated tone, then a tail — encode them as WAVs
+in the page, and call `analyse()` on them through Playwright. What the numbers
+should say: the reported duration is the speech alone whatever the room level,
+a 1.50 s take against a 1.40 s model reads 1.07× and not 2.2×, a quiet burst
+after the last vowel survives the tail, and the synthetic 150 Hz tone still
+comes back untrimmed at 150 Hz. Do not check this by recording in a quiet room
+— a quiet room is the case the old fixed threshold already handled, which is
+exactly why the bug survived so long.
 
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
 either a diff you meant or no diff at all. A silent drop in the phrase count is
@@ -627,7 +702,8 @@ the parser losing a block to a formatting change.
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
-  phrase sheet and under the drill. The Add review also plays the card itself
+  phrase sheet and under the drill, and `notes` — answers kept from a chat,
+  asked for and shown under the drill card itself. The Add review also plays the card itself
   and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
   and the Worker change is additive so it stays working.
 - The score is the weakest word in the attempt, not any of Azure's aggregates

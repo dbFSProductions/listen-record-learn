@@ -815,6 +815,52 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .chat-form .btn { flex: none; }
 .chat-error { margin-top: 10px; }
 
+/* Keeping an answer. The button sits inside the bubble it belongs to, on its
+   own line, so several answers can each offer it without a row of controls
+   competing with the text. */
+.chat-keep, .chat-kept {
+  display: block;
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.chat-kept { color: var(--text-3); }
+
+/* A kept answer, printed back under the card. Green rather than the chat's
+   blue: on the phrase sheet it sits a few pixels from the replies, and the two
+   are different things — what you'd hear back, and what you asked. */
+.kept-notes { display: grid; gap: 8px; }
+.kept-note {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border-radius: 12px;
+  padding: 10px 12px 11px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+/* The question, in the case it was typed in. The uppercase treatment the other
+   labels wear is for two-word headings — a whole question in caps shouts. */
+.kept-note strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--practise-ink);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+/* Only the answer keeps its line breaks: pre-wrap on the box itself would
+   print the template's own indentation. */
+.kept-note span { display: block; white-space: pre-wrap; }
+.kept-note .link { display: block; margin-top: 6px; padding: 0; font-size: 0.75rem; }
+
+/* Under the drill it's reference material like the situation card, so it wears
+   the same margin. */
+.drill-notes { margin-top: 18px; }
+.drill-notes .section-label { margin: 0 4px 8px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
