@@ -204,6 +204,39 @@ standing — the situation alone is the clue.
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
 
+### Asking about the phrase you are practising, and keeping the answer
+
+Getting a phrase right and not knowing *why* it is right is where practice
+stalls — you say *que tingui un bon dia* perfectly and still can't see what
+`tingui` is doing. So the drill carries the same `cardChatPanel` the phrase
+sheet and the Add tab use, at the bottom of the page, and an answer worth
+having can be kept on the card.
+
+- **Kept per answer, not per conversation.** A chat wanders; the one paragraph
+  that explained the subjunctive is the part you want under the phrase next
+  time. The button lives inside the answer bubble, and the question that drew
+  it is stored with it — an answer with no question in front of it reads like
+  a note someone else left.
+- **`notes` lives on the phrase**, for the same reason `favourite` does: it
+  exports, imports and survives the weekly reinstall with the rest of the card.
+  `library.keepNote`/`forgetNote` mutate in place like `toggleFavourite`, so
+  the object in `state.queue` stays current — don't reach for `library.update`
+  here, which replaces the object and would leave the drill holding the old one.
+- **Both halves pick their side of the level-two line, and they pick
+  differently.** The printed notes are reference material like the situation
+  card: out while a question is standing *and* out while the meaning is hidden,
+  because a note about a phrase quotes it and always explains it. The ask box
+  shows nothing until you type, so it only goes out while the question is
+  standing — but it does have to go, because the answer it fetches is built
+  from the card and would otherwise be the way round the question.
+- **Keeping a note repaints `#drill-notes` in place rather than re-rendering.**
+  A `render()` in the drill takes the attempt you are looking at off the
+  screen, which is the same reason the star updates itself by hand.
+- The sheet is where a note can be dropped again (`Forget this`). The drill
+  prints them and otherwise keeps out of the way.
+
+Deb-o-lingo has the chat panel but not this; it is worth porting.
+
 ### The in-page dictation buttons are gone, deliberately
 
 Every composer field used to carry a mic button driving
@@ -629,7 +662,11 @@ score or a `.deck-meter`. For the merged page: `#practice-list [data-phrase]` ap
 only once `#search` has something in it, `.drill-star` flips `aria-pressed` and
 puts a `★ Favourites` row at the top of the list, and a phrase with no Catalan
 text shows up under "Jotted down" with a `[data-edit]` row rather than
-`[data-phrase]`. The Add review can be driven with the assistant stubbed —
+`[data-phrase]`. For the drill's chat, with `/chat` stubbed: `#drill-chat` is
+there at level one and absent while a level-two question stands, `.chat-keep`
+puts a `.kept-note` under the card and flips to `Kept on the card ✓`, the note
+is on that phrase only and survives Next and coming back, and `Forget this` on
+the phrase sheet removes it. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
@@ -665,7 +702,8 @@ the parser losing a block to a formatting change.
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
-  phrase sheet and under the drill. The Add review also plays the card itself
+  phrase sheet and under the drill, and `notes` — answers kept from a chat,
+  asked for and shown under the drill card itself. The Add review also plays the card itself
   and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
   and the Worker change is additive so it stays working.
 - The score is the weakest word in the attempt, not any of Azure's aggregates

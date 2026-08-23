@@ -754,6 +754,15 @@ function renderDrill() {
 
     ${drillContext(phrase, asking)}
     ${drillReplies(phrase, asking)}
+    <div id="drill-notes">${drillNotes(phrase, asking)}</div>
+    ${
+      /* Asking about the phrase you have just said is half of practising it —
+         you get it right, and then want to know why it's `tingui`. The box
+         shows nothing until you type, but the answer it fetches is built from
+         the card, so it stays out while a level-two question is standing: it
+         would be a way round the question. */
+      settings.hasAssistant && !asking ? `<section id="drill-chat" hidden></section>` : ""
+    }
 
     <div class="btn-row" style="margin-top:18px">
       <button class="btn" id="history">History</button>
@@ -824,6 +833,23 @@ function renderDrill() {
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
 
+  /* The same panel the phrase sheet and the Add tab use, with somewhere to put
+     an answer. Keeping one repaints the notes section in place rather than
+     re-rendering: a render() here would take the attempt you are looking at
+     off the screen, the same reason the star updates itself by hand. */
+  const chatHost = document.getElementById("drill-chat");
+  if (chatHost) {
+    cardChatPanel(chatHost, "Ask about this phrase", () => chatContext(phrase), {
+      onKeep: ({ question, answer }) => {
+        const note = library.keepNote(phrase.id, { question, answer });
+        if (!note) return false;
+        document.getElementById("drill-notes").innerHTML = drillNotes(phrase, asking);
+        toast("Kept on the card.");
+        return true;
+      },
+    });
+  }
+
   if (attempt) wireComparison();
   drawCanvases();
 }
@@ -843,6 +869,33 @@ function renderDrill() {
 function drillReplies(phrase, asking) {
   if (!state.showTranslation || asking || !phrase.replies?.length) return "";
   return `<div class="card drill-replies">${repliesBlock(phrase.replies)}</div>`;
+}
+
+/* Answers you kept from a chat, printed back under the card you kept them on.
+   Reference material like the situation, and held back on the same terms: a
+   note about a phrase quotes it and always explains it, so it stays out while
+   a level-two question is standing and while the meaning is hidden. */
+function notesBlock(notes, { deletable = false } = {}) {
+  if (!notes?.length) return "";
+  return `
+    <div class="section-label">Notes you kept</div>
+    <div class="kept-notes">
+      ${notes
+        .map(
+          (note) => `
+        <div class="kept-note">
+          ${note.question ? `<strong>${esc(note.question)}</strong>` : ""}
+          <span>${esc(note.answer)}</span>
+          ${deletable ? `<button class="link btn-danger" data-note="${esc(note.id)}">Forget this</button>` : ""}
+        </div>`
+        )
+        .join("")}
+    </div>`;
+}
+
+function drillNotes(phrase, asking) {
+  if (!state.showTranslation || asking || !phrase.notes?.length) return "";
+  return `<div class="card drill-notes">${notesBlock(phrase.notes)}</div>`;
 }
 
 function drillContext(phrase, asking) {
@@ -1351,6 +1404,7 @@ function showPhrase(phrase) {
             <div id="p-replies-error" class="notice bad" hidden></div>`
          : ""
      }
+     <section id="p-notes" style="margin-bottom:14px">${notesBlock(phrase.notes, { deletable: true })}</section>
      <section id="p-chat" hidden style="margin-bottom:14px"></section>
      ${
        attempts.length
@@ -1379,19 +1433,26 @@ function showPhrase(phrase) {
   );
 
   if (settings.hasAssistant) {
-    cardChatPanel(document.getElementById("p-chat"), "Ask about this phrase", () => ({
-      languageCode: phrase.language,
-      languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
-      deck: phrase.deck,
-      card: {
-        text: phrase.text,
-        translation: phrase.translation,
-        situation: phrase.situation ?? "",
-        usageNote: phrase.usageNote ?? "",
-        focusNote: phrase.focusNote ?? "",
-      },
-    }));
+    cardChatPanel(document.getElementById("p-chat"), "Ask about this phrase", () => chatContext(phrase), {
+      onKeep: ({ question, answer }) => Boolean(library.keepNote(phrase.id, { question, answer })) && paintNotes(),
+    });
   }
+
+  /* The sheet is where a kept note can be got rid of again — the drill prints
+     them but stays out of the way of the phrase you are practising. */
+  function paintNotes() {
+    const box = document.getElementById("p-notes");
+    if (!box) return true;
+    box.innerHTML = notesBlock(phrase.notes, { deletable: true });
+    box.querySelectorAll("[data-note]").forEach((button) =>
+      button.addEventListener("click", () => {
+        library.forgetNote(phrase.id, button.dataset.note);
+        paintNotes();
+      })
+    );
+    return true;
+  }
+  paintNotes();
 
   /* Practising from the sheet drops you into the phrase's own deck at that
      phrase, rather than into a queue of one — Next carries on through the rest
@@ -1778,11 +1839,29 @@ function renderAdd() {
   }
 }
 
-/* Chat about a card, shown under a completed card on Add and on the phrase
-   detail sheet. History lives only as long as the panel does — it's a study
+/* What the assistant is told about the card it's being asked about. The drill
+   and the phrase sheet ask about a saved phrase, so they share this; the Add
+   tab reads its half-built card out of the form fields instead. */
+function chatContext(phrase) {
+  return {
+    languageCode: phrase.language,
+    languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
+    deck: phrase.deck,
+    card: {
+      text: phrase.text,
+      translation: phrase.translation,
+      situation: phrase.situation ?? "",
+      usageNote: phrase.usageNote ?? "",
+      focusNote: phrase.focusNote ?? "",
+    },
+  };
+}
+
+/* Chat about a card, shown under the drill, under a completed card on Add and
+   on the phrase detail sheet. History lives only as long as the panel does — it's a study
    aside, not a stored transcript. getContext is called per question so edits
    to the card are reflected. */
-function cardChatPanel(host, title, getContext) {
+function cardChatPanel(host, title, getContext, { onKeep = null } = {}) {
   const history = [];
   let busy = false;
 
@@ -1803,6 +1882,19 @@ function cardChatPanel(host, title, getContext) {
   const input = form.querySelector("textarea");
   const send = form.querySelector("button");
   const errorBox = host.querySelector(".chat-error");
+
+  /* An answer worth keeping goes onto the card. Delegated, because renderLog
+     rewrites the whole log on every turn. Kept per answer rather than per
+     conversation: a chat wanders, and the one paragraph that explained the
+     subjunctive is the part you want under the phrase next time. */
+  log.addEventListener("click", (event) => {
+    const button = event.target.closest?.("[data-keep]");
+    if (!button || !onKeep) return;
+    const answer = history[Number(button.dataset.keep)];
+    if (!answer || answer.kept) return;
+    answer.kept = Boolean(onKeep({ question: history[Number(button.dataset.keep) - 1]?.text ?? "", answer: answer.text }));
+    renderLog();
+  });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1854,7 +1946,15 @@ function cardChatPanel(host, title, getContext) {
     log.hidden = !history.length && !busy;
     log.innerHTML =
       history
-        .map((turn) => `<div class="chat-msg ${turn.role === "user" ? "user" : "assistant"}">${esc(turn.text)}</div>`)
+        .map(
+          (turn, i) => `<div class="chat-msg ${turn.role === "user" ? "user" : "assistant"}">${esc(turn.text)}${
+            onKeep && turn.role === "assistant"
+              ? turn.kept
+                ? `<span class="chat-kept">Kept on the card ✓</span>`
+                : `<button class="link chat-keep" data-keep="${i}">Keep on the card</button>`
+              : ""
+          }</div>`
+        )
         .join("") +
       (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
     log.scrollTop = log.scrollHeight;

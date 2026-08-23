@@ -304,6 +304,26 @@ export const library = {
     return this.forLanguage(language).filter((p) => p.favourite);
   },
 
+  /* Answers kept from a chat, held on the phrase itself for the same reason the
+     favourite flag is: they export, import and survive the weekly reinstall
+     with everything else, and a note about a phrase is worth nothing anywhere
+     but on that phrase. */
+  keepNote(phraseID, { question, answer }) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase || !answer?.trim()) return null;
+    const note = { id: uid(), question: question ?? "", answer, keptAt: new Date().toISOString() };
+    phrase.notes = [...(phrase.notes ?? []), note];
+    this.savePhrases();
+    return note;
+  },
+
+  forgetNote(phraseID, noteID) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase?.notes) return;
+    phrase.notes = phrase.notes.filter((note) => note.id !== noteID);
+    this.savePhrases();
+  },
+
   toggleFavourite(phraseID) {
     const phrase = this.phrases.find((p) => p.id === phraseID);
     if (!phrase) return false;
