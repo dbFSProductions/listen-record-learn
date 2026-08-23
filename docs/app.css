@@ -815,6 +815,19 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .chat-form .btn { flex: none; }
 .chat-error { margin-top: 10px; }
 
+/* The way out of an interview that went somewhere you didn't mean. Under the
+   ask box and quiet, because clearing the conversation is the rare thing to
+   want on a page whose whole job is adding to it. */
+.chat-foot { margin-top: 10px; text-align: center; }
+.chat-foot .link { font-size: 0.78rem; }
+
+/* The About me deck's own cards, and the interview under them. The page reuses
+   the deck rows and the chat card wholesale; all it needs of its own is room
+   between the "Practise these" button and the list it belongs to. */
+#about-practise { margin-bottom: 4px; }
+#about-make { width: 100%; margin-top: 12px; }
+#about-make + .tiny { margin-top: 8px; text-align: center; }
+
 /* Keeping an answer. The button sits inside the bubble it belongs to, on its
    own line, so several answers can each offer it without a row of controls
    competing with the text. */

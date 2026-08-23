@@ -15,6 +15,7 @@ const KEYS = {
   attempts: "xerra.attempts",
   settings: "xerra.settings",
   seeded: "xerra.seeded",
+  aboutMe: "xerra.aboutMe",
 };
 
 // Level two. A phrase is read aloud until it has been said well twice; after
@@ -34,6 +35,13 @@ const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!
 // decks everywhere rather than alphabetically, because it's the one you came
 // to look at.
 export const MY_PHRASES = "My phrases";
+
+/* Cards about the learner's own life, written by the assistant from an
+   interview rather than typed in. An ordinary deck name and nothing more —
+   the cards inside it are ordinary phrases, so they drill, star, score, level
+   up and export exactly like every other card, and no part of the app has to
+   learn about them. Only the row that leads to it is special. */
+export const ABOUT_DECK = "About me";
 
 /* Decks whose names share a prefix before " · " are one family: Castells,
    Castells · Pinya, Castells · Ordres and the rest read as a single thing in
@@ -424,9 +432,18 @@ export const library = {
     this.saveAttempts();
   },
 
+  /* The About me interview rides along with the phrases. It is not a phrase and
+     not an attempt, but it is the thing those cards were made out of — restore
+     a backup without it and the assistant starts the conversation over, asking
+     for a life story it has already been told. */
   exportJSON() {
     return JSON.stringify(
-      { exportedAt: new Date().toISOString(), phrases: this.phrases, attempts: this.attempts },
+      {
+        exportedAt: new Date().toISOString(),
+        phrases: this.phrases,
+        attempts: this.attempts,
+        aboutMe: aboutMe.turns,
+      },
       null,
       2
     );
@@ -439,6 +456,58 @@ export const library = {
     this.attempts = Array.isArray(parsed.attempts) ? parsed.attempts : [];
     this.savePhrases();
     this.saveAttempts();
+    // Absent in a file exported before the interview existed, which is not an
+    // error — those backups simply have no conversation to restore.
+    aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
+  },
+};
+
+/* The About me interview: the English conversation the assistant's questions
+   and the learner's answers accumulate in.
+
+   Persisted, unlike the card chat panel's history, and that is the difference
+   between the two. A card chat is a study aside that dies with the panel; this
+   one is the material the deck is built from, so it has to survive drilling a
+   card and coming back, a reload, and the weekly reinstall — and it is what
+   stops the assistant asking your job twice.
+
+   Kept whole here and trimmed only when sent, so an interview that ran for
+   months still reads back in full on the page. */
+export const aboutMe = {
+  turns: [],
+
+  load() {
+    const stored = readJSON(KEYS.aboutMe, null);
+    this.turns = Array.isArray(stored?.turns) ? stored.turns : [];
+  },
+
+  save() {
+    writeJSON(KEYS.aboutMe, { turns: this.turns });
+  },
+
+  add(role, text) {
+    const turn = { role: role === "assistant" ? "assistant" : "learner", text: String(text ?? "").trim() };
+    if (!turn.text) return null;
+    this.turns.push(turn);
+    this.save();
+    return turn;
+  },
+
+  replace(turns) {
+    this.turns = turns
+      .filter((turn) => turn && typeof turn === "object" && typeof turn.text === "string")
+      .map((turn) => ({ role: turn.role === "assistant" ? "assistant" : "learner", text: turn.text }));
+    this.save();
+  },
+
+  clear() {
+    this.turns = [];
+    this.save();
+  },
+
+  /** Has the learner actually said anything, as opposed to just been asked? */
+  get answered() {
+    return this.turns.some((turn) => turn.role === "learner");
   },
 };
 

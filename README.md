@@ -122,10 +122,12 @@ out.
 
 ## Setting up the card assistant
 
-The **Add** page uses Gemini to turn rough Catalan or English into a complete,
+The **Add** page and the **About me** deck both use Gemini — Add to turn rough
+Catalan or English into a complete,
 editable study card: corrected spelling and accents, an idiomatic translation,
 the situation where it is actually said, usage context, and a pronunciation
-tip. The public web app never receives the Gemini API key directly. A small
+tip; About me to interview you and write cards from your answers. The public
+web app never receives the Gemini API key directly. A small
 Cloudflare Worker holds it as an encrypted secret and rate-limits requests.
 
 See [`worker/README.md`](worker/README.md) for the one-time deployment. After
@@ -198,6 +200,22 @@ English, and select a deck. (The fields carry the right `lang`, so the iPhone
 keyboard's own dictation key writes into them in the right language.) Gemini corrects the phrase, fills the
 other language, and creates an editable situation, usage note and pronunciation
 tip before anything is saved.
+
+**About me** — a deck the app writes about *you*. It sits at the top of the
+deck list, and the first time you open it, it starts asking you questions in
+English: where you live, what you do, who you live with, how long you've been
+at this. Answer a few, tap **Create cards**, and it writes three to five short
+Catalan phrases you'd genuinely say about yourself — with the situation you'd
+say them in and a pronunciation tip, same as any other card.
+
+They *are* ordinary cards from that point on: they drill, they star, they score,
+they reach level two, they export with everything else. Come back and tell it
+more whenever you like and it writes more, skipping what it has already
+covered. The conversation is kept, so it never asks you the same thing twice —
+and if it wandered somewhere you'd rather it forgot, **Start the conversation
+again** clears it and leaves the cards it already wrote alone.
+
+Needs the card assistant set up (above); without it the deck doesn't appear.
 
 **Settings** — language, Azure credentials and voice, slow-playback speed,
 level-2 recall, audio prefetch and cache, and a **Version** panel showing what's
@@ -302,5 +320,6 @@ and a higher human voice be compared on *melody* rather than on register.
 
 ## Status
 
-v0.1 — the pronunciation core. Spaced repetition, listening/dictation drills and
-AI-generated content from life context are deliberately not here yet.
+v0.1 — the pronunciation core, plus **About me**, which is the "content
+generated from your own life" idea landing. Spaced repetition and
+listening/dictation drills are deliberately not here yet.

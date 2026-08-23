@@ -2,8 +2,25 @@
 
 This Worker keeps the Gemini API key out of the public web app. It accepts a
 rough Catalan/English card, asks Gemini for structured card details, validates
-the result, and returns it to Xerra. It also answers follow-up questions about
-a card (`/chat`) — grammar, etymology, usage — for the chat panel in the app.
+the result, and returns it to Xerra.
+
+Five endpoints, each with its own failure so a slow one can't take a fast one
+down with it:
+
+| | |
+|---|---|
+| `/complete-card` | A rough learner draft → one finished card. The small, fast call; keep it that way. |
+| `/replies` | A finished card → two or three things you'd hear back. |
+| `/chat` | Follow-up questions about a card — grammar, etymology, usage. |
+| `/interview` | The next English question in the About me interview. |
+| `/about-cards` | An About me transcript → three to five cards. The only call that writes several cards, so it gets a longer per-attempt budget and a smaller card shape. |
+| `/health` | Asks the model for one word, so "connected" means a model actually answered. |
+
+**This Worker serves the sister fork Deb-o-lingo as well as Xerra**, which
+takes the target language per request. `/complete-card`, `/chat` and `/replies`
+are what it calls; changing their payloads, the passcode or `ALLOWED_ORIGINS`
+breaks it. `/interview` and `/about-cards` were added without touching those
+three, which is why Deb-o-lingo was unaffected by them.
 
 ## One-time deployment
 
