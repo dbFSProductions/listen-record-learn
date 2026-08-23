@@ -784,11 +784,9 @@ function renderAbout() {
                <button class="btn btn-primary" type="submit" id="about-send">Send</button>
              </form>
              <div class="notice bad" id="about-error" hidden></div>
-             ${
-               aboutMe.turns.length
-                 ? `<div class="chat-foot"><button class="link btn-danger" id="about-reset">Start the conversation again</button></div>`
-                 : ""
-             }
+             <div class="chat-foot" id="about-foot" hidden>
+               <button class="link btn-danger" id="about-reset">Start the conversation again</button>
+             </div>
            </div>
            <button class="btn btn-primary" id="about-make" style="width:100%">
              ${cards.length ? "Make more cards from this" : "Create cards"}
@@ -865,6 +863,13 @@ function renderAbout() {
   function paintLog() {
     const busy = asking || making;
     log.hidden = !aboutMe.turns.length && !busy;
+    /* Shown the moment there is a conversation to clear, rather than waiting
+       for the next full render. Answering a question only repaints the log, so
+       rendering the button conditionally meant the way out of an interview
+       didn't appear until you left the page and came back — which is exactly
+       when you are least likely to be looking for it. Ported from
+       Deb-o-lingo. */
+    document.getElementById("about-foot").hidden = !aboutMe.turns.length;
     log.innerHTML =
       aboutMe.turns
         .map(

@@ -342,10 +342,11 @@ screen.
   fallback line) because otherwise a completion with no `reviewNote` would have
   nowhere to hang it.
 
-Deb-o-lingo's Add tab is the same code one fork over, and it has taken the
-replies half (fired after the card lands, never awaited, saved with the card).
-The preview line, "Generate again" and Undo are still Xerra only, and are
-worth porting rather than diverging on.
+Deb-o-lingo's Add tab is the same code one fork over and now has all of this —
+the replies, the preview line, "Generate again" and Undo. Keep them in step.
+One difference to know about: its review's two buttons stack, because at 390px
+"Generate again" and "Save it" both wrapped; the rule is the same
+`#card-preview .btn-row { flex-direction: column; }` this file already has.
 
 ### About me: a deck the app writes about you
 
@@ -414,16 +415,16 @@ v2 list.
 - **Clearing the interview is armed, and leaves the cards alone.** It is the
   only way back from a conversation that went somewhere you didn't mean. The
   cards it already wrote are ordinary cards; deleting those is the phrase
-  sheet's job.
+  sheet's job. The button is rendered once and shown by `paintLog` the moment
+  there is a transcript — answering a question only repaints the log, so
+  rendering it conditionally meant the way out didn't appear until you left the
+  page and came back, which is when you are least likely to look for it.
 
-Deb-o-lingo now has this as **Sobre mí** — same two endpoints, same persisted
-transcript, same guards, no Worker change needed. Two deliberate divergences:
-its cards ride the path as a generated *unit* rather than sitting in a deck
-(it has no deck list), and its "Start the conversation again" appears the
-moment there is a transcript instead of waiting for the next full render.
-**That second one is a fix worth taking back here** — answering a question
-only repaints the log, so the way out doesn't appear until you leave and come
-back.
+Deb-o-lingo has this as **Sobre mí** — same two endpoints, same persisted
+transcript, same guards, no Worker change needed. The one divergence is
+deliberate: its cards ride the path as a generated *unit* rather than sitting
+in a deck, because it has no deck list. The reset-button fix above came from
+there.
 
 ### Editing a card, and the AI rebuild
 
@@ -614,9 +615,9 @@ aggregates (accuracy, fluency, completeness, PronScore) stay on the card as
 sub-scores, and the card names the weakest word so the dial points at the chip
 that earned it.
 
-Deb-o-lingo scores Spanish through the same Azure call and has the same
-inflation. If it is ever brought in step, `attemptScore` and the three
-constants are the whole change.
+Deb-o-lingo scores Spanish through the same Azure call and is **now in step**:
+same `attemptScore`, same fallbacks, same three constants (its `PASS_GREAT` and
+`PASS_OK` are this file's `GOOD` and `OK`). Keep them that way.
 
 ## Audio analysis
 
@@ -625,19 +626,18 @@ Swift originals in `Xerra/Audio/`. They were verified against a synthetic 150 Hz
 tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
-`docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
-copied it verbatim. It **has now diverged on both halves**, and the analysis
-side is the one that still needs porting back (four features went the other way
-in Aug 2026 — replies, the drill chat, Sobre mí and the version panel — and
-this was deliberately not one of them): `trimSilence`, `speechBounds` and
-`analyse`'s duration are all changed here and unchanged there. The *playback*
-half diverged earlier and is one function, `forPlayback` (the old
-`comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
-does two things at play time and nothing else: boosts a quiet recording to
-roughly TTS loudness, and drops the dead air before the first word. It never
-touches stored blobs, the analysis pipeline, or what goes to Azure for scoring,
-because recordings are captured with `autoGainControl: false` on purpose and the
-pitch tracker needs that honest signal.
+`docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, and the
+two are **back in step on both halves** — the file is a verbatim copy there
+apart from two comments, where the tail-pad argument names a Spanish final -s
+rather than a Catalan final -t. Change either repo's copy and change the
+other's, then re-verify numerically.
+
+`forPlayback` is the playback half: it does two things at play time and nothing
+else — boosts a quiet recording to roughly TTS loudness, and drops the dead air
+before the first word. It never touches stored blobs, the analysis pipeline, or
+what goes to Azure for scoring, because recordings are captured with
+`autoGainControl: false` on purpose and the pitch tracker needs that honest
+signal.
 
 ### One detector, used three times
 
@@ -819,8 +819,7 @@ the parser losing a block to a formatting change.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself
-  and can be undone and generated again. Replies and the drill chat are now in
-  Deb-o-lingo too; the Add review's preview line and Undo are still Xerra only.
+  and can be undone and generated again. All of it is in Deb-o-lingo too now.
 - **About me** is a deck the app writes about the user, from an English
   interview — `/interview` and `/about-cards` on the Worker, `aboutMe` in
   store.js, `renderAbout` in app.js. Additive, and now ported to Deb-o-lingo
