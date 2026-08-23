@@ -235,7 +235,10 @@ having can be kept on the card.
 - The sheet is where a note can be dropped again (`Forget this`). The drill
   prints them and otherwise keeps out of the way.
 
-Deb-o-lingo has the chat panel but not this; it is worth porting.
+Deb-o-lingo now has this too, in the same shape — the panel, the keep button,
+the printed notes and the same two gates. Keep them in step. Its notes live in
+their own store keyed by phrase id rather than on the phrase, because a course
+phrase over there is code; the rest reads the same.
 
 ### The in-page dictation buttons are gone, deliberately
 
@@ -339,8 +342,10 @@ screen.
   fallback line) because otherwise a completion with no `reviewNote` would have
   nowhere to hang it.
 
-Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
-rather than diverging on.
+Deb-o-lingo's Add tab is the same code one fork over, and it has taken the
+replies half (fired after the card lands, never awaited, saved with the card).
+The preview line, "Generate again" and Undo are still Xerra only, and are
+worth porting rather than diverging on.
 
 ### About me: a deck the app writes about you
 
@@ -411,9 +416,14 @@ v2 list.
   cards it already wrote are ordinary cards; deleting those is the phrase
   sheet's job.
 
-Deb-o-lingo has none of this yet. The Worker half already serves it — the
-endpoints take the language per request like the others — so a port is client
-work only.
+Deb-o-lingo now has this as **Sobre mí** — same two endpoints, same persisted
+transcript, same guards, no Worker change needed. Two deliberate divergences:
+its cards ride the path as a generated *unit* rather than sitting in a deck
+(it has no deck list), and its "Start the conversation again" appears the
+moment there is a transcript instead of waiting for the next full render.
+**That second one is a fix worth taking back here** — answering a question
+only repaints the log, so the way out doesn't appear until you leave and come
+back.
 
 ### Editing a card, and the AI rebuild
 
@@ -617,7 +627,9 @@ change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, which
 copied it verbatim. It **has now diverged on both halves**, and the analysis
-side is the one that needs porting back: `trimSilence`, `speechBounds` and
+side is the one that still needs porting back (four features went the other way
+in Aug 2026 — replies, the drill chat, Sobre mí and the version panel — and
+this was deliberately not one of them): `trimSilence`, `speechBounds` and
 `analyse`'s duration are all changed here and unchanged there. The *playback*
 half diverged earlier and is one function, `forPlayback` (the old
 `comparableLoudness`, ported from Deb-o-lingo's `48b451a`, plus the trim). It
@@ -807,11 +819,12 @@ the parser losing a block to a formatting change.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself
-  and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
-  and the Worker change is additive so it stays working.
+  and can be undone and generated again. Replies and the drill chat are now in
+  Deb-o-lingo too; the Add review's preview line and Undo are still Xerra only.
 - **About me** is a deck the app writes about the user, from an English
   interview — `/interview` and `/about-cards` on the Worker, `aboutMe` in
-  store.js, `renderAbout` in app.js. Also Xerra only, also additive.
+  store.js, `renderAbout` in app.js. Additive, and now ported to Deb-o-lingo
+  as **Sobre mí** with no Worker change.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
