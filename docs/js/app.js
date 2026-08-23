@@ -1,7 +1,7 @@
 // Xerra — app shell, routing and views.
 
 import {
-  library, settings, audioStore, aboutMe, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid, RECALL_AFTER,
+  library, settings, audioStore, aboutMe, aiLog, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid, RECALL_AFTER,
   deckLeaf, familyOpen, setFamilyOpen, attemptScore,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -2586,6 +2586,50 @@ function wireEditorAI(phrase, language) {
 
 // ---------------------------------------------------------------- settings
 
+/* What the assistant's calls have actually cost, on this device, lately.
+
+   Round trip is what the phone waited; "of which Gemini" is the Worker's own
+   measurement of the model. The gap between the two columns is network — so a
+   slow row with a fast Gemini number is a connection problem and no amount of
+   prompt or model changing will touch it.
+
+   Shown only once there is something to show, so a fresh install isn't handed
+   an empty diagnostics table it never asked for. */
+function assistantSpeedPanel() {
+  const rows = aiLog.summary();
+  const fellBack = rows.reduce((total, row) => total + row.fellBack, 0);
+  const failed = rows.reduce((total, row) => total + row.failed, 0);
+
+  return `
+    <div class="section-label">Card assistant speed</div>
+    <div class="card">
+      <div class="speed-row speed-head">
+        <span>Call</span><span>Round trip</span><span>of which Gemini</span>
+      </div>
+      ${rows
+        .map(
+          (row) => `
+            <div class="speed-row">
+              <span class="speed-path">${esc(row.path)}<span class="tiny muted"> ×${row.calls}</span></span>
+              <span>${row.ms == null ? "—" : `${(row.ms / 1000).toFixed(1)}s`}</span>
+              <span>${row.workerMs == null ? "—" : `${(row.workerMs / 1000).toFixed(1)}s`}</span>
+            </div>`
+        )
+        .join("")}
+      <p class="tiny muted" style="margin:12px 0 0">
+        Median of the last ${aiLog.entries.length} call${aiLog.entries.length === 1 ? "" : "s"} on this device.
+        ${
+          fellBack
+            ? `<strong>${fellBack}</strong> fell back to the second model — those are slow because the first one
+               failed, not because of the prompt. `
+            : ""
+        }${failed ? `<strong>${failed}</strong> failed outright. ` : ""}The gap between the two columns is
+        network, not Gemini.
+      </p>
+      <button class="btn" id="s-speed-clear" style="width:100%;margin-top:10px">Clear these timings</button>
+    </div>`;
+}
+
 function renderSettings() {
   const language = LANGUAGES[settings.language];
 
@@ -2655,6 +2699,8 @@ function renderSettings() {
       </p>
     </div>
 
+    ${aiLog.entries.length ? assistantSpeedPanel() : ""}
+
     <div class="section-label">Azure voice and scoring</div>
     <div class="card">
       <label class="field"><span>Speech key</span>
@@ -2691,6 +2737,11 @@ function renderSettings() {
     </div>
 
     <p class="tiny muted center" style="margin-top:22px">Xerra · pronunciation drilling for ${esc(language.name)}</p>`;
+
+  document.getElementById("s-speed-clear")?.addEventListener("click", () => {
+    aiLog.clear();
+    render();
+  });
 
   document.getElementById("s-language").onchange = (event) => {
     settings.language = event.target.value;
@@ -2876,6 +2927,7 @@ async function showUsage() {
 settings.load();
 library.load();
 aboutMe.load();
+aiLog.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

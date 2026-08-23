@@ -342,6 +342,46 @@ screen.
 Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
 rather than diverging on.
 
+### Not every call is the same size of job
+
+Five endpoints ran on one model with one patience setting until the timings
+below said what that was costing. What is true of them now:
+
+- **The light calls lead with the small model.** `/interview` and `/chat` are
+  short conversational prose, and asking "where do you live?" does not need what
+  writing a card needs. They run `modelChain(env, "fast")`, which is the quality
+  chain *inverted* — the quick model first, the big one still there as its
+  fallback. `GEMINI_FAST_MODEL` in `wrangler.toml` overrides it; set it equal to
+  `GEMINI_MODEL` and those calls go back on the big model with no code change.
+  Note this reaches Deb-o-lingo too, because `/chat` is shared.
+- **The light calls also fail over sooner.** `SHORT_TIMEOUT_MS` (10s) instead of
+  the 25s window sized for card generation. An interview question that has not
+  arrived in ten seconds is not arriving, and the old window spent a short
+  call's entire budget waiting to discover that before the fallback got a turn.
+- **`/about-cards` asks for three cards, not five.** Its cost is almost entirely
+  the length of what it writes, so this is the one lever that shortens the
+  slowest call without touching the model. It suits the feature rather than
+  fighting it: the flow is already "tell it more, get more".
+- **Everything is timed, and the timing comes back with the answer.** Every
+  response carries `ms` (the Worker's own measurement), `model` (who actually
+  answered) and `models` (how many were tried — more than one means the first
+  failed). Purely additive fields; both apps read their results field by field,
+  so nothing downstream notices them.
+
+`aiLog` in store.js keeps the last 30 calls on the device and Settings renders
+them as **Card assistant speed**: median round trip against median Gemini time,
+per endpoint. The gap between the two columns is network — a slow row with a
+fast Gemini number is a connection problem, and no prompt or model change will
+touch it. It is deliberately *not* in export/import: it is diagnostics about
+this device, not anything you would be sad to lose.
+
+**What has not been done, and is the real win if these numbers are still bad:**
+streaming `/interview` and `/chat`. Both render prose into a chat log, so
+streaming would turn "wait, then text appears" into "text appears immediately".
+It does not reduce total time, only felt time — and the catch is that once the
+first byte is sent you cannot cleanly fall back to another model, so the
+fallback would have to be restricted to failures before the first chunk.
+
 ### About me: a deck the app writes about you
 
 Every other deck arrives already written — seed content, or a card typed into
