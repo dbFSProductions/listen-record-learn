@@ -527,6 +527,16 @@ screen rather than silently. That panel is also the answer to "is the fix in, or
 has my phone not caught up?" — after a deploy the installed number moves first,
 and the gap is the reload you still owe.
 
+**Say the two numbers out loud whenever you hand work over.** Every pull
+request and every merge should end with the pair written out — `js/version.js`
+first, then `sw.js`'s — because that Settings panel is the only way to tell
+"the fix is in" from "the phone hasn't caught up", and the check is worthless
+without knowing what number to expect. So: state them in the PR body, and state
+them again when reporting a change as done, rather than leaving them to be dug
+out of the diff. `.github/pull_request_template.md` has a slot for them (and
+for the "does this touch `worker/**`" question) so the PR half is structural
+rather than a thing to remember. Same rule in Deb-o-lingo.
+
 Bumping it is necessary and, on its own, was once not sufficient — see the
 mixed-bundle gotcha below. A local run from a fresh browser profile cannot
 show you any of this: the way to test a deploy is to serve the *old* tree,
