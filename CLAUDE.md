@@ -736,44 +736,37 @@ signal.
   whatever that constant is. The bug was never the constant — it was one of the
   two being silently skipped. Check it with synthetic WAVs, not by ear.
 
-#### And then the boost only ever went one way
+#### The symmetric-levelling attempt, and why it was pulled
 
-Reported from Deb-o-lingo again, after the knock fix: the recording reached
-`TARGET_RMS` and was *still* the quieter of the two. The bullet above was a
-description of the intent rather than of the code — `boosting = gain > 1.1`
-meant a clip already above the line was passed through at whatever level it
-arrived at, and only recordings are ever below the line, so the model went out
-at Azure's own loudness. Measured on synthetic clips: 5.9 dB between a loud TTS
-clip and a quiet one, with the recording pinned below both.
+Shipped as v38 (Deb-o-lingo v18) and reverted the same day: it broke playback on
+the phone. Keep the finding, don't keep the code — and read this before trying
+it again.
 
-- **Levelling is symmetric now**: `gain > 1.1 || gain < 0.9`, so a loud TTS clip
-  is brought *down* to the line as well. That is what makes the constant not
-  matter, which is what the bullet above always claimed. Only a boost goes
-  through `softLimit` — turning a clip down cannot clip.
-- **`TARGET_RMS` is 0.16 rather than 0.12**, chosen so the model barely moves
-  and the recording comes up to meet it rather than the whole app getting
-  quieter. `MAX_BOOST` is 12 rather than 8 so a genuinely faint take can reach
-  the new line; the boost lifts the room with the voice, which is the accepted
-  cost of hearing yourself at all.
-- **A plosive no longer holds the gain back.** The peak cap was
-  `CEILING / headroom` — the same "one sample decides the phrase" shape as the
-  knock, worth about a decibel on a take with a hard *p* in it. It is
-  `CEILING * OVERSHOOT / headroom` now, `OVERSHOOT` 2: the limiter was written
-  to catch exactly this.
-- **`voiceLevels` has a floor as well as a lid.** It averaged every frame below
-  the knock line, pauses included — and a recording pauses while a TTS clip is
-  speech end to end, so one measurement meant two different things on the two
-  halves. Frames under a fifth of the 90th-percentile frame are out of the
-  number now, so both are read over the words.
+The finding is real. `forPlayback` only ever acts when `gain > 1.1`, so a clip
+already above `TARGET_RMS` goes out at whatever level it arrived at, and only
+recordings are ever below the line. The model therefore plays at Azure's own
+loudness, which is not a constant: three synthetic TTS clips came out 5.9 dB
+apart from each other. "Both halves self-level" above describes the intent
+rather than the code.
 
-Both apps' copies of `audio.js` carry all of it; check either numerically —
-build the same quiet take twice, once with a 20 ms 0.9-amplitude burst in it,
-run both through `forPlayback` and measure the RMS over the *words* (frames
-between a fifth and four times the 90th-percentile frame). The tapped take and
-the clean one must land within a decibel of each other, a take and a TTS-level
-clip within a decibel of *each other*, three model clips 9 dB apart on the way
-in must come out level, no sample may exceed 0.98, and a clip already at the
-line must come back as the very same blob.
+What was tried: levelling in both directions (`gain > 1.1 || gain < 0.9`),
+`TARGET_RMS` 0.12 → 0.16, `MAX_BOOST` 8 → 12, and the peak cap loosened from
+`CEILING / headroom` to `CEILING * OVERSHOOT / headroom` so a plosive couldn't
+hold the gain back.
+
+**What made it look right, and why that was not enough.** It was checked on
+synthetic clips built from summed sinusoids, whose crest factor is about 1.6.
+Speech is nowhere near that, and the whole question here is a crest-factor
+question: on a glottal-pulse clip with a speech-like peak-to-RMS the same code
+asks for a 6× boost on a *full-scale* model clip, hands the limiter a 1.5 peak
+and bends a third of a per cent of the samples — audible, and on the model as
+well as on the recording. **The `CEILING / headroom` cap that was loosened is
+what had been keeping the limiter down to catching the occasional transient.**
+
+So, next time: a sine is not a stand-in for a voice when what is being measured
+is peak against average. Check any change here against a clip with a
+speech-like crest factor — and, better, against a real exported recording and a
+real Azure clip, which is the one thing none of these tests has ever had.
 
 ### One detector, used three times
 
