@@ -736,6 +736,38 @@ signal.
   whatever that constant is. The bug was never the constant — it was one of the
   two being silently skipped. Check it with synthetic WAVs, not by ear.
 
+#### The symmetric-levelling attempt, and why it was pulled
+
+Shipped as v38 (Deb-o-lingo v18) and reverted the same day: it broke playback on
+the phone. Keep the finding, don't keep the code — and read this before trying
+it again.
+
+The finding is real. `forPlayback` only ever acts when `gain > 1.1`, so a clip
+already above `TARGET_RMS` goes out at whatever level it arrived at, and only
+recordings are ever below the line. The model therefore plays at Azure's own
+loudness, which is not a constant: three synthetic TTS clips came out 5.9 dB
+apart from each other. "Both halves self-level" above describes the intent
+rather than the code.
+
+What was tried: levelling in both directions (`gain > 1.1 || gain < 0.9`),
+`TARGET_RMS` 0.12 → 0.16, `MAX_BOOST` 8 → 12, and the peak cap loosened from
+`CEILING / headroom` to `CEILING * OVERSHOOT / headroom` so a plosive couldn't
+hold the gain back.
+
+**What made it look right, and why that was not enough.** It was checked on
+synthetic clips built from summed sinusoids, whose crest factor is about 1.6.
+Speech is nowhere near that, and the whole question here is a crest-factor
+question: on a glottal-pulse clip with a speech-like peak-to-RMS the same code
+asks for a 6× boost on a *full-scale* model clip, hands the limiter a 1.5 peak
+and bends a third of a per cent of the samples — audible, and on the model as
+well as on the recording. **The `CEILING / headroom` cap that was loosened is
+what had been keeping the limiter down to catching the occasional transient.**
+
+So, next time: a sine is not a stand-in for a voice when what is being measured
+is peak against average. Check any change here against a clip with a
+speech-like crest factor — and, better, against a real exported recording and a
+real Azure clip, which is the one thing none of these tests has ever had.
+
 ### One detector, used three times
 
 `speechBounds` finds where the speech is, and the picture, the sound and the
