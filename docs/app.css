@@ -779,7 +779,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 .spinner {
   width: 15px; height: 15px;
-  border: 2px solid var(--text-3);
+  border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

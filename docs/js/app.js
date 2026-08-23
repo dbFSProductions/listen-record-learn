@@ -912,7 +912,7 @@ function drillReplies(phrase, asking) {
   if (!settings.hasAssistant || !phrase.text.trim()) return "";
   return `
     <div class="card drill-replies">
-      <button class="btn" id="drill-get-replies" style="width:100%">What might they say back?</button>
+      <button class="btn btn-primary" id="drill-get-replies" style="width:100%">What might they say back?</button>
       <div id="drill-replies-error" class="notice bad" hidden></div>
     </div>`;
 }
