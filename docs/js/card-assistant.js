@@ -58,6 +58,25 @@ export const cardAssistant = {
     });
   },
 
+  /* The About me interview. Two calls, one conversation: /interview asks the
+     next English question, /about-cards turns the whole transcript into
+     phrases. Split for the same reason replies are split off card generation —
+     writing five cards is the big slow call, and asking one question is not,
+     so they must be able to fail separately. */
+  interview(payload, settings) {
+    return request("/interview", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  aboutCards(payload, settings) {
+    return request("/about-cards", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",

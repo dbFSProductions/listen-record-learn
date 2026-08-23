@@ -342,6 +342,79 @@ screen.
 Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
 rather than diverging on.
 
+### About me: a deck the app writes about you
+
+Every other deck arrives already written — seed content, or a card typed into
+Add. `About me` is written *about the user*, from an interview held entirely in
+English, and it is the answer to "AI-generated content from life context" in the
+v2 list.
+
+- **Why an interview and not a text box.** You don't know what is worth saying
+  about yourself until something asks. A blank box captioned "tell us about
+  you" gets a blank box back; a question about where you live gets an answer,
+  and the answer suggests the next question. The box was the cheaper build and
+  it would not have worked.
+- **English throughout, and that is the point.** The learner is a beginner. They
+  cannot describe their own life in Catalan yet — that is the thing the deck is
+  being built to fix. `lang="en-GB"` on the answer box so the iOS keyboard's
+  dictation types the right language into it.
+- **What comes out is ordinary cards in an ordinary deck.** `ABOUT_DECK` is a
+  deck *name* and nothing more. The cards drill, star, score, level up, export,
+  edit and delete exactly like every other card, and nothing downstream of
+  `library.add` knows where they came from. Resist any urge to give them a flag
+  — the moment they are a special kind of phrase, every list in the app has to
+  learn about them.
+- **The row is the one thing that is special, and it breaks a rule on purpose.**
+  Every other deck row drills; this one opens the workshop, because the only
+  way to put cards in the deck is the interview. The triangle still opens to the
+  cards and those still drill, through the same `startDeck` as everywhere else.
+  It also shows *before the deck exists*, which no other row does — "the first
+  time you open it, it asks about you" needs something to open. It sits above
+  ★ Favourites because an empty invitation has to be found; a deck full of
+  cards would not have earned the position.
+- **Two endpoints, not one, and for the established reason.** `/interview` asks
+  the next question, `/about-cards` turns the transcript into three to five
+  cards. Writing five cards is the big slow call and asking one question is not,
+  so they have to be able to fail separately — the same argument that moved
+  replies off `/complete-card`, and the reason `/about-cards` gets its own
+  `BATCH_TIMEOUT_MS` (40s) and a deliberately smaller four-field card shape.
+  **Both are additive: `/complete-card`, `/chat` and `/replies` are unchanged,
+  so Deb-o-lingo is unaffected.**
+- **The transcript is persisted; the card chat's history is not.** That is the
+  whole difference between `aboutMe` in store.js and `cardChatPanel`'s local
+  array. A card chat is a study aside that dies with the panel. This one is the
+  material the deck is built from, so it has to survive drilling a card and
+  coming back, a reload and the weekly reinstall — and it is what stops the
+  assistant asking your job twice. It rides in export/import with the phrases;
+  a backup restored without it would start the life story over.
+- **A question that arrives after you have left is still saved.** `nextQuestion`
+  writes the reply to the transcript whether or not the page is still on
+  screen, and only the repaint is guarded. The guard is `log.isConnected`, not a
+  lookup by id: a `render()` puts a *new* log in the document, so an id lookup
+  succeeds while the handles in the closure are stale, and the spinner gets
+  painted onto a detached node.
+- **No review step before saving, unlike Add.** There is no half-remembered
+  phrase being corrected here, so there is nothing to check the assistant's
+  reading against — and approving five cards one at a time would be the longest
+  screen in the app. They land as ordinary cards, so a wrong one is edited or
+  deleted from the phrase sheet like any other.
+- **Duplicates are dropped client-side as well as discouraged in the prompt.**
+  The prompt is told what it has already written (the English, capped at 40
+  entries of 120 characters — see `interviewPayload` for why that number is
+  load-bearing), but a model asked twice about the same life will eventually
+  write the same sentence. `normaliseSentence` now ignores punctuation and folds
+  curly apostrophes, because "Visc a Girona." and "visc a girona" are one card;
+  it still leaves straight apostrophes and hyphens alone, since they are
+  structural in Catalan and flattening them would merge phrases that differ.
+- **Clearing the interview is armed, and leaves the cards alone.** It is the
+  only way back from a conversation that went somewhere you didn't mean. The
+  cards it already wrote are ordinary cards; deleting those is the phrase
+  sheet's job.
+
+Deb-o-lingo has none of this yet. The Worker half already serves it — the
+endpoints take the language per request like the others — so a port is client
+work only.
+
 ### Editing a card, and the AI rebuild
 
 The edit sheet has a **Rebuild the rest with AI** button (only when the card
@@ -686,7 +759,21 @@ survive Next and coming back without a second call. The Add review can be driven
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
-`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Anything touching Azure can't be covered this way — there's no
+`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. For About me, with `/interview` and `/about-cards` stubbed:
+`[data-about]` is on the deck list before the deck exists and absent entirely
+with no assistant configured, opening it fires one `/interview` call by itself
+and puts the question in `.chat-msg.assistant`, `#about-make` is disabled until
+a learner turn exists, a batch containing a punctuation-only repeat of an
+existing card adds one fewer than it returned, the made cards are ordinary
+phrases with `deck === "About me"` and a null `usageNote`, `#about-practise`
+drills them, the transcript survives a reload without a second `/interview`
+call, a 503 leaves `#about-retry` which recovers, and `#about-reset` takes two
+taps and leaves the cards alone. The Worker's own half is worth driving
+directly in Node — import `worker/src/index.js`, stub `globalThis.fetch` with
+the Gemini `steps` shape and a fake `AI_RATE_LIMITER`, and check routing, the
+413 on an oversized body, the 16-turn and 40-entry caps, that a malformed card
+in a batch is dropped rather than failing the batch, and that `/complete-card`,
+`/chat` and `/replies` still answer byte-identically for Deb-o-lingo. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
 The trim is the one thing worth checking numerically rather than by eye, and it
@@ -722,11 +809,15 @@ the parser losing a block to a formatting change.
   asked for and shown under the drill card itself. The Add review also plays the card itself
   and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
   and the Worker change is additive so it stays working.
+- **About me** is a deck the app writes about the user, from an English
+  interview — `/interview` and `/about-cards` on the Worker, `aboutMe` in
+  store.js, `renderAbout` in app.js. Also Xerra only, also additive.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
 - 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
   Deb-o-lingo (below).
-- v0.1, the pronunciation core. Spaced repetition, listening/dictation drills,
-  and AI-generated content from life context are deliberately **not** built yet.
+- v0.1, the pronunciation core. Spaced repetition and listening/dictation
+  drills are deliberately **not** built yet. AI-generated content from life
+  context now is — see About me above.
