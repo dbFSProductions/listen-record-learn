@@ -369,7 +369,10 @@ below said what that was costing. What is true of them now:
   chain *inverted* — the quick model first, the big one still there as its
   fallback. `GEMINI_FAST_MODEL` in `wrangler.toml` overrides it; set it equal to
   `GEMINI_MODEL` and those calls go back on the big model with no code change.
-  Note this reaches Deb-o-lingo too, because `/chat` is shared.
+  Note this reaches Deb-o-lingo too, because `/chat` is shared — including the
+  card's `replies`, which that call now carries as well. A slightly longer
+  prompt on a smaller model: verified to compose, but if chat answers get worse
+  this is the first knob, not the prompt.
 - **The light calls also fail over sooner.** `SHORT_TIMEOUT_MS` (10s) instead of
   the 25s window sized for card generation. An interview question that has not
   arrived in ten seconds is not arriving, and the old window spent a short
@@ -383,6 +386,13 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
+
+**`aiLog` is Xerra-only, so `card-assistant.js` is no longer the verbatim copy
+Deb-o-lingo took.** The timing lives in `request()`, which is the one place
+every call goes through, so porting it means taking `aiLog` in store.js and the
+Settings panel with it. Worth doing over there — the question it answers ("slow
+model, slow connection, or a silent fallback?") is the same on that phone — but
+until someone does, don't "fix" the two files back into agreement.
 
 `aiLog` in store.js keeps the last 30 calls on the device and Settings renders
 them as **Card assistant speed**: median round trip against median Gemini time,
