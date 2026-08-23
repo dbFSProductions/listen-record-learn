@@ -35,6 +35,13 @@ const state = {
   levelTimer: null,
   search: "",
 
+  /* Which deck rows are accordioned open, by deck key. Held here rather than
+     in settings: a family fold is a lasting opinion about a list that is
+     always there, an opened deck is where you are looking right now. It does
+     have to outlive a render() — starring a card from inside an open deck
+     re-renders the page, and the deck has to still be open underneath. */
+  openDecks: new Set(),
+
   // Level two. `recall` says this phrase is a memory question; `revealed` says
   // the answer is on screen (always true at level one); `peeked` says you
   // asked to be shown it rather than remembering it.
@@ -141,27 +148,35 @@ function repliesBlock(replies, title = "You might hear back") {
    there offline afterwards. No key, and the browser voice reads it instead. */
 function wireReplies(root, replies, language) {
   root?.querySelectorAll("[data-say]").forEach((button) =>
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const reply = replies[Number(button.dataset.say)];
-      if (!reply) return;
-      player.stop();
-      browserSpeech.stop();
-      if (button.dataset.busy === "1") return;
-      button.dataset.busy = "1";
-      button.classList.add("busy");
-      try {
-        const blob = await speech.modelAudio({ text: reply.text, language }, settings);
-        if (blob) await player.play(blob);
-        else if (browserSpeech.available(language)) browserSpeech.speak(reply.text, language);
-        else toast("No voice available for this language on this device.");
-      } catch {
-        toast("Couldn't play that reply.");
-      } finally {
-        button.dataset.busy = "0";
-        button.classList.remove("busy");
-      }
+      if (reply) sayAloud(button, reply.text, language, "Couldn't play that reply.");
     })
   );
+}
+
+/* One tap, one voice. Stops whatever is playing, then the Azure audio for this
+   text if there is a key (cached by text, so it's there offline afterwards) and
+   the browser voice if there isn't. The button carries its own busy flag rather
+   than a shared one — several of these can be on screen at once. */
+async function sayAloud(button, text, language, failed = "Couldn't play that.") {
+  if (!text.trim()) return;
+  player.stop();
+  browserSpeech.stop();
+  if (button.dataset.busy === "1") return;
+  button.dataset.busy = "1";
+  button.classList.add("busy");
+  try {
+    const blob = await speech.modelAudio({ text, language }, settings);
+    if (blob) await player.play(blob);
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language);
+    else toast("No voice available for this language on this device.");
+  } catch {
+    toast(failed);
+  } finally {
+    button.dataset.busy = "0";
+    button.classList.remove("busy");
+  }
 }
 
 /* Replies for a card that hasn't got any — the seed decks, and anything added
@@ -339,22 +354,60 @@ function renderPractice() {
     wire(list);
   }
 
+  /* A deck row does two things now, so it can't be one big button any more:
+     the title drills the deck from the top, the triangle accordions it open
+     to the cards inside. Same shape as a family row, one level down.
+
+     No score and no meter here. A deck is a place you go to practise, and a
+     number averaged over it says nothing you can act on — the weakest-word
+     score that matters is per attempt, on the card, where you earned it. */
   function deckRow(title, deckPhrases, key, nested = false) {
-    const scores = deckPhrases.map((p) => library.bestScore(p.id)).filter((s) => s != null);
-    const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const done = deckPhrases.length ? Math.round((scores.length / deckPhrases.length) * 100) : 0;
+    const open = state.openDecks.has(key);
     return `
-      <button class="row${nested ? " nested" : ""}" data-deck="${esc(key)}">
-        <span class="row-main">
-          <span class="row-title">${esc(title)}</span>
-          <span class="row-sub">${deckPhrases.length} phrase${deckPhrases.length === 1 ? "" : "s"}${
-            scores.length ? ` · ${scores.length} practiced` : ""
-          }</span>
-          <span class="deck-meter"><i style="width:${done}%"></i></span>
-        </span>
-        ${average != null ? `<strong style="color:${scoreColour(average)};font-variant-numeric:tabular-nums">${average}</strong>` : ""}
-        <span class="chev">›</span>
-      </button>`;
+      <div class="row deck-row${nested ? " nested" : ""}">
+        <button class="row-open" data-deck="${esc(key)}">
+          <span class="row-main">
+            <span class="row-title">${esc(title)}</span>
+            <span class="row-sub">${deckPhrases.length} phrase${deckPhrases.length === 1 ? "" : "s"}</span>
+          </span>
+        </button>
+        <button class="fold" data-deck-fold="${esc(key)}" aria-expanded="${open}"
+                aria-label="${open ? "Hide" : "Show"} the phrases in ${esc(title)}">
+          <span class="tri">${open ? "▼" : "▶"}</span>
+        </button>
+      </div>
+      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested)).join("") : ""}`;
+  }
+
+  /* A card inside an opened deck. It drills rather than opening the detail
+     sheet: this list exists so you can go straight at the one phrase you know
+     you're getting wrong. The sheet is still a search away. */
+  function deckCardRow(phrase, key, nested) {
+    return `
+      <div class="row nested${nested ? " deep" : ""}">
+        ${starButton(phrase)}
+        <button class="row-open" data-drill="${esc(phrase.id)}" data-drill-deck="${esc(key)}">
+          <span class="row-main">
+            <span class="row-title">${esc(phrase.text)}</span>
+            <span class="row-sub">${esc(phrase.translation)}</span>
+          </span>
+          <span class="chev">›</span>
+        </button>
+      </div>`;
+  }
+
+  /* The queue a deck row drills. Shared with the cards inside it, which drill
+     this same queue positioned at one phrase rather than a queue of one — that
+     is what lets Next carry on through the deck from wherever you jumped in. */
+  function queueFor(deck) {
+    if (deck === "*") return shuffle([...library.drillable(settings.language)]);
+    if (deck === FAVOURITES_DECK) return starred();
+    // A family header drills everything under it, shuffled — the castells decks
+    // are one rehearsal, not five separate ones. The prefix matters: "Castells"
+    // is both a family and a deck in it.
+    if (deck.startsWith(FAMILY_PREFIX))
+      return shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language));
+    return library.inDeck(deck, settings.language);
   }
 
   /* A family of several decks folds behind one row, so the five castells decks
@@ -480,22 +533,34 @@ function renderPractice() {
       })
     );
 
+    list.querySelectorAll("[data-deck-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const key = button.dataset.deckFold;
+        if (state.openDecks.has(key)) state.openDecks.delete(key);
+        else state.openDecks.add(key);
+        paint();
+      })
+    );
+
     list.querySelectorAll("[data-deck]").forEach((button) =>
       button.addEventListener("click", () => {
         const deck = button.dataset.deck;
         state.deck = deck;
-        state.queue =
-          deck === "*"
-            ? shuffle([...library.drillable(settings.language)])
-            : deck === FAVOURITES_DECK
-            ? starred()
-            : deck.startsWith(FAMILY_PREFIX)
-            ? // A family header drills everything under it, shuffled — the
-              // castells decks are one rehearsal, not five separate ones. The
-              // prefix matters: "Castells" is both a family and a deck in it.
-              shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language))
-            : library.inDeck(deck, settings.language);
+        state.queue = queueFor(deck);
         state.index = 0;
+        loadPhrase();
+      })
+    );
+
+    // A card from an opened deck: the deck's own queue, started at that card.
+    list.querySelectorAll("[data-drill]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const deck = button.dataset.drillDeck;
+        const queue = queueFor(deck);
+        const at = queue.findIndex((p) => p.id === button.dataset.drill);
+        state.deck = deck;
+        state.queue = queue;
+        state.index = Math.max(0, at);
         loadPhrase();
       })
     );
@@ -1473,13 +1538,25 @@ function renderAdd() {
       <div class="section-label">Check the card</div>
       <div class="card add-card">
         <div id="review-note" class="notice" hidden></div>
+        <div class="preview-line">
+          <button class="reply-play" id="preview-say" aria-label="Listen to this card">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+          </button>
+          <span class="reply-main">
+            <span class="reply-text" id="preview-text"></span>
+            <span class="reply-translation" id="preview-translation"></span>
+          </span>
+        </div>
         <label class="field"><span>How it's used</span>
           <textarea id="result-usage" rows="3"></textarea></label>
         <label class="field"><span>Pronunciation tip</span>
           <textarea id="result-focus" rows="3"></textarea></label>
         <section id="result-replies"></section>
+        <p class="tiny muted regen-hint">Not what you meant?
+          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
+          above, then generate again.</p>
         <div class="btn-row">
-          <button class="btn" id="try-again">Try again</button>
+          <button class="btn" id="try-again">Generate again</button>
           <button class="btn btn-primary" id="save-card">Save to deck</button>
         </div>
       </div>
@@ -1498,6 +1575,34 @@ function renderAdd() {
   tryAgain.addEventListener("click", completeCard);
   document.getElementById("save-card").addEventListener("click", saveCard);
 
+  /* Hear the card before you commit it. Same button and same voice as a reply,
+     one size up, and it reads the field rather than a snapshot — the phrase is
+     editable right up until Save, and a preview that says something other than
+     what's in the box would be worse than no preview at all. */
+  document.getElementById("preview-say").addEventListener("click", (event) => {
+    const text = document.getElementById("add-target").value.trim();
+    if (!text) return toast(`There's no ${language.englishName} to say yet.`);
+    sayAloud(event.currentTarget, text, settings.language, "Couldn't play the card.");
+  });
+
+  // Both fields stay live, so the preview line follows what you type into them.
+  for (const id of ["add-target", "add-english"])
+    document.getElementById(id).addEventListener("input", paintPreview);
+
+  /* "Generate again" is at the bottom of the review, the fields it re-reads are
+     at the top of the page, and on a phone they are not on screen together. */
+  document.getElementById("edit-inputs").addEventListener("click", () => {
+    document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("add-situation").focus({ preventScroll: true });
+  });
+
+  function paintPreview() {
+    document.getElementById("preview-text").textContent =
+      document.getElementById("add-target").value.trim() || `No ${language.englishName} yet`;
+    document.getElementById("preview-translation").textContent =
+      document.getElementById("add-english").value.trim();
+  }
+
   async function completeCard() {
     const target = document.getElementById("add-target").value.trim();
     const english = document.getElementById("add-english").value.trim();
@@ -1509,6 +1614,16 @@ function renderAdd() {
       toast("Set up the card assistant in Settings first.");
       return;
     }
+
+    /* What you typed, kept raw, so the review's Undo can put your own words
+       back. The completion overwrites all three inputs with its corrected
+       versions, and "be clearer about the situation" is much easier from what
+       you wrote than from the assistant's rewrite of it. */
+    const before = {
+      target: document.getElementById("add-target").value,
+      english: document.getElementById("add-english").value,
+      situation: document.getElementById("add-situation").value,
+    };
 
     setAddBusy(true);
     const errorBox = document.getElementById("add-error");
@@ -1532,11 +1647,14 @@ function renderAdd() {
       document.getElementById("add-situation").value = result.situation;
       document.getElementById("result-usage").value = result.usageNote;
       document.getElementById("result-focus").value = result.focusNote;
+      paintPreview();
       askForReplies();
 
       const review = document.getElementById("review-note");
-      review.textContent = result.reviewNote;
-      review.hidden = !result.reviewNote;
+      review.innerHTML = `${esc(result.reviewNote || "Built from what you typed. Check it over, then Save.")}
+        <button class="link" id="undo-complete" style="padding:0 0 0 4px">Undo</button>`;
+      review.hidden = false;
+      document.getElementById("undo-complete").addEventListener("click", undoCompletion);
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
       // Sized after unhiding — a display:none box has no height to measure.
@@ -1560,6 +1678,23 @@ function renderAdd() {
       errorBox.hidden = false;
     } finally {
       setAddBusy(false);
+    }
+
+    /* Undo withdraws the whole completion, not just the wording: the usage
+       note, the tip and the replies all answered the card that is being taken
+       back. You are left with what you typed, in the boxes you typed it in. */
+    function undoCompletion() {
+      document.getElementById("add-target").value = before.target;
+      document.getElementById("add-english").value = before.english;
+      document.getElementById("add-situation").value = before.situation;
+      // A reply still in flight now answers a card that no longer exists.
+      repliesToken++;
+      replies = [];
+      document.getElementById("card-preview").hidden = true;
+      document.getElementById("add-chat").hidden = true;
+      paintPreview();
+      autosizeAll(view);
+      document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -1632,10 +1767,14 @@ function renderAdd() {
       });
   }
 
+  /* Both buttons run the same completion, and after the first one the review's
+     is the one you're looking at — so it gets its own spinner rather than just
+     greying out while a button off the top of the screen does the talking. */
   function setAddBusy(busy) {
     completeButton.disabled = busy;
     tryAgain.disabled = busy;
     completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
+    tryAgain.innerHTML = busy ? `<span class="spinner"></span> Generating…` : "Generate again";
   }
 }
 

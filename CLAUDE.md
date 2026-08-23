@@ -82,7 +82,8 @@ Two things to know before "fixing" it:
   `:active`; keep the pair in sync or the press stops looking like a press.
 
 Structure stayed Xerra's — the `.sec-*` section accents, the `page-head`
-banners and the deck meters are all still here, just repainted. Add gets its
+banners and the section accents are all still here, just repainted. (The deck
+meters went with the deck scores — see below.) Add gets its
 own orange now instead of borrowing Settings' colour. Phrases' blue outlived
 its tab: `--phrases-ink` is what every `.link` and every "Listen for" note is
 painted with, so the variable stays even though `.sec-study` has gone.
@@ -120,8 +121,44 @@ The search box writes `state.search`, so a full `render()` (a star toggled in
 the sheet, a phrase deleted) doesn't throw the query away. Folds are ignored
 while searching rather than opened — same invariant as before, less machinery.
 
-Deb-o-lingo still has both tabs. This is a deliberate divergence, not drift to
-be tidied up; the drill, the editor and the card assistant stay in step.
+### A deck row opens, and a card in it drills
+
+Every deck row carries a fold triangle, the same one a family row has, one
+level down: the title drills the deck from the top, the triangle accordions it
+open to the cards inside. Tapping a card drills **the deck's own queue
+positioned at that card**, never a queue of one — you jump in at the phrase you
+know you're getting wrong and Next carries on through the rest of the deck from
+there. `queueFor(deck)` is the single place that builds a deck's queue, so the
+row and the cards inside it can't drift apart on what "the deck" means.
+
+Two things not to tidy:
+
+- **A card row drills; it does not open `showPhrase`.** That is the whole point
+  of the list — the sheet is still one search away, and the star is on the row
+  either way.
+- **The open decks live in `state.openDecks`, not in settings.** A family fold
+  is a lasting opinion about a list that is always on screen; an opened deck is
+  where you are looking right now, so it resets on reload. It does have to
+  outlive a `render()` though — starring a card from inside an open deck
+  re-renders the page and the deck has to still be open underneath.
+
+Family rows have no accordion of their own: their fold already opens to the
+decks, and each of those opens to its cards. `family:` keys and `*` never get
+one — both drill shuffled, so "the third card" would mean nothing.
+
+### The deck rows carry no score
+
+They used to show an average and a little progress meter. Both are gone, and
+the phrase count is all that's left. An average over a deck is the one number
+this app has already decided not to trust: the whole of "the score is your
+weakest word" below is an argument that aggregates flatter you, and averaging
+those aggregates over twenty phrases flattens them again into something you
+can't act on. Scores stay where you earned them — on the attempt, on the
+phrase row a search turns up, on the drill card. `.deck-meter` went with them.
+
+Deb-o-lingo still has both tabs, deck scores and no accordion. All of it is
+deliberate divergence, not drift to be tidied up; the drill, the editor and the
+card assistant stay in step.
 
 ### Deck families
 
@@ -227,6 +264,38 @@ each with its English and a Listen button.
 - The editor's AI rebuild replaces them, because the old ones answered the old
   card; `wireEditorAI` returns the rebuilt set for Save to carry across, and
   Undo puts the originals back.
+
+### The Add review says the card out loud, and can be sent back
+
+A generated card used to be checkable only by reading it. The review panel now
+opens with a **preview line** — the phrase, its English, and a play button in
+the Add tab's orange — built out of the same parts as a reply because it does
+the same job one step up. `sayAloud` is that shared behaviour, lifted out of
+`wireReplies`: stop whatever is playing, Azure audio if there's a key, browser
+voice if there isn't, busy flag on the button itself so several can sit on one
+screen.
+
+- **The preview reads the field, not a snapshot of the completion.** The phrase
+  stays editable right up until Save, and a preview saying something other than
+  what is in the box would be worse than no preview. The line follows what you
+  type into the phrase and English boxes for the same reason.
+- **"Try again" is now "Generate again", and the way back to the inputs is
+  spelled out.** It always re-read the composer fields; the trouble was that
+  they're at the top of the page and it's at the bottom, so on a phone they are
+  never on screen together and it read as "roll the dice again". The hint line
+  scrolls the composer into view and puts the cursor in Situation — which is
+  usually the field that needed to be clearer.
+- **Undo withdraws the whole completion.** The completion overwrites all three
+  inputs with its corrected versions, so re-steering it meant editing the
+  assistant's rewrite of your words rather than your words. Undo puts the raw
+  three back, hides the review and the chat, and bumps `repliesToken` — a reply
+  still in flight answers a card that no longer exists. Same shape as the
+  editor's rebuild Undo, and the review note is always shown now (with a
+  fallback line) because otherwise a completion with no `reviewNote` would have
+  nowhere to hang it.
+
+Deb-o-lingo's Add tab is the same code one fork over; this is worth porting
+rather than diverging on.
 
 ### Editing a card, and the AI rebuild
 
@@ -526,11 +595,18 @@ and a phrase added in each language stays visible afterwards. For the folds:
 Practice shows one Castells row rather than five, `[data-fold="Castells"]`
 opens it and the choice survives a reload, `[data-deck="family:Castells"]`
 queues all eighty, and typing into `#search` finds a castells phrase while the
-family is folded. For the merged page: `#practice-list [data-phrase]` appears
+family is folded. For the deck accordion: `[data-deck-fold="Salutacions"]`
+reveals fifteen `[data-drill]` rows, tapping the third puts `3/15` in the
+progress pill and Next moves it to `4/15`, and no deck row carries a `strong`
+score or a `.deck-meter`. For the merged page: `#practice-list [data-phrase]` appears
 only once `#search` has something in it, `.drill-star` flips `aria-pressed` and
 puts a `★ Favourites` row at the top of the list, and a phrase with no Catalan
 text shows up under "Jotted down" with a `[data-edit]` row rather than
-`[data-phrase]`. Anything touching Azure can't be covered this way — there's no
+`[data-phrase]`. The Add review can be driven with the assistant stubbed —
+Playwright's `page.route` over `/complete-card` and `/replies` — which covers
+the preview line following an edit to the phrase box, `#edit-inputs` focusing
+`#add-situation`, `#try-again` sending the edited situation back, and
+`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
@@ -548,9 +624,11 @@ the parser losing a block to a formatting change.
   (main → `/docs`) the PWA is reachable at a URL the phone can install from.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice (deck list, library search and the drill), Add,
-  Settings. Phrases was merged into Practice.
+  Settings. Phrases was merged into Practice. Deck rows accordion open to the
+  cards inside them and carry no score of their own.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
-  phrase sheet and under the drill. Xerra only so far; Deb-o-lingo is unchanged
+  phrase sheet and under the drill. The Add review also plays the card itself
+  and can be undone and generated again. Xerra only so far; Deb-o-lingo is unchanged
   and the Worker change is additive so it stays working.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
