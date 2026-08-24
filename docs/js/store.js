@@ -470,13 +470,17 @@ export const library = {
   // Catalan here once meant a phrase added in Spanish mode was saved but never
   // shown again, because the list filters by language.
   add(phrase) {
-    this.phrases.push({
+    const saved = {
       id: uid(),
       language: settings.language,
       createdAt: new Date().toISOString(),
       ...phrase,
-    });
+    };
+    this.phrases.push(saved);
     this.savePhrases();
+    // Returned so a caller can go straight to the card it just made — the Add
+    // tab's "Save and practise now" needs the id to enter the deck at it.
+    return saved;
   },
 
   update(phrase) {

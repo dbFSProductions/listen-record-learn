@@ -152,16 +152,21 @@ function deckOptions(selected) {
     .join("");
 }
 
+/* Read top to bottom: the deck, then the way out of the list if none of it
+   fits, then the box that way opens. The "or" is the whole of it — the offer
+   to make a deck used to sit up beside the label, above the control it is an
+   alternative to, where it read as a second thing to do rather than as the
+   other answer to the same question. */
 function deckField(id, selected) {
   return `
     <div class="field">
       <div class="field-head">
         <label for="${id}">Deck</label>
-        <button class="link" data-new-deck="${id}" type="button">New deck</button>
       </div>
       <select id="${id}" class="deck-select">${deckOptions(selected)}</select>
+      <button class="link new-deck-toggle" data-new-deck="${id}" type="button">Or create a new deck</button>
       <div class="new-deck" data-new-deck-box="${id}" hidden>
-        <input type="text" data-new-deck-name="${id}" placeholder="Deck name" autocomplete="off"
+        <input type="text" data-new-deck-name="${id}" placeholder="Name the new deck" autocomplete="off"
                enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
         <button class="btn" data-new-deck-save="${id}" type="button">Create</button>
       </div>
@@ -177,16 +182,23 @@ function wireDeckField(id) {
   const box = document.querySelector(`[data-new-deck-box="${id}"]`);
   const name = document.querySelector(`[data-new-deck-name="${id}"]`);
 
-  document.querySelector(`[data-new-deck="${id}"]`).addEventListener("click", () => {
-    box.hidden = !box.hidden;
-    if (!box.hidden) name.focus();
-  });
+  const toggle = document.querySelector(`[data-new-deck="${id}"]`);
+  toggle.addEventListener("click", () => reveal(box.hidden));
   document.querySelector(`[data-new-deck-save="${id}"]`).addEventListener("click", create);
   name.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     create();
   });
+
+  /* The link is the way in and the way back out — open, it says Cancel, so
+     the box can't be a thing you have opened and can't put away again. */
+  function reveal(open) {
+    box.hidden = !open;
+    toggle.textContent = open ? "Cancel" : "Or create a new deck";
+    if (open) name.focus();
+    else name.value = "";
+  }
 
   function create() {
     const deck = name.value.trim();
@@ -198,8 +210,7 @@ function wireDeckField(id) {
     customDecks.add(deck, settings.language);
     select.innerHTML = deckOptions(deck);
     select.value = deck;
-    name.value = "";
-    box.hidden = true;
+    reveal(false);
     toast(`Deck "${deck}" created.`);
     select.dispatchEvent(new Event("change"));
   }
@@ -2128,6 +2139,13 @@ function renderAdd() {
      asked for a different card. */
   let replies = [];
   let repliesToken = 0;
+  /* What you typed, kept raw, so the review's Undo can put your own words
+     back. The completion overwrites all three inputs with its corrected
+     versions, and "be clearer about the situation" is much easier from what
+     you wrote than from the assistant's rewrite of it. Held out here rather
+     than inside completeCard because Undo is now part of the review's own
+     hint line and is wired once, not rebuilt per completion. */
+  let before = null;
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
@@ -2161,7 +2179,6 @@ function renderAdd() {
     <section id="card-preview" hidden>
       <div class="section-label">Check the card</div>
       <div class="card add-card">
-        <div id="review-note" class="notice" hidden></div>
         <div class="preview-line">
           <button class="reply-play" id="preview-say" aria-label="Listen to this card">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
@@ -2171,17 +2188,19 @@ function renderAdd() {
             <span class="reply-translation" id="preview-translation"></span>
           </span>
         </div>
+        <div id="review-note" class="notice"></div>
+        <p class="tiny muted regen-hint">Not what you meant?
+          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
+          above, then <button class="link" id="try-again">generate again</button>.
+          Or <button class="link" id="undo-complete">undo</button> to get your own words back.</p>
         <label class="field"><span>How it's used</span>
           <textarea id="result-usage" rows="3"></textarea></label>
         <label class="field"><span>Pronunciation tip</span>
           <textarea id="result-focus" rows="3"></textarea></label>
         <section id="result-replies"></section>
-        <p class="tiny muted regen-hint">Not what you meant?
-          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
-          above, then generate again.</p>
         <div class="btn-row">
-          <button class="btn" id="try-again">Generate again</button>
-          <button class="btn btn-primary" id="save-card">Save to deck</button>
+          <button class="btn" id="save-another">Save and add another</button>
+          <button class="btn btn-primary" id="save-practise">Save and practise now</button>
         </div>
       </div>
     </section>
@@ -2201,7 +2220,9 @@ function renderAdd() {
   const tryAgain = document.getElementById("try-again");
   completeButton.addEventListener("click", completeCard);
   tryAgain.addEventListener("click", completeCard);
-  document.getElementById("save-card").addEventListener("click", saveCard);
+  document.getElementById("undo-complete").addEventListener("click", undoCompletion);
+  document.getElementById("save-another").addEventListener("click", () => saveCard({ practise: false }));
+  document.getElementById("save-practise").addEventListener("click", () => saveCard({ practise: true }));
 
   /* Hear the card before you commit it. Same button and same voice as a reply,
      one size up, and it reads the field rather than a snapshot — the phrase is
@@ -2217,8 +2238,9 @@ function renderAdd() {
   for (const id of ["add-target", "add-english"])
     document.getElementById(id).addEventListener("input", paintPreview);
 
-  /* "Generate again" is at the bottom of the review, the fields it re-reads are
-     at the top of the page, and on a phone they are not on screen together. */
+  /* The fields "generate again" re-reads are at the top of the page and it is
+     down here, and on a phone they are never on screen together — so the way
+     back to them is spelled out rather than assumed. */
   document.getElementById("edit-inputs").addEventListener("click", () => {
     document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
     document.getElementById("add-situation").focus({ preventScroll: true });
@@ -2243,11 +2265,7 @@ function renderAdd() {
       return;
     }
 
-    /* What you typed, kept raw, so the review's Undo can put your own words
-       back. The completion overwrites all three inputs with its corrected
-       versions, and "be clearer about the situation" is much easier from what
-       you wrote than from the assistant's rewrite of it. */
-    const before = {
+    before = {
       target: document.getElementById("add-target").value,
       english: document.getElementById("add-english").value,
       situation: document.getElementById("add-situation").value,
@@ -2278,11 +2296,13 @@ function renderAdd() {
       paintPreview();
       askForReplies();
 
-      const review = document.getElementById("review-note");
-      review.innerHTML = `${esc(result.reviewNote || "Built from what you typed. Check it over, then Save.")}
-        <button class="link" id="undo-complete" style="padding:0 0 0 4px">Undo</button>`;
-      review.hidden = false;
-      document.getElementById("undo-complete").addEventListener("click", undoCompletion);
+      /* What the assistant did and why, directly under the card it did it to —
+         it is the thing you read to decide whether this card is right, so it
+         sits with the card rather than at the top of the panel. Always shown,
+         with a fallback line: a completion that returned no note would
+         otherwise leave the hint below it hanging on nothing. */
+      document.getElementById("review-note").textContent =
+        result.reviewNote || "Built from what you typed. Check it over, then save it.";
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
       // Sized after unhiding — a display:none box has no height to measure.
@@ -2311,25 +2331,32 @@ function renderAdd() {
       setAddBusy(false);
     }
 
-    /* Undo withdraws the whole completion, not just the wording: the usage
-       note, the tip and the replies all answered the card that is being taken
-       back. You are left with what you typed, in the boxes you typed it in. */
-    function undoCompletion() {
-      document.getElementById("add-target").value = before.target;
-      document.getElementById("add-english").value = before.english;
-      document.getElementById("add-situation").value = before.situation;
-      // A reply still in flight now answers a card that no longer exists.
-      repliesToken++;
-      replies = [];
-      document.getElementById("card-preview").hidden = true;
-      document.getElementById("add-chat").hidden = true;
-      paintPreview();
-      autosizeAll(view);
-      document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
-    }
   }
 
-  function saveCard() {
+  /* Undo withdraws the whole completion, not just the wording: the usage note,
+     the tip and the replies all answered the card that is being taken back.
+     You are left with what you typed, in the boxes you typed it in. */
+  function undoCompletion() {
+    if (!before) return;
+    document.getElementById("add-target").value = before.target;
+    document.getElementById("add-english").value = before.english;
+    document.getElementById("add-situation").value = before.situation;
+    // A reply still in flight now answers a card that no longer exists.
+    repliesToken++;
+    replies = [];
+    document.getElementById("card-preview").hidden = true;
+    document.getElementById("add-chat").hidden = true;
+    paintPreview();
+    autosizeAll(view);
+    document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* Two ways out of a finished card, because there are two things you are
+     doing here. Adding a run of cards in one sitting wants the form back,
+     empty; writing down the phrase you have just been stuck on wants to go and
+     say it. Practise is the primary of the two — the point of the card is
+     saying it, and a card saved and never drilled is where this app leaks. */
+  function saveCard({ practise }) {
     const text = document.getElementById("add-target").value.trim();
     const translation = document.getElementById("add-english").value.trim();
     const deck = document.getElementById("add-deck").value;
@@ -2345,7 +2372,7 @@ function renderAdd() {
       return;
     }
 
-    library.add({
+    const saved = library.add({
       text,
       translation,
       deck,
@@ -2354,8 +2381,19 @@ function renderAdd() {
       focusNote: document.getElementById("result-focus").value.trim() || null,
       replies,
     });
+
+    if (practise) {
+      /* Into the deck it was just filed in, positioned at itself — the same
+         queue the deck row would start, not a queue of one, so Next carries on
+         through the rest of the deck instead of ending on arrival. */
+      stopEverything();
+      state.tab = "practise";
+      toast(`Added to ${deck}.`);
+      startDeck(deck, saved.id);
+      return;
+    }
     renderAdd();
-    toast(`Added to ${deck}.`);
+    toast(`Added to ${deck}. Next one?`);
   }
 
   /* Fired after the card is on screen, never awaited. Card generation used to
@@ -2398,14 +2436,16 @@ function renderAdd() {
       });
   }
 
-  /* Both buttons run the same completion, and after the first one the review's
-     is the one you're looking at — so it gets its own spinner rather than just
-     greying out while a button off the top of the screen does the talking. */
+  /* Both controls run the same completion, and after the first one the
+     review's is the one you're looking at — so it gets its own spinner rather
+     than just greying out while a button off the top of the screen does the
+     talking. It is a link inside a sentence now, so it says its piece in lower
+     case and keeps the sentence readable while it spins. */
   function setAddBusy(busy) {
     completeButton.disabled = busy;
     tryAgain.disabled = busy;
     completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
-    tryAgain.innerHTML = busy ? `<span class="spinner"></span> Generating…` : "Generate again";
+    tryAgain.innerHTML = busy ? `<span class="spinner"></span> generating…` : "generate again";
   }
 }
 
@@ -2725,7 +2765,17 @@ function wireEditorAI(phrase, language) {
 
    Nothing new is stored on a card. A deck made here is a remembered name and
    nothing more (`customDecks` in store.js), so a card filed in it is an
-   ordinary card and every list downstream carries on reading `phrase.deck`. */
+   ordinary card and every list downstream carries on reading `phrase.deck`.
+
+   **Nothing in the list is destructive**, and that is the second try at this.
+   It was a Delete on every row, armed by a first tap — which put a dozen live
+   delete buttons on a settings page and made you read each one to work out
+   what it would take with it. Reported as frightening, which is the right
+   response to it. So the rows only *select* now, one at a time; the single
+   button that can destroy anything sits under the list, greyed out until you
+   have picked something and naming the deck it would delete; and the last
+   step is a question with a Cancel beside it, not another tap on the control
+   that started it. */
 function deckManagerPanel() {
   return `
     <div class="section-label">Decks</div>
@@ -2736,47 +2786,46 @@ function deckManagerPanel() {
         <button class="btn" id="s-new-deck-save" type="button">Create</button>
       </div>
       <div class="rows deck-rows" id="deck-rows">${deckManagerRows(null)}</div>
+      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:12px" disabled>
+        Delete a deck
+      </button>
       <p class="tiny muted" style="margin:10px 0 0">
         A new deck is a name waiting for cards — pick it on the Add tab and it appears on Practice
-        once something is in it. Deleting a deck deletes its cards, their scores and their recordings
-        too, and none of that can be undone, so export first if you're not sure.
+        once something is in it. To delete one, choose it above; you'll be asked to confirm, and its
+        cards, scores and recordings go with it.
       </p>
     </div>`;
 }
 
-/* The rows, with at most one delete armed. Rendering the armed state rather
-   than mutating the button is what keeps "only one at a time" true for free:
-   arming a second row repaints the first back to rest. */
-function deckManagerRows(armed) {
+/** What a deck holds — for the row, the button and the question. */
+function deckContents(deck) {
+  const cards = library.forLanguage(settings.language).filter((p) => p.deck === deck);
+  const recordings = cards.reduce((total, p) => total + library.attemptsFor(p.id).length, 0);
+  return { cards: cards.length, recordings };
+}
+
+function deckManagerRows(selected) {
   const decks = library.deckNames(settings.language);
   if (!decks.length)
     return `<div class="row"><span class="row-main"><span class="row-sub">No decks yet.</span></span></div>`;
 
   return decks
     .map((deck) => {
-      const cards = library.forLanguage(settings.language).filter((p) => p.deck === deck);
-      const recordings = cards.reduce((total, p) => total + library.attemptsFor(p.id).length, 0);
-      const count = cards.length
-        ? `${cards.length} card${cards.length === 1 ? "" : "s"}${
+      const { cards, recordings } = deckContents(deck);
+      const count = cards
+        ? `${cards} card${cards === 1 ? "" : "s"}${
             recordings ? ` · ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
           }`
         : "Empty — nothing filed here yet";
-      const warning = cards.length
-        ? `Deletes ${cards.length} card${cards.length === 1 ? "" : "s"}${
-            recordings ? ` and ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
-          }. This can't be undone.`
-        : "Nothing is filed here, so only the name goes.";
-      const isArmed = deck === armed;
+      const on = deck === selected;
       return `
-        <div class="row">
+        <button class="row deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
           <span class="row-main">
             <span class="row-title">${esc(deck)}</span>
-            <span class="row-sub${isArmed ? " row-warn" : ""}">${esc(isArmed ? warning : count)}</span>
+            <span class="row-sub">${esc(count)}</span>
           </span>
-          <button class="link btn-danger" data-deck-delete="${esc(deck)}">${
-            isArmed ? "Delete for good" : "Delete"
-          }</button>
-        </div>`;
+          <span class="pick">${on ? "✓" : ""}</span>
+        </button>`;
     })
     .join("");
 }
@@ -2784,9 +2833,8 @@ function deckManagerRows(armed) {
 function wireDeckManager() {
   const rows = document.getElementById("deck-rows");
   const input = document.getElementById("s-new-deck");
-  let armed = null;
-  let disarm = null;
-  let deleting = false;
+  const deleteButton = document.getElementById("deck-delete");
+  let selected = null;
 
   document.getElementById("s-new-deck-save").addEventListener("click", create);
   input.addEventListener("keydown", (event) => {
@@ -2794,6 +2842,7 @@ function wireDeckManager() {
     event.preventDefault();
     create();
   });
+  deleteButton.addEventListener("click", () => selected && confirmDeleteDeck(selected, paint));
   wireRows();
 
   function create() {
@@ -2809,47 +2858,77 @@ function wireDeckManager() {
     toast(`Deck "${name}" created. Choose it on the Add tab.`);
   }
 
-  function paint(next) {
-    clearTimeout(disarm);
-    armed = next;
-    rows.innerHTML = deckManagerRows(armed);
+  /* One repaint for both halves: the tick in the list and the button under it
+     are two views of one choice, and letting them be set separately is how a
+     button ends up offering to delete a deck nothing is pointing at. The name
+     is re-checked against the list each time, so a deck that has just been
+     deleted can't leave the button armed. */
+  function paint(next = null) {
+    selected = next && library.deckNames(settings.language).includes(next) ? next : null;
+    rows.innerHTML = deckManagerRows(selected);
     wireRows();
-    // An armed delete that is walked away from must not still be armed when
-    // the page is come back to.
-    if (armed) disarm = setTimeout(() => paint(null), 5000);
+    deleteButton.disabled = !selected;
+    deleteButton.textContent = selected ? `Delete "${selected}"` : "Delete a deck";
   }
 
   function wireRows() {
-    rows.querySelectorAll("[data-deck-delete]").forEach((button) =>
-      button.addEventListener("click", async () => {
-        const deck = button.dataset.deckDelete;
-        if (deck !== armed) {
-          paint(deck);
-          return;
-        }
-        if (deleting) return;
-        deleting = true;
-        clearTimeout(disarm);
-        button.textContent = "Deleting…";
-        const gone = await library.deleteDeck(deck, settings.language);
-        /* The drill could be holding a queue of cards that have just stopped
-           existing, and it survives a tab switch. Send it back to the deck
-           list rather than let it render phrases that are gone. */
-        if (state.deck) {
-          state.deck = null;
-          state.queue = [];
-          state.index = 0;
-        }
-        deleting = false;
-        paint(null);
-        toast(
-          gone.cards
-            ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
-            : `Deleted "${deck}".`
-        );
-      })
+    rows.querySelectorAll("[data-deck-pick]").forEach((button) =>
+      // Tapping the deck you already picked puts the choice down again, so
+      // there is always a way to disarm the button without deleting anything.
+      button.addEventListener("click", () =>
+        paint(button.dataset.deckPick === selected ? null : button.dataset.deckPick)
+      )
     );
   }
+}
+
+/* The question, with a Cancel beside it. Deliberately a sheet rather than a
+   second tap on the button that opened it: the two answers have to look
+   different from one another, and the destructive one has to say what it is
+   about to destroy in numbers rather than in "are you sure?". */
+function confirmDeleteDeck(deck, onDone) {
+  const { cards, recordings } = deckContents(deck);
+  openSheet(
+    "Delete this deck?",
+    `<p class="confirm-deck">${esc(deck)}</p>
+     <div class="notice bad">
+       ${
+         cards
+           ? `This deletes the deck and the ${cards} card${cards === 1 ? "" : "s"} in it${
+               recordings
+                 ? `, along with ${recordings} recording${recordings === 1 ? "" : "s"} and their scores`
+                 : ""
+             }. It can't be undone.`
+           : "Nothing is filed in this deck, so only the name goes."
+       }
+     </div>
+     <div class="btn-row">
+       <button class="btn" data-close-sheet>Cancel</button>
+       <button class="btn btn-danger-solid" id="deck-delete-yes">Delete</button>
+     </div>`
+  );
+
+  document.getElementById("deck-delete-yes").onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Deleting…`;
+    const gone = await library.deleteDeck(deck, settings.language);
+    /* The drill could be holding a queue of cards that have just stopped
+       existing, and it survives a tab switch. Send it back to the deck list
+       rather than let it render phrases that are gone. */
+    if (state.deck) {
+      state.deck = null;
+      state.queue = [];
+      state.index = 0;
+    }
+    closeSheet();
+    toast(
+      gone.cards
+        ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
+        : `Deleted "${deck}".`
+    );
+    onDone(null);
+  };
 }
 
 

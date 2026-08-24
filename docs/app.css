@@ -343,6 +343,18 @@ button { font: inherit; }
 .btn-row .btn { flex: 1; }
 .btn-danger { color: var(--red); }
 
+/* The one button that actually destroys something on the next tap wears the
+   colour instead of just lettering it — a red word on a white button reads as
+   a link, and this is the last thing between you and a deleted deck. Same
+   slab-and-press shape as the primary. */
+.btn-danger-solid {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--red-dark);
+}
+.btn-danger-solid:active { box-shadow: none; }
+
 
 .link { background: none; border: 0; color: var(--phrases-ink); font-weight: 800; cursor: pointer; padding: 6px; }
 /* A destructive link asks for `.btn-danger` in its class list, but that rule is
@@ -663,15 +675,20 @@ canvas { width: 100%; display: block; }
 .preview-line .reply-play svg { width: 17px; height: 17px; }
 .preview-line .reply-text { font-size: 1.08rem; }
 
-/* The fields "Generate again" re-reads are at the top of the page, so the way
-   back to them is spelled out next to the button rather than assumed. */
-.regen-hint { margin: 14px 4px 0; }
-.regen-hint .link { padding: 0; }
-/* At phone width "Generate again" and "Save to deck" cannot share a row
-   without one of them wrapping onto a second line and making both buttons
-   tall, so the review stacks them — same order as the row they replace,
-   secondary above primary, Save nearest the thumb. */
+/* The assistant's account of what it did, and the way back if it isn't what
+   you meant — both directly under the card, because that is what you are
+   reading them against. The hint is a sentence with three links in it rather
+   than three buttons: none of them is the thing you are most likely to do. */
+#review-note { margin: 0; }
+.regen-hint { margin: 8px 4px 16px; line-height: 1.5; }
+.regen-hint .link { padding: 0; font-size: inherit; }
+/* At phone width the two Save buttons cannot share a row without one of them
+   wrapping onto a second line and making both tall, so the review stacks them
+   — secondary above primary, and "practise now" nearest the thumb. */
 #card-preview .btn-row { flex-direction: column; }
+/* Only when there is something in it — an empty section shouldn't push the
+   Save buttons away from the tip above them. */
+#result-replies:not(:empty) { display: block; margin-bottom: 16px; }
 
 /* Under the drill it's reference material like the situation card, so it wears
    the same margin rather than sitting tight against the comparison. */
@@ -745,11 +762,20 @@ select {
 .new-deck input[type="text"] { flex: 1; min-width: 0; }
 .new-deck .btn { flex: none; padding-left: 16px; padding-right: 16px; }
 .field .new-deck { margin-top: 9px; }
+/* The other answer to "which deck?", so it sits under the select rather than
+   up beside the label, and left-aligned with the control it is an alternative
+   to rather than tucked into a corner. */
+.new-deck-toggle { display: block; margin-top: 4px; padding: 4px 2px; font-size: 0.85rem; }
 
-/* Manage decks. The count line turns into the warning when a delete is armed,
-   so it has to stop looking like a quiet subtitle. */
+/* Manage decks. Nothing in the list destroys anything — a row picks a deck and
+   nothing else, so it is styled as a choice (a tick and the page's own tint)
+   rather than as a row with a live delete on it. */
 .deck-rows { margin-top: 12px; }
-.row-warn { color: var(--red); font-weight: 700; }
+.deck-pick[aria-pressed="true"] { background: var(--sec-soft); }
+.deck-pick .pick { flex: none; width: 18px; text-align: center; color: var(--sec-ink); font-weight: 800; }
+/* The deck being deleted, at the top of the question. It is the one word that
+   decides whether the answer is yes, so it is not set as body text. */
+.confirm-deck { font-size: 1.15rem; font-weight: 800; margin: 0 0 12px; overflow-wrap: anywhere; }
 
 textarea { min-height: 74px; resize: none; overflow: hidden; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }

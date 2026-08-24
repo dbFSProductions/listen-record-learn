@@ -186,11 +186,25 @@ every deck with its card count and can delete one outright.
   cards from is a deck you empty from the phrase sheet. Seed phrases deleted
   this way stay deleted — `installNewSeedContent` skips anything already in
   `xerra.seeded` — so the deck doesn't quietly reappear on the next load.
-- **The confirm is two taps on the row itself**, the same armed pattern as
-  About me's reset, and the count line becomes the warning while it is armed
-  ("Deletes 15 cards and 3 recordings. This can't be undone."). Arming a second
-  row disarms the first for free, because the armed state is *rendered* rather
-  than poked into the button.
+- **Nothing in the list is destructive, and that is the second try.** It was a
+  Delete on every row, armed by a first tap: a dozen live delete buttons on a
+  settings page, each of which you had to read to find out what it would take
+  with it. Reported as frightening, which is the right response to it. Now a
+  row only *selects*, one at a time; the one button that can destroy anything
+  is under the list, disabled until something is picked and naming the deck it
+  would delete; and the last step is `confirmDeleteDeck`, a sheet that counts
+  the cards and recordings out loud and puts Cancel beside Delete. Tapping the
+  picked row again puts the choice down, so the button can always be disarmed
+  without deleting anything.
+- **The tick and the button are painted from one variable.** `paint()` sets
+  `selected`, redraws the rows and relabels the button in the same pass — two
+  places setting them separately is how a button ends up offering to delete a
+  deck nothing is pointing at. It also re-checks the name against the list, so
+  a just-deleted deck can't leave the button armed.
+- **`.btn-danger-solid` is the only filled red button in the app**, and it is
+  reserved for the tap that actually destroys something. `.btn-danger` — red
+  lettering on a plain button — is for the ones that only *lead* to that
+  question.
 - **Names are validated in one place**, `deckNameProblem` in app.js, because
   the app already spends three strings in deck-key space: `*` is shuffle-all,
   `★` is the star pile and `family:` prefixes a whole family. A deck actually
@@ -230,6 +244,13 @@ the edit sheet, and the phrase sheet.
 - **`library.moveToDeck` mutates in place**, like `keepNote`, `setReplies` and
   `toggleFavourite`, and for the same reason: `update` replaces the object and
   the drill is holding a reference to it in `state.queue`.
+- **The field reads top to bottom, and the "or" is the whole of it.** Deck,
+  then the select, then *Or create a new deck*, then the box that link opens.
+  The offer used to sit up beside the label, above the control it is an
+  alternative to, where it read as a second thing to do rather than as the
+  other answer to the same question. Open, the link says *Cancel* — a box you
+  can open and not put away again is the same dead end one level down — and
+  cancelling clears what was typed, so reopening it is a fresh start.
 - **`selected` is always among the options**, even when nothing else offers it.
   `deckNames()` is built from *drillable* phrases, so a deck holding nothing
   but jotted-down captures isn't in it — and a field that silently dropped the
@@ -416,6 +437,33 @@ each with its English and a Listen button.
   sends an empty list and the prompt omits the paragraph, so an old client and
   the new Worker — or the reverse — are fine, and the deploy order doesn't
   matter for Deb-o-lingo either.
+
+### The Add review reads in one direction
+
+Preview line, then what the assistant did and why, then the way back if that
+isn't what you meant, then the fields, the replies, and the two ways out. The
+order is the argument: everything above the fields is *about the card you are
+looking at*, and everything you might do about it is a link inside one
+sentence rather than a button competing with Save.
+
+- **The review note was above the preview and the Undo was inside it.** So the
+  explanation sat above the thing it explained, and the one control that
+  withdraws the whole completion was a bare word in a yellow box at the top of
+  the panel — nowhere near "Generate again", which is the other half of the
+  same thought. Both are now directly under the card: the note, then *Not what
+  you meant? **Change the phrase, English or situation** above, then
+  **generate again**. Or **undo** to get your own words back.*
+- **`before` and `undoCompletion` moved up to `renderAdd`'s scope.** Undo is
+  wired once now, with the rest of the page, instead of being injected into the
+  review note's innerHTML on every completion.
+- **Two ways out, and practise is the primary.** *Save and add another* keeps
+  you here with an empty form; *Save and practise now* files the card and drops
+  you into its deck positioned at it — `startDeck(deck, saved.id)`, the same
+  queue the deck row would start, so Next carries on through the rest of the
+  deck rather than ending on arrival. A card saved and never drilled is where
+  this app leaks, so the drill is the green one.
+- **`library.add` returns the phrase it saved.** That is the whole of what
+  "practise now" needed; nothing else reads the return value, so it is additive.
 
 ### The Add review says the card out loud, and can be sent back
 
@@ -1022,13 +1070,19 @@ the phrase sheet removes it. With `/replies` stubbed: `#drill-get-replies` is
 offered on a card without them and absent while a level-two question stands, a
 503 puts the button back enabled, an empty list removes it with a note, and a
 successful fetch paints `.drill-replies` with working `[data-say]` buttons that
-survive Next and coming back without a second call. For the decks: `#add-new-deck` reveals `#new-deck` (and it is
-genuinely hidden before that — `display: flex` beats `hidden`), a created name
-lands selected in `#add-deck` and appears exactly once, `family:Castells` and a
+survive Next and coming back without a second call. For the decks: the deck field's children are the label, the
+select, the toggle and then the box, in that order; `[data-new-deck="add-deck"]`
+reveals `[data-new-deck-box="add-deck"]` (and it is genuinely hidden before
+that — `display: flex` beats `hidden`), the link flips to *Cancel* and back,
+cancelling empties the name box, a created name lands selected in `#add-deck`
+and appears exactly once, `family:Castells` and a
 name already taken are both refused with a toast, the new deck is absent from
-Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, one tap
-on its Delete arms the row and deletes nothing, arming a second row disarms the
-first, the second tap removes the deck and its phrases from `xerra.phrases`,
+Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, no row carries a
+delete of its own, `#deck-delete` is disabled until a row is picked and then
+names it, picking a second row unpicks the first, tapping the picked row again
+disables the button, `#deck-delete-yes` only appears behind the confirm sheet,
+Cancel leaves `xerra.phrases` untouched with the deck still picked, Delete
+removes the deck and its phrases and puts the button back to *Delete a deck*,
 and the names survive a reload and an export/import round trip while a backup
 with no `decks` key still imports. For moving a card: `#p-deck` on the phrase
 sheet opens on the card's own deck, changing it rewrites `phrase.deck` in
@@ -1039,7 +1093,14 @@ drillable still finds that deck in the list and isn't refiled by saving. The Add
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
-`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. For About me, with `/interview` and `/about-cards` stubbed:
+`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Its
+order is worth asserting on directly: the review card's children are the
+preview line, `#review-note`, `.regen-hint`, the two fields, `#result-replies`
+and the button row, in that order, with `#try-again` and `#undo-complete` both
+inside the hint. `#save-another` leaves you on Add with an empty form and the
+card in `xerra.phrases`; `#save-practise` puts `.drill-text` on screen showing
+the card just made, with a progress pill counting its whole deck rather than
+`1/1`. For About me, with `/interview` and `/about-cards` stubbed:
 `[data-about]` is on the deck list before the deck exists and absent entirely
 with no assistant configured, opening it fires one `/interview` call by itself
 and puts the question in `.chat-msg.assistant`, `#about-make` is disabled until
@@ -1090,7 +1151,8 @@ the parser losing a block to a formatting change.
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
-  in them (Settings → Decks, two taps). A made deck is a name in `customDecks`
+  in them (Settings → Decks: pick a row, then one Delete button, then a confirm
+  sheet). A made deck is a name in `customDecks`
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.
