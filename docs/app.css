@@ -345,6 +345,11 @@ button { font: inherit; }
 
 
 .link { background: none; border: 0; color: var(--phrases-ink); font-weight: 800; cursor: pointer; padding: 6px; }
+/* A destructive link asks for `.btn-danger` in its class list, but that rule is
+   further up the file and loses to `.link` on source order alone — so every
+   "link btn-danger" in the app was rendering in the ordinary link blue. This
+   pairs the two so the ones that say they're dangerous look it. */
+.link.btn-danger { color: var(--red); }
 
 /* ----------------------------------------------------------------- tabbar */
 
@@ -705,6 +710,47 @@ input[type="text"], input[type="password"], input[type="search"], textarea, sele
   color: var(--text);
   font: inherit;
 }
+/* Selects are drawn by us, not by the platform.
+
+   iOS renders a native menulist to its own taste — it does not honour the
+   padding the boxes above it wear, and the control reads narrower and
+   squatter than every other field on the page even though `width: 100%` is
+   right there. `appearance: none` turns it back into an ordinary box that
+   takes the styling, and the chevron below replaces the one that goes with
+   it. The arrow is a fixed mid-grey rather than a variable because it is a
+   background image: #8a9aa4 sits between the two `--surface` values and reads
+   on both themes. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a9aa4' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 15px;
+}
+
+/* The one select you use while filing a card, so it gets the room: full width
+   of the card and the same generous box as the textareas it sits under. */
+.deck-select { padding: 14px 38px 14px 14px; font-weight: 700; }
+
+/* Name a deck and make it, on either page it can be done from. The button
+   keeps its natural width and the box takes the rest.
+
+   `display: flex` beats the `hidden` attribute the Add tab's copy is toggled
+   with — the same trap that once left an invisible sheet swallowing every tap
+   — so it has to be turned off again explicitly. */
+.new-deck { display: flex; gap: 8px; align-items: stretch; }
+.new-deck[hidden] { display: none; }
+.new-deck input[type="text"] { flex: 1; min-width: 0; }
+.new-deck .btn { flex: none; padding-left: 16px; padding-right: 16px; }
+.field .new-deck { margin-top: 9px; }
+
+/* Manage decks. The count line turns into the warning when a delete is armed,
+   so it has to stop looking like a quiet subtitle. */
+.deck-rows { margin-top: 12px; }
+.row-warn { color: var(--red); font-weight: 700; }
+
 textarea { min-height: 74px; resize: none; overflow: hidden; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 input[type="checkbox"] { accent-color: var(--accent); }
