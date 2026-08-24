@@ -1,8 +1,8 @@
 // Xerra — app shell, routing and views.
 
 import {
-  library, settings, audioStore, aboutMe, aiLog, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid, RECALL_AFTER,
-  deckLeaf, familyOpen, setFamilyOpen, attemptScore,
+  library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -105,6 +105,33 @@ const FAVOURITES_DECK = "★";
    decks can share a name — "Castells" is both the family and the general deck
    inside it. */
 const FAMILY_PREFIX = "family:";
+
+/* A deck name is a string on a phrase and a key in a list, and the app already
+   spends three strings of its own in that space: "*" is shuffle-all,
+   FAVOURITES_DECK is the star pile and FAMILY_PREFIX marks a whole family. A
+   deck actually called one of those would be drilled as the sentinel instead
+   of itself, so the one place names are invented checks for them. Everything
+   else here is ordinary hygiene — a name, not too long, not one you already
+   have under a different capitalisation. */
+const DECK_NAME_MAX = 40;
+
+function deckNameProblem(name) {
+  if (!name) return "Give the deck a name.";
+  if (name.length > DECK_NAME_MAX) return `Deck names stop at ${DECK_NAME_MAX} characters.`;
+  if (name === "*" || name === FAVOURITES_DECK || name.startsWith(FAMILY_PREFIX))
+    return "That name is spoken for — try another.";
+  // A leading or trailing "·" would make a family with no name or a deck with
+  // no leaf, and both read as a blank row on Practice.
+  if (name.startsWith("·") || name.endsWith("·")) return "A deck name can't start or end with ·.";
+  if (name.toLowerCase() === ABOUT_DECK.toLowerCase())
+    return `"${ABOUT_DECK}" is the deck the interview writes.`;
+  const clash = library
+    .deckNames(settings.language)
+    .find((deck) => deck.toLowerCase() === name.toLowerCase());
+  if (clash) return `There's already a deck called "${clash}".`;
+  return null;
+}
+
 const STAR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`;
 
 function starButton(phrase, className = "star") {
@@ -2005,7 +2032,7 @@ function normaliseSentence(value) {
 
 function renderAdd() {
   const language = LANGUAGES[settings.language];
-  const decks = [...new Set([MY_PHRASES, ...library.decks(settings.language)])];
+  const decks = [...new Set([MY_PHRASES, ...library.deckNames(settings.language)])];
   /* Not a form field, so it lives here rather than in the DOM: whatever the
      last completion returned, saved with the card and replaced by the next
      "Try again". The token guards against a slow reply landing after you've
@@ -2036,11 +2063,20 @@ function renderAdd() {
       <div class="language-divider"><span>or</span></div>
       ${composerField("add-english", "English", "en-GB", true)}
 
-      <label class="field"><span>Deck</span>
-        <select id="add-deck">
+      <div class="field">
+        <div class="field-head">
+          <label for="add-deck">Deck</label>
+          <button class="link" id="add-new-deck" type="button">New deck</button>
+        </div>
+        <select id="add-deck" class="deck-select">
           ${decks.map((deck) => `<option value="${esc(deck)}">${esc(deck)}</option>`).join("")}
         </select>
-      </label>
+        <div class="new-deck" id="new-deck" hidden>
+          <input type="text" id="new-deck-name" placeholder="Deck name" autocomplete="off"
+                 enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
+          <button class="btn" id="new-deck-save" type="button">Create</button>
+        </div>
+      </div>
 
       <button class="btn btn-primary add-complete" id="complete-card">Complete card with AI</button>
       <div id="add-error" class="notice bad" hidden></div>
@@ -2080,6 +2116,42 @@ function renderAdd() {
     state.tab = "settings";
     render();
   });
+
+  /* Making a deck from here rather than only from Settings, because the moment
+     you want one is the moment you are filing a card and none of the names fit.
+     The select stays the field of record — everything downstream reads
+     `#add-deck`'s value — so a new name is added to the options and selected
+     rather than replacing the control with a text box. */
+  const newDeck = document.getElementById("new-deck");
+  const newDeckName = document.getElementById("new-deck-name");
+  const deckSelect = document.getElementById("add-deck");
+  document.getElementById("add-new-deck").addEventListener("click", () => {
+    newDeck.hidden = !newDeck.hidden;
+    if (!newDeck.hidden) newDeckName.focus();
+  });
+  document.getElementById("new-deck-save").addEventListener("click", createDeck);
+  newDeckName.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    createDeck();
+  });
+
+  function createDeck() {
+    const name = newDeckName.value.trim();
+    const problem = deckNameProblem(name);
+    if (problem) {
+      toast(problem);
+      return;
+    }
+    customDecks.add(name, settings.language);
+    deckSelect.innerHTML = [...new Set([MY_PHRASES, ...library.deckNames(settings.language)])]
+      .map((deck) => `<option value="${esc(deck)}">${esc(deck)}</option>`)
+      .join("");
+    deckSelect.value = name;
+    newDeckName.value = "";
+    newDeck.hidden = true;
+    toast(`Deck "${name}" created. Cards you save go into it.`);
+  }
 
   const completeButton = document.getElementById("complete-card");
   const tryAgain = document.getElementById("try-again");
@@ -2434,7 +2506,9 @@ function composerField(id, label, locale, required = false) {
 }
 
 function editPhrase(phrase, onSaved = null) {
-  const decks = library.decks(settings.language);
+  // Every deck you could file it in, empty ones included — the datalist is the
+  // same offer the Add tab's select makes.
+  const decks = library.deckNames(settings.language);
   const language = LANGUAGES[settings.language];
   openSheet(
     phrase ? "Edit phrase" : "New phrase",
@@ -2599,6 +2673,145 @@ function wireEditorAI(phrase, language) {
 
 // ---------------------------------------------------------------- settings
 
+/* Manage decks.
+
+   A deck has always been whatever string the cards say it is, which means the
+   only way to make one was to file a card in it and the only way to be rid of
+   one was to empty it a card at a time. Both of those are now here, and here
+   rather than on Practice on purpose: making a deck is a filing decision you
+   take once and deleting one is the most destructive thing in the app, so
+   neither belongs on the page you open twenty times a day to drill.
+
+   Nothing new is stored on a card. A deck made here is a remembered name and
+   nothing more (`customDecks` in store.js), so a card filed in it is an
+   ordinary card and every list downstream carries on reading `phrase.deck`. */
+function deckManagerPanel() {
+  return `
+    <div class="section-label">Decks</div>
+    <div class="card">
+      <div class="new-deck">
+        <input type="text" id="s-new-deck" placeholder="New deck name" autocomplete="off"
+               enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
+        <button class="btn" id="s-new-deck-save" type="button">Create</button>
+      </div>
+      <div class="rows deck-rows" id="deck-rows">${deckManagerRows(null)}</div>
+      <p class="tiny muted" style="margin:10px 0 0">
+        A new deck is a name waiting for cards — pick it on the Add tab and it appears on Practice
+        once something is in it. Deleting a deck deletes its cards, their scores and their recordings
+        too, and none of that can be undone, so export first if you're not sure.
+      </p>
+    </div>`;
+}
+
+/* The rows, with at most one delete armed. Rendering the armed state rather
+   than mutating the button is what keeps "only one at a time" true for free:
+   arming a second row repaints the first back to rest. */
+function deckManagerRows(armed) {
+  const decks = library.deckNames(settings.language);
+  if (!decks.length)
+    return `<div class="row"><span class="row-main"><span class="row-sub">No decks yet.</span></span></div>`;
+
+  return decks
+    .map((deck) => {
+      const cards = library.forLanguage(settings.language).filter((p) => p.deck === deck);
+      const recordings = cards.reduce((total, p) => total + library.attemptsFor(p.id).length, 0);
+      const count = cards.length
+        ? `${cards.length} card${cards.length === 1 ? "" : "s"}${
+            recordings ? ` · ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
+          }`
+        : "Empty — nothing filed here yet";
+      const warning = cards.length
+        ? `Deletes ${cards.length} card${cards.length === 1 ? "" : "s"}${
+            recordings ? ` and ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
+          }. This can't be undone.`
+        : "Nothing is filed here, so only the name goes.";
+      const isArmed = deck === armed;
+      return `
+        <div class="row">
+          <span class="row-main">
+            <span class="row-title">${esc(deck)}</span>
+            <span class="row-sub${isArmed ? " row-warn" : ""}">${esc(isArmed ? warning : count)}</span>
+          </span>
+          <button class="link btn-danger" data-deck-delete="${esc(deck)}">${
+            isArmed ? "Delete for good" : "Delete"
+          }</button>
+        </div>`;
+    })
+    .join("");
+}
+
+function wireDeckManager() {
+  const rows = document.getElementById("deck-rows");
+  const input = document.getElementById("s-new-deck");
+  let armed = null;
+  let disarm = null;
+  let deleting = false;
+
+  document.getElementById("s-new-deck-save").addEventListener("click", create);
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    create();
+  });
+  wireRows();
+
+  function create() {
+    const name = input.value.trim();
+    const problem = deckNameProblem(name);
+    if (problem) {
+      toast(problem);
+      return;
+    }
+    customDecks.add(name, settings.language);
+    input.value = "";
+    paint(null);
+    toast(`Deck "${name}" created. Choose it on the Add tab.`);
+  }
+
+  function paint(next) {
+    clearTimeout(disarm);
+    armed = next;
+    rows.innerHTML = deckManagerRows(armed);
+    wireRows();
+    // An armed delete that is walked away from must not still be armed when
+    // the page is come back to.
+    if (armed) disarm = setTimeout(() => paint(null), 5000);
+  }
+
+  function wireRows() {
+    rows.querySelectorAll("[data-deck-delete]").forEach((button) =>
+      button.addEventListener("click", async () => {
+        const deck = button.dataset.deckDelete;
+        if (deck !== armed) {
+          paint(deck);
+          return;
+        }
+        if (deleting) return;
+        deleting = true;
+        clearTimeout(disarm);
+        button.textContent = "Deleting…";
+        const gone = await library.deleteDeck(deck, settings.language);
+        /* The drill could be holding a queue of cards that have just stopped
+           existing, and it survives a tab switch. Send it back to the deck
+           list rather than let it render phrases that are gone. */
+        if (state.deck) {
+          state.deck = null;
+          state.queue = [];
+          state.index = 0;
+        }
+        deleting = false;
+        paint(null);
+        toast(
+          gone.cards
+            ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
+            : `Deleted "${deck}".`
+        );
+      })
+    );
+  }
+}
+
+
 /* What the assistant's calls have actually cost, on this device, lately.
 
    Round trip is what the phone waited; "of which Gemini" is the Worker's own
@@ -2658,6 +2871,8 @@ function renderSettings() {
         </select></label>
       <p class="tiny muted" style="margin:0">Phrases are stored per language, so switching keeps both sets intact.</p>
     </div>
+
+    ${deckManagerPanel()}
 
     <div class="section-label">Playback</div>
     <div class="card">
@@ -2750,6 +2965,8 @@ function renderSettings() {
     </div>
 
     <p class="tiny muted center" style="margin-top:22px">Xerra · pronunciation drilling for ${esc(language.name)}</p>`;
+
+  wireDeckManager();
 
   document.getElementById("s-speed-clear")?.addEventListener("click", () => {
     aiLog.clear();

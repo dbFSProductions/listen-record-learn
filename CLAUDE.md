@@ -160,6 +160,69 @@ Deb-o-lingo still has both tabs, deck scores and no accordion. All of it is
 deliberate divergence, not drift to be tidied up; the drill, the editor and the
 card assistant stay in step.
 
+### A deck can be made and unmade, and it is still only a name
+
+Until now a deck existed exactly as long as a card said it did: `decks()` is a
+pass over the phrases, so the only way to make one was to file something in it
+and the only way to lose one was to empty it a card at a time. Both ends now
+have a door — *New deck* on the Add tab, and **Decks** in Settings, which lists
+every deck with its card count and can delete one outright.
+
+- **A made deck is a remembered name and nothing else.** `customDecks` in
+  store.js is `{ language: [names] }` and that is the whole schema. A deck is
+  not a record with an id, a colour and settings; it is the string on
+  `phrase.deck`, and everything downstream already knows how to read that. The
+  moment a deck stops being a string, every list in the app has to learn about
+  it — the same argument that keeps About me's cards from carrying a flag.
+- **`decks()` and `deckNames()` answer two different questions, and mixing
+  them up is the bug to avoid.** `decks()` is still the phrase-derived list and
+  is what Practice draws: a deck earns a row by having something to drill. An
+  empty deck row would start an empty queue, which is the greyed-out-Next
+  problem one level up. `deckNames()` is that list plus the made-but-empty
+  ones, and it is what the Add select, the editor's datalist and Manage decks
+  offer — the places where the question is "where could this card go?".
+- **Deleting a deck deletes its cards, their attempts and their recordings.**
+  Nothing is moved to `My phrases` first, because a deck you meant to keep the
+  cards from is a deck you empty from the phrase sheet. Seed phrases deleted
+  this way stay deleted — `installNewSeedContent` skips anything already in
+  `xerra.seeded` — so the deck doesn't quietly reappear on the next load.
+- **The confirm is two taps on the row itself**, the same armed pattern as
+  About me's reset, and the count line becomes the warning while it is armed
+  ("Deletes 15 cards and 3 recordings. This can't be undone."). Arming a second
+  row disarms the first for free, because the armed state is *rendered* rather
+  than poked into the button.
+- **Names are validated in one place**, `deckNameProblem` in app.js, because
+  the app already spends three strings in deck-key space: `*` is shuffle-all,
+  `★` is the star pile and `family:` prefixes a whole family. A deck actually
+  called one of those would drill as the sentinel instead of itself.
+- **The names ride in export/import**, with the phrases and the interview. An
+  empty deck is *only* a name, so a backup that dropped it would restore the
+  cards and lose the filing.
+- The Add tab's copy keeps the `<select>` as the field of record — a created
+  name is added to the options and selected, rather than the control being
+  swapped for a text box — so all three places that read `#add-deck` carry on
+  working untouched.
+
+Deb-o-lingo has none of this: its decks are course content, so there is nothing
+to make or unmake. The `.new-deck` row and the select styling below would port,
+the rest wouldn't.
+
+### Selects are drawn by us now
+
+`appearance: none` plus a background-image chevron on every `<select>`, because
+iOS renders a native menulist to its own taste — it ignores the padding the
+text boxes wear, and the deck select read narrower and squatter than every
+field above it despite `width: 100%` being right there. That was reported from
+the phone and cannot be reproduced in Chromium, so don't "fix" it back on the
+evidence of a desktop screenshot. `.deck-select` takes the extra room on top.
+
+Two things that came out of the same change: `.new-deck` uses `display: flex`,
+so it needs `.new-deck[hidden] { display: none }` — the same trap that once
+left an invisible sheet swallowing every tap. And `.link.btn-danger` now paints
+red: `.btn-danger` sits above `.link` in the file and lost to it on source
+order, so every button whose markup already said it was dangerous was rendering
+in the ordinary link blue.
+
 ### Deck families
 
 A deck named `Family · Deck` belongs to the family named by the prefix, and a
@@ -928,7 +991,15 @@ the phrase sheet removes it. With `/replies` stubbed: `#drill-get-replies` is
 offered on a card without them and absent while a level-two question stands, a
 503 puts the button back enabled, an empty list removes it with a note, and a
 successful fetch paints `.drill-replies` with working `[data-say]` buttons that
-survive Next and coming back without a second call. The Add review can be driven with the assistant stubbed —
+survive Next and coming back without a second call. For the decks: `#add-new-deck` reveals `#new-deck` (and it is
+genuinely hidden before that — `display: flex` beats `hidden`), a created name
+lands selected in `#add-deck` and appears exactly once, `family:Castells` and a
+name already taken are both refused with a toast, the new deck is absent from
+Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, one tap
+on its Delete arms the row and deletes nothing, arming a second row disarms the
+first, the second tap removes the deck and its phrases from `xerra.phrases`,
+and the names survive a reload and an export/import round trip while a backup
+with no `decks` key still imports. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
@@ -982,6 +1053,9 @@ the parser losing a block to a formatting change.
 - Three tabs: Practice (deck list, library search and the drill), Add,
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
+- Decks can be made (Add tab, or Settings → Decks) and deleted with everything
+  in them (Settings → Decks, two taps). A made deck is a name in `customDecks`
+  and nothing more, and it stays off Practice until a card is filed in it.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself

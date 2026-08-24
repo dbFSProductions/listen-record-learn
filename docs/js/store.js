@@ -17,6 +17,7 @@ const KEYS = {
   seeded: "xerra.seeded",
   aboutMe: "xerra.aboutMe",
   aiLog: "xerra.aiLog",
+  decks: "xerra.decks",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -209,6 +210,63 @@ export function uid() {
   return (crypto.randomUUID?.() ?? String(Date.now() + Math.random())).toString();
 }
 
+/* Decks made by hand, before anything is in them.
+
+   Every other deck in this app is implied by its cards: `decks()` is a pass
+   over the phrases, so a deck exists exactly as long as something is filed
+   under it and vanishes when the last card leaves. That works right up until
+   you want to file the *next* card somewhere new — the deck has to be
+   nameable before it has a card in it — so a deck created in Settings or from
+   the Add tab is remembered here instead, by language, and joins the list the
+   phrases imply.
+
+   Deliberately just names. A deck is not a record with settings and a colour;
+   it is the string on the `deck` field of a phrase, and everything downstream
+   already knows how to read that. Put a card in a deck created here and it
+   would have been in the list anyway; take the last one out again and the
+   name survives, which is the whole reason this exists. */
+export const customDecks = {
+  byLanguage: {},
+
+  load() {
+    const stored = readJSON(KEYS.decks, {});
+    this.byLanguage = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  },
+
+  save() {
+    writeJSON(KEYS.decks, this.byLanguage);
+  },
+
+  names(language) {
+    const names = this.byLanguage[language];
+    return Array.isArray(names) ? names : [];
+  },
+
+  /** True if the name was new. Matching is case-insensitive: two decks a
+      glance apart are a filing mistake waiting to happen. */
+  add(name, language) {
+    const clean = name.trim();
+    if (!clean) return false;
+    if (this.names(language).some((deck) => deck.toLowerCase() === clean.toLowerCase())) return false;
+    this.byLanguage = { ...this.byLanguage, [language]: [...this.names(language), clean] };
+    this.save();
+    return true;
+  },
+
+  remove(name, language) {
+    this.byLanguage = {
+      ...this.byLanguage,
+      [language]: this.names(language).filter((deck) => deck !== name),
+    };
+    this.save();
+  },
+
+  replace(map) {
+    this.byLanguage = map && typeof map === "object" && !Array.isArray(map) ? map : {};
+    this.save();
+  },
+};
+
 // ------------------------------------------------------------------ library
 
 export const library = {
@@ -218,6 +276,7 @@ export const library = {
   load() {
     this.phrases = readJSON(KEYS.phrases, []);
     this.attempts = readJSON(KEYS.attempts, []);
+    customDecks.load();
     this.installNewSeedContent();
   },
 
@@ -293,6 +352,41 @@ export const library = {
 
   inDeck(deck, language) {
     return this.drillable(language).filter((p) => p.deck === deck);
+  },
+
+  /* Every deck you could file a card in: the ones the phrases imply, plus the
+     ones made by hand that have nothing in them yet. This is what the Add tab
+     and the editor offer and what Manage decks lists — not `decks()`, which is
+     the Practice page's list and is deliberately only decks with something to
+     drill. An empty deck row that starts an empty queue is a dead end, so an
+     invented deck earns its place on Practice by having a card put in it. */
+  deckNames(language) {
+    const known = this.decks(language);
+    const extra = customDecks.names(language).filter((deck) => !known.includes(deck));
+    return [...known, ...extra].sort((a, b) => {
+      if (a === MY_PHRASES) return -1;
+      if (b === MY_PHRASES) return 1;
+      return a.localeCompare(b, "ca");
+    });
+  },
+
+  /* Delete the deck and everything filed in it — the cards, their attempts and
+     the recordings behind those. There is no undo and nothing is moved
+     somewhere safe first: this is the destructive half of Manage decks, and
+     the two-tap confirm that calls it says so in as many words.
+
+     Seed phrases deleted this way stay deleted. `installNewSeedContent` skips
+     anything already in `xerra.seeded`, so the next load doesn't quietly put
+     the deck back. Returns what it destroyed, for the message afterwards. */
+  async deleteDeck(deck, language) {
+    const doomed = this.forLanguage(language).filter((p) => p.deck === deck);
+    let recordings = 0;
+    for (const phrase of doomed) {
+      recordings += this.attemptsFor(phrase.id).length;
+      await this.remove(phrase.id);
+    }
+    customDecks.remove(deck, language);
+    return { cards: doomed.length, recordings };
   },
 
   /* The deck list, gathered into families in the same order. `decks()` sorts
@@ -443,7 +537,9 @@ export const library = {
   /* The About me interview rides along with the phrases. It is not a phrase and
      not an attempt, but it is the thing those cards were made out of — restore
      a backup without it and the assistant starts the conversation over, asking
-     for a life story it has already been told. */
+     for a life story it has already been told. The hand-made deck names ride
+     along for the same reason: an empty deck is only a name, so a backup that
+     dropped it would restore the cards and lose the filing. */
   exportJSON() {
     return JSON.stringify(
       {
@@ -451,6 +547,7 @@ export const library = {
         phrases: this.phrases,
         attempts: this.attempts,
         aboutMe: aboutMe.turns,
+        decks: customDecks.byLanguage,
       },
       null,
       2
@@ -465,8 +562,11 @@ export const library = {
     this.savePhrases();
     this.saveAttempts();
     // Absent in a file exported before the interview existed, which is not an
-    // error — those backups simply have no conversation to restore.
+    // error — those backups simply have no conversation to restore. Same for
+    // the hand-made deck names: an older backup's decks are all implied by its
+    // phrases, so there is nothing extra to put back.
     aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
+    customDecks.replace(parsed.decks);
   },
 };
 
