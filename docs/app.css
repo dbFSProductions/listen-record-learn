@@ -675,15 +675,20 @@ canvas { width: 100%; display: block; }
 .preview-line .reply-play svg { width: 17px; height: 17px; }
 .preview-line .reply-text { font-size: 1.08rem; }
 
-/* The fields "Generate again" re-reads are at the top of the page, so the way
-   back to them is spelled out next to the button rather than assumed. */
-.regen-hint { margin: 14px 4px 0; }
-.regen-hint .link { padding: 0; }
-/* At phone width "Generate again" and "Save to deck" cannot share a row
-   without one of them wrapping onto a second line and making both buttons
-   tall, so the review stacks them — same order as the row they replace,
-   secondary above primary, Save nearest the thumb. */
+/* The assistant's account of what it did, and the way back if it isn't what
+   you meant — both directly under the card, because that is what you are
+   reading them against. The hint is a sentence with three links in it rather
+   than three buttons: none of them is the thing you are most likely to do. */
+#review-note { margin: 0; }
+.regen-hint { margin: 8px 4px 16px; line-height: 1.5; }
+.regen-hint .link { padding: 0; font-size: inherit; }
+/* At phone width the two Save buttons cannot share a row without one of them
+   wrapping onto a second line and making both tall, so the review stacks them
+   — secondary above primary, and "practise now" nearest the thumb. */
 #card-preview .btn-row { flex-direction: column; }
+/* Only when there is something in it — an empty section shouldn't push the
+   Save buttons away from the tip above them. */
+#result-replies:not(:empty) { display: block; margin-bottom: 16px; }
 
 /* Under the drill it's reference material like the situation card, so it wears
    the same margin rather than sitting tight against the comparison. */

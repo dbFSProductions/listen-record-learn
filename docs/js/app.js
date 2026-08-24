@@ -2139,6 +2139,13 @@ function renderAdd() {
      asked for a different card. */
   let replies = [];
   let repliesToken = 0;
+  /* What you typed, kept raw, so the review's Undo can put your own words
+     back. The completion overwrites all three inputs with its corrected
+     versions, and "be clearer about the situation" is much easier from what
+     you wrote than from the assistant's rewrite of it. Held out here rather
+     than inside completeCard because Undo is now part of the review's own
+     hint line and is wired once, not rebuilt per completion. */
+  let before = null;
 
   view.innerHTML = `
     ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
@@ -2172,7 +2179,6 @@ function renderAdd() {
     <section id="card-preview" hidden>
       <div class="section-label">Check the card</div>
       <div class="card add-card">
-        <div id="review-note" class="notice" hidden></div>
         <div class="preview-line">
           <button class="reply-play" id="preview-say" aria-label="Listen to this card">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
@@ -2182,17 +2188,19 @@ function renderAdd() {
             <span class="reply-translation" id="preview-translation"></span>
           </span>
         </div>
+        <div id="review-note" class="notice"></div>
+        <p class="tiny muted regen-hint">Not what you meant?
+          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
+          above, then <button class="link" id="try-again">generate again</button>.
+          Or <button class="link" id="undo-complete">undo</button> to get your own words back.</p>
         <label class="field"><span>How it's used</span>
           <textarea id="result-usage" rows="3"></textarea></label>
         <label class="field"><span>Pronunciation tip</span>
           <textarea id="result-focus" rows="3"></textarea></label>
         <section id="result-replies"></section>
-        <p class="tiny muted regen-hint">Not what you meant?
-          <button class="link" id="edit-inputs">Change the phrase, English or situation</button>
-          above, then generate again.</p>
         <div class="btn-row">
-          <button class="btn" id="try-again">Generate again</button>
-          <button class="btn btn-primary" id="save-card">Save to deck</button>
+          <button class="btn" id="save-another">Save and add another</button>
+          <button class="btn btn-primary" id="save-practise">Save and practise now</button>
         </div>
       </div>
     </section>
@@ -2212,7 +2220,9 @@ function renderAdd() {
   const tryAgain = document.getElementById("try-again");
   completeButton.addEventListener("click", completeCard);
   tryAgain.addEventListener("click", completeCard);
-  document.getElementById("save-card").addEventListener("click", saveCard);
+  document.getElementById("undo-complete").addEventListener("click", undoCompletion);
+  document.getElementById("save-another").addEventListener("click", () => saveCard({ practise: false }));
+  document.getElementById("save-practise").addEventListener("click", () => saveCard({ practise: true }));
 
   /* Hear the card before you commit it. Same button and same voice as a reply,
      one size up, and it reads the field rather than a snapshot — the phrase is
@@ -2228,8 +2238,9 @@ function renderAdd() {
   for (const id of ["add-target", "add-english"])
     document.getElementById(id).addEventListener("input", paintPreview);
 
-  /* "Generate again" is at the bottom of the review, the fields it re-reads are
-     at the top of the page, and on a phone they are not on screen together. */
+  /* The fields "generate again" re-reads are at the top of the page and it is
+     down here, and on a phone they are never on screen together — so the way
+     back to them is spelled out rather than assumed. */
   document.getElementById("edit-inputs").addEventListener("click", () => {
     document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
     document.getElementById("add-situation").focus({ preventScroll: true });
@@ -2254,11 +2265,7 @@ function renderAdd() {
       return;
     }
 
-    /* What you typed, kept raw, so the review's Undo can put your own words
-       back. The completion overwrites all three inputs with its corrected
-       versions, and "be clearer about the situation" is much easier from what
-       you wrote than from the assistant's rewrite of it. */
-    const before = {
+    before = {
       target: document.getElementById("add-target").value,
       english: document.getElementById("add-english").value,
       situation: document.getElementById("add-situation").value,
@@ -2289,11 +2296,13 @@ function renderAdd() {
       paintPreview();
       askForReplies();
 
-      const review = document.getElementById("review-note");
-      review.innerHTML = `${esc(result.reviewNote || "Built from what you typed. Check it over, then Save.")}
-        <button class="link" id="undo-complete" style="padding:0 0 0 4px">Undo</button>`;
-      review.hidden = false;
-      document.getElementById("undo-complete").addEventListener("click", undoCompletion);
+      /* What the assistant did and why, directly under the card it did it to —
+         it is the thing you read to decide whether this card is right, so it
+         sits with the card rather than at the top of the panel. Always shown,
+         with a fallback line: a completion that returned no note would
+         otherwise leave the hint below it hanging on nothing. */
+      document.getElementById("review-note").textContent =
+        result.reviewNote || "Built from what you typed. Check it over, then save it.";
       const preview = document.getElementById("card-preview");
       preview.hidden = false;
       // Sized after unhiding — a display:none box has no height to measure.
@@ -2322,25 +2331,32 @@ function renderAdd() {
       setAddBusy(false);
     }
 
-    /* Undo withdraws the whole completion, not just the wording: the usage
-       note, the tip and the replies all answered the card that is being taken
-       back. You are left with what you typed, in the boxes you typed it in. */
-    function undoCompletion() {
-      document.getElementById("add-target").value = before.target;
-      document.getElementById("add-english").value = before.english;
-      document.getElementById("add-situation").value = before.situation;
-      // A reply still in flight now answers a card that no longer exists.
-      repliesToken++;
-      replies = [];
-      document.getElementById("card-preview").hidden = true;
-      document.getElementById("add-chat").hidden = true;
-      paintPreview();
-      autosizeAll(view);
-      document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
-    }
   }
 
-  function saveCard() {
+  /* Undo withdraws the whole completion, not just the wording: the usage note,
+     the tip and the replies all answered the card that is being taken back.
+     You are left with what you typed, in the boxes you typed it in. */
+  function undoCompletion() {
+    if (!before) return;
+    document.getElementById("add-target").value = before.target;
+    document.getElementById("add-english").value = before.english;
+    document.getElementById("add-situation").value = before.situation;
+    // A reply still in flight now answers a card that no longer exists.
+    repliesToken++;
+    replies = [];
+    document.getElementById("card-preview").hidden = true;
+    document.getElementById("add-chat").hidden = true;
+    paintPreview();
+    autosizeAll(view);
+    document.querySelector(".add-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* Two ways out of a finished card, because there are two things you are
+     doing here. Adding a run of cards in one sitting wants the form back,
+     empty; writing down the phrase you have just been stuck on wants to go and
+     say it. Practise is the primary of the two — the point of the card is
+     saying it, and a card saved and never drilled is where this app leaks. */
+  function saveCard({ practise }) {
     const text = document.getElementById("add-target").value.trim();
     const translation = document.getElementById("add-english").value.trim();
     const deck = document.getElementById("add-deck").value;
@@ -2356,7 +2372,7 @@ function renderAdd() {
       return;
     }
 
-    library.add({
+    const saved = library.add({
       text,
       translation,
       deck,
@@ -2365,8 +2381,19 @@ function renderAdd() {
       focusNote: document.getElementById("result-focus").value.trim() || null,
       replies,
     });
+
+    if (practise) {
+      /* Into the deck it was just filed in, positioned at itself — the same
+         queue the deck row would start, not a queue of one, so Next carries on
+         through the rest of the deck instead of ending on arrival. */
+      stopEverything();
+      state.tab = "practise";
+      toast(`Added to ${deck}.`);
+      startDeck(deck, saved.id);
+      return;
+    }
     renderAdd();
-    toast(`Added to ${deck}.`);
+    toast(`Added to ${deck}. Next one?`);
   }
 
   /* Fired after the card is on screen, never awaited. Card generation used to
@@ -2409,14 +2436,16 @@ function renderAdd() {
       });
   }
 
-  /* Both buttons run the same completion, and after the first one the review's
-     is the one you're looking at — so it gets its own spinner rather than just
-     greying out while a button off the top of the screen does the talking. */
+  /* Both controls run the same completion, and after the first one the
+     review's is the one you're looking at — so it gets its own spinner rather
+     than just greying out while a button off the top of the screen does the
+     talking. It is a link inside a sentence now, so it says its piece in lower
+     case and keeps the sentence readable while it spins. */
   function setAddBusy(busy) {
     completeButton.disabled = busy;
     tryAgain.disabled = busy;
     completeButton.innerHTML = busy ? `<span class="spinner"></span> Building card…` : "Complete card with AI";
-    tryAgain.innerHTML = busy ? `<span class="spinner"></span> Generating…` : "Generate again";
+    tryAgain.innerHTML = busy ? `<span class="spinner"></span> generating…` : "generate again";
   }
 }
 

@@ -438,6 +438,33 @@ each with its English and a Listen button.
   the new Worker — or the reverse — are fine, and the deploy order doesn't
   matter for Deb-o-lingo either.
 
+### The Add review reads in one direction
+
+Preview line, then what the assistant did and why, then the way back if that
+isn't what you meant, then the fields, the replies, and the two ways out. The
+order is the argument: everything above the fields is *about the card you are
+looking at*, and everything you might do about it is a link inside one
+sentence rather than a button competing with Save.
+
+- **The review note was above the preview and the Undo was inside it.** So the
+  explanation sat above the thing it explained, and the one control that
+  withdraws the whole completion was a bare word in a yellow box at the top of
+  the panel — nowhere near "Generate again", which is the other half of the
+  same thought. Both are now directly under the card: the note, then *Not what
+  you meant? **Change the phrase, English or situation** above, then
+  **generate again**. Or **undo** to get your own words back.*
+- **`before` and `undoCompletion` moved up to `renderAdd`'s scope.** Undo is
+  wired once now, with the rest of the page, instead of being injected into the
+  review note's innerHTML on every completion.
+- **Two ways out, and practise is the primary.** *Save and add another* keeps
+  you here with an empty form; *Save and practise now* files the card and drops
+  you into its deck positioned at it — `startDeck(deck, saved.id)`, the same
+  queue the deck row would start, so Next carries on through the rest of the
+  deck rather than ending on arrival. A card saved and never drilled is where
+  this app leaks, so the drill is the green one.
+- **`library.add` returns the phrase it saved.** That is the whole of what
+  "practise now" needed; nothing else reads the return value, so it is additive.
+
 ### The Add review says the card out loud, and can be sent back
 
 A generated card used to be checkable only by reading it. The review panel now
@@ -1066,7 +1093,14 @@ drillable still finds that deck in the list and isn't refiled by saving. The Add
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
-`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. For About me, with `/interview` and `/about-cards` stubbed:
+`#undo-complete` restoring the raw inputs and re-hiding `#card-preview`. Its
+order is worth asserting on directly: the review card's children are the
+preview line, `#review-note`, `.regen-hint`, the two fields, `#result-replies`
+and the button row, in that order, with `#try-again` and `#undo-complete` both
+inside the hint. `#save-another` leaves you on Add with an empty form and the
+card in `xerra.phrases`; `#save-practise` puts `.drill-text` on screen showing
+the card just made, with a progress pill counting its whole deck rather than
+`1/1`. For About me, with `/interview` and `/about-cards` stubbed:
 `[data-about]` is on the deck list before the deck exists and absent entirely
 with no assistant configured, opening it fires one `/interview` call by itself
 and puts the question in `.chat-msg.assistant`, `#about-make` is disabled until
