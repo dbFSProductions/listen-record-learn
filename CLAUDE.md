@@ -186,11 +186,25 @@ every deck with its card count and can delete one outright.
   cards from is a deck you empty from the phrase sheet. Seed phrases deleted
   this way stay deleted — `installNewSeedContent` skips anything already in
   `xerra.seeded` — so the deck doesn't quietly reappear on the next load.
-- **The confirm is two taps on the row itself**, the same armed pattern as
-  About me's reset, and the count line becomes the warning while it is armed
-  ("Deletes 15 cards and 3 recordings. This can't be undone."). Arming a second
-  row disarms the first for free, because the armed state is *rendered* rather
-  than poked into the button.
+- **Nothing in the list is destructive, and that is the second try.** It was a
+  Delete on every row, armed by a first tap: a dozen live delete buttons on a
+  settings page, each of which you had to read to find out what it would take
+  with it. Reported as frightening, which is the right response to it. Now a
+  row only *selects*, one at a time; the one button that can destroy anything
+  is under the list, disabled until something is picked and naming the deck it
+  would delete; and the last step is `confirmDeleteDeck`, a sheet that counts
+  the cards and recordings out loud and puts Cancel beside Delete. Tapping the
+  picked row again puts the choice down, so the button can always be disarmed
+  without deleting anything.
+- **The tick and the button are painted from one variable.** `paint()` sets
+  `selected`, redraws the rows and relabels the button in the same pass — two
+  places setting them separately is how a button ends up offering to delete a
+  deck nothing is pointing at. It also re-checks the name against the list, so
+  a just-deleted deck can't leave the button armed.
+- **`.btn-danger-solid` is the only filled red button in the app**, and it is
+  reserved for the tap that actually destroys something. `.btn-danger` — red
+  lettering on a plain button — is for the ones that only *lead* to that
+  question.
 - **Names are validated in one place**, `deckNameProblem` in app.js, because
   the app already spends three strings in deck-key space: `*` is shuffle-all,
   `★` is the star pile and `family:` prefixes a whole family. A deck actually
@@ -1026,9 +1040,12 @@ survive Next and coming back without a second call. For the decks: `#add-new-dec
 genuinely hidden before that — `display: flex` beats `hidden`), a created name
 lands selected in `#add-deck` and appears exactly once, `family:Castells` and a
 name already taken are both refused with a toast, the new deck is absent from
-Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, one tap
-on its Delete arms the row and deletes nothing, arming a second row disarms the
-first, the second tap removes the deck and its phrases from `xerra.phrases`,
+Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, no row carries a
+delete of its own, `#deck-delete` is disabled until a row is picked and then
+names it, picking a second row unpicks the first, tapping the picked row again
+disables the button, `#deck-delete-yes` only appears behind the confirm sheet,
+Cancel leaves `xerra.phrases` untouched with the deck still picked, Delete
+removes the deck and its phrases and puts the button back to *Delete a deck*,
 and the names survive a reload and an export/import round trip while a backup
 with no `decks` key still imports. For moving a card: `#p-deck` on the phrase
 sheet opens on the card's own deck, changing it rewrites `phrase.deck` in
@@ -1090,7 +1107,8 @@ the parser losing a block to a formatting change.
   Settings. Phrases was merged into Practice. Deck rows accordion open to the
   cards inside them and carry no score of their own.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
-  in them (Settings → Decks, two taps). A made deck is a name in `customDecks`
+  in them (Settings → Decks: pick a row, then one Delete button, then a confirm
+  sheet). A made deck is a name in `customDecks`
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.

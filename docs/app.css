@@ -343,6 +343,18 @@ button { font: inherit; }
 .btn-row .btn { flex: 1; }
 .btn-danger { color: var(--red); }
 
+/* The one button that actually destroys something on the next tap wears the
+   colour instead of just lettering it — a red word on a white button reads as
+   a link, and this is the last thing between you and a deleted deck. Same
+   slab-and-press shape as the primary. */
+.btn-danger-solid {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--red-dark);
+}
+.btn-danger-solid:active { box-shadow: none; }
+
 
 .link { background: none; border: 0; color: var(--phrases-ink); font-weight: 800; cursor: pointer; padding: 6px; }
 /* A destructive link asks for `.btn-danger` in its class list, but that rule is
@@ -746,10 +758,15 @@ select {
 .new-deck .btn { flex: none; padding-left: 16px; padding-right: 16px; }
 .field .new-deck { margin-top: 9px; }
 
-/* Manage decks. The count line turns into the warning when a delete is armed,
-   so it has to stop looking like a quiet subtitle. */
+/* Manage decks. Nothing in the list destroys anything — a row picks a deck and
+   nothing else, so it is styled as a choice (a tick and the page's own tint)
+   rather than as a row with a live delete on it. */
 .deck-rows { margin-top: 12px; }
-.row-warn { color: var(--red); font-weight: 700; }
+.deck-pick[aria-pressed="true"] { background: var(--sec-soft); }
+.deck-pick .pick { flex: none; width: 18px; text-align: center; color: var(--sec-ink); font-weight: 800; }
+/* The deck being deleted, at the top of the question. It is the one word that
+   decides whether the answer is yes, so it is not set as body text. */
+.confirm-deck { font-size: 1.15rem; font-weight: 800; margin: 0 0 12px; overflow-wrap: anywhere; }
 
 textarea { min-height: 74px; resize: none; overflow: hidden; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }

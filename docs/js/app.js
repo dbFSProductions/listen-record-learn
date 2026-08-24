@@ -2725,7 +2725,17 @@ function wireEditorAI(phrase, language) {
 
    Nothing new is stored on a card. A deck made here is a remembered name and
    nothing more (`customDecks` in store.js), so a card filed in it is an
-   ordinary card and every list downstream carries on reading `phrase.deck`. */
+   ordinary card and every list downstream carries on reading `phrase.deck`.
+
+   **Nothing in the list is destructive**, and that is the second try at this.
+   It was a Delete on every row, armed by a first tap — which put a dozen live
+   delete buttons on a settings page and made you read each one to work out
+   what it would take with it. Reported as frightening, which is the right
+   response to it. So the rows only *select* now, one at a time; the single
+   button that can destroy anything sits under the list, greyed out until you
+   have picked something and naming the deck it would delete; and the last
+   step is a question with a Cancel beside it, not another tap on the control
+   that started it. */
 function deckManagerPanel() {
   return `
     <div class="section-label">Decks</div>
@@ -2736,47 +2746,46 @@ function deckManagerPanel() {
         <button class="btn" id="s-new-deck-save" type="button">Create</button>
       </div>
       <div class="rows deck-rows" id="deck-rows">${deckManagerRows(null)}</div>
+      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:12px" disabled>
+        Delete a deck
+      </button>
       <p class="tiny muted" style="margin:10px 0 0">
         A new deck is a name waiting for cards — pick it on the Add tab and it appears on Practice
-        once something is in it. Deleting a deck deletes its cards, their scores and their recordings
-        too, and none of that can be undone, so export first if you're not sure.
+        once something is in it. To delete one, choose it above; you'll be asked to confirm, and its
+        cards, scores and recordings go with it.
       </p>
     </div>`;
 }
 
-/* The rows, with at most one delete armed. Rendering the armed state rather
-   than mutating the button is what keeps "only one at a time" true for free:
-   arming a second row repaints the first back to rest. */
-function deckManagerRows(armed) {
+/** What a deck holds — for the row, the button and the question. */
+function deckContents(deck) {
+  const cards = library.forLanguage(settings.language).filter((p) => p.deck === deck);
+  const recordings = cards.reduce((total, p) => total + library.attemptsFor(p.id).length, 0);
+  return { cards: cards.length, recordings };
+}
+
+function deckManagerRows(selected) {
   const decks = library.deckNames(settings.language);
   if (!decks.length)
     return `<div class="row"><span class="row-main"><span class="row-sub">No decks yet.</span></span></div>`;
 
   return decks
     .map((deck) => {
-      const cards = library.forLanguage(settings.language).filter((p) => p.deck === deck);
-      const recordings = cards.reduce((total, p) => total + library.attemptsFor(p.id).length, 0);
-      const count = cards.length
-        ? `${cards.length} card${cards.length === 1 ? "" : "s"}${
+      const { cards, recordings } = deckContents(deck);
+      const count = cards
+        ? `${cards} card${cards === 1 ? "" : "s"}${
             recordings ? ` · ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
           }`
         : "Empty — nothing filed here yet";
-      const warning = cards.length
-        ? `Deletes ${cards.length} card${cards.length === 1 ? "" : "s"}${
-            recordings ? ` and ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
-          }. This can't be undone.`
-        : "Nothing is filed here, so only the name goes.";
-      const isArmed = deck === armed;
+      const on = deck === selected;
       return `
-        <div class="row">
+        <button class="row deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
           <span class="row-main">
             <span class="row-title">${esc(deck)}</span>
-            <span class="row-sub${isArmed ? " row-warn" : ""}">${esc(isArmed ? warning : count)}</span>
+            <span class="row-sub">${esc(count)}</span>
           </span>
-          <button class="link btn-danger" data-deck-delete="${esc(deck)}">${
-            isArmed ? "Delete for good" : "Delete"
-          }</button>
-        </div>`;
+          <span class="pick">${on ? "✓" : ""}</span>
+        </button>`;
     })
     .join("");
 }
@@ -2784,9 +2793,8 @@ function deckManagerRows(armed) {
 function wireDeckManager() {
   const rows = document.getElementById("deck-rows");
   const input = document.getElementById("s-new-deck");
-  let armed = null;
-  let disarm = null;
-  let deleting = false;
+  const deleteButton = document.getElementById("deck-delete");
+  let selected = null;
 
   document.getElementById("s-new-deck-save").addEventListener("click", create);
   input.addEventListener("keydown", (event) => {
@@ -2794,6 +2802,7 @@ function wireDeckManager() {
     event.preventDefault();
     create();
   });
+  deleteButton.addEventListener("click", () => selected && confirmDeleteDeck(selected, paint));
   wireRows();
 
   function create() {
@@ -2809,47 +2818,77 @@ function wireDeckManager() {
     toast(`Deck "${name}" created. Choose it on the Add tab.`);
   }
 
-  function paint(next) {
-    clearTimeout(disarm);
-    armed = next;
-    rows.innerHTML = deckManagerRows(armed);
+  /* One repaint for both halves: the tick in the list and the button under it
+     are two views of one choice, and letting them be set separately is how a
+     button ends up offering to delete a deck nothing is pointing at. The name
+     is re-checked against the list each time, so a deck that has just been
+     deleted can't leave the button armed. */
+  function paint(next = null) {
+    selected = next && library.deckNames(settings.language).includes(next) ? next : null;
+    rows.innerHTML = deckManagerRows(selected);
     wireRows();
-    // An armed delete that is walked away from must not still be armed when
-    // the page is come back to.
-    if (armed) disarm = setTimeout(() => paint(null), 5000);
+    deleteButton.disabled = !selected;
+    deleteButton.textContent = selected ? `Delete "${selected}"` : "Delete a deck";
   }
 
   function wireRows() {
-    rows.querySelectorAll("[data-deck-delete]").forEach((button) =>
-      button.addEventListener("click", async () => {
-        const deck = button.dataset.deckDelete;
-        if (deck !== armed) {
-          paint(deck);
-          return;
-        }
-        if (deleting) return;
-        deleting = true;
-        clearTimeout(disarm);
-        button.textContent = "Deleting…";
-        const gone = await library.deleteDeck(deck, settings.language);
-        /* The drill could be holding a queue of cards that have just stopped
-           existing, and it survives a tab switch. Send it back to the deck
-           list rather than let it render phrases that are gone. */
-        if (state.deck) {
-          state.deck = null;
-          state.queue = [];
-          state.index = 0;
-        }
-        deleting = false;
-        paint(null);
-        toast(
-          gone.cards
-            ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
-            : `Deleted "${deck}".`
-        );
-      })
+    rows.querySelectorAll("[data-deck-pick]").forEach((button) =>
+      // Tapping the deck you already picked puts the choice down again, so
+      // there is always a way to disarm the button without deleting anything.
+      button.addEventListener("click", () =>
+        paint(button.dataset.deckPick === selected ? null : button.dataset.deckPick)
+      )
     );
   }
+}
+
+/* The question, with a Cancel beside it. Deliberately a sheet rather than a
+   second tap on the button that opened it: the two answers have to look
+   different from one another, and the destructive one has to say what it is
+   about to destroy in numbers rather than in "are you sure?". */
+function confirmDeleteDeck(deck, onDone) {
+  const { cards, recordings } = deckContents(deck);
+  openSheet(
+    "Delete this deck?",
+    `<p class="confirm-deck">${esc(deck)}</p>
+     <div class="notice bad">
+       ${
+         cards
+           ? `This deletes the deck and the ${cards} card${cards === 1 ? "" : "s"} in it${
+               recordings
+                 ? `, along with ${recordings} recording${recordings === 1 ? "" : "s"} and their scores`
+                 : ""
+             }. It can't be undone.`
+           : "Nothing is filed in this deck, so only the name goes."
+       }
+     </div>
+     <div class="btn-row">
+       <button class="btn" data-close-sheet>Cancel</button>
+       <button class="btn btn-danger-solid" id="deck-delete-yes">Delete</button>
+     </div>`
+  );
+
+  document.getElementById("deck-delete-yes").onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Deleting…`;
+    const gone = await library.deleteDeck(deck, settings.language);
+    /* The drill could be holding a queue of cards that have just stopped
+       existing, and it survives a tab switch. Send it back to the deck list
+       rather than let it render phrases that are gone. */
+    if (state.deck) {
+      state.deck = null;
+      state.queue = [];
+      state.index = 0;
+    }
+    closeSheet();
+    toast(
+      gone.cards
+        ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
+        : `Deleted "${deck}".`
+    );
+    onDone(null);
+  };
 }
 
 
