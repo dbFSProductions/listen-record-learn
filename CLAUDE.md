@@ -207,6 +207,37 @@ Deb-o-lingo has none of this: its decks are course content, so there is nothing
 to make or unmake. The `.new-deck` row and the select styling below would port,
 the rest wouldn't.
 
+### One deck field, and a card that can be refiled
+
+`deckField` / `wireDeckField` in app.js is the whole of "which deck does this
+card belong in", and all three places that ask now ask with it: the Add tab,
+the edit sheet, and the phrase sheet.
+
+- **The editor's deck box used to be free text with a datalist.** Moving a card
+  meant typing the deck's name exactly, on a phone, with iOS's patchy datalist
+  support as the only hint — so in practice cards never moved. A select can't
+  be misspelled.
+- **The phrase sheet carries the field itself, not a Move button behind Edit.**
+  It is also the only place that says which deck a card is *in*, and "where is
+  this?" and "put it somewhere else" are the same question. It moves on the
+  `change` — a move is undone by moving back, which is not true of anything
+  else in that sheet, so there is nothing to confirm.
+- **A deck created from the field is selected and the select is told so with a
+  real `change` event.** A value set from script doesn't fire one, and the
+  phrase sheet moves the card on exactly that event — so without the dispatch,
+  making a deck from the sheet would file nothing in it. Add and the editor
+  have no change listener, so it costs them nothing.
+- **`library.moveToDeck` mutates in place**, like `keepNote`, `setReplies` and
+  `toggleFavourite`, and for the same reason: `update` replaces the object and
+  the drill is holding a reference to it in `state.queue`.
+- **`selected` is always among the options**, even when nothing else offers it.
+  `deckNames()` is built from *drillable* phrases, so a deck holding nothing
+  but jotted-down captures isn't in it — and a field that silently dropped the
+  card's own deck would refile it on save.
+
+Deb-o-lingo's editor keeps its text box: its decks are course content, so there
+is no deck to make and nothing to refile into.
+
 ### Selects are drawn by us now
 
 `appearance: none` plus a background-image chevron on every `<select>`, because
@@ -999,7 +1030,12 @@ Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, one tap
 on its Delete arms the row and deletes nothing, arming a second row disarms the
 first, the second tap removes the deck and its phrases from `xerra.phrases`,
 and the names survive a reload and an export/import round trip while a backup
-with no `decks` key still imports. The Add review can be driven with the assistant stubbed —
+with no `decks` key still imports. For moving a card: `#p-deck` on the phrase
+sheet opens on the card's own deck, changing it rewrites `phrase.deck` in
+`xerra.phrases` and drops the old deck's count by one, making a deck from
+inside the sheet takes the card with it, `#f-deck` is a `select` that opens on
+the card's deck and moves it on Save, and a capture whose deck holds nothing
+drillable still finds that deck in the list and isn't refiled by saving. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
@@ -1055,7 +1091,9 @@ the parser losing a block to a formatting change.
   cards inside them and carry no score of their own.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks, two taps). A made deck is a name in `customDecks`
-  and nothing more, and it stays off Practice until a card is filed in it.
+  and nothing more, and it stays off Practice until a card is filed in it. A
+  card is refiled from the deck select on its own phrase sheet, or in the
+  editor — `deckField` is the one control, in all three places.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself

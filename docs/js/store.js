@@ -446,6 +446,18 @@ export const library = {
     return replies;
   },
 
+  /* Refile a card. Mutated in place for the same reason the note, the star and
+     the replies are: `update` replaces the object and the drill is holding a
+     reference to it in `state.queue`, so the card you moved would carry on
+     saying it lived in the old deck until the queue was rebuilt. */
+  moveToDeck(phraseID, deck) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase || !deck || phrase.deck === deck) return false;
+    phrase.deck = deck;
+    this.savePhrases();
+    return true;
+  },
+
   toggleFavourite(phraseID) {
     const phrase = this.phrases.find((p) => p.id === phraseID);
     if (!phrase) return false;

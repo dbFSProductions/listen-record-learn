@@ -132,6 +132,79 @@ function deckNameProblem(name) {
   return null;
 }
 
+/* The deck field, and the one place a card's deck is chosen.
+
+   The Add tab, the edit sheet and the phrase sheet all ask the same question —
+   which deck does this card belong in — so they ask it with the same control.
+   The editor used to ask it with a free-text box and a datalist, which made
+   moving a card to another deck a matter of typing the name exactly, on a
+   phone, with iOS's patchy datalist support as the only hint. A select can't
+   be misspelled, and it is also how you find out where the card is now.
+
+   `selected` is always among the options even when nothing else offers it: a
+   capture has no text, `deckNames()` is built from drillable phrases, so a
+   deck holding nothing but jotted-down lines is missing from the list — and a
+   field that quietly dropped the card's own deck would move it on save. */
+function deckOptions(selected) {
+  const decks = [...new Set([MY_PHRASES, ...library.deckNames(settings.language), ...(selected ? [selected] : [])])];
+  return decks
+    .map((deck) => `<option value="${esc(deck)}" ${deck === selected ? "selected" : ""}>${esc(deck)}</option>`)
+    .join("");
+}
+
+function deckField(id, selected) {
+  return `
+    <div class="field">
+      <div class="field-head">
+        <label for="${id}">Deck</label>
+        <button class="link" data-new-deck="${id}" type="button">New deck</button>
+      </div>
+      <select id="${id}" class="deck-select">${deckOptions(selected)}</select>
+      <div class="new-deck" data-new-deck-box="${id}" hidden>
+        <input type="text" data-new-deck-name="${id}" placeholder="Deck name" autocomplete="off"
+               enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
+        <button class="btn" data-new-deck-save="${id}" type="button">Create</button>
+      </div>
+    </div>`;
+}
+
+/* A deck made here is selected straight away, and the select is told so with a
+   real `change` event — the phrase sheet moves the card on that event, and a
+   value set from script doesn't fire one. The Add tab and the editor have no
+   change listener, so it costs them nothing. */
+function wireDeckField(id) {
+  const select = document.getElementById(id);
+  const box = document.querySelector(`[data-new-deck-box="${id}"]`);
+  const name = document.querySelector(`[data-new-deck-name="${id}"]`);
+
+  document.querySelector(`[data-new-deck="${id}"]`).addEventListener("click", () => {
+    box.hidden = !box.hidden;
+    if (!box.hidden) name.focus();
+  });
+  document.querySelector(`[data-new-deck-save="${id}"]`).addEventListener("click", create);
+  name.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    create();
+  });
+
+  function create() {
+    const deck = name.value.trim();
+    const problem = deckNameProblem(deck);
+    if (problem) {
+      toast(problem);
+      return;
+    }
+    customDecks.add(deck, settings.language);
+    select.innerHTML = deckOptions(deck);
+    select.value = deck;
+    name.value = "";
+    box.hidden = true;
+    toast(`Deck "${deck}" created.`);
+    select.dispatchEvent(new Event("change"));
+  }
+}
+
 const STAR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`;
 
 function starButton(phrase, className = "star") {
@@ -1847,6 +1920,7 @@ function showPhrase(phrase) {
              } and this one turns into a memory question.`
        }</span>
      </div>
+     ${deckField("p-deck", phrase.deck)}
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
      ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
@@ -1890,6 +1964,22 @@ function showPhrase(phrase) {
      }
      <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
   );
+
+  /* Moving a card is a property of the card, so it is here rather than behind
+     Edit: this is also the only place that says which deck the card is in, and
+     "which deck is this in" and "put it somewhere else" are one question.
+
+     It moves on the change rather than behind a confirm — a move is undone by
+     moving back, which is not true of anything else in this sheet. The write
+     goes through `moveToDeck`, which mutates in place: the drill may be
+     holding this very object in `state.queue`. */
+  wireDeckField("p-deck");
+  document.getElementById("p-deck").addEventListener("change", (event) => {
+    const deck = event.target.value;
+    if (!library.moveToDeck(phrase.id, deck)) return;
+    toast(`Moved to ${deck}.`);
+    render(); // the deck rows behind the sheet have both changed size
+  });
 
   if (settings.hasAssistant) {
     cardChatPanel(document.getElementById("p-chat"), "Ask about this phrase", () => chatContext(phrase), {
@@ -2032,7 +2122,6 @@ function normaliseSentence(value) {
 
 function renderAdd() {
   const language = LANGUAGES[settings.language];
-  const decks = [...new Set([MY_PHRASES, ...library.deckNames(settings.language)])];
   /* Not a form field, so it lives here rather than in the DOM: whatever the
      last completion returned, saved with the card and replaced by the next
      "Try again". The token guards against a slow reply landing after you've
@@ -2063,20 +2152,7 @@ function renderAdd() {
       <div class="language-divider"><span>or</span></div>
       ${composerField("add-english", "English", "en-GB", true)}
 
-      <div class="field">
-        <div class="field-head">
-          <label for="add-deck">Deck</label>
-          <button class="link" id="add-new-deck" type="button">New deck</button>
-        </div>
-        <select id="add-deck" class="deck-select">
-          ${decks.map((deck) => `<option value="${esc(deck)}">${esc(deck)}</option>`).join("")}
-        </select>
-        <div class="new-deck" id="new-deck" hidden>
-          <input type="text" id="new-deck-name" placeholder="Deck name" autocomplete="off"
-                 enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
-          <button class="btn" id="new-deck-save" type="button">Create</button>
-        </div>
-      </div>
+      ${deckField("add-deck", MY_PHRASES)}
 
       <button class="btn btn-primary add-complete" id="complete-card">Complete card with AI</button>
       <div id="add-error" class="notice bad" hidden></div>
@@ -2118,40 +2194,8 @@ function renderAdd() {
   });
 
   /* Making a deck from here rather than only from Settings, because the moment
-     you want one is the moment you are filing a card and none of the names fit.
-     The select stays the field of record — everything downstream reads
-     `#add-deck`'s value — so a new name is added to the options and selected
-     rather than replacing the control with a text box. */
-  const newDeck = document.getElementById("new-deck");
-  const newDeckName = document.getElementById("new-deck-name");
-  const deckSelect = document.getElementById("add-deck");
-  document.getElementById("add-new-deck").addEventListener("click", () => {
-    newDeck.hidden = !newDeck.hidden;
-    if (!newDeck.hidden) newDeckName.focus();
-  });
-  document.getElementById("new-deck-save").addEventListener("click", createDeck);
-  newDeckName.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    createDeck();
-  });
-
-  function createDeck() {
-    const name = newDeckName.value.trim();
-    const problem = deckNameProblem(name);
-    if (problem) {
-      toast(problem);
-      return;
-    }
-    customDecks.add(name, settings.language);
-    deckSelect.innerHTML = [...new Set([MY_PHRASES, ...library.deckNames(settings.language)])]
-      .map((deck) => `<option value="${esc(deck)}">${esc(deck)}</option>`)
-      .join("");
-    deckSelect.value = name;
-    newDeckName.value = "";
-    newDeck.hidden = true;
-    toast(`Deck "${name}" created. Cards you save go into it.`);
-  }
+     you want one is the moment you are filing a card and none of the names fit. */
+  wireDeckField("add-deck");
 
   const completeButton = document.getElementById("complete-card");
   const tryAgain = document.getElementById("try-again");
@@ -2506,9 +2550,6 @@ function composerField(id, label, locale, required = false) {
 }
 
 function editPhrase(phrase, onSaved = null) {
-  // Every deck you could file it in, empty ones included — the datalist is the
-  // same offer the Add tab's select makes.
-  const decks = library.deckNames(settings.language);
   const language = LANGUAGES[settings.language];
   openSheet(
     phrase ? "Edit phrase" : "New phrase",
@@ -2516,9 +2557,7 @@ function editPhrase(phrase, onSaved = null) {
        <textarea id="f-text">${esc(phrase?.text ?? "")}</textarea></label>
      <label class="field"><span>English</span>
        <textarea id="f-translation">${esc(phrase?.translation ?? "")}</textarea></label>
-     <label class="field"><span>Deck</span>
-       <input type="text" id="f-deck" list="deck-list" value="${esc(phrase?.deck ?? decks[0] ?? MY_PHRASES)}">
-       <datalist id="deck-list">${decks.map((d) => `<option value="${esc(d)}">`).join("")}</datalist></label>
+     ${deckField("f-deck", phrase?.deck ?? MY_PHRASES)}
      <label class="field"><span>Situation (optional)</span>
        <textarea id="f-situation">${esc(phrase?.situation ?? "")}</textarea></label>
      <label class="field"><span>How it's used (optional)</span>
@@ -2540,6 +2579,8 @@ function editPhrase(phrase, onSaved = null) {
      ${phrase ? `<button class="btn btn-danger" id="f-delete" style="width:100%;margin-top:10px">Delete phrase</button>` : ""}`
   );
 
+  wireDeckField("f-deck");
+
   // Holds the replies a rebuild produced, so Save can carry them across.
   const rebuild = wireEditorAI(phrase, language);
 
@@ -2553,7 +2594,7 @@ function editPhrase(phrase, onSaved = null) {
     const data = {
       text,
       translation,
-      deck: document.getElementById("f-deck").value.trim() || MY_PHRASES,
+      deck: document.getElementById("f-deck").value,
       situation: document.getElementById("f-situation").value.trim() || null,
       usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,

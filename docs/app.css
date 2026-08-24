@@ -744,7 +744,7 @@ select {
 .new-deck[hidden] { display: none; }
 .new-deck input[type="text"] { flex: 1; min-width: 0; }
 .new-deck .btn { flex: none; padding-left: 16px; padding-right: 16px; }
-#new-deck { margin-top: 9px; }
+.field .new-deck { margin-top: 9px; }
 
 /* Manage decks. The count line turns into the warning when a delete is armed,
    so it has to stop looking like a quiet subtitle. */
