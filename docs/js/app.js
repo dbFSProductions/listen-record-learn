@@ -152,16 +152,21 @@ function deckOptions(selected) {
     .join("");
 }
 
+/* Read top to bottom: the deck, then the way out of the list if none of it
+   fits, then the box that way opens. The "or" is the whole of it — the offer
+   to make a deck used to sit up beside the label, above the control it is an
+   alternative to, where it read as a second thing to do rather than as the
+   other answer to the same question. */
 function deckField(id, selected) {
   return `
     <div class="field">
       <div class="field-head">
         <label for="${id}">Deck</label>
-        <button class="link" data-new-deck="${id}" type="button">New deck</button>
       </div>
       <select id="${id}" class="deck-select">${deckOptions(selected)}</select>
+      <button class="link new-deck-toggle" data-new-deck="${id}" type="button">Or create a new deck</button>
       <div class="new-deck" data-new-deck-box="${id}" hidden>
-        <input type="text" data-new-deck-name="${id}" placeholder="Deck name" autocomplete="off"
+        <input type="text" data-new-deck-name="${id}" placeholder="Name the new deck" autocomplete="off"
                enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
         <button class="btn" data-new-deck-save="${id}" type="button">Create</button>
       </div>
@@ -177,16 +182,23 @@ function wireDeckField(id) {
   const box = document.querySelector(`[data-new-deck-box="${id}"]`);
   const name = document.querySelector(`[data-new-deck-name="${id}"]`);
 
-  document.querySelector(`[data-new-deck="${id}"]`).addEventListener("click", () => {
-    box.hidden = !box.hidden;
-    if (!box.hidden) name.focus();
-  });
+  const toggle = document.querySelector(`[data-new-deck="${id}"]`);
+  toggle.addEventListener("click", () => reveal(box.hidden));
   document.querySelector(`[data-new-deck-save="${id}"]`).addEventListener("click", create);
   name.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     create();
   });
+
+  /* The link is the way in and the way back out — open, it says Cancel, so
+     the box can't be a thing you have opened and can't put away again. */
+  function reveal(open) {
+    box.hidden = !open;
+    toggle.textContent = open ? "Cancel" : "Or create a new deck";
+    if (open) name.focus();
+    else name.value = "";
+  }
 
   function create() {
     const deck = name.value.trim();
@@ -198,8 +210,7 @@ function wireDeckField(id) {
     customDecks.add(deck, settings.language);
     select.innerHTML = deckOptions(deck);
     select.value = deck;
-    name.value = "";
-    box.hidden = true;
+    reveal(false);
     toast(`Deck "${deck}" created.`);
     select.dispatchEvent(new Event("change"));
   }

@@ -757,6 +757,10 @@ select {
 .new-deck input[type="text"] { flex: 1; min-width: 0; }
 .new-deck .btn { flex: none; padding-left: 16px; padding-right: 16px; }
 .field .new-deck { margin-top: 9px; }
+/* The other answer to "which deck?", so it sits under the select rather than
+   up beside the label, and left-aligned with the control it is an alternative
+   to rather than tucked into a corner. */
+.new-deck-toggle { display: block; margin-top: 4px; padding: 4px 2px; font-size: 0.85rem; }
 
 /* Manage decks. Nothing in the list destroys anything — a row picks a deck and
    nothing else, so it is styled as a choice (a tick and the page's own tint)

@@ -244,6 +244,13 @@ the edit sheet, and the phrase sheet.
 - **`library.moveToDeck` mutates in place**, like `keepNote`, `setReplies` and
   `toggleFavourite`, and for the same reason: `update` replaces the object and
   the drill is holding a reference to it in `state.queue`.
+- **The field reads top to bottom, and the "or" is the whole of it.** Deck,
+  then the select, then *Or create a new deck*, then the box that link opens.
+  The offer used to sit up beside the label, above the control it is an
+  alternative to, where it read as a second thing to do rather than as the
+  other answer to the same question. Open, the link says *Cancel* — a box you
+  can open and not put away again is the same dead end one level down — and
+  cancelling clears what was typed, so reopening it is a fresh start.
 - **`selected` is always among the options**, even when nothing else offers it.
   `deckNames()` is built from *drillable* phrases, so a deck holding nothing
   but jotted-down captures isn't in it — and a field that silently dropped the
@@ -1036,9 +1043,12 @@ the phrase sheet removes it. With `/replies` stubbed: `#drill-get-replies` is
 offered on a card without them and absent while a level-two question stands, a
 503 puts the button back enabled, an empty list removes it with a note, and a
 successful fetch paints `.drill-replies` with working `[data-say]` buttons that
-survive Next and coming back without a second call. For the decks: `#add-new-deck` reveals `#new-deck` (and it is
-genuinely hidden before that — `display: flex` beats `hidden`), a created name
-lands selected in `#add-deck` and appears exactly once, `family:Castells` and a
+survive Next and coming back without a second call. For the decks: the deck field's children are the label, the
+select, the toggle and then the box, in that order; `[data-new-deck="add-deck"]`
+reveals `[data-new-deck-box="add-deck"]` (and it is genuinely hidden before
+that — `display: flex` beats `hidden`), the link flips to *Cancel* and back,
+cancelling empties the name box, a created name lands selected in `#add-deck`
+and appears exactly once, `family:Castells` and a
 name already taken are both refused with a toast, the new deck is absent from
 Practice until a card is filed in it, `#deck-rows` lists it as *Empty*, no row carries a
 delete of its own, `#deck-delete` is disabled until a row is picked and then
