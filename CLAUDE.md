@@ -1063,6 +1063,29 @@ backup the user has.
 
 ---
 
+## Three languages, and two of them start empty
+
+`LANGUAGES` in store.js is the whole of it: a locale key, the two names and the
+Azure voices. Catalan is the one with content; Spanish (Spain) and Italian are
+wired up on identical terms and start as an empty library you fill from the Add
+tab. Adding another is that one entry and nothing else — the picker in Settings
+is built from `Object.entries(LANGUAGES)`, the voice list and the default voice
+follow it, every list already filters on `phrase.language`, and the card
+assistant sends `languageCode` / `languageName` per request, so **the Worker
+needs no change and neither does Deb-o-lingo.** `installNewSeedContent` writes
+`ca-ES` and only `ca-ES`, which is what keeps the other two empty.
+
+Two things to check when adding one: that Azure has neural voices for the
+locale (`gender` is only a label here — the id is what is sent), and that it is
+on Azure's Pronunciation Assessment list, or scoring degrades to the no-key
+path while TTS carries on working.
+
+`Xerra/Models/Language.swift` is the Swift twin and carries the same three,
+plus a `flag` the web app has no use for. It can't be deployed, but it is the
+reference implementation — keep the list in step.
+
+---
+
 ## Checking a change actually works
 
 There's no test runner, but the app can be driven headlessly, which beats
