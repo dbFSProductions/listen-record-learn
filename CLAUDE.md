@@ -655,7 +655,32 @@ model audio is cached by text, so the fixed phrase has to go back into
 `state.queue` and be reloaded — a re-render alone would keep the old text's
 audio.
 
-Deb-o-lingo has both in the same shape. Keep them in step.
+### Deleting reaches the drill, for the same reason
+
+The queue holds the phrase *objects*, not their ids, so `library.remove` on its
+own takes the card out of the library and leaves the drill showing it — with
+the progress pill still counting it. Reported as **"delete phrase has stopped
+working"**, which is exactly what it looks like: the sheet closes, the card is
+gone from `xerra.phrases`, and there it still is on the screen. The editor's
+Delete is the drill's delete, because the drill's Edit button is what opens the
+editor.
+
+`deletePhrase(phrase)` is the one delete now — the phrase sheet's armed button
+and the editor's both call it — and `dropFromQueue` is the part that reaches
+the drill. The card you are looking at stays the card you are looking at: the
+index follows the current phrase to its new position and only moves when the
+current phrase is the one deleted, in which case the next card slides into its
+place. An emptied queue leaves the drill rather than sitting on "Nothing to
+drill."
+
+Worth asserting: deleting from the drill's Edit moves `.drill-text` on and
+takes one off the pill (`1/15` → `1/14`), deleting the only card in a deck puts
+`#practice-list` back with that deck gone, and the sheet's delete from a search
+result still takes two taps. Reverting `dropFromQueue` fails four of those.
+
+Deb-o-lingo and Mum-o-lingo have both in the same shape, delete included — the
+same defect was there, since the lesson holds decorated copies in `lesson.queue`
+for the same reason. Keep them in step.
 
 ## Content is generated, not edited
 
