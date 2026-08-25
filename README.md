@@ -3,8 +3,10 @@
 A Catalan pronunciation trainer for iPhone. Hear a native model, record yourself,
 and see exactly where the two differ — waveform, intonation, and a per-word score.
 
-Built around Central (Barcelona) Catalan, with Spanish (Spain) wired in from the
-start so switching is a setting rather than a rewrite.
+Built around Central (Barcelona) Catalan, with Spanish (Spain) and Italian wired
+in from the start so switching is a setting rather than a rewrite. Only Catalan
+comes with decks: pick either of the others and you start with an empty library
+and build it from the Add tab.
 
 There are **two builds of the same app**: a web app you install from a URL, and
 a native iOS one. The web app is the one to use.

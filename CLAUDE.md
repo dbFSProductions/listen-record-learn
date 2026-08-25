@@ -655,7 +655,32 @@ model audio is cached by text, so the fixed phrase has to go back into
 `state.queue` and be reloaded — a re-render alone would keep the old text's
 audio.
 
-Deb-o-lingo has both in the same shape. Keep them in step.
+### Deleting reaches the drill, for the same reason
+
+The queue holds the phrase *objects*, not their ids, so `library.remove` on its
+own takes the card out of the library and leaves the drill showing it — with
+the progress pill still counting it. Reported as **"delete phrase has stopped
+working"**, which is exactly what it looks like: the sheet closes, the card is
+gone from `xerra.phrases`, and there it still is on the screen. The editor's
+Delete is the drill's delete, because the drill's Edit button is what opens the
+editor.
+
+`deletePhrase(phrase)` is the one delete now — the phrase sheet's armed button
+and the editor's both call it — and `dropFromQueue` is the part that reaches
+the drill. The card you are looking at stays the card you are looking at: the
+index follows the current phrase to its new position and only moves when the
+current phrase is the one deleted, in which case the next card slides into its
+place. An emptied queue leaves the drill rather than sitting on "Nothing to
+drill."
+
+Worth asserting: deleting from the drill's Edit moves `.drill-text` on and
+takes one off the pill (`1/15` → `1/14`), deleting the only card in a deck puts
+`#practice-list` back with that deck gone, and the sheet's delete from a search
+result still takes two taps. Reverting `dropFromQueue` fails four of those.
+
+Deb-o-lingo and Mum-o-lingo have both in the same shape, delete included — the
+same defect was there, since the lesson holds decorated copies in `lesson.queue`
+for the same reason. Keep them in step.
 
 ## Content is generated, not edited
 
@@ -1035,6 +1060,29 @@ backup the user has.
   list. `library.add` once hardcoded `ca-ES`, so anything added in Spanish mode
   vanished on save with no error. If a phrase disappears, check its `language`
   before assuming the write failed.
+
+---
+
+## Three languages, and two of them start empty
+
+`LANGUAGES` in store.js is the whole of it: a locale key, the two names and the
+Azure voices. Catalan is the one with content; Spanish (Spain) and Italian are
+wired up on identical terms and start as an empty library you fill from the Add
+tab. Adding another is that one entry and nothing else — the picker in Settings
+is built from `Object.entries(LANGUAGES)`, the voice list and the default voice
+follow it, every list already filters on `phrase.language`, and the card
+assistant sends `languageCode` / `languageName` per request, so **the Worker
+needs no change and neither does Deb-o-lingo.** `installNewSeedContent` writes
+`ca-ES` and only `ca-ES`, which is what keeps the other two empty.
+
+Two things to check when adding one: that Azure has neural voices for the
+locale (`gender` is only a label here — the id is what is sent), and that it is
+on Azure's Pronunciation Assessment list, or scoring degrades to the no-key
+path while TTS carries on working.
+
+`Xerra/Models/Language.swift` is the Swift twin and carries the same three,
+plus a `flag` the web app has no use for. It can't be deployed, but it is the
+reference implementation — keep the list in step.
 
 ---
 

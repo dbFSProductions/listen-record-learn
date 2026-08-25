@@ -1,13 +1,16 @@
 import Foundation
 
-/// The languages Xerra can drill. Catalan is the focus; Spanish (Spain) is wired
-/// up from the start so switching later is a settings change, not a rewrite.
+/// The languages Xerra can drill. Catalan is the focus; Spanish (Spain) and
+/// Italian are wired up on the same terms, so switching later is a settings
+/// change rather than a rewrite. Neither carries seed content — `SeedContent`
+/// is Catalan — so each starts as an empty library.
 ///
-/// Both locales are supported by Azure Pronunciation Assessment and by Apple's
-/// on-device `SFSpeechRecognizer`, so every feature works in either language.
+/// Every locale here is supported by Azure Pronunciation Assessment and by
+/// Apple's on-device `SFSpeechRecognizer`, so no feature is lost by switching.
 enum Language: String, Codable, CaseIterable, Identifiable, Hashable {
     case catalan = "ca-ES"
     case spanish = "es-ES"
+    case italian = "it-IT"
 
     var id: String { rawValue }
 
@@ -18,6 +21,7 @@ enum Language: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .catalan: "Català"
         case .spanish: "Español (España)"
+        case .italian: "Italiano"
         }
     }
 
@@ -25,6 +29,7 @@ enum Language: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .catalan: "Catalan"
         case .spanish: "Spanish (Spain)"
+        case .italian: "Italian"
         }
     }
 
@@ -32,6 +37,7 @@ enum Language: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .catalan: "🎗️"
         case .spanish: "🇪🇸"
+        case .italian: "🇮🇹"
         }
     }
 
@@ -48,6 +54,12 @@ enum Language: String, Codable, CaseIterable, Identifiable, Hashable {
             [
                 AzureVoice(id: "es-ES-ElviraNeural", name: "Elvira", gender: "Female"),
                 AzureVoice(id: "es-ES-AlvaroNeural", name: "Álvaro", gender: "Male"),
+            ]
+        case .italian:
+            [
+                AzureVoice(id: "it-IT-ElsaNeural", name: "Elsa", gender: "Female"),
+                AzureVoice(id: "it-IT-DiegoNeural", name: "Diego", gender: "Male"),
+                AzureVoice(id: "it-IT-IsabellaNeural", name: "Isabella", gender: "Female"),
             ]
         }
     }

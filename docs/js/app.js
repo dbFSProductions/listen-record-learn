@@ -1127,6 +1127,47 @@ function currentPhrase() {
   return state.queue[state.index] ?? null;
 }
 
+/* Deleting a phrase has to reach the drill, because the queue holds the phrase
+   *objects* rather than their ids: `library.remove` takes the card out of the
+   library and leaves the drill showing it, with the pill still counting it, so
+   the tap reads as "Delete phrase has stopped working" — the card is gone from
+   storage and still on the screen in front of you. Both delete buttons come
+   through here.
+
+   The card you are looking at stays the card you are looking at: the index
+   follows the current phrase to its new position, and only moves when the
+   current phrase is the one being deleted, in which case the next card slides
+   into its place. Returns false when there is nothing left to show — an empty
+   queue leaves the drill rather than sitting on "Nothing to drill." */
+function dropFromQueue(phraseID) {
+  const at = state.queue.findIndex((p) => p.id === phraseID);
+  if (at === -1) return false;
+  const current = currentPhrase();
+  state.queue = state.queue.filter((p) => p.id !== phraseID);
+  if (!state.queue.length) {
+    state.deck = null;
+    state.index = 0;
+    return false;
+  }
+  const stayingPut = current && current.id !== phraseID
+    ? state.queue.findIndex((p) => p.id === current.id)
+    : -1;
+  state.index = stayingPut === -1 ? Math.min(at, state.queue.length - 1) : stayingPut;
+  return true;
+}
+
+/* The one delete, shared by the phrase sheet and the editor. */
+async function deletePhrase(phrase) {
+  stopEverything();
+  const drilling = state.tab === "practise" && Boolean(state.deck);
+  await library.remove(phrase.id);
+  const carryOn = dropFromQueue(phrase.id);
+  closeSheet();
+  toast("Phrase deleted.");
+  if (drilling && carryOn) loadPhrase();
+  else render();
+}
+
 async function loadPhrase() {
   const phrase = currentPhrase();
   state.modelBlob = null;
@@ -2085,10 +2126,7 @@ function showPhrase(phrase) {
       deleteButton.textContent = "Tap again to delete phrase and attempts";
       return;
     }
-    await library.remove(phrase.id);
-    closeSheet();
-    toast("Phrase deleted.");
-    render();
+    await deletePhrase(phrase);
   };
 
   sheetBody.querySelectorAll("[data-play]").forEach((button) =>
@@ -2648,11 +2686,10 @@ function editPhrase(phrase, onSaved = null) {
     render();
   };
 
-  document.getElementById("f-delete")?.addEventListener("click", async () => {
-    await library.remove(phrase.id);
-    closeSheet();
-    render();
-  });
+  /* Deleting from the editor is the drill's delete as well — it is what the
+     Edit button in the drill topbar opens — so it goes through the shared one,
+     which takes the card out of the queue on the way. */
+  document.getElementById("f-delete")?.addEventListener("click", () => deletePhrase(phrase));
 }
 
 /* "Rebuild the rest with AI" — the same /complete-card call the Add tab makes,

@@ -764,4 +764,18 @@ export const LANGUAGES = {
       { id: "es-ES-AlvaroNeural", name: "Álvaro", gender: "Male" },
     ],
   },
+  /* Italian is wired up on the same terms as Spanish: a locale, its voices and
+     nothing else. There is no seed content for it — `installNewSeedContent` only
+     ever writes ca-ES — so it starts as an empty library you add cards to, and
+     everything downstream (decks, the assistant, scoring) already reads the
+     language off the phrase. */
+  "it-IT": {
+    name: "Italiano",
+    englishName: "Italian",
+    voices: [
+      { id: "it-IT-ElsaNeural", name: "Elsa", gender: "Female" },
+      { id: "it-IT-DiegoNeural", name: "Diego", gender: "Male" },
+      { id: "it-IT-IsabellaNeural", name: "Isabella", gender: "Female" },
+    ],
+  },
 };
