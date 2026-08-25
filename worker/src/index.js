@@ -361,7 +361,20 @@ async function callModel(env, model, requestBody, deadline, attemptMs = ATTEMPT_
     // 404 means this model ID is gone or was never real — the next one in the
     // chain is exactly the right thing to try, but retrying this one is not.
     if (response.status === 404) throw new TransientError(model, 404, detail);
-    if (response.status !== 429 && response.status < 500) {
+    /* Nor is a 429 worth a second go at the same model. It is not "busy, come
+       back in a moment" — it is a quota window, and the eight seconds this
+       backoff can afford neither clears a per-minute window reliably nor
+       touches a per-day cap. Retrying spends two more requests against the
+       quota that has just refused one, and delays the honest error by the
+       length of the wait. The chain is the retry: the free tier counts per
+       model, so the next model along has an allowance of its own.
+
+       Worth knowing when reading the message on the phone: /interview and
+       /chat lead with the fast model, so a 429 naming GEMINI_MODEL on one of
+       those means the small model was refused first and the chain had already
+       walked on. */
+    if (response.status === 429) throw new TransientError(model, 429, detail);
+    if (response.status < 500) {
       throw new PublicError("Gemini couldn't answer. Try again shortly.", 502);
     }
     if (attempt < ATTEMPTS_PER_MODEL && timeLeft(deadline) > 5_000) {
