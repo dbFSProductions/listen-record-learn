@@ -53,6 +53,12 @@ const state = {
   recall: false,
   revealed: true,
   peeked: false,
+
+  /* Road mode's own reveal, and it is per card rather than per session:
+     `settings.roadMode` says you are practising on the move, this says you
+     have asked to see *this* card anyway. It resets on the next card, so one
+     look doesn't quietly end the mode. */
+  roadRevealed: false,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -1127,6 +1133,14 @@ function currentPhrase() {
   return state.queue[state.index] ?? null;
 }
 
+/* Is the screen bare right now? Two things have to be true: road mode is on,
+   and you haven't asked to see this card anyway. Everything that hides reads
+   this one function, so there is no way for half the drill to think it is on
+   the road and the other half not to. */
+function roadNow() {
+  return settings.roadMode && !state.roadRevealed;
+}
+
 /* Deleting a phrase has to reach the drill, because the queue holds the phrase
    *objects* rather than their ids: `library.remove` takes the card out of the
    library and leaves the drill showing it, with the pill still counting it, so
@@ -1176,9 +1190,15 @@ async function loadPhrase() {
   state.attemptBlob = null;
   state.attemptAnalysis = null;
   state.showTranslation = settings.showTranslationUpFront;
-  state.recall = Boolean(settings.recallMode && phrase && library.recallReady(phrase.id));
+  /* Level two cannot stand in road mode. The question is the translation —
+     text, which road mode has taken off the screen — and the answer is the
+     model audio, which road mode's Listen button plays. So a road-mode card is
+     always drilled listen-and-repeat, whatever the phrase has earned; nothing
+     is written to the phrase, so its question is waiting when the mode is. */
+  state.recall = Boolean(settings.recallMode && !settings.roadMode && phrase && library.recallReady(phrase.id));
   state.revealed = !state.recall;
   state.peeked = false;
+  state.roadRevealed = false;
   scoring.lastError = null;
   if (!phrase) return render();
 
@@ -1209,9 +1229,15 @@ function renderDrill() {
   const hasModel = Boolean(state.modelBlob);
   const attempt = state.attempt;
   const language = LANGUAGES[phrase.language]?.englishName ?? "the language";
+  /* Road mode: the same drill with everything you cannot use without looking
+     taken off it. What is left is the four things you can — Listen, the record
+     button, You and the score — plus the way back to the rest of it. It is one
+     flag read in several places rather than a second renderer, so the drill
+     can't fork into two that then drift apart. */
+  const road = roadNow();
   // Still being asked: the phrase, its notes and the model audio are all
   // withheld, because any of them answers the question.
-  const asking = state.recall && !state.revealed;
+  const asking = state.recall && !state.revealed && !road;
 
   view.innerHTML = `
     <div class="topbar">
@@ -1219,18 +1245,26 @@ function renderDrill() {
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
         ${starButton(phrase, "star drill-star")}
-        <button class="link" id="drill-edit">Edit</button>
+        <button class="road-toggle" id="road-toggle" aria-pressed="${settings.roadMode}"
+                aria-label="${settings.roadMode ? "Leave road mode" : "Road mode"}"
+                title="${settings.roadMode ? "Leave road mode" : "Road mode"}">Road</button>
+        ${
+          /* Edit opens a sheet of text boxes, which is the one thing this mode
+             is for not doing. Revealing brings it back with the card. */
+          road ? "" : `<button class="link" id="drill-edit">Edit</button>`
+        }
       </span>
     </div>
 
     ${
       asking
         ? `<p class="instruction">From memory — how do you say this in ${esc(language)}?</p>`
-        : state.recall && attempt
+        : state.recall && attempt && !road
         ? `<p class="instruction">Here's the phrase — how close were you?</p>`
         : ""
     }
 
+    ${road ? "" : `
     <div class="card">
       ${state.recall ? `<div class="level-badge">Level 2 · from memory</div>` : ""}
       ${
@@ -1254,7 +1288,7 @@ function renderDrill() {
                  : ""
              }`
       }
-    </div>
+    </div>`}
 
     ${
       asking
@@ -1286,22 +1320,39 @@ function renderDrill() {
       }</p>
     </div>
 
-    <div id="comparison">${attempt ? renderComparison() : ""}</div>
+    <div id="comparison">${attempt ? renderComparison(road) : ""}</div>
 
-    ${drillContext(phrase, asking)}
-    ${drillReplies(phrase, asking)}
-    <div id="drill-notes">${drillNotes(phrase, asking)}</div>
+    ${
+      /* The way out, for the card you have just failed twice and want to look
+         at. It sits under the score because that is the moment you want it,
+         and it is the whole card that comes back — text, notes, replies and
+         Edit — for this card only. */
+      road
+        ? `<button class="btn" id="road-reveal" style="width:100%;margin-top:18px">Show the phrase</button>`
+        : settings.roadMode
+        ? `<p class="center" style="margin:14px 0 0"><button class="link" id="road-hide">Hide it again</button></p>`
+        : ""
+    }
+
+    ${road ? "" : drillContext(phrase, asking)}
+    ${road ? "" : drillReplies(phrase, asking)}
+    <div id="drill-notes">${road ? "" : drillNotes(phrase, asking)}</div>
     ${
       /* Asking about the phrase you have just said is half of practising it —
          you get it right, and then want to know why it's `tingui`. The box
          shows nothing until you type, but the answer it fetches is built from
          the card, so it stays out while a level-two question is standing: it
-         would be a way round the question. */
-      settings.hasAssistant && !asking ? `<section id="drill-chat" hidden></section>` : ""
+         would be a way round the question. Road mode takes it too — it is a
+         text box, and it prints the phrase in the answer. */
+      settings.hasAssistant && !asking && !road ? `<section id="drill-chat" hidden></section>` : ""
     }
 
     <div class="btn-row" style="margin-top:18px">
-      <button class="btn" id="history">History</button>
+      ${
+        // History is a sheet full of small print, so road mode leaves it out
+        // and Next takes the whole width — a bigger target for a moving thumb.
+        road ? "" : `<button class="btn" id="history">History</button>`
+      }
       ${
         // The last phrase used to leave a greyed-out Next sitting there looking
         // broken. It's the way back to the list instead.
@@ -1310,6 +1361,8 @@ function renderDrill() {
           : `<button class="btn btn-primary" id="next">Next ›</button>`
       }
     </div>`;
+
+  view.classList.toggle("road", road);
 
   document.getElementById("back").onclick = () => {
     stopEverything();
@@ -1339,12 +1392,44 @@ function renderDrill() {
     state.deck = null;
     render();
   });
-  document.getElementById("history").onclick = () => showHistory(phrase);
+  document.getElementById("history")?.addEventListener("click", () => showHistory(phrase));
+
+  /* One switch, flipped from where you are using it. It writes the setting, so
+     the mode outlives this card, this deck and this reload — you are on the
+     road until you say you aren't.
+
+     Turning it on takes a standing level-two question off the screen with
+     everything else, so the card stops being a question: road mode has to be
+     able to play the model audio, which is the answer. Only before an attempt,
+     though — once you have recorded, the attempt has already been filed as the
+     kind of go it was. */
+  document.getElementById("road-toggle").addEventListener("click", () => {
+    settings.roadMode = !settings.roadMode;
+    settings.save();
+    state.roadRevealed = false;
+    if (settings.roadMode && state.recall && !state.attempt) {
+      state.recall = false;
+      state.revealed = true;
+      state.peeked = false;
+    }
+    render();
+  });
+
+  /* Both halves of the per-card reveal. Neither touches the setting: showing
+     one card is not leaving the mode, which is what the topbar toggle is for. */
+  document.getElementById("road-reveal")?.addEventListener("click", () => {
+    state.roadRevealed = true;
+    render();
+  });
+  document.getElementById("road-hide")?.addEventListener("click", () => {
+    state.roadRevealed = false;
+    render();
+  });
 
   /* Starring mid-drill, for the phrase you have just discovered you need more
      of. The button is updated in place rather than re-rendered — a re-render
      here would throw away the attempt you are looking at. */
-  view.querySelector(".drill-star").addEventListener("click", (event) => {
+  view.querySelector(".drill-star")?.addEventListener("click", (event) => {
     const on = library.toggleFavourite(phrase.id);
     const button = event.currentTarget;
     const label = on ? "Remove from favourites" : "Add to favourites";
@@ -1358,14 +1443,14 @@ function renderDrill() {
      realised you would never say. The queue holds the object library.update
      replaced, and the model audio is cached by text, so the fixed phrase has
      to go back into the queue and be reloaded rather than just re-rendered. */
-  document.getElementById("drill-edit").onclick = () => {
+  document.getElementById("drill-edit")?.addEventListener("click", () => {
     stopEverything();
     editPhrase(phrase, (updated) => {
       if (!updated) return;
       state.queue = state.queue.map((p) => (p.id === updated.id ? updated : p));
       loadPhrase();
     });
-  };
+  });
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
 
@@ -1615,17 +1700,39 @@ function announceLevelUp(phrase) {
   toast("Level 2 — next time you'll say this one from memory.", 3600);
 }
 
-function renderComparison() {
+function renderComparison(road = false) {
   const attempt = state.attempt;
   const timing = timingSummary();
+
+  const buttons = `
+    <div class="btn-row">
+      <button class="btn btn-primary" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
+      <button class="btn btn-you" id="play-you">You</button>
+    </div>`;
+
+  const verdict = state.scoringNow
+    ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
+    : attemptScore(attempt) != null
+    ? renderScore(attempt, road)
+    : scoring.lastError
+    ? `<div class="notice bad">${esc(scoring.lastError)}</div>`
+    : "";
+
+  /* Road mode keeps the two buttons and the dial and drops the pictures. A
+     waveform and a pitch line are the two things on this page that are no use
+     at all unless you are looking at it, and the timing note goes with them:
+     it lives on the wave card because it is about the same drawing. */
+  if (road) {
+    return `
+      <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
+      ${buttons}
+      <div style="margin-top:14px">${verdict}</div>`;
+  }
 
   return `
     <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
 
-    <div class="btn-row">
-      <button class="btn btn-primary" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
-      <button class="btn btn-you" id="play-you">You</button>
-    </div>
+    ${buttons}
 
     <div class="card" style="margin-top:14px">
       <div class="wave-label" style="color:var(--accent)">Model</div>
@@ -1644,15 +1751,7 @@ function renderComparison() {
       </p>
     </details>
 
-    ${
-      state.scoringNow
-        ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
-        : attemptScore(attempt) != null
-        ? renderScore(attempt)
-        : scoring.lastError
-        ? `<div class="notice bad">${esc(scoring.lastError)}</div>`
-        : ""
-    }`;
+    ${verdict}`;
 }
 
 function timingSummary() {
@@ -1666,10 +1765,25 @@ function timingSummary() {
   return `You're taking about ${ratio.toFixed(1)}× as long. Try running the words together more.`;
 }
 
-function renderScore(attempt) {
-  const score = attemptScore(attempt);
+/* The dial on its own — the one part of the score that is a shape rather than
+   a piece of writing, which is why road mode keeps it and drops the rest. */
+function scoreDial(score) {
   const circumference = 2 * Math.PI * 30;
   const dash = (score / 100) * circumference;
+  return `
+    <div class="dial">
+      <svg viewBox="0 0 68 68">
+        <circle cx="34" cy="34" r="30" fill="none" stroke="var(--surface-2)" stroke-width="7"/>
+        <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(score)}"
+                stroke-width="7" stroke-linecap="round"
+                stroke-dasharray="${dash} ${circumference}"/>
+      </svg>
+      <div class="dial-value">${Math.round(score)}</div>
+    </div>`;
+}
+
+function renderScore(attempt, bare = false) {
+  const score = attemptScore(attempt);
 
   /* The dial is the weakest word, so the verdict talks about that rather than
      about the phrase as a whole — "90" now means every single word cleared 90,
@@ -1684,6 +1798,21 @@ function renderScore(attempt) {
       : score >= 55
       ? "Some of it landed. Play the model again and copy the rhythm."
       : "Not there yet. Slow it down and go word by word.";
+
+  /* Bare: the number and the sentence, and nothing that spells the phrase.
+     The word chips, the weakest-word line and "Heard:" all print what you were
+     supposed to be saying, so they are on the far side of the reveal with the
+     card itself — and the sub-scores are the aggregates this app has already
+     decided not to be judged by, which is not what a glance is for. */
+  if (bare) {
+    return `
+      <div class="card">
+        <div class="score-head">
+          ${scoreDial(score)}
+          <div style="font-weight:600">${verdict}</div>
+        </div>
+      </div>`;
+  }
 
   /* Azure's aggregates sit here rather than in the dial. All three are
      generous — they average away the one word you got wrong — so they're worth
@@ -1717,15 +1846,7 @@ function renderScore(attempt) {
   return `
     <div class="card">
       <div class="score-head">
-        <div class="dial">
-          <svg viewBox="0 0 68 68">
-            <circle cx="34" cy="34" r="30" fill="none" stroke="var(--surface-2)" stroke-width="7"/>
-            <circle cx="34" cy="34" r="30" fill="none" stroke="${scoreColour(score)}"
-                    stroke-width="7" stroke-linecap="round"
-                    stroke-dasharray="${dash} ${circumference}"/>
-          </svg>
-          <div class="dial-value">${Math.round(score)}</div>
-        </div>
+        ${scoreDial(score)}
         <div>
           <div style="font-weight:600">${verdict}</div>
           <div class="subscores">${sub}</div>
@@ -3046,6 +3167,14 @@ function renderSettings() {
       <p class="tiny muted" style="margin:8px 0 0">Once a phrase has been said well ${RECALL_AFTER} times the drill stops
         showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
         "Show me" for when it has gone completely.</p>
+      <div class="switch-row">
+        <span>Road mode — listen and repeat</span>
+        <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">For practising while you're walking or driving. The drill keeps Listen,
+        the record button, You and the score, and takes everything you'd have to read off the screen — there's a
+        "Show the phrase" under the score when you want it. Level 2 waits until you're back off the road. It can be
+        turned on and off from the drill itself.</p>
     </div>
 
     <div class="section-label">Audio</div>
@@ -3171,6 +3300,11 @@ function renderSettings() {
 
   document.getElementById("s-recall").onchange = (event) => {
     settings.recallMode = event.target.checked;
+    settings.save();
+  };
+
+  document.getElementById("s-road").onchange = (event) => {
+    settings.roadMode = event.target.checked;
     settings.save();
   };
 
