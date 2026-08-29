@@ -709,6 +709,11 @@ const DEFAULT_SETTINGS = {
   slowRate: 0.65,
   showTranslationUpFront: true,
   recallMode: true,
+  /* Road mode: the drill stripped back to the four things you can use without
+     looking at the screen — Listen, the record button, You and the score. It
+     is a setting rather than a flag on the drill because it is a way you are
+     practising for the whole walk, not a decision about one card. */
+  roadMode: false,
   // Deck families you have folded open or shut, by name. Anything absent
   // falls back to the FOLD_FROM rule, so a family you have never touched can
   // change its mind as decks are added to it.

@@ -305,7 +305,8 @@ already said them: the cortado, the bill, and *està boníssim*.
 ### What sits where in the drill
 
 The card carries the phrase, its translation and the `focusNote` — and nothing
-else. The topbar carries the progress pill, the star and Edit. Situation and usage note render *below* the record button, in their own
+else. The topbar carries the progress pill, the star, the road-mode switch and
+Edit. Situation and usage note render *below* the record button, in their own
 card via `drillContext()`: they are reference material, and between the phrase
 and the record button is the worst place for them. The `focusNote` stays on the
 card deliberately, because it is the one thing you want in front of you in the
@@ -318,6 +319,65 @@ standing — the situation alone is the clue.
 
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
+
+### Road mode: the drill with the reading taken off it
+
+The drill is mostly writing, and some of the practice this app gets happens
+where writing is no use — walking, driving, washing up. The phrase, its
+translation, the `focusNote`, the
+situation, the replies, the kept notes, the waveforms, the word chips: all of
+it is either text or a picture, and none of it survives a pocket. Road mode is
+the same drill with everything you cannot use without looking taken off it,
+leaving the four things you can: **Listen** (with Slow beside it — the same
+act at another speed, and the only other way to hear it slowly is to leave the
+mode), the record button, **You**, and the score.
+
+- **One flag, read in one place.** `roadNow()` is `settings.roadMode &&
+  !state.roadRevealed`, and everything that hides asks it. There is
+  deliberately no second renderer: a `renderRoadDrill` would be a copy of
+  `renderDrill` that drifts, and the first thing to drift would be the level-two
+  gates, which are the ones that matter.
+- **The mode is a setting; the reveal is per card.** `settings.roadMode` is how
+  you are practising for the whole walk and rides in the topbar and in
+  Settings; `state.roadRevealed` is "show me *this* one anyway" and resets in
+  `loadPhrase`, so one look at a card you keep failing doesn't quietly end the
+  mode. `Show the phrase` sits *under the score*, because that is the moment
+  you want it, and what comes back is the whole card — text, notes, replies,
+  Edit, waveforms, chips — not a peek at the phrase.
+- **Level two cannot stand in it, and that is a real constraint rather than a
+  simplification.** A level-two question *is* the translation printed on the
+  screen, and its answer is the model audio — which road mode's Listen button
+  plays. So `loadPhrase` doesn't set `recall` while road mode is on, and the
+  topbar toggle clears a standing question when you switch mid-card (only
+  before an attempt: once you have recorded, the attempt has already been filed
+  as the kind of go it was). Nothing is written to the phrase, so its question
+  is waiting when the mode is over.
+- **What road mode drops from the score is what spells the phrase.** The dial
+  and its one-line verdict stay; the word chips, the weakest-word line and
+  `Heard:` all print what you were supposed to be saying, so they are on the far
+  side of the reveal with the card. The sub-scores go too — they are the
+  aggregates this file spends a section arguing not to be judged by, which is
+  not what a glance is for. `scoreDial` was pulled out of `renderScore` so both
+  shapes draw the same dial.
+- **The waveforms and the pitch line go, and the pacing note goes with them.**
+  It reads as feedback that could stay, but it lives on the wave card because
+  it is a caption to that drawing.
+- **Edit and History go; the star stays.** Both of those open a screenful of
+  small print. Starring is one tap, reveals nothing, and mid-drill starring is
+  exactly the thing you want on a walk — you have just failed a phrase four
+  times. Next takes the whole width with History gone, which is the point:
+  a bigger target for a moving thumb.
+- **The targets grow and nothing else moves.** `.road` on the view scales the
+  buttons and the record circle; the layout is the same drill with things
+  missing, not a second screen with its own geometry.
+- **The switch is gold.** It is the one strong colour in the palette not
+  already doing a job in the drill — green is the primary and the record
+  button, blue is You, purple is the level-two badge, red is recording. White
+  does not sit on gold, so its lettering is dark on both grounds.
+
+Deb-o-lingo does not have this. It would port — the flag, the gates and the
+CSS are all drill-local — but its drill card has never carried the situation or
+the usage note, so half of what road mode is for taking off is not there.
 
 ### Asking about the phrase you are practising, and keeping the answer
 
@@ -803,6 +863,11 @@ things, all of which would answer it — the phrase text, its `focusNote`, and
 the Listen/Slow buttons (the model audio says it out loud). **If you add
 anything to the drill card, decide which side of that line it falls on.**
 
+A fourth thing withholds all three, from the other direction: road mode, which
+takes the writing off the drill entirely and therefore cannot ask a written
+question. `loadPhrase` doesn't set `recall` while it is on — see *Road mode*
+above.
+
 Three flags in `state` carry it: `recall` (this phrase is a question),
 `revealed` (the answer is on screen — always true at level one) and `peeked`
 (Show me was used rather than remembering). Recording reveals; so does Show me.
@@ -1137,7 +1202,18 @@ sheet opens on the card's own deck, changing it rewrites `phrase.deck` in
 `xerra.phrases` and drops the old deck's count by one, making a deck from
 inside the sheet takes the card with it, `#f-deck` is a `select` that opens on
 the card's deck and moves it on Save, and a capture whose deck holds nothing
-drillable still finds that deck in the list and isn't refiled by saving. The Add review can be driven with the assistant stubbed —
+drillable still finds that deck in the list and isn't refiled by saving. For road mode, with `speech.modelAudio` and `scoring.score` stubbed (route
+`js/speech.js` and append the overrides — and open the context with
+`serviceWorkers: "block"`, or the worker serves the real file and the route
+never fires): with it on, the drill has `#listen`, `#record`, `#play-you`,
+`.dial-value` and `#road-reveal` and has no `.drill-text`, `.focus-note`,
+`.drill-context`, `#drill-chat`, `#drill-edit`, `#history`, `#wave-you`,
+`#pitch-details` or `.chip`; `#road-reveal` puts all of those back for that card
+and offers `#road-hide`; `#next` goes bare again; `#road-toggle` flips
+`aria-pressed`, writes `roadMode` to `xerra.settings` and survives a reload; and
+a phrase with four good attempts behind it drills listen-and-repeat with no
+`.level-badge` while the mode is on and has its `.recall-prompt` back once it is
+off. The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
@@ -1204,6 +1280,10 @@ the parser losing a block to a formatting change.
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.
+- **Road mode** is the drill stripped to Listen, the record button, You and the
+  score, with a per-card `Show the phrase` — for practising on the move.
+  `settings.roadMode`, `state.roadRevealed`, `roadNow()` in app.js. Level two
+  waits until it is off. Not in Deb-o-lingo.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself

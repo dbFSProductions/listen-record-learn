@@ -179,6 +179,17 @@ reveals it for when it has gone entirely — that attempt is marked as shown
 rather than remembered. Settings → *Level 2 — drill from memory* turns the
 whole thing off.
 
+**Road mode** — the same drill with everything you'd have to read taken off
+the screen: **Listen** and **Slow**, the record button (bigger), **You** and
+your score, and nothing else. For practising while you're walking, driving or
+washing up, where the phrase, the meaning, the pronunciation tip and the
+waveforms are all things you can't look at anyway. **Show the phrase** under
+the score puts the whole card back when you want it, for that card only. The
+**ROAD** button in the drill's topbar turns it on and off from where you're
+using it, and Settings → *Road mode — listen and repeat* has the same switch.
+Level 2 waits until you're back off the road: its question is written down and
+its answer is the model audio, which road mode plays.
+
 Editing a card — its translation, situation, usage note, pronunciation tip or
 deck — has the assistant behind it too: change *tallat* to *espresso* and
 **Rebuild the rest with AI** rewrites the translation, situation, usage note
@@ -220,7 +231,7 @@ again** clears it and leaves the cards it already wrote alone.
 Needs the card assistant set up (above); without it the deck doesn't appear.
 
 **Settings** — language, Azure credentials and voice, slow-playback speed,
-level-2 recall, audio prefetch and cache, and a **Version** panel showing what's
+level-2 recall, road mode, audio prefetch and cache, and a **Version** panel showing what's
 *running* against what's *installed*. Those two differ for exactly as long as it
 takes you to reload after a deploy, which is the difference between "the fix
 isn't working" and "the phone hasn't caught up yet".
