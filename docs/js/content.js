@@ -1356,5 +1356,349 @@ export const SEED_PHRASES = [
     "language": "es-ES",
     "aspect": "both",
     "aspectNote": "The fall is the dot; the wet floor was already there, so it is the line. Reasons are usually lines."
+  },
+  {
+    "text": "Cuando llegué, ya se habían ido.",
+    "translation": "When I arrived, they had already left.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-an — the h is silent and the b is the soft one between vowels. lle-GÉ has the throaty j sound for the g.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "'Llegué' is the dot you are measuring from, and their leaving is the dot before it. That is the whole shape."
+  },
+  {
+    "text": "No pude entrar porque había perdido las llaves.",
+    "translation": "I couldn't get in because I had lost my keys.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-a, three syllables, silent h. The ll of llaves is a y, and the d of perdido is soft.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "Losing the keys came first, the locked door second. The reason is always the earlier dot."
+  },
+  {
+    "text": "Nunca había visto una cosa así.",
+    "translation": "I had never seen anything like it.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-a again. The s of 'cosa' stays unvoiced — never the z of English 'nose'.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "'Nunca había' — never up to that past moment. 'Nunca he visto' would bring it up to now instead."
+  },
+  {
+    "text": "Ya habíamos cenado cuando llamaste.",
+    "translation": "We had already had dinner when you called.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-a-mos, four syllables. 'Cenado' opens with the Castilian th and its d is soft.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "Two dots in order: dinner, then the phone. 'Ya' almost always points at the earlier one."
+  },
+  {
+    "text": "Me dijo que había estado en Japón.",
+    "translation": "He told me he had been to Japan.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "DI-jo and Ja-PÓN both use the harsh throaty j. a-BÍ-a keeps its silent h.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "The telling is the dot; the trip is the dot before it. Reported speech pushes the tense back a step."
+  },
+  {
+    "text": "Cuando salimos, ya había parado de llover.",
+    "translation": "When we left, it had already stopped raining.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-a pa-RA-do — three soft d's in a row, tongue on the teeth each time.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "The rain stopped first, then you left. 'Había parado' rather than 'paraba': it finished, it wasn't going on."
+  },
+  {
+    "text": "Ella había trabajado allí antes de conocerme.",
+    "translation": "She had worked there before she met me.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "tra-ba-JA-do with the throaty j, and 'allí' is a-YÍ with the stress on the end.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "'Antes de' is the giveaway: it names the later dot and puts this one in front of it."
+  },
+  {
+    "text": "El tren ya había salido.",
+    "translation": "The train had already left.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-a sa-LI-do. The r of tren is a single tap.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "The classic: you get to the platform — the dot — and the leaving is already behind it."
+  },
+  {
+    "text": "Ayer perdí las llaves.",
+    "translation": "Yesterday I lost my keys.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "per-DÍ, stress on the final í, with a single tapped r.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "No earlier dot to sit in front of. Just yesterday, finished: the plain preterite."
+  },
+  {
+    "text": "De joven trabajaba en un banco.",
+    "translation": "When I was young I worked in a bank.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "JO-ven and tra-ba-JA-ba both open the throat on the j. The -aba carries the stress.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "A stretch of years with nothing cutting across it. The -aba says line before you have finished reading."
+  },
+  {
+    "text": "Habían cerrado la tienda antes de las ocho.",
+    "translation": "They had closed the shop before eight.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "a-BÍ-an ce-RRA-do — the rr is a real trill and the c is the Castilian th.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "'Antes de las ocho' fixes a past moment, and the closing is already done by then."
+  },
+  {
+    "text": "No lo sabía porque nadie me lo había dicho.",
+    "translation": "I didn't know because nobody had told me.",
+    "deck": "Pasado · El punto anterior",
+    "focusNote": "sa-BÍ-a and a-BÍ-a rhyme — both three syllables with the stress on the í. DI-cho is front-stressed.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "'Sabía' is the line you were in and 'había dicho' is the missing dot before it. The shape being asked about is the earlier dot."
+  },
+  {
+    "text": "Hoy he comido demasiado.",
+    "translation": "I've eaten too much today.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "'He' is just EH — the h is silent. co-MI-do with a soft d.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Hoy' is a stretch of time that still has now inside it, so Spain reaches for the perfect."
+  },
+  {
+    "text": "Ayer comí demasiado.",
+    "translation": "I ate too much yesterday.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "co-MÍ, one syllable longer at the end than 'comido' and stressed there.",
+    "language": "es-ES",
+    "usageNote": "This is the pair to learn: hoy he comido, ayer comí.",
+    "aspect": "dot",
+    "aspectNote": "Same meal, different day. 'Ayer' is closed and gone, so it is the plain preterite."
+  },
+  {
+    "text": "Esta semana he trabajado mucho.",
+    "translation": "I've worked a lot this week.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "he tra-ba-JA-do — silent h, throaty j, and the d of -ado is very soft in Spain.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "The week is not over. The bracket round it still contains today."
+  },
+  {
+    "text": "La semana pasada trabajé mucho.",
+    "translation": "I worked a lot last week.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "tra-ba-JÉ ends on the é. Same verb as the card above with the weight moved to the end.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Last week is shut. Move the bracket off now and you are back to the dot."
+  },
+  {
+    "text": "¿Has estado alguna vez en Bilbao?",
+    "translation": "Have you ever been to Bilbao?",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "'Has' is just AS. The z of 'vez' is the Castilian th.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Alguna vez' means at any point in a life that is still going on — the widest bracket there is."
+  },
+  {
+    "text": "Todavía no he terminado.",
+    "translation": "I haven't finished yet.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "to-da-VÍ-a, four syllables with the stress on the í and a soft d.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Todavía no' is about how things stand now, so the line has to reach now."
+  },
+  {
+    "text": "Este año hemos viajado poco.",
+    "translation": "We haven't travelled much this year.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "'Año' has the ñ, and via-JA-do has the throaty j.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "This year is still running. The bracket is open at the near end."
+  },
+  {
+    "text": "El año pasado viajamos a Perú.",
+    "translation": "Last year we travelled to Peru.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "via-JA-mos, and Pe-RÚ takes the stress on the ú.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "'Pasado' closes the bracket, and a closed bracket is a dot."
+  },
+  {
+    "text": "Ya he hablado con ella.",
+    "translation": "I've already spoken to her.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "Both h's are silent: 'ya eh a-BLA-do'. Three vowels in a row and none of them reduced.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Ya' — done, and it still matters now. That present relevance is the perfect's whole job."
+  },
+  {
+    "text": "Anoche hablé con ella.",
+    "translation": "I spoke to her last night.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "a-BLÉ ends on the é, and the h stays silent.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "'Anoche' is a finished night. Same conversation, reported as history rather than as news."
+  },
+  {
+    "text": "Esta mañana se me ha roto el móvil.",
+    "translation": "My phone broke this morning.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "'Ha' is just A. 'Roto' opens with a single tapped r, and mañana has the ñ.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "In Spain this morning still counts as today, so it stays inside the bracket."
+  },
+  {
+    "text": "Nunca he probado el pulpo.",
+    "translation": "I've never tried octopus.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "he pro-BA-do — silent h, soft b, soft d. The single r of probado is one tap.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Nunca' up to and including now. 'Nunca había probado' would stop the line at some past moment instead."
+  },
+  {
+    "text": "En dos mil diecinueve probé el pulpo por primera vez.",
+    "translation": "In 2019 I tried octopus for the first time.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "pro-BÉ ends on the é. 'Diecinueve' and 'vez' both carry the Castilian th.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A named year, long shut. The first time is one moment however memorable."
+  },
+  {
+    "text": "Antes no me gustaba el pulpo.",
+    "translation": "I didn't use to like octopus.",
+    "deck": "Pasado · Hoy o ayer",
+    "focusNote": "gus-TA-ba with the stress on the -TA-. The final -o of pulpo stays a full o.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Neither perfect nor dot — a state that simply used to be the case. The -aba gives it away."
+  },
+  {
+    "text": "Hoy he visto a tu hermano.",
+    "translation": "I've seen your brother today.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "'He' is EH and the h of hermano is silent too. VIS-to is front-stressed.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Hoy' keeps the bracket open, so the line reaches now."
+  },
+  {
+    "text": "Cuando llegué ya habían empezado.",
+    "translation": "When I arrived they had already started.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "lle-GÉ then a-BÍ-an. 'Empezado' carries the Castilian th in the middle.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "Your arrival is the dot; the start is the dot in front of it."
+  },
+  {
+    "text": "Estaba leyendo cuando se fue la luz.",
+    "translation": "I was reading when the power went out.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "es-TA-ba le-YEN-do — the y is a light j. 'Luz' ends on the th.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The reading is the line and the power cut is the dot across it. This is the past continuous case."
+  },
+  {
+    "text": "Los domingos comíamos en casa de mi abuela.",
+    "translation": "On Sundays we used to eat at my grandmother's.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "co-MÍ-a-mos, four syllables with the stress on the í. The b of abuela is soft.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Los domingos' is a habit, and habits have no edges."
+  },
+  {
+    "text": "El lunes pasado fui al médico.",
+    "translation": "Last Monday I went to the doctor.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "'Fui' is one syllable. MÉ-di-co is stressed on the first and its d is soft.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A named, finished day. One visit, one dot."
+  },
+  {
+    "text": "¿Ya has desayunado?",
+    "translation": "Have you had breakfast yet?",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "'Has' is AS, and de-sa-yu-NA-do puts the stress on the -NA-.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "'Ya' asks about how things stand right now, which is what keeps it inside the bracket."
+  },
+  {
+    "text": "Estuvimos dos horas esperando.",
+    "translation": "We waited for two hours.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "es-tu-VI-mos with a soft b, and the h of horas is silent.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Two hours with both ends shut. Length never decides it — edges do."
+  },
+  {
+    "text": "No fui porque no me habían invitado.",
+    "translation": "I didn't go because they hadn't invited me.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "a-BÍ-an in-vi-TA-do — silent h, and both v's are the soft b.",
+    "language": "es-ES",
+    "aspect": "pastPerfect",
+    "aspectNote": "Not being invited came before not going. The reason sits one dot further back."
+  },
+  {
+    "text": "Hacía frío y no había nadie en la calle.",
+    "translation": "It was cold and there was nobody in the street.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "a-CÍ-a and a-BÍ-a rhyme, both with silent h. 'Calle' ends on a y.",
+    "language": "es-ES",
+    "usageNote": "Worth keeping apart: 'había nadie' is the line, 'había ido' is the dot before the dot.",
+    "aspect": "line",
+    "aspectNote": "Pure scenery, twice over. 'Había' here is the line, not a perfect — it is haber's own imperfect."
+  },
+  {
+    "text": "Le vi cuando salía del trabajo.",
+    "translation": "I saw him as he was leaving work.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "'Vi' is one syllable; sa-LÍ-a is three. The j of trabajo is throaty.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The leaving was under way — the line — and the seeing lands on it as a dot."
+  },
+  {
+    "text": "Esta tarde ha llamado tu madre.",
+    "translation": "Your mother called this afternoon.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "'Ha' is just A, and lla-MA-do opens on a y with a soft d.",
+    "language": "es-ES",
+    "aspect": "presentPerfect",
+    "aspectNote": "This afternoon is still today, so it stays in the bracket. 'Ayer llamó' would not."
+  },
+  {
+    "text": "Se casaron en junio.",
+    "translation": "They got married in June.",
+    "deck": "Pasado · Todo junto",
+    "focusNote": "ca-SA-ron keeps the s unvoiced, and 'junio' opens with the throaty j.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A wedding is the most dot-shaped thing there is, and June is long shut."
   }
 ];

@@ -606,14 +606,18 @@ button { font: inherit; }
 .aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; }
 
 /* The picture itself, and the whole reason the decks are built this way: a
-   dot, a line, and a line with a dot cutting across it. Wide enough that the
-   three marks line up under each other down the column. */
+   dot, a line, a line with a dot cutting across it, a dot before the dot, and
+   a line dashed forward into the dot of now. Fixed width so the marks line up
+   under each other down the column — sized for the widest of them, the
+   bracketed present perfect, since a column that reflowed per row would stop
+   reading as one diagram. */
 .aspect-mark {
-  flex: 0 0 46px;
+  flex: 0 0 76px;
   text-align: center;
-  font-size: 1.15rem;
+  font-size: 1rem;
   line-height: 1;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
   color: var(--text);
 }
 

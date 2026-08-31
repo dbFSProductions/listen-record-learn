@@ -76,24 +76,69 @@ export const ASPECTS = {
     mark: "●",
     label: "A dot",
     gloss: "one finished moment, with edges",
-    term: "pretérito indefinido",
+    term: "preterite (simple past)",
     endings: "-é / -ó · -í / -ió",
+    base: true,
   },
   line: {
     mark: "▬▬",
     label: "A line",
-    gloss: "a habit, a state, a background — no edges",
-    term: "pretérito imperfecto",
+    gloss: "a habit, a state, a background",
+    term: "imperfect",
     endings: "-aba · -ía — always the line",
+    base: true,
   },
+  /* Past continuous (`estaba + -ndo`) lives here rather than in a key of its
+     own: it is a *flavour* of the imperfect, not a separate tense, and the
+     imperfect also does habits and states that the continuous cannot. So
+     "past continuous + preterite" is one instance of this shape, and the one
+     the cards lean on hardest, but it isn't the whole of it. */
   both: {
     mark: "▬●▬",
     label: "Both",
     gloss: "a line with a dot cutting across it",
-    term: "imperfecto + indefinido",
+    term: "imperfect + preterite",
     endings: "-aba/-ía running, -ó/-ió cutting in",
+    base: true,
+  },
+  pastPerfect: {
+    mark: "●···●",
+    label: "A dot before the dot",
+    gloss: "already over before that past moment",
+    term: "past perfect (pluperfect)",
+    endings: "había · habías · había + -ado / -ido",
+  },
+  /* The picture is the whole reason this one is learnable: a line back in the
+     past, dashed forward to the dot of now, and the brackets are the stretch
+     of time — today, this week, this year, ever — that still has now inside
+     it. That bracket is exactly what chooses it over the preterite in Spain,
+     which is the decision the `Hoy o ayer` deck exists to drill. */
+  presentPerfect: {
+    mark: "(▬···●)",
+    label: "A line reaching now",
+    gloss: "in a stretch of time that includes today",
+    term: "present perfect",
+    endings: "he · has · ha + -ado / -ido",
   },
 };
+
+/* Which shapes the gate offers for the deck you are in.
+
+   Five buttons on every card would be wrong: a sentence from the imperfect
+   deck has no business offering a pluperfect, and a choice that is never the
+   answer anywhere in the deck is noise you have to read past every time. So
+   the offer is the shapes the queue actually contains — the deck you picked is
+   context, the same way its name already is.
+
+   The three `base` shapes are always on offer under that. Dot-or-line is the
+   question every past sentence poses, and it stays live even in a deck that
+   happens to answer it the same way every time; the perfects are extra shapes
+   that only turn up where a deck has put them. That floor is also what stops a
+   single-shape deck from offering exactly one button and answering itself. */
+export function aspectChoices(queue) {
+  const inPlay = new Set((queue ?? []).map((p) => p?.aspect).filter((key) => ASPECTS[key]));
+  return Object.keys(ASPECTS).filter((key) => ASPECTS[key].base || inPlay.has(key));
+}
 
 /* The shape this card asks about — the entry from the table above, plus the
    card's own `note` saying why *this* sentence is that shape. One call answers
@@ -837,7 +882,7 @@ export const LANGUAGES = {
   },
   /* Italian is wired up on the same terms as the other two: a locale, its
      voices and nothing else. It is the one with no seed content, so it starts
-     as an empty library you add cards to — Spanish has the three past-tense
+     as an empty library you add cards to — Spanish has the six past-tense
      decks now, and everything downstream (decks, the assistant, scoring)
      already reads the language off the phrase either way. */
   "it-IT": {

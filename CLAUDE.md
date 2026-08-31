@@ -381,12 +381,27 @@ the usage note, so half of what road mode is for taking off is not there.
 
 ### Dot or line: naming the shape before saying the sentence
 
-The Spanish past decks are built on one picture. A **dot** is a finished moment
-with edges (*pretérito indefinido*); a **line** is a stretch of past time with
-none — a habit, a state, a background (*pretérito imperfecto*); and plenty of
-sentences are **both**, a line with a dot cutting across it. The drill asks
-which before it will show you the sentence: the English, three shapes, and no
-way past the question except answering it.
+The Spanish past decks are built on one picture, and there are five shapes in
+it. A **dot** is a finished moment with edges (*preterite*); a **line** is a
+stretch of past time with none — a habit, a state, a background (*imperfect*);
+plenty of sentences are **both**, a line with a dot cutting across it; a **dot
+before the dot** is something already over by the past moment you are talking
+about (*past perfect*); and a **line reaching now** is drawn `(▬···●)` — a
+line back in the past, dashed forward into the dot of now, with the brackets
+being the stretch of time that still has now inside it (*present perfect*).
+The drill asks which before it will show you the sentence: the English, the
+shapes, and no way past the question except answering it.
+
+**The terms are the English ones on purpose** — *preterite (simple past)*,
+*imperfect*, *past perfect (pluperfect)*, *present perfect*. They were the
+Spanish grammar-book names to begin with and were changed because these are
+what the learner actually thinks in; don't "correct" them back.
+
+**Past continuous is not a sixth key.** `estaba + -ndo` is a *flavour* of the
+imperfect, not a separate tense, and the imperfect also covers habits and
+states that the continuous cannot — so "past continuous + preterite" is one
+instance of `both`, and the one the cards lean on hardest, rather than a shape
+of its own. The `both` gloss and the mixed decks say so.
 
 That order is the whole feature. Reading the sentence first and then being told
 what tense it is teaches you to recognise endings you have already been given.
@@ -396,12 +411,27 @@ actually speaking, where the decision comes before the words every time.
 - **`ASPECTS` in store.js is the table and `aspectOf` is the one reader.** The
   table carries the mark, the label, the gloss, the proper term and the
   endings; `aspectOf(phrase)` returns the entry plus that card's own `note`, so
-  nothing downstream ever has to hold the phrase and the table at once. A
-  fourth shape (the perfect and the pluperfect are next) is an entry here and
-  cards that name it — the gate draws one button per entry, in table order.
-  **But note what that means: every gated card would then offer every button.**
-  A shape only worth offering on *some* cards wants a different design, not a
-  fifth key.
+  nothing downstream ever has to hold the phrase and the table at once. A new
+  shape is an entry here and cards that name it.
+- **`aspectChoices(queue)` decides what the gate offers, and it is not the
+  whole table.** Five buttons on every card would be wrong twice over: a
+  sentence from the imperfect deck has no business offering a pluperfect, and a
+  choice that is never the answer anywhere in the deck is noise you read past
+  every time. So the offer is *the shapes the queue actually contains* — the
+  deck you picked is context, exactly the way its name already is.
+  - **The three `base` shapes are always under that floor.** Dot-or-line is the
+    question every past sentence poses and stays live even in a deck that
+    answers it the same way every time; the perfects are extra shapes that turn
+    up only where a deck put them. The floor is also what stops a single-shape
+    deck offering one button and answering itself.
+  - **So the instruction line moves too.** "Dot or line?" is the name of the
+    whole idea and is right up until a deck puts a perfect on the table, at
+    which point it is literally the wrong question — neither answer is on
+    offer. Over three choices it becomes "Which shape?".
+  - This is what replaces the earlier warning that every gated card would offer
+    every button. It also means **a deck's contents are now load-bearing**: put
+    a lone pluperfect card in `La línea` and every card in that deck grows a
+    fourth button.
 - **The proper term is on the screen every single time and is never what you
   are asked for.** That is the compromise the whole feature turns on: the
   question is always the picture, and the grammar-book word arrives attached to
@@ -412,6 +442,14 @@ actually speaking, where the decision comes before the words every time.
   association you have to notice for yourself is one you mostly don't. The
   three verbs that are the line without either ending — ser, ir, ver — are
   called out in the `aspectNote`s of the cards that use them rather than hidden.
+  The perfects carry their auxiliaries the same way: `he · has · ha + -ado /
+  -ido` and `había · habías · había + -ado / -ido`, which is the one thing that
+  tells them apart on the page.
+- **A card's `aspect` is the shape it is *about*, not an inventory of its
+  verbs.** Most interesting past sentences have two. *Cuando llegué, ya se
+  habían ido* is filed `pastPerfect` and the `aspectNote` says what `llegué` is
+  doing; *le vi cuando salía* is filed `both`. Without that convention every
+  mixed sentence would be a question with two right answers.
 - **It stacks above level two rather than competing with it.** You name the
   shape, and only then does the card become whatever it was going to be: a
   phrase to read back, or a memory question. That works because the gate never
@@ -457,13 +495,32 @@ actually speaking, where the decision comes before the words every time.
   setting. Cards outside the past decks carry no `aspect`, so `aspectOf` is
   null for all 159 Catalan phrases and the switch does nothing to them.
 
-The content lives in `SeedContent.swift` like everything else — `pastLine`,
-`pastDot` and `pastMixed`, with `language: .spanish` on every card. The mixed
-deck is the real test, and the one not to "tidy" into a third single-shape
-deck: a deck whose name tells you the answer trains the deck, not the grammar.
+The content lives in `SeedContent.swift` like everything else, six decks with
+`language: .spanish` on every card:
+
+| deck | shape it teaches |
+|---|---|
+| `Pasado · La línea` | imperfect, every card an -aba or -ía |
+| `Pasado · El punto` | preterite |
+| `Pasado · Punto o línea` | the three-way test |
+| `Pasado · El punto anterior` | past perfect |
+| `Pasado · Hoy o ayer` | present perfect against the preterite |
+| `Pasado · Todo junto` | all five — the only deck where the full question is asked |
+
+The mixed decks are the real test and the ones not to "tidy" into more
+single-shape decks: a deck whose name tells you the answer trains the deck, not
+the grammar. Each single-shape deck therefore carries a few cards of another
+shape, for the same reason.
+
 The hard cases are in on purpose — *estuve tres años*, *estuvo lloviendo todo
 el día*, *aquel verano trabajé* — because the mistake everyone makes is to
 think length decides it when what decides it is whether the ends are closed.
+**`Hoy o ayer` is built as minimal pairs** — *hoy he comido* against *ayer
+comí*, *esta semana he trabajado* against *la semana pasada trabajé* — because
+the sentences are otherwise identical and the time word is the whole of what
+decides it. Breaking a pair up costs the deck its point. And note that this
+one is Spain-specific: Latin American Spanish would use the preterite for most
+of the present-perfect side.
 
 Deb-o-lingo has none of this and it would port whole: the table, the two
 phrase fields, the gate and the CSS are all self-contained, and its Spanish is
@@ -1232,7 +1289,7 @@ backup the user has.
 ## Three languages, and one of them still starts empty
 
 `LANGUAGES` in store.js is the whole of it: a locale key, the two names and the
-Azure voices. Catalan has the eleven starter decks and Spanish has the three
+Azure voices. Catalan has the eleven starter decks and Spanish has the six
 past-tense ones; Italian is wired up on identical terms and starts as an empty
 library you fill from the Add tab. Adding another is that one entry and nothing else — the picker in Settings
 is built from `Object.entries(LANGUAGES)`, the voice list and the default voice
@@ -1365,7 +1422,12 @@ comes back untrimmed at 150 Hz. Do not check this by recording in a quiet room
 exactly why the bug survived so long.
 
 For the dot-or-line gate, with the library switched to `es-ES`: the `Pasado`
-family is one folded row of three decks and 44 phrases; opening a past deck puts
+family is one folded row of six decks and 82 phrases; `La línea` offers three
+`.aspect-choice` buttons and asks *Dot or line?*, `Hoy o ayer` and `El punto
+anterior` offer four each — one perfect apiece and not the other — and `Todo
+junto` offers five and asks *Which shape?*; `hoy he comido` reads *A line
+reaching now* on the phrase sheet with its `he · has · ha` endings while its
+minimal pair `ayer comí` reads *A dot*; opening a past deck puts
 `Dot or line?` in `.instruction` with three `.aspect-choice` buttons and no
 `#listen`, `#slow`, `#record`, `#drill-edit`, `.focus-note`, `.drill-context`,
 `#next` or `#history`, while `#back`, `.drill-star` and `#road-toggle` all
@@ -1419,17 +1481,19 @@ the parser losing a block to a formatting change.
   as **Sobre mí** with no Worker change.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
-- **Dot or line** is the Spanish past-tense drill: three decks under a `Pasado`
+- **Dot or line** is the Spanish past-tense drill: six decks under a `Pasado`
   family, and a gate that makes you name the shape of the sentence before it
-  will show you the sentence. `ASPECTS` and `aspectOf` in store.js,
-  `aspectGateBody` / `aspectVerdict` in app.js, `aspect` / `aspectNote` on the
-  phrase. Not in Deb-o-lingo, and it would port whole.
-- 203 phrases: 159 Catalan across eleven decks, and 44 Spanish across three.
+  will show you the sentence. Five shapes — dot, line, both, a dot before the
+  dot, and a line reaching now — with the gate offering only the ones the deck
+  you are in actually uses. `ASPECTS`, `aspectOf` and `aspectChoices` in
+  store.js, `aspectGateBody` / `aspectVerdict` in app.js, `aspect` /
+  `aspectNote` on the phrase. Not in Deb-o-lingo, and it would port whole.
+- 241 phrases: 159 Catalan across eleven decks, and 82 Spanish across six.
   The Catalan eleven are Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
-  Deb-o-lingo (below). The Spanish three are Pasado · La línea, Pasado · El
-  punto and Pasado · Punto o línea.
+  Deb-o-lingo (below). The Spanish six are Pasado · La línea, El punto, Punto o
+  línea, El punto anterior, Hoy o ayer and Todo junto.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

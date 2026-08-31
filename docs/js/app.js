@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -1558,8 +1558,15 @@ function renderDrill() {
    every single time, so the grammar-book word arrives attached to something
    you actually have a feel for. */
 function aspectGateBody(phrase) {
+  const choices = aspectChoices(state.queue);
+  /* "Dot or line?" is the name of the whole idea, and it is the right question
+     right up until a deck puts a perfect on the table — at which point it is
+     literally the wrong one, because neither answer is on offer. So the
+     three-shape decks keep the phrase and the wider ones ask the wider
+     question. */
+  const question = choices.length > 3 ? "Which shape?" : "Dot or line?";
   return `
-    <p class="instruction">Dot or line?</p>
+    <p class="instruction">${question}</p>
 
     <div class="card">
       <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
@@ -1567,7 +1574,8 @@ function aspectGateBody(phrase) {
     </div>
 
     <div class="aspect-choices">
-      ${Object.entries(ASPECTS)
+      ${choices
+        .map((key) => [key, ASPECTS[key]])
         .map(
           ([key, aspect]) => `
         <button class="aspect-choice" data-aspect="${key}">
@@ -3291,9 +3299,9 @@ function renderSettings() {
         <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
       </div>
       <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
-        whether it's a dot in the past (<em>pretérito indefinido</em>) or a line across it (<em>pretérito imperfecto</em>)
-        before it will show you the sentence. Cards outside those decks never carry a shape, so this does nothing to
-        the rest of the library.</p>
+        which shape it is — a dot in the past (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
+        perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
+        Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
       <div class="switch-row">
         <span>Road mode — listen and repeat</span>
         <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>

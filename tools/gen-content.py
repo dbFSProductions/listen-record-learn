@@ -18,7 +18,7 @@ OUT = ROOT / "docs/js/content.js"
 LANGUAGES = {"catalan": "ca-ES", "spanish": "es-ES", "italian": "it-IT"}
 # Keep in step with `Aspect` in Xerra/Models/Phrase.swift and `ASPECTS` in
 # docs/js/store.js — these strings are the key the drill looks the shape up by.
-ASPECTS = {"dot", "line", "both"}
+ASPECTS = {"dot", "line", "both", "pastPerfect", "presentPerfect"}
 
 def field(block, name):
     m = re.search(name + r':\s*"((?:[^"\\]|\\.)*)"', block, re.S)

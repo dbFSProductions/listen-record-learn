@@ -2,7 +2,7 @@ import Foundation
 
 /// The languages Xerra can drill. Catalan is the focus; Spanish (Spain) and
 /// Italian are wired up on the same terms, so switching later is a settings
-/// change rather than a rewrite. Spanish now carries the three past-tense decks
+/// change rather than a rewrite. Spanish now carries the six past-tense decks
 /// in `SeedContent.spanishPastDecks`; Italian carries nothing and starts as an
 /// empty library you fill from the Add tab.
 ///
