@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -53,6 +53,12 @@ const state = {
   recall: false,
   revealed: true,
   peeked: false,
+
+  /* Dot or line: which shape you picked for this card, or null while the
+     question is still standing. Per card like `peeked` rather than per
+     session, and reset by loadPhrase — the point of the exercise is deciding
+     again on the next sentence. */
+  aspectChoice: null,
 
   /* Road mode's own reveal, and it is per card rather than per session:
      `settings.roadMode` says you are practising on the move, this says you
@@ -1199,6 +1205,7 @@ async function loadPhrase() {
   state.revealed = !state.recall;
   state.peeked = false;
   state.roadRevealed = false;
+  state.aspectChoice = null;
   scoring.lastError = null;
   if (!phrase) return render();
 
@@ -1235,11 +1242,22 @@ function renderDrill() {
      flag read in several places rather than a second renderer, so the drill
      can't fork into two that then drift apart. */
   const road = roadNow();
+  /* Dot or line. Only the past-tense decks carry a shape, so `shape` is null
+     for every other card in the app and none of what follows costs them
+     anything. It stacks *above* level two rather than competing with it: you
+     name the shape, and only then does the card become whatever it was going
+     to be — a phrase to read back, or a memory question.
+
+     Road mode takes it off entirely. The question is an English sentence and
+     three things to read, which is the whole of what that mode is for not
+     having on the screen. */
+  const shape = settings.aspectGate ? aspectOf(phrase) : null;
+  const gating = Boolean(shape) && !state.aspectChoice && !road;
   // Still being asked: the phrase, its notes and the model audio are all
   // withheld, because any of them answers the question.
   const asking = state.recall && !state.revealed && !road;
 
-  view.innerHTML = `
+  const topbar = `
     <div class="topbar">
       <button class="link" id="back">‹ Practice</button>
       <span class="topbar-end">
@@ -1250,12 +1268,20 @@ function renderDrill() {
                 title="${settings.roadMode ? "Leave road mode" : "Road mode"}">Road</button>
         ${
           /* Edit opens a sheet of text boxes, which is the one thing this mode
-             is for not doing. Revealing brings it back with the card. */
-          road ? "" : `<button class="link" id="drill-edit">Edit</button>`
+             is for not doing. Revealing brings it back with the card. It goes
+             while the shape question is standing for the same reason: the
+             editor prints the sentence you are being asked to think about. */
+          road || gating ? "" : `<button class="link" id="drill-edit">Edit</button>`
         }
       </span>
-    </div>
+    </div>`;
 
+  /* One body or the other, under one topbar. The gate is a whole screen rather
+     than a strip on top of the card, because everything the drill would show —
+     the sentence, the Listen buttons, the record circle — either answers the
+     question or invites you to skip it. The topbar stays so you can still
+     leave, star the card, or drop into road mode from inside the question. */
+  const body = gating ? aspectGateBody(phrase) : `
     ${
       asking
         ? `<p class="instruction">From memory — how do you say this in ${esc(language)}?</p>`
@@ -1263,6 +1289,8 @@ function renderDrill() {
         ? `<p class="instruction">Here's the phrase — how close were you?</p>`
         : ""
     }
+
+    ${road ? "" : aspectVerdict(shape, state.aspectChoice, asking)}
 
     ${road ? "" : `
     <div class="card">
@@ -1362,6 +1390,7 @@ function renderDrill() {
       }
     </div>`;
 
+  view.innerHTML = topbar + body;
   view.classList.toggle("road", road);
 
   document.getElementById("back").onclick = () => {
@@ -1375,7 +1404,7 @@ function renderDrill() {
   });
   document.getElementById("listen")?.addEventListener("click", () => playModel(1));
   document.getElementById("slow")?.addEventListener("click", () => playModel(settings.slowRate));
-  document.getElementById("record").onclick = toggleRecording;
+  document.getElementById("record")?.addEventListener("click", toggleRecording);
   document.getElementById("show-me")?.addEventListener("click", () => {
     state.revealed = true;
     state.peeked = true;
@@ -1504,8 +1533,91 @@ function renderDrill() {
     });
   }
 
+  /* Answering redraws the whole drill, which is safe here in a way it isn't
+     lower down the page: the gate stands before you have recorded anything, so
+     there is no attempt on screen for a render() to throw away. */
+  view.querySelectorAll("[data-aspect]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.aspectChoice = button.dataset.aspect;
+      render();
+    })
+  );
+
   if (attempt) wireComparison();
   drawCanvases();
+}
+
+/* Dot or line, asked before the sentence is on the screen. The card gives you
+   the English and nothing else, and the three shapes are the whole of what you
+   can do with it — there is no way past the question except answering it,
+   which is the point: the app is trying to make the decision happen before the
+   words do, rather than after you have already read the ending.
+
+   The proper term rides on each button in small print. It is never what you
+   are asked for — the question is always the picture — but it is on the screen
+   every single time, so the grammar-book word arrives attached to something
+   you actually have a feel for. */
+function aspectGateBody(phrase) {
+  const choices = aspectChoices(state.queue);
+  /* "Dot or line?" is the name of the whole idea, and it is the right question
+     right up until a deck puts a perfect on the table — at which point it is
+     literally the wrong one, because neither answer is on offer. So the
+     three-shape decks keep the phrase and the wider ones ask the wider
+     question. */
+  const question = choices.length > 3 ? "Which shape?" : "Dot or line?";
+  return `
+    <p class="instruction">${question}</p>
+
+    <div class="card">
+      <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
+      <p class="tiny muted" style="margin:10px 0 0">Decide the shape first. The sentence comes after.</p>
+    </div>
+
+    <div class="aspect-choices">
+      ${choices
+        .map((key) => [key, ASPECTS[key]])
+        .map(
+          ([key, aspect]) => `
+        <button class="aspect-choice" data-aspect="${key}">
+          <span class="aspect-mark">${aspect.mark}</span>
+          <span class="aspect-choice-body">
+            <strong>${esc(aspect.label)}</strong>
+            <span class="aspect-gloss">${esc(aspect.gloss)}</span>
+            <span class="aspect-term">${esc(aspect.term)}</span>
+          </span>
+        </button>`
+        )
+        .join("")}
+    </div>`;
+}
+
+/* What you picked, what it was, and why — sitting directly above the sentence
+   so the page reads in one direction: the shape, then the words that have it.
+
+   The endings line is the argument the imperfect deck exists to make, so it is
+   printed with every verdict rather than left to be noticed: -aba and -ía are
+   always the line. That it is a hint at level two is deliberate. A hint about
+   the ending is what naming the shape is *for*, and it isn't the sentence.
+
+   The note is the one part that waits. It explains this particular sentence,
+   and it does that by quoting Spanish at you — often the very form you are
+   being asked to produce — so it sits behind exactly the gate `focusNote`
+   does, and comes back the moment the card is revealed. */
+function aspectVerdict(shape, choice, asking) {
+  if (!shape || !choice) return "";
+  const right = choice === shape.key;
+  const picked = ASPECTS[choice];
+  const mine = picked?.label.toLowerCase() ?? "something else";
+  const theirs = shape.label.toLowerCase();
+  return `
+    <div class="card aspect-verdict ${right ? "right" : "wrong"}">
+      <span class="aspect-mark">${shape.mark}</span>
+      <span class="aspect-verdict-body">
+        <strong>${right ? `Yes — ${esc(theirs)}` : `Not quite — ${esc(theirs)}, not ${esc(mine)}`}</strong>
+        <span class="aspect-term">${esc(shape.term)} · ${esc(shape.endings)}</span>
+        ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
+      </span>
+    </div>`;
 }
 
 /* Where the phrase is said and how it lands — reference material, so it sits
@@ -2094,6 +2206,21 @@ function showPhrase(phrase) {
        }</span>
      </div>
      ${deckField("p-deck", phrase.deck)}
+     ${
+       /* The sheet is where you look a card up rather than being tested on it,
+          so the shape is simply stated here — no gate, no verdict, and the
+          answer showing even when the drill's question is switched off. */
+       aspectOf(phrase)
+         ? `<div class="phrase-aspect">
+              <span class="aspect-mark">${aspectOf(phrase).mark}</span>
+              <span class="aspect-verdict-body">
+                <strong>${esc(aspectOf(phrase).label)}</strong>
+                <span class="aspect-term">${esc(aspectOf(phrase).term)} · ${esc(aspectOf(phrase).endings)}</span>
+                ${aspectOf(phrase).note ? `<span class="aspect-why">${esc(aspectOf(phrase).note)}</span>` : ""}
+              </span>
+            </div>`
+         : ""
+     }
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
      ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
@@ -3168,6 +3295,14 @@ function renderSettings() {
         showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
         "Show me" for when it has gone completely.</p>
       <div class="switch-row">
+        <span>Dot or line — name the shape first</span>
+        <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
+        which shape it is — a dot in the past (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
+        perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
+        Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
+      <div class="switch-row">
         <span>Road mode — listen and repeat</span>
         <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>
       </div>
@@ -3300,6 +3435,11 @@ function renderSettings() {
 
   document.getElementById("s-recall").onchange = (event) => {
     settings.recallMode = event.target.checked;
+    settings.save();
+  };
+
+  document.getElementById("s-aspect").onchange = (event) => {
+    settings.aspectGate = event.target.checked;
     settings.save();
   };
 

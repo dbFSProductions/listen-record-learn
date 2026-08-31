@@ -52,6 +52,105 @@ export const MY_PHRASES = "My phrases";
    learn about them. Only the row that leads to it is special. */
 export const ABOUT_DECK = "About me";
 
+/* The shape a past sentence has: a dot is one finished moment, a line is a
+   stretch of past time, and plenty of sentences are a line with a dot cutting
+   across it. The past-tense decks are built on that picture, and the drill
+   makes you name the shape before it will show you the sentence — you decide
+   what you are drawing, then you say the words.
+
+   `term` is the grammar-book name, and it is on the screen every time without
+   ever being the thing you are asked for: the question is always the picture,
+   the answer always arrives carrying the proper word for it. `endings` is the
+   other half of that — the whole point of the imperfect deck is that -aba and
+   -ía *are* the line, so the ending is printed with the verdict rather than
+   left to be noticed.
+
+   Adding a fourth shape (the perfect and the pluperfect are next) is an entry
+   here and cards that name it. The gate draws one button per entry, in this
+   order, so nothing else has to learn about it — but note that every gated
+   card then offers every button, which is the thing to think about before
+   adding one: a shape only worth offering on some cards wants a different
+   design, not a fifth key. */
+export const ASPECTS = {
+  dot: {
+    mark: "●",
+    label: "A dot",
+    gloss: "one finished moment, with edges",
+    term: "preterite (simple past)",
+    endings: "-é / -ó · -í / -ió",
+    base: true,
+  },
+  line: {
+    mark: "▬▬",
+    label: "A line",
+    gloss: "a habit, a state, a background",
+    term: "imperfect",
+    endings: "-aba · -ía — always the line",
+    base: true,
+  },
+  /* Past continuous (`estaba + -ndo`) lives here rather than in a key of its
+     own: it is a *flavour* of the imperfect, not a separate tense, and the
+     imperfect also does habits and states that the continuous cannot. So
+     "past continuous + preterite" is one instance of this shape, and the one
+     the cards lean on hardest, but it isn't the whole of it. */
+  both: {
+    mark: "▬●▬",
+    label: "Both",
+    gloss: "a line with a dot cutting across it",
+    term: "imperfect + preterite",
+    endings: "-aba/-ía running, -ó/-ió cutting in",
+    base: true,
+  },
+  pastPerfect: {
+    mark: "●···●",
+    label: "A dot before the dot",
+    gloss: "already over before that past moment",
+    term: "past perfect (pluperfect)",
+    endings: "había · habías · había + -ado / -ido",
+  },
+  /* The picture is the whole reason this one is learnable: a line back in the
+     past, dashed forward to the dot of now, and the brackets are the stretch
+     of time — today, this week, this year, ever — that still has now inside
+     it. That bracket is exactly what chooses it over the preterite in Spain,
+     which is the decision the `Hoy o ayer` deck exists to drill. */
+  presentPerfect: {
+    mark: "(▬···●)",
+    label: "A line reaching now",
+    gloss: "in a stretch of time that includes today",
+    term: "present perfect",
+    endings: "he · has · ha + -ado / -ido",
+  },
+};
+
+/* Which shapes the gate offers for the deck you are in.
+
+   Five buttons on every card would be wrong: a sentence from the imperfect
+   deck has no business offering a pluperfect, and a choice that is never the
+   answer anywhere in the deck is noise you have to read past every time. So
+   the offer is the shapes the queue actually contains — the deck you picked is
+   context, the same way its name already is.
+
+   The three `base` shapes are always on offer under that. Dot-or-line is the
+   question every past sentence poses, and it stays live even in a deck that
+   happens to answer it the same way every time; the perfects are extra shapes
+   that only turn up where a deck has put them. That floor is also what stops a
+   single-shape deck from offering exactly one button and answering itself. */
+export function aspectChoices(queue) {
+  const inPlay = new Set((queue ?? []).map((p) => p?.aspect).filter((key) => ASPECTS[key]));
+  return Object.keys(ASPECTS).filter((key) => ASPECTS[key].base || inPlay.has(key));
+}
+
+/* The shape this card asks about — the entry from the table above, plus the
+   card's own `note` saying why *this* sentence is that shape. One call answers
+   both "which shape" and "why", so nothing downstream has to hold the phrase
+   and the table at the same time. Null for every card without an aspect, which
+   is every card outside the past-tense decks. */
+export function aspectOf(phrase) {
+  const key = phrase?.aspect;
+  if (!key || !ASPECTS[key]) return null;
+  return { key, ...ASPECTS[key], note: phrase.aspectNote || null };
+}
+
 /* Decks whose names share a prefix before " · " are one family: Castells,
    Castells · Pinya, Castells · Ordres and the rest read as a single thing in
    the lists, and a big family can be folded away. This is a naming convention
@@ -309,7 +408,14 @@ export const library = {
       focusNote: p.focusNote || null,
       situation: p.situation || null,
       usageNote: p.usageNote || null,
-      language: "ca-ES",
+      /* Seed content used to be Catalan and only Catalan, so this was the
+         string "ca-ES". The Spanish past-tense decks are the first that
+         aren't, and the generator writes `language` on a card only when it
+         differs — so the default here is still what every Catalan card gets,
+         and the library each one lands in is decided by the Swift source. */
+      language: p.language || "ca-ES",
+      aspect: p.aspect || null,
+      aspectNote: p.aspectNote || null,
       createdAt: new Date().toISOString(),
     }));
 
@@ -714,6 +820,11 @@ const DEFAULT_SETTINGS = {
      is a setting rather than a flag on the drill because it is a way you are
      practising for the whole walk, not a decision about one card. */
   roadMode: false,
+  /* Dot or line: on a card that carries a shape, the drill asks you to name it
+     before it will show you the sentence. Only the past-tense decks carry one,
+     so this switch does nothing at all to the rest of the library — it is here
+     so the question can be turned off on a day you just want to say the words. */
+  aspectGate: true,
   // Deck families you have folded open or shut, by name. Anything absent
   // falls back to the FOLD_FROM rule, so a family you have never touched can
   // change its mind as decks are added to it.
@@ -769,11 +880,11 @@ export const LANGUAGES = {
       { id: "es-ES-AlvaroNeural", name: "Álvaro", gender: "Male" },
     ],
   },
-  /* Italian is wired up on the same terms as Spanish: a locale, its voices and
-     nothing else. There is no seed content for it — `installNewSeedContent` only
-     ever writes ca-ES — so it starts as an empty library you add cards to, and
-     everything downstream (decks, the assistant, scoring) already reads the
-     language off the phrase. */
+  /* Italian is wired up on the same terms as the other two: a locale, its
+     voices and nothing else. It is the one with no seed content, so it starts
+     as an empty library you add cards to — Spanish has the six past-tense
+     decks now, and everything downstream (decks, the assistant, scoring)
+     already reads the language off the phrase either way. */
   "it-IT": {
     name: "Italiano",
     englishName: "Italian",

@@ -2,8 +2,9 @@ import Foundation
 
 /// The languages Xerra can drill. Catalan is the focus; Spanish (Spain) and
 /// Italian are wired up on the same terms, so switching later is a settings
-/// change rather than a rewrite. Neither carries seed content — `SeedContent`
-/// is Catalan — so each starts as an empty library.
+/// change rather than a rewrite. Spanish now carries the six past-tense decks
+/// in `SeedContent.spanishPastDecks`; Italian carries nothing and starts as an
+/// empty library you fill from the Add tab.
 ///
 /// Every locale here is supported by Azure Pronunciation Assessment and by
 /// Apple's on-device `SFSpeechRecognizer`, so no feature is lost by switching.

@@ -575,6 +575,120 @@ button { font: inherit; }
 
 .instruction { font-weight: 800; font-size: 1.05rem; margin: 0 0 12px; }
 
+/* Dot or line — the shape-of-the-past gate.
+
+   The three choices are deliberately *not* coloured. Every strong colour in
+   this palette is already saying something in the drill — green is the primary
+   and the model, blue is you, purple is level two, gold is road mode, red is
+   recording — and a coloured choice reads as a recommended one. They are plain
+   slabs, and the only colour on this screen arrives with the verdict, in the
+   two colours the app already scores in.
+
+   One button per entry in ASPECTS, stacked full width: three lines of reading
+   each, and a thumb-sized target for the answer you are least sure of. */
+.aspect-choices { display: flex; flex-direction: column; gap: 10px; }
+.aspect-choice {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 13px 15px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--line);
+}
+.aspect-choice:active { transform: translateY(4px); box-shadow: none; }
+.aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; }
+
+/* The picture itself, and the whole reason the decks are built this way: a
+   dot, a line, a line with a dot cutting across it, a dot before the dot, and
+   a line dashed forward into the dot of now. Fixed width so the marks line up
+   under each other down the column — sized for the widest of them, the
+   bracketed present perfect, since a column that reflowed per row would stop
+   reading as one diagram. */
+.aspect-mark {
+  flex: 0 0 76px;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.aspect-choice-body, .aspect-verdict-body { display: block; min-width: 0; }
+.aspect-gloss {
+  display: block;
+  color: var(--text-2);
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* The grammar-book name. Small, italic and quiet — on the screen every time
+   without ever being the thing you are asked for. */
+.aspect-term {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Right or wrong in the two colours the app already scores in, on the left
+   edge the way a notice is — so it reads as a verdict rather than as another
+   thing to press. */
+.aspect-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-left-width: 6px;
+}
+.aspect-verdict.right {
+  border-left-color: var(--green);
+  background: color-mix(in srgb, var(--green) 9%, var(--surface));
+}
+.aspect-verdict.wrong {
+  border-left-color: var(--red);
+  background: color-mix(in srgb, var(--red) 9%, var(--surface));
+}
+/* The border and the tint carry right-or-wrong, and the lettering stays the
+   ordinary text colour — the same way `.notice.good` and `.notice.bad` do it.
+   There is no --green-ink or --red-ink to letter this in, and that is not an
+   oversight: the -dark twins are the underside of a pressable control, not a
+   shade that clears contrast as text on the page. */
+.aspect-verdict strong { display: block; font-size: 0.98rem; font-weight: 900; }
+.aspect-verdict .aspect-mark { margin-top: 2px; }
+
+/* Why this particular sentence is that shape. The one part of the verdict that
+   waits for a level-two card to be revealed — it quotes Spanish at you. */
+.aspect-why {
+  display: block;
+  margin-top: 7px;
+  color: var(--text-2);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* The same thing stated flat on the phrase sheet, where you are looking a card
+   up rather than being asked about it. */
+.phrase-aspect {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--purple) 9%, transparent);
+}
+.phrase-aspect strong { display: block; font-size: 0.92rem; font-weight: 900; }
+
 .level-badge {
   display: inline-block;
   background: var(--purple);
