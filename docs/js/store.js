@@ -40,6 +40,74 @@ const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
 const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!"]]);
 
+/* Seed cards that have been withdrawn from the starter decks.
+
+   Cutting a phrase out of SeedContent.swift stops it being *installed*; it
+   does nothing about the phones that already have it, so the Spanish past
+   decks would have gone on being the eighty-two-card version they were the
+   day they arrived, with the new cards added on top. A deck trimmed to eight
+   is the point of the trim, so it has to reach the device.
+
+   The one rule is that practice is never thrown away: a retired card you have
+   actually recorded against stays, with its attempts and its score history,
+   and is yours to delete from the phrase sheet like anything else. Only the
+   ones you never got to are cleared out — and a card with no attempts has no
+   recordings either, so there is nothing in IndexedDB to chase.
+
+   It is hand-maintained, like SEED_REPLACEMENTS: the generator only ever sees
+   the content that is still there, so it cannot know what left. */
+const SEED_RETIRED = new Set([
+  "Todos los días desayunaba a las siete.",
+  "Cuando era pequeña, vivía en Sevilla.",
+  "Mi abuelo siempre llevaba sombrero.",
+  "Hacía mucho calor aquella tarde.",
+  "Los sábados íbamos a la playa.",
+  "No me gustaba nada el pescado.",
+  "Estábamos cansados y no queríamos salir.",
+  "Ella tenía veinte años entonces.",
+  "Antes fumaba, pero ya no.",
+  "Eran las tres de la mañana.",
+  "El piso era pequeño pero tenía mucha luz.",
+  "De niño jugaba al fútbol en la calle.",
+  "Siempre nos decía la verdad.",
+  "Ayer comí en casa de mi madre.",
+  "Fuimos a Madrid el fin de semana pasado.",
+  "Se me cayó el móvil al suelo.",
+  "Nací en mil novecientos ochenta.",
+  "Hice la compra esta mañana.",
+  "Tuvimos que esperar media hora.",
+  "La semana pasada vi a Marta en el mercado.",
+  "Empezó a llover de repente.",
+  "Vino a la fiesta pero no se quedó.",
+  "Mientras cenábamos, se fue la luz.",
+  "Leía tranquilamente cuando entró mi hermano.",
+  "Hacía sol cuando salimos de casa.",
+  "Conducía despacio porque llovía.",
+  "Anteayer me levanté a las seis.",
+  "La conocí en Granada en dos mil quince.",
+  "Siempre que venía, traía flores.",
+  "Estudiábamos juntos en la universidad.",
+  "Le pregunté cómo estaba.",
+  "Se cayó porque el suelo estaba mojado.",
+  "Me dijo que había estado en Japón.",
+  "Ella había trabajado allí antes de conocerme.",
+  "El tren ya había salido.",
+  "De joven trabajaba en un banco.",
+  "Habían cerrado la tienda antes de las ocho.",
+  "¿Has estado alguna vez en Bilbao?",
+  "Todavía no he terminado.",
+  "El año pasado viajamos a Perú.",
+  "Ya he hablado con ella.",
+  "Esta mañana se me ha roto el móvil.",
+  "Nunca he probado el pulpo.",
+  "En dos mil diecinueve probé el pulpo por primera vez.",
+  "Antes no me gustaba el pulpo.",
+  "Los domingos comíamos en casa de mi abuela.",
+  "Le vi cuando salía del trabajo.",
+  "Esta tarde ha llamado tu madre.",
+  "Se casaron en junio.",
+]);
+
 // The deck anything you write yourself lands in. It sorts ahead of the seed
 // decks everywhere rather than alphabetically, because it's the one you came
 // to look at.
@@ -66,6 +134,17 @@ export const ABOUT_DECK = "About me";
    -ía *are* the line, so the ending is printed with the verdict rather than
    left to be noticed.
 
+   `endings` is keyed by language, and that is the one thing in this table that
+   had to learn about more than one. The shapes themselves are the same picture
+   in Spanish and in Catalan — a dot is a dot — but what you *say* to draw one
+   is not: Spanish inflects the verb (comí) and spoken Catalan puts an
+   auxiliary in front of the plain one (vaig menjar). Printing Spanish endings
+   under a Catalan verdict would teach the wrong half of the thing this table
+   exists to teach, so `aspectOf` reads the card's own language and picks. A
+   language with no line here simply gets no endings printed — the mark, the
+   label, the gloss and the term all still work, so a new language costs
+   nothing until someone writes the line for it.
+
    Adding a fourth shape (the perfect and the pluperfect are next) is an entry
    here and cards that name it. The gate draws one button per entry, in this
    order, so nothing else has to learn about it — but note that every gated
@@ -78,7 +157,14 @@ export const ASPECTS = {
     label: "A dot",
     gloss: "an event in a time-boxed past",
     term: "preterite (simple past)",
-    endings: "-é / -ó · -í / -ió",
+    /* Catalan's line is the periphrastic one on purpose. The one-word passat
+       simple (aní, menjà) is real and is what a conjugation table shows you,
+       but nobody says it out loud — so the ending printed here is the
+       auxiliary, which is what actually marks a dot in speech. */
+    endings: {
+      "es-ES": "-é / -ó · -í / -ió",
+      "ca-ES": "vaig · vas · va + the plain verb",
+    },
     base: true,
   },
   line: {
@@ -86,7 +172,10 @@ export const ASPECTS = {
     label: "A line",
     gloss: "a habit, a state, a background",
     term: "imperfect",
-    endings: "-aba · -ía — always the line",
+    endings: {
+      "es-ES": "-aba · -ía — always the line",
+      "ca-ES": "-ava · -ia — always the line",
+    },
     base: true,
   },
   /* Past continuous (`estaba + -ndo`) lives here rather than in a key of its
@@ -99,7 +188,10 @@ export const ASPECTS = {
     label: "Both",
     gloss: "a line with a dot cutting across it",
     term: "imperfect + preterite",
-    endings: "-aba/-ía running, -ó/-ió cutting in",
+    endings: {
+      "es-ES": "-aba/-ía running, -ó/-ió cutting in",
+      "ca-ES": "-ava/-ia running, vaig/va cutting in",
+    },
     base: true,
   },
   /* The one shape whose name steps outside the dot-and-line picture, and
@@ -115,7 +207,10 @@ export const ASPECTS = {
     label: "An event before the event",
     gloss: "already over before that past moment",
     term: "past perfect (pluperfect)",
-    endings: "había · habías · había + -ado / -ido",
+    endings: {
+      "es-ES": "había · habías · había + -ado / -ido",
+      "ca-ES": "havia · havies · havia + -at / -ut / -it",
+    },
   },
   /* The picture is the whole reason this one is learnable: a line back in the
      past, dashed forward to the dot of now, and the brackets are the stretch
@@ -127,7 +222,10 @@ export const ASPECTS = {
     label: "A line reaching now",
     gloss: "in a stretch of time that includes today",
     term: "present perfect",
-    endings: "he · has · ha + -ado / -ido",
+    endings: {
+      "es-ES": "he · has · ha + -ado / -ido",
+      "ca-ES": "he · has · ha + -at / -ut / -it",
+    },
   },
 };
 
@@ -157,7 +255,15 @@ export function aspectChoices(queue) {
 export function aspectOf(phrase) {
   const key = phrase?.aspect;
   if (!key || !ASPECTS[key]) return null;
-  return { key, ...ASPECTS[key], note: phrase.aspectNote || null };
+  const shape = ASPECTS[key];
+  return {
+    key,
+    ...shape,
+    // Flattened here rather than downstream, so nothing outside this file ever
+    // has to hold a phrase, the table and a language at the same time.
+    endings: shape.endings?.[phrase.language] ?? null,
+    note: phrase.aspectNote || null,
+  };
 }
 
 /* Decks whose names share a prefix before " · " are one family: Castells,
@@ -406,6 +512,16 @@ export const library = {
       });
       replacedPhrase = true;
     }
+    /* Withdrawn seed cards go, unless you have practised them. Done before
+       `existing` is built so a retired text can be re-offered later if it ever
+       comes back into the decks under the same words. */
+    const practised = new Set(this.attempts.map((a) => a.phraseID));
+    const kept = this.phrases.filter(
+      (p) => !SEED_RETIRED.has(p.text) || practised.has(p.id)
+    );
+    const retired = kept.length !== this.phrases.length;
+    this.phrases = kept;
+
     const existing = new Set(this.phrases.map((p) => p.text));
     const newcomers = SEED_PHRASES.filter(
       (p) => !existing.has(p.text) && !seeded.has(p.text)
@@ -428,9 +544,11 @@ export const library = {
       createdAt: new Date().toISOString(),
     }));
 
-    if (!newcomers.length && !replacedPhrase) return;
-    this.phrases.push(...newcomers);
-    writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);
+    if (!newcomers.length && !replacedPhrase && !retired) return;
+    if (newcomers.length) {
+      this.phrases.push(...newcomers);
+      writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);
+    }
     this.savePhrases();
   },
 

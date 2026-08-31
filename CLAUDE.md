@@ -507,38 +507,105 @@ actually speaking, where the decision comes before the words every time.
   you look a card up rather than being tested on it.
 - **`settings.aspectGate` turns the question off**, and it is the only new
   setting. Cards outside the past decks carry no `aspect`, so `aspectOf` is
-  null for all 159 Catalan phrases and the switch does nothing to them.
+  null for the 159 everyday Catalan phrases and the switch does nothing to
+  them. It is not a Spanish-only switch any more — see the Catalan decks below.
 
-The content lives in `SeedContent.swift` like everything else, six decks with
-`language: .spanish` on every card:
+The content lives in `SeedContent.swift` like everything else: six Spanish
+decks with `language: .spanish` on every card, and six Catalan ones that say
+the same sentences.
 
-| deck | shape it teaches |
-|---|---|
-| `Pasado · La línea` | imperfect, every card an -aba or -ía |
-| `Pasado · El punto` | preterite |
-| `Pasado · Punto o línea` | the three-way test |
-| `Pasado · Antes de aquello` | past perfect |
-| `Pasado · Hoy o ayer` | present perfect against the preterite |
-| `Pasado · Todo junto` | all five — the only deck where the full question is asked |
+| Spanish deck | Catalan twin | shape it teaches |
+|---|---|---|
+| `Pasado · La línea` | `Passat · La línia` | imperfect, every card an -aba/-ava or -ía/-ia |
+| `Pasado · El punto` | `Passat · El punt` | preterite |
+| `Pasado · Punto o línea` | `Passat · Punt o línia` | the three-way test |
+| `Pasado · Antes de aquello` | `Passat · Abans d'allò` | past perfect |
+| `Pasado · Hoy o ayer` | `Passat · Avui o ahir` | present perfect against the preterite |
+| `Pasado · Todo junto` | `Passat · Tot junt` | all five — the only deck where the full question is asked |
+
+Eight cards a deck, forty-eight a language. It was fourteen, sixteen and
+twelve, and the cut was not tidying: half the deck was grammar-book furniture —
+somebody's grandfather's hat, a birth year, a flat with a lot of light — and a
+card you would never say out loud teaches you a conjugation you can't reach for
+in a café. What is left is sentences you would actually use, which is also what
+makes the decks short enough to finish.
+
+**The two languages say the same forty-eight sentences, and that is the
+design.** The sentence is held constant so that what varies is the only thing
+these decks are about: how each language draws the shape. *I met her ten years
+ago* is `la conocí` in one library and `la vaig conèixer` in the other, and the
+verdict prints the machinery that makes it so. A card added to one wants a twin
+in the other; `catalanPastDecks` and `spanishPastDecks` in the Swift are meant
+to stay sentence-for-sentence in step.
+
+**Catalan's dot is the reason the port is not a translation job.** Spoken
+Catalan does not say *aní* or *menjà* — it says **vaig anar**, **vaig menjar**:
+the auxiliary `vaig · vas · va · vam · vau · van` in front of the plain
+infinitive. The one-word *passat simple* is real, is what a conjugation table
+shows you, and is literary; a learner drilled on it says sentences nobody
+around them says. So every Catalan dot in these decks is periphrastic, and the
+focusNotes teach `vaig` (which is pronounced *batch*) as the sound that marks a
+dot the way -é and -ó do in Spanish. The line is the near-twin — -ava and -ia
+against -aba and -ía — and Catalan has fewer holes in it: *anar* is regular
+here (anava, where Spanish jumps to iba), so **ser → era** is effectively the
+only verb that escapes the two endings.
+
+**So `endings` in `ASPECTS` is keyed by language now, and it is the only thing
+in that table that had to learn about more than one.** The mark, the label, the
+gloss and the term are the same picture in both — a dot is a dot — but what you
+*say* to draw one is not, and printing Spanish endings under a Catalan verdict
+would teach the wrong half of the thing the line exists to teach. `aspectOf`
+reads the card's own language and flattens it, so nothing downstream holds a
+phrase, the table and a language at once; a language with no line written for
+it simply gets no endings printed, which is why `termLine` in app.js exists
+rather than a bare join.
 
 The mixed decks are the real test and the ones not to "tidy" into more
 single-shape decks: a deck whose name tells you the answer trains the deck, not
-the grammar. Each single-shape deck therefore carries a few cards of another
-shape, for the same reason.
+the grammar. Each single-shape deck therefore carries one or two cards of
+another shape, for the same reason.
 
 The hard cases are in on purpose — *estuve tres años*, *estuvo lloviendo todo
-el día*, *aquel verano trabajé* — because the mistake everyone makes is to
-think length decides it when what decides it is whether the ends are closed.
-**`Hoy o ayer` is built as minimal pairs** — *hoy he comido* against *ayer
-comí*, *esta semana he trabajado* against *la semana pasada trabajé* — because
-the sentences are otherwise identical and the time word is the whole of what
-decides it. Breaking a pair up costs the deck its point. And note that this
-one is Spain-specific: Latin American Spanish would use the preterite for most
-of the present-perfect side.
+el día*, *aquel verano trabajé*, and their Catalan twins — because the mistake
+everyone makes is to think length decides it when what decides it is whether
+the ends are closed. **`Hoy o ayer` and `Avui o ahir` are built as four minimal
+pairs** — *hoy he comido* against *ayer comí*, *avui he menjat* against *ahir
+vaig menjar* — because the sentences are otherwise identical and the time word
+is the whole of what decides it. Breaking a pair up costs the deck its point,
+and at eight cards a deck that is four pairs and nothing else. Note that the
+Spanish side is Spain-specific — Latin American Spanish would use the preterite
+for most of the present-perfect side — while the Catalan side is not: Catalan
+draws the today/before-today line the same way wherever it is spoken.
 
 Deb-o-lingo has none of this and it would port whole: the table, the two
 phrase fields, the gate and the CSS are all self-contained, and its Spanish is
-the same Spanish. The Worker is untouched either way.
+the same Spanish. It would take the Spanish decks only, so `endings` would go
+back to being a one-key map over there. The Worker is untouched either way.
+
+### A withdrawn seed card has to reach the phone
+
+Cutting a phrase out of `SeedContent.swift` stops it being *installed*. It does
+nothing at all about the phones that already have it — so trimming the Spanish
+past decks from eighty-two cards to forty-eight would have left the phone with
+eighty-two cards plus the fifteen new ones, which is the opposite of the point.
+
+`SEED_RETIRED` in store.js is the list of withdrawn texts and
+`installNewSeedContent` clears them on load, before it works out what is new.
+
+- **Practice is never thrown away.** A retired card you have actually recorded
+  against stays, with its attempts and its history, and is yours to delete from
+  the phrase sheet like anything else. Only the ones you never got to are
+  cleared. A card with no attempts has no recordings either, so there is
+  nothing in IndexedDB to chase and the whole thing stays synchronous.
+- **It is hand-maintained, like `SEED_REPLACEMENTS`, and has to be.** The
+  generator only ever sees the content that is still there, so it cannot know
+  what left. The way to build the list is to diff the old `content.js` out of
+  git against the new one.
+- **The clearing happens before `existing` is built**, so a text that comes
+  back into the decks later under the same words can be offered again.
+- Retiring on its own is a reason to save, which is why the early return now
+  asks about it and `xerra.seeded` is only rewritten when something actually
+  arrived.
 
 ### Asking about the phrase you are practising, and keeping the answer
 
@@ -923,8 +990,9 @@ and `aspect: .line` — so they have their own reader, `enum_field`. Both are
 validated against a list and an unknown case exits rather than being written
 through, because a typo would otherwise file a card in a library that doesn't
 exist. `language` is written into `content.js` **only when it isn't Catalan**,
-which is what keeps the 159 Catalan cards byte-identical to what they were
-before Spanish arrived.
+which is what keeps the everyday Catalan cards byte-identical to what they were
+before Spanish arrived — including the Catalan past decks, which carry an
+`aspect` but no `language:` line at all.
 
 Every phrase carries a `focusNote` naming what to listen for. It's shown while
 drilling and is the pedagogical point of the app, not decoration. New phrases
@@ -1303,9 +1371,10 @@ backup the user has.
 ## Three languages, and one of them still starts empty
 
 `LANGUAGES` in store.js is the whole of it: a locale key, the two names and the
-Azure voices. Catalan has the eleven starter decks and Spanish has the six
-past-tense ones; Italian is wired up on identical terms and starts as an empty
-library you fill from the Add tab. Adding another is that one entry and nothing else — the picker in Settings
+Azure voices. Catalan has seventeen starter decks — eleven everyday ones and
+the six past-tense decks — and Spanish has the six past-tense decks alone;
+Italian is wired up on identical terms and starts as an empty library you fill
+from the Add tab. Adding another is that one entry and nothing else — the picker in Settings
 is built from `Object.entries(LANGUAGES)`, the voice list and the default voice
 follow it, every list already filters on `phrase.language`, and the card
 assistant sends `languageCode` / `languageName` per request, so **the Worker
@@ -1436,7 +1505,7 @@ comes back untrimmed at 150 Hz. Do not check this by recording in a quiet room
 exactly why the bug survived so long.
 
 For the dot-or-line gate, with the library switched to `es-ES`: the `Pasado`
-family is one folded row of six decks and 82 phrases; `La línea` offers three
+family is one folded row of six decks and 48 phrases, eight to a deck; `La línea` offers three
 `.aspect-choice` buttons and asks *Dot or line?*, `Hoy o ayer` and `Antes de
 aquello` offer four each — one perfect apiece and not the other — and `Todo
 junto` offers five and asks *Which shape?*; `hoy he comido` reads *A line
@@ -1450,7 +1519,17 @@ dot* and carrying both the term and the -aba/-ía line; answering puts the whole
 drill back; `#next` asks again; `#road-toggle` takes the question off and
 putting road mode away brings it back; `settings.aspectGate = false` removes
 the gate and the verdict together; `.phrase-aspect` states the shape on the
-phrase sheet either way; and no Catalan card is ever gated. On a card with four
+phrase sheet either way; and no card outside the past decks is ever gated. In
+`ca-ES` the same run over the `Passat` family — one folded row of six decks and
+48 phrases — should behave identically, with two things that are the port's
+whole point: the verdict on a Catalan line reads *-ava · -ia* and never
+*-aba*, and the verdict on a Catalan dot reads *vaig · vas · va + the plain
+verb* rather than an ending. `Salutacions` is still ungated. For the withdrawn
+cards, plant the old `content.js` (`git show HEAD~1:docs/js/content.js`) into
+`xerra.phrases` and `xerra.seeded` with one attempt against a card that has
+since been cut: on load that one survives with its attempt while the other
+withdrawn cards go, your own phrases are untouched, the two past families come
+out at 48 apiece, and a second load changes `xerra.phrases` not at all. On a card with four
 good attempts behind it the gate comes *first* and the `.level-badge` waits
 behind it, and once answered the verdict stands above a live level-two question
 with `.aspect-why` absent until `#show-me` reveals the card. Worth running the
@@ -1464,7 +1543,7 @@ the parser losing a block to a formatting change.
 
 ---
 
-## State as of 2026-08-14
+## State as of 2026-08-31
 
 - `main` now carries the full v0.1 app — Swift and web. The earlier note that
   this work sat unmerged on `claude/catalan-learning-app-iphone-k407k3` is out
@@ -1501,13 +1580,20 @@ the parser losing a block to a formatting change.
   dot, and a line reaching now — with the gate offering only the ones the deck
   you are in actually uses. `ASPECTS`, `aspectOf` and `aspectChoices` in
   store.js, `aspectGateBody` / `aspectVerdict` in app.js, `aspect` /
-  `aspectNote` on the phrase. Not in Deb-o-lingo, and it would port whole.
-- 241 phrases: 159 Catalan across eleven decks, and 82 Spanish across six.
-  The Catalan eleven are Sounds, Salutacions, Cafès i sortir, Tapes,
-  El mercat, Feina, Castells, and four castells decks for a real rehearsal —
-  Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
-  Deb-o-lingo (below). The Spanish six are Pasado · La línea, El punto, Punto o
-  línea, Antes de aquello, Hoy o ayer and Todo junto.
+  `aspectNote` on the phrase. **In both languages now** — the same forty-eight
+  sentences, drawn with each language's own machinery, which is why `endings`
+  in `ASPECTS` is keyed by locale. Not in Deb-o-lingo, and it would port whole.
+- 255 phrases: 207 Catalan across seventeen decks, and 48 Spanish across six.
+  The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
+  Tapes, El mercat, Feina, Castells, and four castells decks for a real
+  rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
+  from Deb-o-lingo (below). Both languages then carry the same six past-tense
+  decks, eight cards each: La línia / La línea, El punt / El punto, Punt o
+  línia / Punto o línea, Abans d'allò / Antes de aquello, Avui o ahir / Hoy o
+  ayer, Tot junt / Todo junto. The Spanish six were eighty-two cards and are
+  now forty-eight — thirty-three of the old cards kept, forty-nine withdrawn and
+  fifteen written or reworded. `SEED_RETIRED` in store.js is what takes the
+  withdrawn ones off a phone that already had them.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
