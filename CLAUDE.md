@@ -379,6 +379,96 @@ Deb-o-lingo does not have this. It would port — the flag, the gates and the
 CSS are all drill-local — but its drill card has never carried the situation or
 the usage note, so half of what road mode is for taking off is not there.
 
+### Dot or line: naming the shape before saying the sentence
+
+The Spanish past decks are built on one picture. A **dot** is a finished moment
+with edges (*pretérito indefinido*); a **line** is a stretch of past time with
+none — a habit, a state, a background (*pretérito imperfecto*); and plenty of
+sentences are **both**, a line with a dot cutting across it. The drill asks
+which before it will show you the sentence: the English, three shapes, and no
+way past the question except answering it.
+
+That order is the whole feature. Reading the sentence first and then being told
+what tense it is teaches you to recognise endings you have already been given.
+Deciding first — from the meaning alone — is the thing that transfers to
+actually speaking, where the decision comes before the words every time.
+
+- **`ASPECTS` in store.js is the table and `aspectOf` is the one reader.** The
+  table carries the mark, the label, the gloss, the proper term and the
+  endings; `aspectOf(phrase)` returns the entry plus that card's own `note`, so
+  nothing downstream ever has to hold the phrase and the table at once. A
+  fourth shape (the perfect and the pluperfect are next) is an entry here and
+  cards that name it — the gate draws one button per entry, in table order.
+  **But note what that means: every gated card would then offer every button.**
+  A shape only worth offering on *some* cards wants a different design, not a
+  fifth key.
+- **The proper term is on the screen every single time and is never what you
+  are asked for.** That is the compromise the whole feature turns on: the
+  question is always the picture, and the grammar-book word arrives attached to
+  it — on each choice button in small italic, and again in the verdict. So the
+  vocabulary gets learned without ever being the thing being tested.
+- **The endings line rides with every verdict**, because *-aba* and *-ía are
+  always the line* is the single association these decks exist to build, and an
+  association you have to notice for yourself is one you mostly don't. The
+  three verbs that are the line without either ending — ser, ir, ver — are
+  called out in the `aspectNote`s of the cards that use them rather than hidden.
+- **It stacks above level two rather than competing with it.** You name the
+  shape, and only then does the card become whatever it was going to be: a
+  phrase to read back, or a memory question. That works because the gate never
+  shows Spanish. **Deciding which side of the level-two line each half of the
+  verdict falls on is the part to get right, and the two halves land
+  differently:** the term and the endings stay — a hint about the ending is
+  what naming the shape is *for*, and it isn't the sentence — while the
+  `aspectNote` waits, because it explains this particular sentence by quoting
+  Spanish at you, often the very form you are being asked to produce. Same gate
+  as `focusNote`, and it comes back with the card.
+- **Road mode takes it off entirely.** The question is an English sentence and
+  three things to read, which is the whole of what that mode is for not having
+  on the screen. `gating` is false while `roadNow()`, with no other machinery.
+- **The gate is a whole screen, not a strip above the card.** Everything the
+  drill would otherwise show — the sentence, Listen, the record circle — either
+  answers the question or invites you to skip it. The topbar stays, so you can
+  still leave, star the card, or drop into road mode from inside the question;
+  Edit goes, because the editor prints the sentence you are being asked to
+  think about.
+- **A wrong answer costs nothing and is never a dead end.** You are told what
+  it was, told what you said, given the reason, and moved on to say the
+  sentence. **Nothing is persisted** — no per-shape tally, no demotion. That is
+  the same call the level-two section makes about peeking, and for the same
+  reason: a memory of which shapes you get wrong is a decay rule wanting to be
+  designed, not a counter to bolt on here.
+- **`state.aspectChoice` is per card, reset by `loadPhrase`.** Answering
+  re-renders the whole drill, which is safe here in a way it isn't lower down
+  the page: the gate stands before you have recorded anything, so there is no
+  attempt on screen for a `render()` to throw away.
+- **The choices are deliberately not coloured.** Every strong colour is already
+  saying something in the drill — green is the primary and the model, blue is
+  you, purple is level two, gold is road mode, red is recording — and a
+  coloured choice reads as a recommended one. The only colour on that screen
+  arrives with the verdict, and it is the border-and-tint idiom `.notice.good`
+  and `.notice.bad` already use. **There is no `--green-ink` or `--red-ink` to
+  letter a verdict in, and that is not an oversight** — the `-dark` twins are
+  the underside of a pressable control, not a shade that clears contrast as
+  text on the page — so the lettering stays the ordinary text colour.
+- **The phrase sheet states the shape flat**, with no gate and no verdict, and
+  shows it even when the drill's question is switched off: the sheet is where
+  you look a card up rather than being tested on it.
+- **`settings.aspectGate` turns the question off**, and it is the only new
+  setting. Cards outside the past decks carry no `aspect`, so `aspectOf` is
+  null for all 159 Catalan phrases and the switch does nothing to them.
+
+The content lives in `SeedContent.swift` like everything else — `pastLine`,
+`pastDot` and `pastMixed`, with `language: .spanish` on every card. The mixed
+deck is the real test, and the one not to "tidy" into a third single-shape
+deck: a deck whose name tells you the answer trains the deck, not the grammar.
+The hard cases are in on purpose — *estuve tres años*, *estuvo lloviendo todo
+el día*, *aquel verano trabajé* — because the mistake everyone makes is to
+think length decides it when what decides it is whether the ends are closed.
+
+Deb-o-lingo has none of this and it would port whole: the table, the two
+phrase fields, the gate and the CSS are all self-contained, and its Spanish is
+the same Spanish. The Worker is untouched either way.
+
 ### Asking about the phrase you are practising, and keeping the answer
 
 Getting a phrase right and not knowing *why* it is right is where practice
@@ -757,9 +847,20 @@ The parser is regex over Swift source, so it's sensitive to formatting. Match
 the surrounding `Phrase(...)` style exactly — one field per line, double-quoted
 strings — and check the output diff looks sane before committing.
 
+Two fields are Swift *enum cases* rather than strings — `language: .spanish`
+and `aspect: .line` — so they have their own reader, `enum_field`. Both are
+validated against a list and an unknown case exits rather than being written
+through, because a typo would otherwise file a card in a library that doesn't
+exist. `language` is written into `content.js` **only when it isn't Catalan**,
+which is what keeps the 159 Catalan cards byte-identical to what they were
+before Spanish arrived.
+
 Every phrase carries a `focusNote` naming what to listen for. It's shown while
 drilling and is the pedagogical point of the app, not decoration. New phrases
-need one.
+need one — including the Spanish ones, where it does double duty: the -aba and
+-ía endings are the thing to say *and* the thing to notice, so the notes name
+the stressed syllable rather than talking about the grammar. That is
+`aspectNote`'s job, and the two should not swap places.
 
 ---
 
@@ -1128,17 +1229,23 @@ backup the user has.
 
 ---
 
-## Three languages, and two of them start empty
+## Three languages, and one of them still starts empty
 
 `LANGUAGES` in store.js is the whole of it: a locale key, the two names and the
-Azure voices. Catalan is the one with content; Spanish (Spain) and Italian are
-wired up on identical terms and start as an empty library you fill from the Add
-tab. Adding another is that one entry and nothing else — the picker in Settings
+Azure voices. Catalan has the eleven starter decks and Spanish has the three
+past-tense ones; Italian is wired up on identical terms and starts as an empty
+library you fill from the Add tab. Adding another is that one entry and nothing else — the picker in Settings
 is built from `Object.entries(LANGUAGES)`, the voice list and the default voice
 follow it, every list already filters on `phrase.language`, and the card
 assistant sends `languageCode` / `languageName` per request, so **the Worker
-needs no change and neither does Deb-o-lingo.** `installNewSeedContent` writes
-`ca-ES` and only `ca-ES`, which is what keeps the other two empty.
+needs no change and neither does Deb-o-lingo.**
+
+Seed content is no longer Catalan-only, and that is one field rather than a
+second pipeline. `gen-content.py` reads `language: .spanish` off the Swift
+`Phrase` and writes a `language` key **only when it isn't Catalan**, so every
+existing card in `content.js` is byte-identical and `installNewSeedContent`
+still defaults to `ca-ES` for anything without one. What decides which library
+a seed card lands in is the Swift source and nothing else.
 
 Two things to check when adding one: that Azure has neural voices for the
 locale (`gender` is only a label here — the id is what is sent), and that it is
@@ -1257,6 +1364,24 @@ comes back untrimmed at 150 Hz. Do not check this by recording in a quiet room
 — a quiet room is the case the old fixed threshold already handled, which is
 exactly why the bug survived so long.
 
+For the dot-or-line gate, with the library switched to `es-ES`: the `Pasado`
+family is one folded row of three decks and 44 phrases; opening a past deck puts
+`Dot or line?` in `.instruction` with three `.aspect-choice` buttons and no
+`#listen`, `#slow`, `#record`, `#drill-edit`, `.focus-note`, `.drill-context`,
+`#next` or `#history`, while `#back`, `.drill-star` and `#road-toggle` all
+survive; a wrong pick paints `.aspect-verdict.wrong` reading *a line, not a
+dot* and carrying both the term and the -aba/-ía line; answering puts the whole
+drill back; `#next` asks again; `#road-toggle` takes the question off and
+putting road mode away brings it back; `settings.aspectGate = false` removes
+the gate and the verdict together; `.phrase-aspect` states the shape on the
+phrase sheet either way; and no Catalan card is ever gated. On a card with four
+good attempts behind it the gate comes *first* and the `.level-badge` waits
+behind it, and once answered the verdict stands above a live level-two question
+with `.aspect-why` absent until `#show-me` reveals the card. Worth running the
+About me path too whenever `renderDrill`'s topbar is touched — the two
+functions both open with `view.innerHTML = \`<div class="topbar">`, so a
+careless replacement lands in the wrong one.
+
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
 either a diff you meant or no diff at all. A silent drop in the phrase count is
 the parser losing a block to a formatting change.
@@ -1294,10 +1419,17 @@ the parser losing a block to a formatting change.
   as **Sobre mí** with no Worker change.
 - The score is the weakest word in the attempt, not any of Azure's aggregates
   — see below.
-- 159 phrases across eleven decks: Sounds, Salutacions, Cafès i sortir, Tapes,
+- **Dot or line** is the Spanish past-tense drill: three decks under a `Pasado`
+  family, and a gate that makes you name the shape of the sentence before it
+  will show you the sentence. `ASPECTS` and `aspectOf` in store.js,
+  `aspectGateBody` / `aspectVerdict` in app.js, `aspect` / `aspectNote` on the
+  phrase. Not in Deb-o-lingo, and it would port whole.
+- 203 phrases: 159 Catalan across eleven decks, and 44 Spanish across three.
+  The Catalan eleven are Sounds, Salutacions, Cafès i sortir, Tapes,
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
-  Deb-o-lingo (below).
+  Deb-o-lingo (below). The Spanish three are Pasado · La línea, Pasado · El
+  punto and Pasado · Punto o línea.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

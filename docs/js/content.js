@@ -958,5 +958,403 @@ export const SEED_PHRASES = [
     "translation": "Breathe!",
     "deck": "Castells · Ordres",
     "focusNote": "'rəs-pi-REU'. Shouted when the pinya is tensing up and holding its breath."
+  },
+  {
+    "text": "Todos los días desayunaba a las siete.",
+    "translation": "Every day I had breakfast at seven.",
+    "deck": "Pasado · La línea",
+    "focusNote": "The line ending carries the stress: de-sa-yu-NA-ba. Spanish keeps every unstressed vowel full — 'todos' is TO-dos, never 'tuh-dus'.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Todos los días' is the giveaway. A habit has no edges, so it is a line."
+  },
+  {
+    "text": "Cuando era pequeña, vivía en Sevilla.",
+    "translation": "When I was little, I lived in Seville.",
+    "deck": "Pasado · La línea",
+    "focusNote": "vi-VÍ-a is three syllables — the accent on the í breaks it away from the a. Both v's are the soft b Spanish uses between vowels.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Childhood is a stretch, not a day. Note that 'era' is a line too: ser, ir and ver are the only three that don't take -aba or -ía."
+  },
+  {
+    "text": "Mi abuelo siempre llevaba sombrero.",
+    "translation": "My grandfather always wore a hat.",
+    "deck": "Pasado · La línea",
+    "focusNote": "lle-VA-ba, stress on the -VA-, and the ll opens as a y. The b and the v are the same soft sound.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Siempre' — a repeated habit over years, so the line."
+  },
+  {
+    "text": "Hacía mucho calor aquella tarde.",
+    "translation": "It was very hot that afternoon.",
+    "deck": "Pasado · La línea",
+    "focusNote": "a-CÍ-a: the h is silent and the c before i is the Castilian th. Three syllables, stress on the í.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Weather is scenery rather than an event. It was going on all afternoon: a line."
+  },
+  {
+    "text": "Los sábados íbamos a la playa.",
+    "translation": "On Saturdays we used to go to the beach.",
+    "deck": "Pasado · La línea",
+    "focusNote": "Í-ba-mos takes the stress right at the front. The b is soft and the y of playa is a light j.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Los sábados' means every Saturday. A repeated habit is a line — and 'íbamos' is one of the three that skips -aba/-ía and is the line anyway."
+  },
+  {
+    "text": "No me gustaba nada el pescado.",
+    "translation": "I didn't like fish at all.",
+    "deck": "Pasado · La línea",
+    "focusNote": "gus-TA-ba, with the ending carrying the stress. The d of pescado is soft, near the th of 'father'.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Liking something is a state you were in, not something you did once. States are lines."
+  },
+  {
+    "text": "Estábamos cansados y no queríamos salir.",
+    "translation": "We were tired and we didn't want to go out.",
+    "deck": "Pasado · La línea",
+    "focusNote": "es-TÁ-ba-mos and que-RÍ-a-mos both stress the syllable before the -mos. Every vowel stays full.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Two lines: how you felt and what you wanted. Neither has a moment attached to it."
+  },
+  {
+    "text": "Ella tenía veinte años entonces.",
+    "translation": "She was twenty then.",
+    "deck": "Pasado · La línea",
+    "focusNote": "te-NÍ-a, three syllables. The ñ of años is the ni of 'onion'.",
+    "language": "es-ES",
+    "usageNote": "Worth getting the ñ right: 'años' is years, 'anos' is not.",
+    "aspect": "line",
+    "aspectNote": "Age describes the time rather than happening in it. Always the line."
+  },
+  {
+    "text": "Mientras cocinaba, escuchaba la radio.",
+    "translation": "While I was cooking, I listened to the radio.",
+    "deck": "Pasado · La línea",
+    "focusNote": "co-ci-NA-ba: the second c is the Castilian th. Two -aba endings in a row, stressed on the -NA- and the -CHA-.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Mientras' sets two lines running at once, and nothing interrupts either of them."
+  },
+  {
+    "text": "Antes fumaba, pero ya no.",
+    "translation": "I used to smoke, but not any more.",
+    "deck": "Pasado · La línea",
+    "focusNote": "fu-MA-ba. The single r of 'pero' is one flick of the tongue — 'perro' with a trill is a dog.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Antes' — how things used to be. English 'used to' is almost always the line."
+  },
+  {
+    "text": "Eran las tres de la mañana.",
+    "translation": "It was three in the morning.",
+    "deck": "Pasado · La línea",
+    "focusNote": "E-ran, stress at the front, and all three a's of mañana stay open.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Telling the time in the past is always the line — it is the backdrop, never the event. 'Eran' is ser, one of the three exceptions to -aba/-ía."
+  },
+  {
+    "text": "El piso era pequeño pero tenía mucha luz.",
+    "translation": "The flat was small but it had a lot of light.",
+    "deck": "Pasado · La línea",
+    "focusNote": "te-NÍ-a. The z of luz is the Castilian th, and pequeño has the ñ.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Description. Nothing happens — you are painting the room, so both verbs are lines."
+  },
+  {
+    "text": "De niño jugaba al fútbol en la calle.",
+    "translation": "As a child I played football in the street.",
+    "deck": "Pasado · La línea",
+    "focusNote": "ju-GA-ba — the j is the harsh throaty sound and the g between vowels is soft. 'Calle' ends on a y.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'De niño' means throughout childhood. A habit stretched over years: the line."
+  },
+  {
+    "text": "Siempre nos decía la verdad.",
+    "translation": "He always told us the truth.",
+    "deck": "Pasado · La línea",
+    "focusNote": "de-CÍ-a, three syllables with the c as a th. The d of verdad is soft and the final one is barely there.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Siempre' again. Repeated behaviour is a line, however many times it happened."
+  },
+  {
+    "text": "Ayer comí en casa de mi madre.",
+    "translation": "Yesterday I ate at my mother's house.",
+    "deck": "Pasado · El punto",
+    "focusNote": "co-MÍ — the stress on the final í is what makes it a dot rather than 'como'. The d of madre is soft.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "'Ayer' closes it off. One meal, over and done: a dot."
+  },
+  {
+    "text": "Fuimos a Madrid el fin de semana pasado.",
+    "translation": "We went to Madrid last weekend.",
+    "deck": "Pasado · El punto",
+    "focusNote": "FUI-mos is one syllable and then -mos. The final d of Madrid is a soft th, almost swallowed.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A trip with a beginning and an end. 'El fin de semana pasado' puts a box round it."
+  },
+  {
+    "text": "Se me cayó el móvil al suelo.",
+    "translation": "I dropped my phone on the floor.",
+    "deck": "Pasado · El punto",
+    "focusNote": "ca-YÓ — everything lands on that final ó, and the y is light.",
+    "language": "es-ES",
+    "usageNote": "'Se me cayó' rather than 'lo dejé caer' — Spanish would rather say the phone fell on you.",
+    "aspect": "dot",
+    "aspectNote": "One second, one bang. You cannot drop a phone gradually."
+  },
+  {
+    "text": "Anoche me acosté muy tarde.",
+    "translation": "Last night I went to bed very late.",
+    "deck": "Pasado · El punto",
+    "focusNote": "a-cos-TÉ — the written accent pulls the stress to the end. The c is a hard k here.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A single moment on a single night. The dot."
+  },
+  {
+    "text": "¿Qué te dijo?",
+    "translation": "What did he say to you?",
+    "deck": "Pasado · El punto",
+    "focusNote": "DI-jo — the j is the harsh throaty sound, never an English j. Stress at the front, unlike most dots.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "One thing said, once. Note the irregulars — dijo, hizo, vino — are dots that don't end in an accented vowel."
+  },
+  {
+    "text": "Estuve tres años en Alemania.",
+    "translation": "I spent three years in Germany.",
+    "deck": "Pasado · El punto",
+    "focusNote": "es-TU-ve with the soft b for the v, and the ñ of años.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Three years, and still a dot: it is a block with both ends closed. Length is not what decides it — edges are."
+  },
+  {
+    "text": "El tren llegó con veinte minutos de retraso.",
+    "translation": "The train arrived twenty minutes late.",
+    "deck": "Pasado · El punto",
+    "focusNote": "lle-GÓ — the ll is a y and the whole weight is on the ó. The r of retraso is a single tap.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Arriving is a moment: before it the train wasn't there, after it it was."
+  },
+  {
+    "text": "Nací en mil novecientos ochenta.",
+    "translation": "I was born in 1980.",
+    "deck": "Pasado · El punto",
+    "focusNote": "na-CÍ — the c is the Castilian th and the stress is on the final í. Novecientos has a th in the middle too.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "The one thing in a life that is most obviously a dot."
+  },
+  {
+    "text": "Hice la compra esta mañana.",
+    "translation": "I did the shopping this morning.",
+    "deck": "Pasado · El punto",
+    "focusNote": "I-ce — the h is silent and the c is a th, so it comes out 'EE-theh'. Stress at the front.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "This morning is finished. A completed errand is a dot even though it took an hour."
+  },
+  {
+    "text": "Tuvimos que esperar media hora.",
+    "translation": "We had to wait half an hour.",
+    "deck": "Pasado · El punto",
+    "focusNote": "tu-VI-mos with the soft b. The h of hora is silent — 'O-ra', with a single tapped r.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "The waiting had a start and an end and it is over. A closed half hour is a dot."
+  },
+  {
+    "text": "La semana pasada vi a Marta en el mercado.",
+    "translation": "Last week I saw Marta at the market.",
+    "deck": "Pasado · El punto",
+    "focusNote": "'Vi' is one syllable and the shortest verb in Spanish. The d of mercado is soft.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "One sighting, last week. Catching sight of someone is a moment."
+  },
+  {
+    "text": "Empezó a llover de repente.",
+    "translation": "It suddenly started to rain.",
+    "deck": "Pasado · El punto",
+    "focusNote": "em-pe-ZÓ — the z is a th and the stress is on the ó. 'Llover' opens with the y sound.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "'De repente' is the strongest dot signal in the language. Starting is a moment, even when what starts goes on for hours."
+  },
+  {
+    "text": "No pude dormir en toda la noche.",
+    "translation": "I couldn't sleep all night.",
+    "deck": "Pasado · El punto",
+    "focusNote": "PU-de, stress at the front, and the d between vowels is soft.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "The whole night is bounded and finished. 'No podía dormir' would be the line — the state you were in — and this is the closed account of it."
+  },
+  {
+    "text": "Vino a la fiesta pero no se quedó.",
+    "translation": "He came to the party but he didn't stay.",
+    "deck": "Pasado · El punto",
+    "focusNote": "VI-no at the front, que-DÓ at the back — two dots stressed at opposite ends.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Two events in a row, both finished. A sequence of things happening is a string of dots."
+  },
+  {
+    "text": "Estaba duchándome cuando sonó el timbre.",
+    "translation": "I was in the shower when the doorbell rang.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "es-TA-ba running, then so-NÓ landing. Single tapped r in timbre.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The shower is the line and the doorbell is the dot that cuts across it. The whole picture in one sentence."
+  },
+  {
+    "text": "Mientras cenábamos, se fue la luz.",
+    "translation": "While we were having dinner, the power went out.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "ce-NÁ-ba-mos opens with the Castilian th, and luz ends on one.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "Dinner was under way — the line — and the power went at one moment. 'Mientras' almost always marks the line."
+  },
+  {
+    "text": "Iba a llamarte, pero me quedé dormido.",
+    "translation": "I was going to call you, but I fell asleep.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "I-ba then que-DÉ — a front-stressed line and an end-stressed dot. The ll of llamarte is a y.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The intention was running along and falling asleep ended it. 'Iba a' is the line even without an -aba."
+  },
+  {
+    "text": "Leía tranquilamente cuando entró mi hermano.",
+    "translation": "I was reading quietly when my brother came in.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "le-Í-a is three syllables and en-TRÓ has a single tapped r. The h of hermano is silent.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "Reading is the line, your brother coming in is the dot. Swap them and the sentence stops making sense."
+  },
+  {
+    "text": "Hacía sol cuando salimos de casa.",
+    "translation": "It was sunny when we left the house.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "a-CÍ-a, silent h and a th for the c. sa-LI-mos with every vowel full.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The sunshine is the background and leaving is the event. Weather is nearly always the line."
+  },
+  {
+    "text": "Conducía despacio porque llovía.",
+    "translation": "I was driving slowly because it was raining.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "con-du-CÍ-a and llo-VÍ-a both end in the -ía that marks the line. The c of conducía is a th.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "Two lines running together and nothing cutting across. Both -ía, both the line."
+  },
+  {
+    "text": "Anteayer me levanté a las seis.",
+    "translation": "The day before yesterday I got up at six.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "le-van-TÉ, all the weight on the last syllable. 'Seis' is one syllable.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A named morning and one getting-up. No line anywhere in it."
+  },
+  {
+    "text": "De pequeño no comía verdura.",
+    "translation": "As a child I didn't eat vegetables.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "co-MÍ-a, three syllables. Next to 'comí' it is the whole lesson: one more syllable makes it a line.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "A habit through childhood. 'No comí verdura' would be one particular meal."
+  },
+  {
+    "text": "Ayer estuvo lloviendo todo el día.",
+    "translation": "It rained all day yesterday.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "es-TU-vo with the soft b. 'Lloviendo' starts on the y sound.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "All day, and still a dot: yesterday is closed, so the rain is reported as one finished block."
+  },
+  {
+    "text": "Cuando llegamos, no había nadie.",
+    "translation": "When we arrived, there was nobody there.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "lle-GA-mos then a-BÍ-a — the h is silent and the b is soft.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "Arriving is the dot; the empty room was already there, so it is the line. 'Había' is always the line."
+  },
+  {
+    "text": "La conocí en Granada en dos mil quince.",
+    "translation": "I met her in Granada in 2015.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "co-no-CÍ — the c before i is a th and the stress is on the í. Single tapped r in Granada.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "Meeting someone is a moment. 'La conocía' would mean you knew her — a state, and a line."
+  },
+  {
+    "text": "Siempre que venía, traía flores.",
+    "translation": "Whenever he came, he brought flowers.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "ve-NÍ-a and tra-Í-a, both three syllables with the stress on the í.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "'Siempre que' means every time. Two habits, so two lines, however many visits there were."
+  },
+  {
+    "text": "Aquel verano trabajé en un hotel.",
+    "translation": "That summer I worked in a hotel.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "tra-ba-JÉ — the j is throaty and the stress is on the é. The h of hotel is silent.",
+    "language": "es-ES",
+    "aspect": "dot",
+    "aspectNote": "A whole summer as one closed job. 'Trabajaba' would make it the background to something else."
+  },
+  {
+    "text": "Estudiábamos juntos en la universidad.",
+    "translation": "We used to study together at university.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "es-tu-DIÁ-ba-mos. The j of juntos is throaty and the final d of universidad is barely voiced.",
+    "language": "es-ES",
+    "aspect": "line",
+    "aspectNote": "How things were over a period, with nothing happening in it. The -ábamos is the line."
+  },
+  {
+    "text": "Le pregunté cómo estaba.",
+    "translation": "I asked him how he was.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "pre-gun-TÉ ends on the é and es-TA-ba sits on the -TA-. Single tapped r in pregunté.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "Asking is the dot and how he was is the line. One sentence, one of each."
+  },
+  {
+    "text": "Se cayó porque el suelo estaba mojado.",
+    "translation": "He fell because the floor was wet.",
+    "deck": "Pasado · Punto o línea",
+    "focusNote": "ca-YÓ, then es-TA-ba. The j of mojado is throaty and the d is soft.",
+    "language": "es-ES",
+    "aspect": "both",
+    "aspectNote": "The fall is the dot; the wet floor was already there, so it is the line. Reasons are usually lines."
   }
 ];

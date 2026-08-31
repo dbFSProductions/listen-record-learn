@@ -25,13 +25,17 @@ final class Library {
 
     private func installNewSeedContent() {
         let existing = Set(phrases.map(\.text))
-        let newcomers = SeedContent.catalanStarterDecks.filter {
+        // `allStarterDecks` rather than the Catalan ones alone: each phrase
+        // carries its own `language`, and every list in the app already filters
+        // on it, so the Spanish past-tense decks land in the Spanish library
+        // without anything here having to know about them.
+        let newcomers = SeedContent.allStarterDecks.filter {
             !existing.contains($0.text) && !seededTexts.contains($0.text)
         }
         guard !newcomers.isEmpty else { return }
 
         phrases.append(contentsOf: newcomers)
-        seededTexts.formUnion(SeedContent.catalanStarterDecks.map(\.text))
+        seededTexts.formUnion(SeedContent.allStarterDecks.map(\.text))
         savePhrases()
         saveSeeded()
     }
