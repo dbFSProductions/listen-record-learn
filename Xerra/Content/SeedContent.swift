@@ -1493,13 +1493,17 @@ enum SeedContent {
         ),
     ]
 
-    // MARK: - Spanish · the dot before the dot
+    // MARK: - Spanish · an event before the event
 
-    /// The pluperfect, drilled as *a dot before the dot*. Every card names a
-    /// past moment and then puts something in front of it. A card's `aspect`
-    /// is the shape it is *about* — the pluperfect — and the aspectNote says
-    /// what the other verb is doing, which is how the mixed sentences here
-    /// stay a single question with a single answer.
+    /// The pluperfect, drilled as *an event before the event*. Every card names
+    /// a past moment and puts something in front of it — and what it is put in
+    /// front of is deliberately not always the same shape: `llegué` is a dot,
+    /// `sabía` is a line, and `nunca había visto` never names one at all. That
+    /// is exactly why this shape is not called "a dot before the dot".
+    ///
+    /// A card's `aspect` is the shape it is *about* — the pluperfect — and the
+    /// aspectNote says what the other verb is doing, which is how the mixed
+    /// sentences here stay a single question with a single answer.
     ///
     /// The preterite and imperfect cards mixed in are there so the deck cannot
     /// be answered by its own name.
@@ -1507,7 +1511,7 @@ enum SeedContent {
         Phrase(
             text: "Cuando llegué, ya se habían ido.",
             translation: "When I arrived, they had already left.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-an — the h is silent and the b is the soft one between vowels. lle-GÉ has the throaty j sound for the g.",
             aspect: .pastPerfect,
@@ -1516,16 +1520,16 @@ enum SeedContent {
         Phrase(
             text: "No pude entrar porque había perdido las llaves.",
             translation: "I couldn't get in because I had lost my keys.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-a, three syllables, silent h. The ll of llaves is a y, and the d of perdido is soft.",
             aspect: .pastPerfect,
-            aspectNote: "Losing the keys came first, the locked door second. The reason is always the earlier dot."
+            aspectNote: "Losing the keys came first, the locked door second. The reason is the earlier event, whatever shape the later one has."
         ),
         Phrase(
             text: "Nunca había visto una cosa así.",
             translation: "I had never seen anything like it.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-a again. The s of 'cosa' stays unvoiced — never the z of English 'nose'.",
             aspect: .pastPerfect,
@@ -1534,7 +1538,7 @@ enum SeedContent {
         Phrase(
             text: "Ya habíamos cenado cuando llamaste.",
             translation: "We had already had dinner when you called.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-a-mos, four syllables. 'Cenado' opens with the Castilian th and its d is soft.",
             aspect: .pastPerfect,
@@ -1543,7 +1547,7 @@ enum SeedContent {
         Phrase(
             text: "Me dijo que había estado en Japón.",
             translation: "He told me he had been to Japan.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "DI-jo and Ja-PÓN both use the harsh throaty j. a-BÍ-a keeps its silent h.",
             aspect: .pastPerfect,
@@ -1552,7 +1556,7 @@ enum SeedContent {
         Phrase(
             text: "Cuando salimos, ya había parado de llover.",
             translation: "When we left, it had already stopped raining.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-a pa-RA-do — three soft d's in a row, tongue on the teeth each time.",
             aspect: .pastPerfect,
@@ -1561,7 +1565,7 @@ enum SeedContent {
         Phrase(
             text: "Ella había trabajado allí antes de conocerme.",
             translation: "She had worked there before she met me.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "tra-ba-JA-do with the throaty j, and 'allí' is a-YÍ with the stress on the end.",
             aspect: .pastPerfect,
@@ -1570,7 +1574,7 @@ enum SeedContent {
         Phrase(
             text: "El tren ya había salido.",
             translation: "The train had already left.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-a sa-LI-do. The r of tren is a single tap.",
             aspect: .pastPerfect,
@@ -1579,16 +1583,16 @@ enum SeedContent {
         Phrase(
             text: "Ayer perdí las llaves.",
             translation: "Yesterday I lost my keys.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "per-DÍ, stress on the final í, with a single tapped r.",
             aspect: .dot,
-            aspectNote: "No earlier dot to sit in front of. Just yesterday, finished: the plain preterite."
+            aspectNote: "Nothing earlier to sit in front of. Just yesterday, finished: the plain preterite."
         ),
         Phrase(
             text: "De joven trabajaba en un banco.",
             translation: "When I was young I worked in a bank.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "JO-ven and tra-ba-JA-ba both open the throat on the j. The -aba carries the stress.",
             aspect: .line,
@@ -1597,7 +1601,7 @@ enum SeedContent {
         Phrase(
             text: "Habían cerrado la tienda antes de las ocho.",
             translation: "They had closed the shop before eight.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "a-BÍ-an ce-RRA-do — the rr is a real trill and the c is the Castilian th.",
             aspect: .pastPerfect,
@@ -1606,11 +1610,11 @@ enum SeedContent {
         Phrase(
             text: "No lo sabía porque nadie me lo había dicho.",
             translation: "I didn't know because nobody had told me.",
-            deck: "Pasado · El punto anterior",
+            deck: "Pasado · Antes de aquello",
             language: .spanish,
             focusNote: "sa-BÍ-a and a-BÍ-a rhyme — both three syllables with the stress on the í. DI-cho is front-stressed.",
             aspect: .pastPerfect,
-            aspectNote: "'Sabía' is the line you were in and 'había dicho' is the missing dot before it. The shape being asked about is the earlier dot."
+            aspectNote: "Here the thing it comes before is a *line* — 'sabía' — and not a dot at all. That is why this shape is an event before the event: what matters is only that it was already over by then."
         ),
     ]
 
@@ -1839,7 +1843,7 @@ enum SeedContent {
             deck: "Pasado · Todo junto",
             language: .spanish,
             focusNote: "a-CÍ-a and a-BÍ-a rhyme, both with silent h. 'Calle' ends on a y.",
-            usageNote: "Worth keeping apart: 'había nadie' is the line, 'había ido' is the dot before the dot.",
+            usageNote: "Worth keeping apart: 'había nadie' is the line — haber's own imperfect — while 'había ido' is the pluperfect.",
             aspect: .line,
             aspectNote: "Pure scenery, twice over. 'Había' here is the line, not a perfect — it is haber's own imperfect."
         ),

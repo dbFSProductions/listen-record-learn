@@ -382,10 +382,12 @@ the usage note, so half of what road mode is for taking off is not there.
 ### Dot or line: naming the shape before saying the sentence
 
 The Spanish past decks are built on one picture, and there are five shapes in
-it. A **dot** is a finished moment with edges (*preterite*); a **line** is a
-stretch of past time with none — a habit, a state, a background (*imperfect*);
-plenty of sentences are **both**, a line with a dot cutting across it; a **dot
-before the dot** is something already over by the past moment you are talking
+it. A **dot** is an event in a time-boxed past (*preterite*) — what closes it
+is the box round the time, not the event, which is what makes *estuve tres
+años* a dot and *hoy he comido* not one; a **line** is a stretch of past time
+with no box round it — a habit, a state, a background (*imperfect*); plenty of
+sentences are **both**, a line with a dot cutting across it; an **event before
+the event** is something already over by the past moment you are talking
 about (*past perfect*); and a **line reaching now** is drawn `(▬···●)` — a
 line back in the past, dashed forward into the dot of now, with the brackets
 being the stretch of time that still has now inside it (*present perfect*).
@@ -396,6 +398,18 @@ shapes, and no way past the question except answering it.
 *imperfect*, *past perfect (pluperfect)*, *present perfect*. They were the
 Spanish grammar-book names to begin with and were changed because these are
 what the learner actually thinks in; don't "correct" them back.
+
+**The pluperfect is the one shape whose name leaves the dot-and-line picture,
+and it has to.** It was "a dot before the dot", which quietly claimed the thing
+it comes *before* is a dot — and that is the one part of it that varies:
+*cuando llegué* is a dot, *no lo sabía* is a line, *nunca había visto* never
+names a moment at all. So it is **an event before the event**, and its mark
+`●···|` ends on a plain tick rather than a second `●`, because in this table a
+`●` is always a specific moment and the anchor here is whatever moment you
+happen to have landed on. The deck was renamed from `El punto anterior` to
+`Antes de aquello` for the same reason, and the card whose anchor is a line
+(*no lo sabía porque nadie me lo había dicho*) says so in its `aspectNote`
+rather than being quietly dropped.
 
 **Past continuous is not a sixth key.** `estaba + -ndo` is a *flavour* of the
 imperfect, not a separate tense, and the imperfect also covers habits and
@@ -503,7 +517,7 @@ The content lives in `SeedContent.swift` like everything else, six decks with
 | `Pasado · La línea` | imperfect, every card an -aba or -ía |
 | `Pasado · El punto` | preterite |
 | `Pasado · Punto o línea` | the three-way test |
-| `Pasado · El punto anterior` | past perfect |
+| `Pasado · Antes de aquello` | past perfect |
 | `Pasado · Hoy o ayer` | present perfect against the preterite |
 | `Pasado · Todo junto` | all five — the only deck where the full question is asked |
 
@@ -1423,8 +1437,8 @@ exactly why the bug survived so long.
 
 For the dot-or-line gate, with the library switched to `es-ES`: the `Pasado`
 family is one folded row of six decks and 82 phrases; `La línea` offers three
-`.aspect-choice` buttons and asks *Dot or line?*, `Hoy o ayer` and `El punto
-anterior` offer four each — one perfect apiece and not the other — and `Todo
+`.aspect-choice` buttons and asks *Dot or line?*, `Hoy o ayer` and `Antes de
+aquello` offer four each — one perfect apiece and not the other — and `Todo
 junto` offers five and asks *Which shape?*; `hoy he comido` reads *A line
 reaching now* on the phrase sheet with its `he · has · ha` endings while its
 minimal pair `ayer comí` reads *A dot*; opening a past deck puts
@@ -1493,7 +1507,7 @@ the parser losing a block to a formatting change.
   El mercat, Feina, Castells, and four castells decks for a real rehearsal —
   Arribada, Pinya, Segon, Ordres. The four everyday decks came over from
   Deb-o-lingo (below). The Spanish six are Pasado · La línea, El punto, Punto o
-  línea, El punto anterior, Hoy o ayer and Todo junto.
+  línea, Antes de aquello, Hoy o ayer and Todo junto.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
