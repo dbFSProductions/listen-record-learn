@@ -1,9 +1,10 @@
 import Foundation
 
-/// Which shape in the past a sentence is: a dot is one finished moment, a line
-/// is a stretch of it, some sentences are a line with a dot cutting across, and
-/// the two perfects sit off the main timeline — a dot before the dot you are
-/// talking about, and a line dashed forward into the dot of now.
+/// Which shape in the past a sentence is: a dot is an event in a time-boxed
+/// past, a line is a stretch of it, some sentences are a line with a dot
+/// cutting across, and the two perfects sit off the main timeline — an event
+/// finished before the past moment you are talking about, and a line dashed
+/// forward into the dot of now.
 ///
 /// This is the picture the past-tense decks are built on, and the drill asks
 /// for it *before* it will show you the sentence — you pick the shape, then you

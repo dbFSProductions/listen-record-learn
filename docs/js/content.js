@@ -1360,7 +1360,7 @@ export const SEED_PHRASES = [
   {
     "text": "Cuando llegué, ya se habían ido.",
     "translation": "When I arrived, they had already left.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-an — the h is silent and the b is the soft one between vowels. lle-GÉ has the throaty j sound for the g.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1369,16 +1369,16 @@ export const SEED_PHRASES = [
   {
     "text": "No pude entrar porque había perdido las llaves.",
     "translation": "I couldn't get in because I had lost my keys.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-a, three syllables, silent h. The ll of llaves is a y, and the d of perdido is soft.",
     "language": "es-ES",
     "aspect": "pastPerfect",
-    "aspectNote": "Losing the keys came first, the locked door second. The reason is always the earlier dot."
+    "aspectNote": "Losing the keys came first, the locked door second. The reason is the earlier event, whatever shape the later one has."
   },
   {
     "text": "Nunca había visto una cosa así.",
     "translation": "I had never seen anything like it.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-a again. The s of 'cosa' stays unvoiced — never the z of English 'nose'.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1387,7 +1387,7 @@ export const SEED_PHRASES = [
   {
     "text": "Ya habíamos cenado cuando llamaste.",
     "translation": "We had already had dinner when you called.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-a-mos, four syllables. 'Cenado' opens with the Castilian th and its d is soft.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1396,7 +1396,7 @@ export const SEED_PHRASES = [
   {
     "text": "Me dijo que había estado en Japón.",
     "translation": "He told me he had been to Japan.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "DI-jo and Ja-PÓN both use the harsh throaty j. a-BÍ-a keeps its silent h.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1405,7 +1405,7 @@ export const SEED_PHRASES = [
   {
     "text": "Cuando salimos, ya había parado de llover.",
     "translation": "When we left, it had already stopped raining.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-a pa-RA-do — three soft d's in a row, tongue on the teeth each time.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1414,7 +1414,7 @@ export const SEED_PHRASES = [
   {
     "text": "Ella había trabajado allí antes de conocerme.",
     "translation": "She had worked there before she met me.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "tra-ba-JA-do with the throaty j, and 'allí' is a-YÍ with the stress on the end.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1423,7 +1423,7 @@ export const SEED_PHRASES = [
   {
     "text": "El tren ya había salido.",
     "translation": "The train had already left.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-a sa-LI-do. The r of tren is a single tap.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1432,16 +1432,16 @@ export const SEED_PHRASES = [
   {
     "text": "Ayer perdí las llaves.",
     "translation": "Yesterday I lost my keys.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "per-DÍ, stress on the final í, with a single tapped r.",
     "language": "es-ES",
     "aspect": "dot",
-    "aspectNote": "No earlier dot to sit in front of. Just yesterday, finished: the plain preterite."
+    "aspectNote": "Nothing earlier to sit in front of. Just yesterday, finished: the plain preterite."
   },
   {
     "text": "De joven trabajaba en un banco.",
     "translation": "When I was young I worked in a bank.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "JO-ven and tra-ba-JA-ba both open the throat on the j. The -aba carries the stress.",
     "language": "es-ES",
     "aspect": "line",
@@ -1450,7 +1450,7 @@ export const SEED_PHRASES = [
   {
     "text": "Habían cerrado la tienda antes de las ocho.",
     "translation": "They had closed the shop before eight.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "a-BÍ-an ce-RRA-do — the rr is a real trill and the c is the Castilian th.",
     "language": "es-ES",
     "aspect": "pastPerfect",
@@ -1459,11 +1459,11 @@ export const SEED_PHRASES = [
   {
     "text": "No lo sabía porque nadie me lo había dicho.",
     "translation": "I didn't know because nobody had told me.",
-    "deck": "Pasado · El punto anterior",
+    "deck": "Pasado · Antes de aquello",
     "focusNote": "sa-BÍ-a and a-BÍ-a rhyme — both three syllables with the stress on the í. DI-cho is front-stressed.",
     "language": "es-ES",
     "aspect": "pastPerfect",
-    "aspectNote": "'Sabía' is the line you were in and 'había dicho' is the missing dot before it. The shape being asked about is the earlier dot."
+    "aspectNote": "Here the thing it comes before is a *line* — 'sabía' — and not a dot at all. That is why this shape is an event before the event: what matters is only that it was already over by then."
   },
   {
     "text": "Hoy he comido demasiado.",
@@ -1670,7 +1670,7 @@ export const SEED_PHRASES = [
     "deck": "Pasado · Todo junto",
     "focusNote": "a-CÍ-a and a-BÍ-a rhyme, both with silent h. 'Calle' ends on a y.",
     "language": "es-ES",
-    "usageNote": "Worth keeping apart: 'había nadie' is the line, 'había ido' is the dot before the dot.",
+    "usageNote": "Worth keeping apart: 'había nadie' is the line — haber's own imperfect — while 'había ido' is the pluperfect.",
     "aspect": "line",
     "aspectNote": "Pure scenery, twice over. 'Había' here is the line, not a perfect — it is haber's own imperfect."
   },

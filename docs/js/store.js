@@ -52,9 +52,10 @@ export const MY_PHRASES = "My phrases";
    learn about them. Only the row that leads to it is special. */
 export const ABOUT_DECK = "About me";
 
-/* The shape a past sentence has: a dot is one finished moment, a line is a
-   stretch of past time, and plenty of sentences are a line with a dot cutting
-   across it. The past-tense decks are built on that picture, and the drill
+/* The shape a past sentence has: a dot is an event in a time-boxed past, a
+   line is a stretch of past time with no box round it, plenty of sentences are
+   a line with a dot cutting across it, and the two perfects sit off that line
+   entirely. The past-tense decks are built on that picture, and the drill
    makes you name the shape before it will show you the sentence — you decide
    what you are drawing, then you say the words.
 
@@ -75,7 +76,7 @@ export const ASPECTS = {
   dot: {
     mark: "●",
     label: "A dot",
-    gloss: "one finished moment, with edges",
+    gloss: "an event in a time-boxed past",
     term: "preterite (simple past)",
     endings: "-é / -ó · -í / -ió",
     base: true,
@@ -101,9 +102,17 @@ export const ASPECTS = {
     endings: "-aba/-ía running, -ó/-ió cutting in",
     base: true,
   },
+  /* The one shape whose name steps outside the dot-and-line picture, and
+     deliberately. What a pluperfect is measured against can be a dot (*cuando
+     llegué*), a line (*no lo sabía*), or a past moment never named at all
+     (*nunca había visto*) — so "a dot before the dot" claimed something about
+     the anchor that isn't true, and reading it that way is the mistake. Hence
+     an *event* before the event, and a mark that ends on a plain tick: `●` is
+     always a specific moment in this table, and the anchor here is whatever
+     past moment you happen to have landed on. */
   pastPerfect: {
-    mark: "●···●",
-    label: "A dot before the dot",
+    mark: "●···|",
+    label: "An event before the event",
     gloss: "already over before that past moment",
     term: "past perfect (pluperfect)",
     endings: "había · habías · había + -ado / -ido",
