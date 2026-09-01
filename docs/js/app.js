@@ -1600,9 +1600,22 @@ function aspectGateBody(phrase) {
    the ending is what naming the shape is *for*, and it isn't the sentence.
 
    The note is the one part that waits. It explains this particular sentence,
-   and it does that by quoting Spanish at you — often the very form you are
-   being asked to produce — so it sits behind exactly the gate `focusNote`
-   does, and comes back the moment the card is revealed. */
+   and it does that by quoting the target language at you — often the very form
+   you are being asked to produce — so it sits behind exactly the gate
+   `focusNote` does, and comes back the moment the card is revealed.
+
+   `endings` comes out of `aspectOf` already resolved for the card's language,
+   and is null where that language hasn't got a line written for it — hence the
+   `termLine` helper rather than a bare join, which would print a dangling
+   separator. */
+
+// The grammar-book term, and the endings under it where the card's language
+// has them. One helper because the verdict and the phrase sheet both print it
+// and they must not drift on how a missing half is handled.
+function termLine(shape) {
+  return shape.endings ? `${esc(shape.term)} · ${esc(shape.endings)}` : esc(shape.term);
+}
+
 function aspectVerdict(shape, choice, asking) {
   if (!shape || !choice) return "";
   const right = choice === shape.key;
@@ -1614,7 +1627,7 @@ function aspectVerdict(shape, choice, asking) {
       <span class="aspect-mark">${shape.mark}</span>
       <span class="aspect-verdict-body">
         <strong>${right ? `Yes — ${esc(theirs)}` : `Not quite — ${esc(theirs)}, not ${esc(mine)}`}</strong>
-        <span class="aspect-term">${esc(shape.term)} · ${esc(shape.endings)}</span>
+        <span class="aspect-term">${termLine(shape)}</span>
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
     </div>`;
@@ -2215,7 +2228,7 @@ function showPhrase(phrase) {
               <span class="aspect-mark">${aspectOf(phrase).mark}</span>
               <span class="aspect-verdict-body">
                 <strong>${esc(aspectOf(phrase).label)}</strong>
-                <span class="aspect-term">${esc(aspectOf(phrase).term)} · ${esc(aspectOf(phrase).endings)}</span>
+                <span class="aspect-term">${termLine(aspectOf(phrase))}</span>
                 ${aspectOf(phrase).note ? `<span class="aspect-why">${esc(aspectOf(phrase).note)}</span>` : ""}
               </span>
             </div>`
