@@ -582,10 +582,16 @@ Spanish side is Spain-specific — Latin American Spanish would use the preterit
 for most of the present-perfect side — while the Catalan side is not: Catalan
 draws the today/before-today line the same way wherever it is spoken.
 
-Deb-o-lingo has none of this and it would port whole: the table, the two
-phrase fields, the gate and the CSS are all self-contained, and its Spanish is
-the same Spanish. It would take the Spanish decks only, so `endings` would go
-back to being a one-key map over there. The Worker is untouched either way.
+Deb-o-lingo now has this in a deliberately reduced form — an **El pasado**
+unit of three shapes only (dot, line, present perfect), its own five-card
+lessons written from Deb's life rather than these decks, and `endings` as
+plain strings since it has one language. Two divergences over there are
+design, not drift: the endings line is the *loud* part (bold on every choice
+button, big on a gold tint in the verdict — tense-to-ending recognition is
+what her unit drills), and `both`/pluperfect stay here until she needs them.
+The mechanism is otherwise Xerra's shape — keep the gate logic, the level-two
+stacking and the `aspectNote` gating in step. The Worker is untouched either
+way.
 
 ### A withdrawn seed card has to reach the phone
 
@@ -1587,7 +1593,8 @@ the parser losing a block to a formatting change.
   store.js, `aspectGateBody` / `aspectVerdict` in app.js, `aspect` /
   `aspectNote` on the phrase. **In both languages now** — the same forty-eight
   sentences, drawn with each language's own machinery, which is why `endings`
-  in `ASPECTS` is keyed by locale. Not in Deb-o-lingo, and it would port whole.
+  in `ASPECTS` is keyed by locale. Ported to Deb-o-lingo in a three-shape cut
+  (dot, line, present perfect) with its own content and a louder endings line.
 - 255 phrases: 207 Catalan across seventeen decks, and 48 Spanish across six.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
