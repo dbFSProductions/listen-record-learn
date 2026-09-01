@@ -229,8 +229,8 @@ export const ASPECTS = {
     gloss: "already over before that past moment",
     term: "past perfect (pluperfect)",
     endings: {
-      "es-ES": "había · habías · había + -ado / -ido",
-      "ca-ES": "havia · havies · havia + -at / -ut / -it",
+      "es-ES": "había · habías · había + -ado / -ido — the 'I had gone / eaten' one",
+      "ca-ES": "havia · havies · havia + -at / -ut / -it — the 'I had gone / eaten' one",
     },
   },
   /* The picture is the whole reason this one is learnable: a line back in the
@@ -244,8 +244,8 @@ export const ASPECTS = {
     gloss: "in a stretch of time that includes today",
     term: "present perfect",
     endings: {
-      "es-ES": "he · has · ha + -ado / -ido",
-      "ca-ES": "he · has · ha + -at / -ut / -it",
+      "es-ES": "he · has · ha + -ado / -ido — the 'I have gone / eaten' one",
+      "ca-ES": "he · has · ha + -at / -ut / -it — the 'I have gone / eaten' one",
     },
   },
 };
