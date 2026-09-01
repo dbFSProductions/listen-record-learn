@@ -382,9 +382,14 @@ the usage note, so half of what road mode is for taking off is not there.
 ### Dot or line: naming the shape before saying the sentence
 
 The Spanish past decks are built on one picture, and there are five shapes in
-it. A **dot** is an event in a time-boxed past (*preterite*) — what closes it
-is the box round the time, not the event, which is what makes *estuve tres
-años* a dot and *hoy he comido* not one; a **line** is a stretch of past time
+it. A **dot in a box** is an event in a time-boxed past (*preterite*) — what
+closes it is the box round the time, not the event, which is what makes *viví
+muchos años* a dot and *hoy he comido* not one. The mark draws the box, `[●]`,
+in *square* brackets because the box is shut — deliberately against the present
+perfect's round ones below, which are a stretch still open into now. (A
+drawn-border `.mark-box` version was tried and put back — the bracket glyphs
+sit better in the mark column.) The label says it out loud: **A dot in a
+box**, not "A dot". A **line** is a stretch of past time
 with no box round it — a habit, a state, a background (*imperfect*); plenty of
 sentences are **both**, a line with a dot cutting across it; an **event before
 the event** is something already over by the past moment you are talking
@@ -438,10 +443,10 @@ actually speaking, where the decision comes before the words every time.
     answers it the same way every time; the perfects are extra shapes that turn
     up only where a deck put them. The floor is also what stops a single-shape
     deck offering one button and answering itself.
-  - **So the instruction line moves too.** "Dot or line?" is the name of the
-    whole idea and is right up until a deck puts a perfect on the table, at
-    which point it is literally the wrong question — neither answer is on
-    offer. Over three choices it becomes "Which shape?".
+  - **So the instruction line moves too.** "Dot in a box, or line?" is the
+    whole idea asked as a question and is right up until a deck puts a perfect
+    on the table, at which point it is literally the wrong question — neither
+    answer is on offer. Over three choices it becomes "Which shape?".
   - This is what replaces the earlier warning that every gated card would offer
     every button. It also means **a deck's contents are now load-bearing**: put
     a lone pluperfect card in `La línea` and every card in that deck grows a
@@ -565,8 +570,8 @@ single-shape decks: a deck whose name tells you the answer trains the deck, not
 the grammar. Each single-shape deck therefore carries one or two cards of
 another shape, for the same reason.
 
-The hard cases are in on purpose — *estuve tres años*, *estuvo lloviendo todo
-el día*, *aquel verano trabajé*, and their Catalan twins — because the mistake
+The hard cases are in on purpose — *viví muchos años*, *estuvo lloviendo todo
+el día*, *aquel verano toqué*, and their Catalan twins — because the mistake
 everyone makes is to think length decides it when what decides it is whether
 the ends are closed. **`Hoy o ayer` and `Avui o ahir` are built as four minimal
 pairs** — *hoy he comido* against *ayer comí*, *avui he menjat* against *ahir
@@ -1506,16 +1511,16 @@ exactly why the bug survived so long.
 
 For the dot-or-line gate, with the library switched to `es-ES`: the `Pasado`
 family is one folded row of six decks and 48 phrases, eight to a deck; `La línea` offers three
-`.aspect-choice` buttons and asks *Dot or line?*, `Hoy o ayer` and `Antes de
+`.aspect-choice` buttons and asks *Dot in a box, or line?*, `Hoy o ayer` and `Antes de
 aquello` offer four each — one perfect apiece and not the other — and `Todo
 junto` offers five and asks *Which shape?*; `hoy he comido` reads *A line
 reaching now* on the phrase sheet with its `he · has · ha` endings while its
-minimal pair `ayer comí` reads *A dot*; opening a past deck puts
-`Dot or line?` in `.instruction` with three `.aspect-choice` buttons and no
+minimal pair `ayer comí` reads *A dot in a box* with the `[●]` mark; opening a past deck puts
+`Dot in a box, or line?` in `.instruction` with three `.aspect-choice` buttons and no
 `#listen`, `#slow`, `#record`, `#drill-edit`, `.focus-note`, `.drill-context`,
 `#next` or `#history`, while `#back`, `.drill-star` and `#road-toggle` all
 survive; a wrong pick paints `.aspect-verdict.wrong` reading *a line, not a
-dot* and carrying both the term and the -aba/-ía line; answering puts the whole
+dot in a box* and carrying both the term and the -aba/-ía line; answering puts the whole
 drill back; `#next` asks again; `#road-toggle` takes the question off and
 putting road mode away brings it back; `settings.aspectGate = false` removes
 the gate and the verdict together; `.phrase-aspect` states the shape on the
@@ -1576,8 +1581,8 @@ the parser losing a block to a formatting change.
   — see below.
 - **Dot or line** is the Spanish past-tense drill: six decks under a `Pasado`
   family, and a gate that makes you name the shape of the sentence before it
-  will show you the sentence. Five shapes — dot, line, both, a dot before the
-  dot, and a line reaching now — with the gate offering only the ones the deck
+  will show you the sentence. Five shapes — a dot in a box, line, both, an
+  event before the event, and a line reaching now — with the gate offering only the ones the deck
   you are in actually uses. `ASPECTS`, `aspectOf` and `aspectChoices` in
   store.js, `aspectGateBody` / `aspectVerdict` in app.js, `aspect` /
   `aspectNote` on the phrase. **In both languages now** — the same forty-eight
@@ -1593,7 +1598,12 @@ the parser losing a block to a formatting change.
   ayer, Tot junt / Todo junto. The Spanish six were eighty-two cards and are
   now forty-eight — thirty-three of the old cards kept, forty-nine withdrawn and
   fifteen written or reworded. `SEED_RETIRED` in store.js is what takes the
-  withdrawn ones off a phone that already had them.
+  withdrawn ones off a phone that already had them. A second sweep (2026-09)
+  replaced the last grammar-book cards with sentences from the owner's life —
+  England instead of Germany, the band instead of the hotel, the rehearsal
+  instead of the phantom brother, in both languages — and reworded the Catalan
+  rain card from the *va estar plovent* calque to *va ploure* via
+  `SEED_REPLACEMENTS`, keeping its attempts.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

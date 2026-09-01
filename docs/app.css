@@ -606,8 +606,8 @@ button { font: inherit; }
 .aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; }
 
 /* The picture itself, and the whole reason the decks are built this way: a
-   dot, a line, a line with a dot cutting across it, an event before the event,
-   and a line dashed forward into the dot of now. Fixed width so the marks line up
+   dot in its box, a line, a line with a dot cutting across it, an event before
+   the event, and a line dashed forward into the dot of now. Fixed width so the marks line up
    under each other down the column — sized for the widest of them, the
    bracketed present perfect, since a column that reflowed per row would stop
    reading as one diagram. */

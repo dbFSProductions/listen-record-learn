@@ -1559,12 +1559,12 @@ function renderDrill() {
    you actually have a feel for. */
 function aspectGateBody(phrase) {
   const choices = aspectChoices(state.queue);
-  /* "Dot or line?" is the name of the whole idea, and it is the right question
-     right up until a deck puts a perfect on the table — at which point it is
-     literally the wrong one, because neither answer is on offer. So the
-     three-shape decks keep the phrase and the wider ones ask the wider
+  /* "Dot in a box, or line?" is the whole idea asked as a question, and it is
+     the right one right up until a deck puts a perfect on the table — at which
+     point it is literally the wrong one, because neither answer is on offer.
+     So the three-shape decks keep the phrase and the wider ones ask the wider
      question. */
-  const question = choices.length > 3 ? "Which shape?" : "Dot or line?";
+  const question = choices.length > 3 ? "Which shape?" : "Dot in a box, or line?";
   return `
     <p class="instruction">${question}</p>
 
@@ -3312,7 +3312,7 @@ function renderSettings() {
         <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
       </div>
       <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
-        which shape it is — a dot in the past (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
+        which shape it is — a dot in a box (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
         perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
         Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
       <div class="switch-row">

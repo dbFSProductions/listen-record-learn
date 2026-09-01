@@ -38,7 +38,12 @@ const DB_NAME = "xerra";
 const DB_VERSION = 1;
 const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
-const SEED_REPLACEMENTS = new Map([["Em falta pressió a l'esquena.", "Més pit!"]]);
+const SEED_REPLACEMENTS = new Map([
+  ["Em falta pressió a l'esquena.", "Més pit!"],
+  // 'Va estar plovent' is Spanish's estuvo lloviendo calqued into Catalan;
+  // natural Catalan just says va ploure. Same card, same attempts.
+  ["Ahir va estar plovent tot el dia.", "Ahir va ploure tot el dia."],
+]);
 
 /* Seed cards that have been withdrawn from the starter decks.
 
@@ -106,6 +111,16 @@ const SEED_RETIRED = new Set([
   "Le vi cuando salía del trabajo.",
   "Esta tarde ha llamado tu madre.",
   "Se casaron en junio.",
+  /* The second sweep, 2026-09: the leftover grammar-book cards, replaced by
+     sentences from the owner's actual life — England instead of Germany, the
+     band instead of the hotel summer job, the rehearsal instead of the
+     phantom brother. Both languages of each, since the decks are twins. */
+  "Vaig estar tres anys a Alemanya.",
+  "Estuve tres años en Alemania.",
+  "Aquell estiu vaig treballar en un hotel.",
+  "Aquel verano trabajé en un hotel.",
+  "Avui he vist el teu germà.",
+  "Hoy he visto a tu hermano.",
 ]);
 
 // The deck anything you write yourself lands in. It sorts ahead of the seed
@@ -153,8 +168,14 @@ export const ABOUT_DECK = "About me";
    design, not a fifth key. */
 export const ASPECTS = {
   dot: {
-    mark: "●",
-    label: "A dot",
+    /* The box is in the picture on purpose: what makes a dot a dot is the box
+       round the time, so the mark draws it. Square brackets because the box is
+       shut — against the present perfect's round ones, which are a stretch of
+       time still open into now. A drawn-border version (a `.mark-box` span —
+       marks render unescaped, so markup works) was tried and put back: the
+       bracket glyphs sit better in the mark column. */
+    mark: "[●]",
+    label: "A dot in a box",
     gloss: "an event in a time-boxed past",
     term: "preterite (simple past)",
     /* Catalan's line is the periphrastic one on purpose. The one-word passat
