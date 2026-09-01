@@ -383,14 +383,13 @@ the usage note, so half of what road mode is for taking off is not there.
 
 The Spanish past decks are built on one picture, and there are five shapes in
 it. A **dot in a box** is an event in a time-boxed past (*preterite*) — what
-closes it is the box round the time, not the event, which is what makes *estuve
-tres años* a dot and *hoy he comido* not one. The mark draws the box round the
-dot as a real border (`.mark-box` in app.css), shut on all four sides, because
-the shut box is the thing being taught and half-open brackets would say the
-opposite — deliberately against the present perfect's round brackets below,
-which stay characters because that stretch is open into now. The marks render
-unescaped everywhere they appear, which is what lets this one carry markup;
-the label says it out loud: **A dot in a box**, not "A dot". A **line** is a stretch of past time
+closes it is the box round the time, not the event, which is what makes *viví
+muchos años* a dot and *hoy he comido* not one. The mark draws the box, `[●]`,
+in *square* brackets because the box is shut — deliberately against the present
+perfect's round ones below, which are a stretch still open into now. (A
+drawn-border `.mark-box` version was tried and put back — the bracket glyphs
+sit better in the mark column.) The label says it out loud: **A dot in a
+box**, not "A dot". A **line** is a stretch of past time
 with no box round it — a habit, a state, a background (*imperfect*); plenty of
 sentences are **both**, a line with a dot cutting across it; an **event before
 the event** is something already over by the past moment you are talking
@@ -571,8 +570,8 @@ single-shape decks: a deck whose name tells you the answer trains the deck, not
 the grammar. Each single-shape deck therefore carries one or two cards of
 another shape, for the same reason.
 
-The hard cases are in on purpose — *estuve tres años*, *estuvo lloviendo todo
-el día*, *aquel verano trabajé*, and their Catalan twins — because the mistake
+The hard cases are in on purpose — *viví muchos años*, *estuvo lloviendo todo
+el día*, *aquel verano toqué*, and their Catalan twins — because the mistake
 everyone makes is to think length decides it when what decides it is whether
 the ends are closed. **`Hoy o ayer` and `Avui o ahir` are built as four minimal
 pairs** — *hoy he comido* against *ayer comí*, *avui he menjat* against *ahir
@@ -1516,7 +1515,7 @@ family is one folded row of six decks and 48 phrases, eight to a deck; `La líne
 aquello` offer four each — one perfect apiece and not the other — and `Todo
 junto` offers five and asks *Which shape?*; `hoy he comido` reads *A line
 reaching now* on the phrase sheet with its `he · has · ha` endings while its
-minimal pair `ayer comí` reads *A dot in a box* with a `.mark-box` round its dot; opening a past deck puts
+minimal pair `ayer comí` reads *A dot in a box* with the `[●]` mark; opening a past deck puts
 `Dot in a box, or line?` in `.instruction` with three `.aspect-choice` buttons and no
 `#listen`, `#slow`, `#record`, `#drill-edit`, `.focus-note`, `.drill-context`,
 `#next` or `#history`, while `#back`, `.drill-star` and `#road-toggle` all
@@ -1599,7 +1598,12 @@ the parser losing a block to a formatting change.
   ayer, Tot junt / Todo junto. The Spanish six were eighty-two cards and are
   now forty-eight — thirty-three of the old cards kept, forty-nine withdrawn and
   fifteen written or reworded. `SEED_RETIRED` in store.js is what takes the
-  withdrawn ones off a phone that already had them.
+  withdrawn ones off a phone that already had them. A second sweep (2026-09)
+  replaced the last grammar-book cards with sentences from the owner's life —
+  England instead of Germany, the band instead of the hotel, the rehearsal
+  instead of the phantom brother, in both languages — and reworded the Catalan
+  rain card from the *va estar plovent* calque to *va ploure* via
+  `SEED_REPLACEMENTS`, keeping its attempts.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

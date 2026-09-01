@@ -1051,12 +1051,12 @@ export const SEED_PHRASES = [
     "aspectNote": "The train arrives once. Twenty minutes is how late it was, not how long it took."
   },
   {
-    "text": "Vaig estar tres anys a Alemanya.",
-    "translation": "I spent three years in Germany.",
+    "text": "Vaig viure molts anys a Anglaterra.",
+    "translation": "I lived in England for many years.",
     "deck": "Passat · El punt",
-    "focusNote": "'Anys' is the palatal ny with an s on the end. 'A Alemanya' runs the two a's into one.",
+    "focusNote": "'Vaig viure' is batch-BIU-rə — Catalan's v is a b. 'Anglaterra' rolls its rr and ends on a schwa.",
     "aspect": "dot",
-    "aspectNote": "Three years, and still a dot: what closes it is the box round the time, not the length of it."
+    "aspectNote": "Years and years, and still a dot: you left, so both ends are shut. Length is not what decides."
   },
   {
     "text": "Vam anar a Girona el cap de setmana passat.",
@@ -1107,12 +1107,12 @@ export const SEED_PHRASES = [
     "aspectNote": "The intention was running when sleep cut it off. Catalan's anar is regular in the line — anava, where Spanish has iba."
   },
   {
-    "text": "Ahir va estar plovent tot el dia.",
+    "text": "Ahir va ploure tot el dia.",
     "translation": "It rained all day yesterday.",
     "deck": "Passat · Punt o línia",
-    "focusNote": "plu-VENT raises the o to u and ends on a hard t. 'Tot el' runs together as TO-təl.",
+    "focusNote": "'Va ploure' is bə-PLOU-rə — the ou is one glide and the final e a schwa. 'Tot el' runs together as TO-təl.",
     "aspect": "dot",
-    "aspectNote": "All day, and a dot: yesterday is a closed box, so what happened inside it is closed too."
+    "aspectNote": "All day, and a dot: yesterday is a closed box, so what happened inside it is closed too. Where Spanish stretches into estuvo lloviendo, Catalan just says va ploure."
   },
   {
     "text": "Quan vam arribar, no hi havia ningú.",
@@ -1148,10 +1148,10 @@ export const SEED_PHRASES = [
     "aspectNote": "'Cada divendres' is a habit, and a habit is a line however long ago it stopped."
   },
   {
-    "text": "Aquell estiu vaig treballar en un hotel.",
-    "translation": "That summer I worked in a hotel.",
+    "text": "Aquell estiu vaig tocar en un grup.",
+    "translation": "That summer I played in a band.",
     "deck": "Passat · Punt o línia",
-    "focusNote": "trə-bə-LLA with the palatal ll and no final r, then u-TEL with a silent h.",
+    "focusNote": "'Vaig tocar' is batch-tu-KA — the o rises to u and the final r is silent. 'Grup' ends on a hard p.",
     "aspect": "dot",
     "aspectNote": "A whole summer, and a dot: 'aquell estiu' puts a box round it. Length is not what decides."
   },
@@ -1285,10 +1285,10 @@ export const SEED_PHRASES = [
     "aspectNote": "Last year is shut. Same sentence, other side of the bracket."
   },
   {
-    "text": "Avui he vist el teu germà.",
-    "translation": "I've seen your brother today.",
+    "text": "Avui hem fet un bon assaig.",
+    "translation": "We've had a good rehearsal today.",
     "deck": "Passat · Tot junt",
-    "focusNote": "'He vist' is e-VIST, ending hard. 'Germà' opens on the soft j and is stressed on the à.",
+    "focusNote": "'Hem fet' is əm-FET — silent h, hard final t. 'Assaig' ends on the same hard tx sound vaig does: ə-SATCH.",
     "aspect": "presentPerfect",
     "aspectNote": "'Avui' keeps the bracket open, so the line reaches now."
   },
@@ -1451,13 +1451,13 @@ export const SEED_PHRASES = [
     "aspectNote": "The train arrives once. Twenty minutes is how late it was, not how long it took."
   },
   {
-    "text": "Estuve tres años en Alemania.",
-    "translation": "I spent three years in Germany.",
+    "text": "Viví muchos años en Inglaterra.",
+    "translation": "I lived in England for many years.",
     "deck": "Pasado · El punto",
-    "focusNote": "es-TU-ve, stressed in the middle with a soft v. 'Años' is the ñ — AN-yos run together.",
+    "focusNote": "vi-VÍ ends on the stressed í, and both v's are the soft b. 'Inglaterra' rolls its rr.",
     "language": "es-ES",
     "aspect": "dot",
-    "aspectNote": "Three years, and still a dot: what closes it is the box round the time, not the length of it."
+    "aspectNote": "Years and years, and still a dot: you left, so both ends are shut. Length is not what decides."
   },
   {
     "text": "Fuimos a Girona el fin de semana pasado.",
@@ -1560,10 +1560,10 @@ export const SEED_PHRASES = [
     "aspectNote": "'Cada viernes' is a habit, and a habit is a line however long ago it stopped."
   },
   {
-    "text": "Aquel verano trabajé en un hotel.",
-    "translation": "That summer I worked in a hotel.",
+    "text": "Aquel verano toqué en un grupo.",
+    "translation": "That summer I played in a band.",
     "deck": "Pasado · Punto o línea",
-    "focusNote": "tra-ba-JÉ throws the stress onto the end and the j is throaty. The h of hotel is silent.",
+    "focusNote": "to-QUÉ throws the stress onto the end, and the qu is a clean k with no w in it.",
     "language": "es-ES",
     "aspect": "dot",
     "aspectNote": "A whole summer, and a dot: 'aquel verano' puts a box round it. Length is not what decides."
@@ -1713,10 +1713,10 @@ export const SEED_PHRASES = [
     "aspectNote": "Last year is shut. Same sentence, other side of the bracket."
   },
   {
-    "text": "Hoy he visto a tu hermano.",
-    "translation": "I've seen your brother today.",
+    "text": "Hoy hemos hecho un buen ensayo.",
+    "translation": "We've had a good rehearsal today.",
     "deck": "Pasado · Todo junto",
-    "focusNote": "'He' is EH and the h of hermano is silent too. VIS-to is front-stressed.",
+    "focusNote": "'Hemos hecho' is EH-mos EH-cho — both h's silent, and the ch is the ch of church.",
     "language": "es-ES",
     "aspect": "presentPerfect",
     "aspectNote": "'Hoy' keeps the bracket open, so the line reaches now."

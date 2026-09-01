@@ -621,18 +621,6 @@ button { font: inherit; }
   color: var(--text);
 }
 
-/* The preterite's mark: a dot with the box drawn round it, shut on all four
-   sides — the box round the time is what makes a dot a dot, so the picture
-   has to close. Inline-block so the border hugs the glyph, currentColor so it
-   follows the mark's own ink. */
-.mark-box {
-  display: inline-block;
-  border: 2px solid currentColor;
-  border-radius: 4px;
-  padding: 2px 7px;
-  line-height: 1;
-}
-
 .aspect-choice-body, .aspect-verdict-body { display: block; min-width: 0; }
 .aspect-gloss {
   display: block;
