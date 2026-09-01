@@ -606,8 +606,8 @@ button { font: inherit; }
 .aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; }
 
 /* The picture itself, and the whole reason the decks are built this way: a
-   dot, a line, a line with a dot cutting across it, an event before the event,
-   and a line dashed forward into the dot of now. Fixed width so the marks line up
+   dot in its box, a line, a line with a dot cutting across it, an event before
+   the event, and a line dashed forward into the dot of now. Fixed width so the marks line up
    under each other down the column — sized for the widest of them, the
    bracketed present perfect, since a column that reflowed per row would stop
    reading as one diagram. */
@@ -619,6 +619,18 @@ button { font: inherit; }
   letter-spacing: -0.04em;
   white-space: nowrap;
   color: var(--text);
+}
+
+/* The preterite's mark: a dot with the box drawn round it, shut on all four
+   sides — the box round the time is what makes a dot a dot, so the picture
+   has to close. Inline-block so the border hugs the glyph, currentColor so it
+   follows the mark's own ink. */
+.mark-box {
+  display: inline-block;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  padding: 2px 7px;
+  line-height: 1;
 }
 
 .aspect-choice-body, .aspect-verdict-body { display: block; min-width: 0; }

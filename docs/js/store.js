@@ -153,8 +153,16 @@ export const ABOUT_DECK = "About me";
    design, not a fifth key. */
 export const ASPECTS = {
   dot: {
-    mark: "●",
-    label: "A dot",
+    /* The box is in the picture on purpose: what makes a dot a dot is the box
+       round the time, so the mark draws it — a real border, shut on all four
+       sides, because character art can't close a box and half-open brackets
+       would say the opposite of the thing being taught. The present perfect's
+       round brackets below stay characters for the same reason: that stretch
+       is open into now. Marks render unescaped everywhere they appear, which
+       is what lets this one carry markup; `.mark-box` in app.css is its other
+       half. */
+    mark: '<span class="mark-box">●</span>',
+    label: "A dot in a box",
     gloss: "an event in a time-boxed past",
     term: "preterite (simple past)",
     /* Catalan's line is the periphrastic one on purpose. The one-word passat
