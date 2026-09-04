@@ -164,8 +164,58 @@ const DEFAULT_FAST_MODEL = "gemini-3.5-flash-lite";
    with a fork — so it needs an image model, and there is no sensible text
    fallback for it: a model that cannot draw cannot half-draw. Its chain is
    therefore one model long, and a failure is an honest failure.
-   GEMINI_IMAGE_MODEL in wrangler.toml overrides it. */
+   GEMINI_IMAGE_MODEL in wrangler.toml overrides it.
+
+   Only reached when REPLICATE_API_TOKEN is absent — see drawPicture. */
 const DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image";
+
+/* The drawing goes through Replicate, not Gemini, and that is a decision made
+   with the pictures in front of us rather than from the docs.
+
+   The Gemini image path below was written blind: no repo here holds a Gemini
+   key, there is no image fixture to replay, and `outputImageOf` was written
+   from the API reference against a response nobody had seen. It has never
+   drawn anything. The Replicate path was checked end to end before it shipped,
+   on the real Palabras cards, and the pictures are in the pull request.
+
+   Which model, and why it is a Google one anyway. Four were tried on the
+   cruellest card in the unit — la silla, whose scene contains a spoken line
+   ("see ya!") for the model to be tempted into lettering:
+
+     flux-schnell         fast and cheap, but a diffusion model: it does not
+                          honour "no lettering", and it draws any word you name
+                          it. Asked for el tenedor it wrote "el tenddor" across
+                          the card — a misspelling of the word being taught,
+                          which is the one thing this unit must not do.
+     ideogram-v3-turbo    a text-rendering specialist, so of course it wrote
+                          the Spanish word out. Worst fit of the four.
+     seedream-4           bold, but cropped the subject out of frame and
+                          returned 977 KB for a phone thumbnail.
+     nano-banana-2        the scene right, the pun's objects all present, and
+                          no Spanish anywhere on it. ~9s, ~150 KB.
+
+   So the prompt below did not need rewriting for a different kind of model:
+   nano-banana-2 IS Gemini's image model, reached through Replicate's account
+   instead of a Google key. buildPicturePrompt is unchanged, and its "no
+   lettering" line is honoured by an instruction-following model in a way no
+   diffusion model was ever going to manage. */
+const DEFAULT_REPLICATE_MODEL = "google/nano-banana-2";
+
+/* Model-specific input fields, as JSON, because Replicate rejects an input
+   field a model does not declare — so these cannot be hardcoded without
+   pinning the model too. Change REPLICATE_MODEL and change this with it; the
+   defaults here are nano-banana-2's. Sending nothing but `prompt` also works
+   on every model tried, so a bad edit here degrades to "the default size"
+   rather than to a broken endpoint. */
+const DEFAULT_REPLICATE_INPUT = { aspect_ratio: "1:1", resolution: "1K", output_format: "jpg" };
+
+/* Replicate holds the HTTP request open and hands back the finished prediction
+   when `Prefer: wait` is set — no polling, no second round trip, which is what
+   lets an image fit inside one Worker invocation at all. It caps at 60s and we
+   ask for less, so the wait is over before IMAGE_TIMEOUT_MS can fire and the
+   error says "still drawing" rather than a bare abort. Nine seconds is typical;
+   forty-five means something is wrong, not something is slow. */
+const REPLICATE_WAIT_S = 45;
 
 /* How long a drawing may take. Longer than a card and shorter than the whole
    budget, on the same reasoning as BATCH_TIMEOUT_MS: an image is a big output,
@@ -764,6 +814,13 @@ Reply to the learner's last message.`;
    steered into, and the worst a strange scene can do is produce a strange
    picture, which is the entire point of the feature. */
 async function drawPicture(request, env, trace) {
+  /* Replicate when it is configured, Gemini when it is not. Deliberately not a
+     fallback chain: an unverified path underneath a verified one turns "the
+     drawing failed" into two possible stories instead of one, which is the
+     opposite of what a fallback is for. Whichever provider is configured is
+     the one that answers, and its failure is the failure reported. */
+  if ((env.REPLICATE_API_TOKEN || "").trim()) return drawWithReplicate(request, env, trace);
+
   const { payload } = await callGemini(
     env,
     { input: buildPicturePrompt(request) },
@@ -776,6 +833,111 @@ async function drawPicture(request, env, trace) {
     throw new PublicError("The drawing came back too large to send.", 502);
   }
   return image;
+}
+
+/* The drawing, through Replicate.
+ 
+   Two round trips and no way round it: Replicate answers with a URL to the
+   image rather than with the image, so the bytes are fetched here and base64'd
+   before they go back. That keeps the client contract exactly as it was —
+   { image: { data, mimeType } } — which is why this change reaches three apps
+   without a line changing in any of them. */
+async function drawWithReplicate(request, env, trace) {
+  const model = (env.REPLICATE_MODEL || "").trim() || DEFAULT_REPLICATE_MODEL;
+  if (trace) {
+    trace.model = model;
+    trace.models = 1;
+  }
+
+  let extraInput = DEFAULT_REPLICATE_INPUT;
+  if ((env.REPLICATE_INPUT || "").trim()) {
+    try {
+      extraInput = JSON.parse(env.REPLICATE_INPUT);
+    } catch {
+      // A typo in a config var must not take the endpoint down: the prompt on
+      // its own draws on every model tried, so fall back to just that.
+      console.error("REPLICATE_INPUT is not valid JSON; sending prompt only");
+      extraInput = {};
+    }
+  }
+
+  const response = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.REPLICATE_API_TOKEN.trim()}`,
+      "Content-Type": "application/json",
+      Prefer: `wait=${REPLICATE_WAIT_S}`,
+    },
+    body: JSON.stringify({ input: { ...extraInput, prompt: buildPicturePrompt(request) } }),
+    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    // Replicate's own message is usually the useful one ("Insufficient
+    // credit"), so it is passed through rather than flattened to "busy".
+    const detail = typeof payload?.detail === "string" ? payload.detail : "";
+    if (response.status === 401 || response.status === 403) {
+      throw new PublicError("The Replicate token is wrong or not allowed to draw.", 502);
+    }
+    if (response.status === 402) {
+      throw new PublicError(detail || "The Replicate account is out of credit.", 502);
+    }
+    if (response.status === 404) {
+      throw new PublicError(`No such Replicate model: ${model}. Check REPLICATE_MODEL.`, 502);
+    }
+    if (response.status === 429) {
+      throw new PublicError("Replicate is rate-limiting the drawings. Try again in a moment.", 503);
+    }
+    throw new PublicError(detail || `Replicate returned ${response.status}.`, 502);
+  }
+
+  /* A prediction that has not finished inside the wait comes back 200 with
+     status "processing" and no output — success as far as HTTP is concerned.
+     Reported as its own thing, because "still drawing after 45s" is a
+     different problem from "the model refused". */
+  if (payload.status !== "succeeded") {
+    if (payload.status === "processing" || payload.status === "starting") {
+      throw new PublicError("The drawing is taking too long. Try again.", 504);
+    }
+    throw new PublicError(payload.error || "The model drew nothing. Try again.", 502);
+  }
+
+  /* Both output shapes, because they differ per model and the difference is
+     invisible until it 500s: nano-banana-2 answers with a bare URL string,
+     flux-schnell with an array of them. */
+  const output = payload.output;
+  const url = Array.isArray(output) ? output[0] : output;
+  if (typeof url !== "string" || !url) {
+    throw new PublicError("The model drew nothing. Try again.", 502);
+  }
+
+  const file = await fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+  if (!file.ok) throw new PublicError("The drawing could not be fetched back.", 502);
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  // Checked on the bytes, before base64 inflates them by a third — the cap is
+  // about what may cross the wire into IndexedDB, and this is the honest size.
+  if (bytes.length > (MAX_IMAGE_CHARS / 4) * 3) {
+    throw new PublicError("The drawing came back too large to send.", 502);
+  }
+
+  return {
+    data: base64OfBytes(bytes),
+    mimeType: (file.headers.get("Content-Type") || "image/jpeg").split(";")[0].trim(),
+  };
+}
+
+/* btoa needs a binary string, and String.fromCharCode(...bytes) on a
+   200 KB image blows the argument limit — so it goes in chunks. */
+function base64OfBytes(bytes) {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 export function buildPicturePrompt(request) {
