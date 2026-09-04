@@ -449,6 +449,32 @@ class TransientError extends Error {
 
   asPublicError() {
     if (this.status === 429) {
+      /* Not every 429 is a rate limit, and telling someone to wait a few
+         minutes for one that will never clear is worse than saying nothing.
+         Google returns three of these and they want three different actions:
+
+         "limit: 0" is not a rate limit at all. It is the plan saying this model
+         is not included — image generation is not on the Gemini free tier, so
+         an unbilled key gets a quota of zero for it and will get the same zero
+         tomorrow. Waiting is the one thing that cannot help.
+
+         A free-tier quota with a real number behind it is the daily allowance,
+         which resets at midnight Pacific rather than in a few minutes.
+
+         Anything else is the ordinary per-minute limit the old message
+         described, and for that one, waiting is exactly right. */
+      if (/limit:\s*0\b/.test(this.message)) {
+        return new PublicError(
+          `${this.model} isn't in this key's plan — Gemini allows it zero requests. Image generation needs billing turned on for the key's Google Cloud project.`,
+          429
+        );
+      }
+      if (/free[_ ]tier/i.test(this.message)) {
+        return new PublicError(
+          `The free-tier allowance for ${this.model} is used up for today. It resets at midnight Pacific.`,
+          429
+        );
+      }
       return new PublicError(`Gemini's quota or rate limit is used up (${this.model}). Try again in a few minutes.`, 429);
     }
     if (this.status === 404) {

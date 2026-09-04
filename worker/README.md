@@ -146,7 +146,15 @@ it launches is the thing to avoid here; wait for capacity to settle.
 When generation does fail, the error names the cause and the model, so it is
 worth reading rather than just retrying:
 
-- *"quota or rate limit is used up"* — 429. Check the key's quota in Google AI
+- *"isn't in this key's plan"* — a 429 whose quota is literally zero, which is
+  not a rate limit and will not clear by waiting. **Image generation is not on
+  the Gemini free tier**, so an unbilled key gets zero requests for
+  `GEMINI_IMAGE_MODEL` and gets the same zero tomorrow. Turn billing on for the
+  key's Google Cloud project (that is Tier 1) and it starts working.
+- *"free-tier allowance … is used up for today"* — 429 with a real number
+  behind it. That one does come back, at midnight Pacific.
+- *"quota or rate limit is used up"* — 429. The ordinary per-minute limit;
+  waiting a few minutes is the right move. Check the key's quota in Google AI
   Studio; the free tier does not cover every model.
 - *"overloaded right now"* — 5xx. Google's capacity, not this app. It clears.
 - *"has no model called …"* — 404. The model ID is wrong or retired; update
