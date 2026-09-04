@@ -40,6 +40,14 @@
      this is the one variable in the palette the two forks don't share. */
   --teal: #00c2b2;
   --teal-dark: #00a294;
+  /* The feminine half of the keyword pictures' gender cue — blue is the
+     masculine half and is --blue, already in the palette. It is never lettering
+     and never a fill behind text: it is one swatch dot beside a line of
+     ordinary body copy, which is what keeps a colour this light legible. Xerra
+     is the only fork with it so far, but unlike --teal it is not meant to stay
+     that way — Deb-o-lingo's Palabras cards have exactly the same problem. */
+  --pink: #ff70b8;
+  --pink-dark: #e0489a;
 
   --accent: var(--green);     /* the action colour, and the model waveform */
   --accent-on: #ffffff;
@@ -549,6 +557,31 @@ button { font: inherit; }
 /* The drawing, when there is one. Held to the width of the block it sits in
    and given the tint's own rounding, so it reads as part of the picture rather
    than as an attachment to it. */
+/* The gender cue. A dot carries the colour and the sentence carries the
+   meaning, deliberately: neither --blue nor --pink clears 4.5:1 as small text,
+   and a cue you have to decode from the shade of the lettering is a worse cue
+   than one that says "blue" out loud. It sits under the scene because it is an
+   instruction about the scene — paint this bit of what you are already
+   imagining — rather than a label on the card. */
+.picture-gender {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.picture-gender b { color: var(--text); }
+.gender-dot {
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 50%;
+  margin-right: 2px;
+  vertical-align: baseline;
+}
+.gender-dot.gender-m { background: var(--blue); }
+.gender-dot.gender-f { background: var(--pink); }
+
 .picture-art:not(:empty) { margin-top: 10px; }
 /* Capped, and never cropped. A square drawing at the full width of the block
    is 300px tall on a 390px phone, which pushes Listen and the record button

@@ -940,6 +940,26 @@ function base64OfBytes(bytes) {
   return btoa(binary);
 }
 
+/* Blue for masculine, pink for feminine, painted on the object the word names.
+   The colour is the popular way to mark gender in a keyword picture, and a
+   drawing is where it works best — it is legible in a thumbnail without reading
+   anything. What is coloured is the one object, never the whole scene: a wash
+   over everything competes with the picture it is supposed to be marking.
+
+   Optional, so a card without a gender produces the prompt this endpoint has
+   always produced, byte for byte. That matters here for the usual reason —
+   Deb-o-lingo and Mum-o-lingo call this same deployment. */
+const GENDER_COLOURS = { m: "blue", f: "pink" };
+
+function genderLine(card) {
+  const colour = GENDER_COLOURS[card.gender];
+  if (!colour) return "";
+  const thing = card.translation || "the object the word names";
+  return `Colour-code one thing for grammatical gender: paint ${thing} an unmistakable ${colour}, and keep ${colour} off everything else in the scene, so the colour reads as a label rather than as the palette.
+
+`;
+}
+
 export function buildPicturePrompt(request) {
   const { card } = request;
   return `Draw one illustration of this scene, for a language learner's flashcard.
@@ -950,7 +970,7 @@ Scene: ${card.picture}
 
 ${card.sounds ? `It is a pun on the English "${card.sounds}", so make anything that sound names literally present and obvious in the picture.
 
-` : ""}What it has to teach: ${card.text}, which means "${card.translation}" in ${request.languageName}.
+` : ""}${genderLine(card)}What it has to teach: ${card.text}, which means "${card.translation}" in ${request.languageName}.
 
 Style: a bold, funny, brightly coloured cartoon on a plain background. Simple shapes, few objects, readable as a thumbnail on a phone. Comic exaggeration is wanted — the sillier the better, because that is what makes it stick. No lettering, no captions, no speech bubbles, no watermark.`;
 }
@@ -970,6 +990,9 @@ export function validatePicture(value) {
   for (const field of ["text", "translation", "sounds", "picture"]) {
     request.card[field] = typeof card[field] === "string" ? card[field].trim().slice(0, 600) : "";
   }
+  // "m", "f", or nothing at all. Anything else is dropped rather than refused:
+  // a card whose gender is unreadable is still a card worth drawing.
+  request.card.gender = GENDER_COLOURS[card.gender] ? card.gender : "";
   // The scene is the drawing brief. Without one there is nothing to draw, and
   // inventing one here would be a different feature on a different model.
   if (!request.card.picture) throw new PublicError("Write the picture first, then it can be drawn.", 400);

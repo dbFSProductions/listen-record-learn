@@ -292,6 +292,60 @@ export function aspectOf(phrase) {
   };
 }
 
+/* Blue for masculine, pink for feminine — the gender cue inside a keyword
+   picture.
+
+   Every mnemonic system that teaches gendered nouns bakes a fixed cue into the
+   scene: Linkword puts a boxer in every masculine one and perfume in every
+   feminine one, Fluent Forever puts the two genders in two different rooms.
+   Colour is the popular one and it is the weakest of the three — a colour is
+   not an event, so it survives being *read* less well than a boxer does. What
+   makes it work here is that the scene gets drawn: `picture` is a sentence and
+   the drawing is made from that sentence, so "the knife is blue" is a thing the
+   image model can put on the screen and a thing you can see in a thumbnail
+   without reading a word.
+
+   What is coloured is the object the word names, not the whole scene. One blue
+   knife is a hook; a blue wash over everything competes with the scene it is
+   supposed to be marking.
+
+   The gender is read off the card's own article, so no seed content had to
+   learn about this and a card typed into the Add tab gets the cue for free.
+   `phrase.gender` overrides that, and exists for exactly the cards the article
+   cannot answer: in Catalan both articles elide to `l'`, so `l'avió` and
+   `l'escala` are the two words in the Paraules decks where a learner genuinely
+   cannot recover the gender from what is printed — which is to say, the two
+   where the cue is worth most. */
+export const GENDERS = {
+  m: { label: "masculine", colour: "blue" },
+  f: { label: "feminine", colour: "pink" },
+};
+
+/* Definite and indefinite articles across the three languages in LANGUAGES.
+   Anything not in here — a verb, an adjective, a whole sentence, a bare noun —
+   simply has no gender to draw, which is the right answer for most of the app:
+   only the Paraules decks are single nouns. */
+const ARTICLE_GENDER = new Map([
+  ["el", "m"], ["els", "m"], ["los", "m"], ["un", "m"], ["uns", "m"], ["unos", "m"],
+  ["la", "f"], ["les", "f"], ["las", "f"], ["una", "f"], ["unes", "f"], ["unas", "f"],
+  // Italian, whose masculine article changes shape with the sound after it.
+  ["il", "m"], ["lo", "m"], ["i", "m"], ["gli", "m"], ["uno", "m"], ["le", "f"],
+]);
+
+/** "m", "f", or null for a card that isn't a gendered noun — or is `l'`. */
+export function genderOf(phrase) {
+  if (phrase?.gender && GENDERS[phrase.gender]) return phrase.gender;
+  const text = (phrase?.text ?? "").trim();
+  /* Only a noun phrase is read for its article. "El compte, si us plau" also
+     starts with "el", and a sentence is not a thing with a gender to paint —
+     so anything punctuated like a sentence, or longer than an article and a
+     word or two, is left alone rather than guessed at. An explicit `gender`
+     above overrides this, which is how a card can opt in regardless. */
+  const words = text.split(/\s+/);
+  if (words.length > 3 || /[.,;:!?]/.test(text)) return null;
+  return ARTICLE_GENDER.get(words[0]?.toLowerCase()) || null;
+}
+
 /* Decks whose names share a prefix before " · " are one family: Castells,
    Castells · Pinya, Castells · Ordres and the rest read as a single thing in
    the lists, and a big family can be folded away. This is a naming convention
@@ -546,6 +600,7 @@ export const library = {
         usageNote: replacement.usageNote || null,
         sounds: replacement.sounds || null,
         picture: replacement.picture || null,
+        gender: replacement.gender || null,
       });
       replacedPhrase = true;
     }
@@ -558,6 +613,23 @@ export const library = {
     );
     const retired = kept.length !== this.phrases.length;
     this.phrases = kept;
+
+    /* A field that arrived after the card did. `gender` is set on exactly the
+       two seed words whose article elides to `l'`, and those cards are already
+       on the phone carrying no gender at all — they are not newcomers, so
+       nothing else in here would ever reach them, and the cue would be missing
+       from the two words it was written for. Matched by text like
+       SEED_REPLACEMENTS above, and it only ever fills a blank: a gender you
+       chose yourself in the editor is yours. */
+    const seedByText = new Map(SEED_PHRASES.map((p) => [p.text, p]));
+    let backfilled = false;
+    for (const phrase of this.phrases) {
+      const seed = seedByText.get(phrase.text);
+      if (seed?.gender && !phrase.gender) {
+        phrase.gender = seed.gender;
+        backfilled = true;
+      }
+    }
 
     const existing = new Set(this.phrases.map((p) => p.text));
     const newcomers = SEED_PHRASES.filter(
@@ -583,10 +655,13 @@ export const library = {
          the seed would quietly carry whatever the generator learns next. */
       sounds: p.sounds || null,
       picture: p.picture || null,
+      /* Almost always null: the gender is read off the card's own article and
+         only the words whose article elides to `l'` need to say it out loud. */
+      gender: p.gender || null,
       createdAt: new Date().toISOString(),
     }));
 
-    if (!newcomers.length && !replacedPhrase && !retired) return;
+    if (!newcomers.length && !replacedPhrase && !retired && !backfilled) return;
     if (newcomers.length) {
       this.phrases.push(...newcomers);
       writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);

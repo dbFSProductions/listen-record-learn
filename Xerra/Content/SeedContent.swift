@@ -2321,7 +2321,8 @@ enum SeedContent {
             deck: "Paraules · Fora de casa",
             focusNote: "ə-vi-O, stress right at the end. The v is a b and the ó is closed.",
             sounds: "a BEE, OH!",
-            picture: "The plane is one enormous bee — 'a bee, oh!' — and you board it through the mouth."
+            picture: "The plane is one enormous bee — 'a bee, oh!' — and you board it through the mouth.",
+            gender: .masculine
         ),
         Phrase(
             text: "la maleta",
@@ -2337,7 +2338,8 @@ enum SeedContent {
             deck: "Paraules · Fora de casa",
             focusNote: "əs-KA-lə. The initial e is a schwa, so it starts on a breath, and the final a is a schwa too.",
             sounds: "us-KA-la (a scallop)",
-            picture: "The stairs are paved with scallops, and each one snaps shut on your ankle as you climb."
+            picture: "The stairs are paved with scallops, and each one snaps shut on your ankle as you climb.",
+            gender: .feminine
         ),
         Phrase(
             text: "el llit",

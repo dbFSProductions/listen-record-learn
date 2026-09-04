@@ -21,6 +21,20 @@ enum Aspect: String, Codable, CaseIterable, Hashable {
     case presentPerfect
 }
 
+/// Which gender a noun is, and therefore which colour its keyword picture
+/// wears: blue for masculine, pink for feminine, on the object the word names.
+///
+/// Set on a card only where the article cannot say it. Both Catalan articles
+/// elide to `l'` before a vowel, so `l'avió` and `l'escala` are the two words
+/// in the Paraules decks a learner cannot read the gender off — which makes
+/// them the two where the cue is worth most. Everywhere else the web app works
+/// it out from the article itself (`genderOf` in docs/js/store.js), so the rest
+/// of the seed content says nothing.
+enum Gender: String, Codable, CaseIterable, Hashable {
+    case masculine
+    case feminine
+}
+
 /// A single thing you want to be able to say.
 struct Phrase: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
@@ -43,6 +57,9 @@ struct Phrase: Identifiable, Codable, Hashable {
     /// Any card can carry them, not only a Paraules word.
     var sounds: String?
     var picture: String?
+    /// Blue or pink in the picture — see `Gender`. Only needed where the
+    /// article elides and the card cannot be read for it.
+    var gender: Gender?
     /// Dot, line, or both — set only on cards that drill the shape of the past.
     /// A phrase without one is never asked the question.
     var aspect: Aspect?
