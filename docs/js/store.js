@@ -35,9 +35,14 @@ export const RECALL_AFTER = 4;
 const RECALL_PASS = 75; // the same "close" line the drill verdict uses
 
 const DB_NAME = "xerra";
-const DB_VERSION = 1;
+/* Bumped to 2 for the pictures store. The upgrade handler creates whatever is
+   missing rather than assuming a fresh database, so an install that predates
+   this keeps its recordings and its cached model audio and simply gains the
+   third box. */
+const DB_VERSION = 2;
 const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
+const STORE_PICTURES = "pictures";
 const SEED_REPLACEMENTS = new Map([
   ["Em falta pressió a l'esquena.", "Més pit!"],
   // 'Va estar plovent' is Spanish's estuvo lloviendo calqued into Catalan;
@@ -322,6 +327,7 @@ function openDB() {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_MODEL)) db.createObjectStore(STORE_MODEL);
       if (!db.objectStoreNames.contains(STORE_RECORDINGS)) db.createObjectStore(STORE_RECORDINGS);
+      if (!db.objectStoreNames.contains(STORE_PICTURES)) db.createObjectStore(STORE_PICTURES);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -387,6 +393,14 @@ export const audioStore = {
   deleteRecording: (key) => idbDelete(STORE_RECORDINGS, key),
   clearModelCache: () => idbClear(STORE_MODEL),
   modelKeys: () => idbKeys(STORE_MODEL),
+
+  /* The drawing of a keyword picture, keyed by phrase id. Kept out of
+     export/import for the same reason the recordings are: blobs stay on the
+     device, and a restored backup offers to draw them again. */
+  putPicture: (key, blob) => idbPut(STORE_PICTURES, key, blob),
+  getPicture: (key) => idbGet(STORE_PICTURES, key),
+  deletePicture: (key) => idbDelete(STORE_PICTURES, key),
+  clearPictures: () => idbClear(STORE_PICTURES),
 
   async usage() {
     if (!navigator.storage?.estimate) return null;
@@ -530,6 +544,8 @@ export const library = {
         focusNote: replacement.focusNote || null,
         situation: replacement.situation || null,
         usageNote: replacement.usageNote || null,
+        sounds: replacement.sounds || null,
+        picture: replacement.picture || null,
       });
       replacedPhrase = true;
     }
@@ -562,6 +578,11 @@ export const library = {
       language: p.language || "ca-ES",
       aspect: p.aspect || null,
       aspectNote: p.aspectNote || null,
+      /* The keyword mnemonic, on the Paraules decks and null everywhere else.
+         Copied here field by field like the rest — a card built by spreading
+         the seed would quietly carry whatever the generator learns next. */
+      sounds: p.sounds || null,
+      picture: p.picture || null,
       createdAt: new Date().toISOString(),
     }));
 
@@ -748,6 +769,8 @@ export const library = {
     for (const attempt of this.attemptsFor(phraseID)) {
       await audioStore.deleteRecording(attempt.id);
     }
+    // The drawing of its keyword picture goes with it, like the recordings do.
+    await audioStore.deletePicture(phraseID);
     this.attempts = this.attempts.filter((a) => a.phraseID !== phraseID);
     this.phrases = this.phrases.filter((p) => p.id !== phraseID);
     this.savePhrases();
