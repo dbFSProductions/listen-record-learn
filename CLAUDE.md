@@ -932,6 +932,42 @@ below said what that was costing. What is true of them now:
   gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card. Nothing
   the other endpoints send changed shape, so this was additive for all three
   apps — but `worker/**` is on the deploy trigger, so merging it shipped it.
+- **It is deployed and it does not work, and the reason is not in this repo.**
+  Gemini does not put image generation on the free tier. An unbilled key is not
+  rate limited on `GEMINI_IMAGE_MODEL` — it is allowed *zero* requests, which
+  comes back as a 429 reading `limit: 0` and will read the same tomorrow. So
+  everything up to and including Gemini works (the endpoint, the model id, the
+  auth and the prompt all passed; a wrong model id would have been a 404), and
+  the call is refused at the last step. Turning billing on for the key's Google
+  Cloud project is the fix, and the 429 message now says so rather than
+  advising a wait that cannot help.
+- **The likelier route is Replicate, and it is not built.** The account that
+  would pay for this already has credit there, and FLUX schnell is about
+  $0.003 an image against Gemini's few cents — every word in both Spanish apps,
+  drawn once, is pennies. What that change is, for whoever does it:
+    - **Only `drawPicture` changes.** The endpoint, the validator, the prompt
+      builder, the budget and the whole client side stay as they are. Both
+      apps ask for an image and get bytes; they do not care who drew it.
+    - **The one real difference is the shape of the answer.** Gemini returns
+      the bytes inline, which is why `outputImageOf` exists. Replicate returns
+      a *URL* to the finished image, so the Worker has to fetch that and base64
+      it before replying — the app is offline-first and stores a blob, and a
+      link into someone else's CDN is not that. Do not push the URL to the
+      client and let it fetch: that trades the whole offline story for one
+      saved request.
+    - **Ask for it in one request, not two.** Replicate's prediction API is
+      asynchronous by default — create, then poll — but it takes a header that
+      makes it block until the image is done, which fits inside the 40s this
+      endpoint already budgets. Polling from a Worker would burn the budget on
+      round trips.
+    - **Keep Gemini as the other branch, chosen by which secret is set.** Two
+      providers behind one endpoint costs a few lines and means the free-tier
+      problem above never has to be re-diagnosed.
+    - **Write the probe before the endpoint.** `worker/tools/draw-one.mjs`
+      exists because the Gemini shape was guessed from documentation and got as
+      far as production before anyone found out. Point a copy of it at
+      Replicate first, see a real response, then write the parser against what
+      came back.
 - **`outputImageOf` accepts more than one response shape on purpose.** No repo
   here holds a Gemini key and there is no image fixture to replay, so that path
   could not be tried before it was deployed. It reads the bytes from
