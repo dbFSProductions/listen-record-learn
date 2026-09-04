@@ -446,6 +446,16 @@ answer into.
   and tappable, so quiet mode is the most at home it has ever been — you name
   the shape, then write the sentence. Its `aspectNote` waits behind the typed
   question the same way it waits behind a level-two one.
+- **Edit stays through the question, and that is load-bearing rather than
+  lax.** It was hidden at first, on the shape gate's argument that the editor
+  prints the sentence you are being asked for — and that took **Delete phrase**
+  off every card in the mode, because Edit is the drill's only way into the
+  editor and the editor is where the delete lives. Reported as *"I seem to have
+  lost a way to delete cards"*, which is exactly what it was. Level two asks the
+  same kind of question and has always kept its Edit; peeking has never been
+  the thing this app guards against, and losing a delete is a real cost against
+  a notional one. The shape gate is the exception that stays an exception: it
+  is a screen you pass through in one tap, not a state every card sits in.
 - **Enter checks; an empty box is refused rather than marked.** "I don't know"
   is Show me, which reveals without marking anything and so prints no verdict.
   It only appears at level one — level two already has its own full-width Show
@@ -1453,6 +1463,18 @@ backup the user has.
   version, and navigations are network-first (cache only as the offline
   fallback) so the HTML can never be staler than the scripts it names. Don't
   undo either one for "fewer requests".
+- **The drill's topbar wraps, and it has to.** It carries six things now —
+  back, the progress pill, the star, the two mode pills and Edit — and the bar
+  neither scrolls nor wrapped, so on a narrow phone with a wide pill (`1/207`,
+  the shuffle-all queue) Edit and then the whole Quiet pill were pushed off the
+  right edge with nothing on screen to say they were there. Reported as *"I
+  don't see the quiet pill"*. It is `flex-wrap: wrap` on both `.topbar` and
+  `.topbar-end` now, with the back link held to one line — left to itself it
+  broke between the chevron and the word. Measure it at 320, 375 and 390 with
+  a `1/207` pill after touching that bar; a seventh control will need a real
+  answer rather than another wrap, and the one to reach for is folding Road and
+  Quiet into a single cycling control, since they are two answers to one
+  question and can never both be on.
 - **Phrases are filtered by `language` everywhere.** A phrase written with the
   wrong `language` isn't lost, it's *invisible* — saved fine, absent from every
   list. `library.add` once hardcoded `ca-ES`, so anything added in Spanish mode
@@ -1555,10 +1577,13 @@ a phrase with four good attempts behind it drills listen-and-repeat with no
 `.level-badge` while the mode is on and has its `.recall-prompt` back once it is
 off. For quiet mode, with the same two stubs and the same `serviceWorkers: "block"`:
 with it on, the drill has `#quiet-input`, `#quiet-check`, `#listen` and
-`.drill-text.recall-prompt` and has no `#record`, `#drill-edit` or
-`.focus-note`; the box carries `autocorrect="off"`, `spellcheck="false"` and
-the card's `lang`; checking the exact text paints `.quiet-verdict.right`, puts
-the phrase back in `.drill-text` and brings `#drill-edit` with it; the same text
+`.drill-text.recall-prompt` and has no `#record` or `.focus-note`; `#drill-edit`
+is present *while the question stands* and `#f-delete` behind it removes the
+card, drops the progress pill by one and leaves you in the mode — that is the
+regression assertion, and `#p-delete` from a search result is the other route;
+the box carries `autocorrect="off"`, `spellcheck="false"` and
+the card's `lang`; checking the exact text paints `.quiet-verdict.right` and puts
+the phrase back in `.drill-text`; the same text
 with its accents and interpuncts stripped paints `.quiet-verdict.accents` with
 `.typed-word.accent` on the words that lost them and nothing struck through; a
 dropped word is named in the *Left out* line while the words you did get stay
@@ -1575,7 +1600,9 @@ once it is answered, with `.aspect-why` waiting behind the typed question.
 Settings (`#s-road` / `#s-quiet`, unchecked in place rather than by a
 re-render), and a settings blob with both true drills as road mode. Worth
 checking the topbar's `scrollWidth` at 390px too, since it now carries two
-pills.
+pills — at 320, 375 and 390, with a `1/207` progress pill, asserting the bar's
+`scrollWidth` never exceeds its `clientWidth` and that the Quiet pill's right
+edge stays inside the viewport.
 
 The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
@@ -1725,7 +1752,7 @@ the parser losing a block to a formatting change.
   instead of the phantom brother, in both languages — and reworded the Catalan
   rain card from the *va estar plovent* calque to *va ploure* via
   `SEED_REPLACEMENTS`, keeping its attempts.
-- v56 / `xerra-v56` — `js/version.js` first, `sw.js` second, as ever.
+- v57 / `xerra-v57` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

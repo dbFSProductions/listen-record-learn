@@ -487,8 +487,17 @@ button { font: inherit; }
   font-size: 0.82rem;
 }
 
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.topbar-end { display: flex; align-items: center; gap: 6px; }
+/* The drill's header carries six things now — back, the progress pill, the
+   star, the two mode pills and Edit — and on a narrow phone with a wide pill
+   (`1/207`, the shuffle-all queue) that is more than one line holds. It used
+   to overflow silently: the bar doesn't scroll, so Edit and then the Quiet
+   pill were simply pushed off the right edge with nothing to say they were
+   there. Wrapping is the fix, because the failure has to be "it moves to the
+   next line", never "you can't reach it". The back link is kept off the wrap
+   itself — left to itself it broke between the chevron and the word. */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.topbar > .link { white-space: nowrap; flex: none; }
+.topbar-end { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 
 /* --------------------------------------------------- road and quiet modes */
 
