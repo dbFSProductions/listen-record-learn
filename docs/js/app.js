@@ -1400,12 +1400,19 @@ function renderDrill() {
         ${
           /* Edit opens a sheet of text boxes, which is the one thing road mode
              is for not doing. Revealing brings it back with the card. It goes
-             while a question is standing — the shape gate's or quiet mode's —
-             for the same reason: the editor prints the sentence you are being
-             asked to produce. Level two is left alone: it has always kept its
-             Edit button, and taking it away would be a change to that feature
-             rather than to this one. */
-          road || gating || typing ? "" : `<button class="link" id="drill-edit">Edit</button>`
+             during the shape gate too, because that screen is the question and
+             the editor prints the sentence you are being asked to think about.
+
+             It stays through a quiet-mode question, though, and that is a fix
+             rather than an oversight. Edit is the drill's only way into the
+             editor, and the editor is where Delete phrase lives — so hiding it
+             here took the delete button off every card in the mode until you
+             had answered a question about it. Level two, which asks the same
+             kind of question, has always kept its Edit for the same reason.
+             Yes, you can read the answer out of the editor: so you can at
+             level two, and peeking has never been the thing this app guards
+             against. */
+          road || gating ? "" : `<button class="link" id="drill-edit">Edit</button>`
         }
       </span>
     </div>`;
