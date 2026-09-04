@@ -29,6 +29,10 @@
   --orange-dark: #e08600;
   --purple: #b56bf2;
   --purple-dark: #9147cc;
+  /* Purple as lettering rather than as a fill — the same trick as --amber
+     below. --purple is a background colour and disappears as small text on
+     white; this is the keyword picture's ink. */
+  --purple-ink: #8e4ec6;
   --amber: #cd9d00;
   /* Quiet mode's colour, and the only thing it is used for. Teal because every
      other strong colour in this palette is already saying something in the
@@ -105,6 +109,7 @@
     --phrases-ink: #5ccbff;
     --add-ink: #ffb14d;
     --settings-ink: #d8a6ff;
+    --purple-ink: #d8a6ff;
     --you-ink: var(--blue);
   }
 }
@@ -498,6 +503,83 @@ button { font: inherit; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .topbar > .link { white-space: nowrap; flex: none; }
 .topbar-end { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+
+/* ---------------------------------------------------- the keyword picture */
+
+/* Vocabulary by absurd mental image: the word sounds like something in
+   English, and one ridiculous scene holds that sound and the meaning together.
+   Purple because purple is already what memory looks like here — it is the
+   level-two badge.
+
+   Louder than the `Listen for` note it sits near, and that is deliberate. On a
+   Paraules card the picture is the thing being learnt; the tip is how to say
+   what the picture just handed back. So the scene is set at reading size in
+   the body ink rather than at note size in grey, and the sound bridge is the
+   biggest line in the block. */
+.picture-note {
+  background: color-mix(in srgb, var(--purple) 14%, transparent);
+  border-radius: 12px;
+  padding: 11px 13px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.42;
+  color: var(--text);
+}
+.picture-note strong {
+  display: block;
+  color: var(--purple-ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+.picture-sounds {
+  display: block;
+  color: var(--purple-ink);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+/* The tint is the block; the card around it is only there to sit in the
+   drill's rhythm, so it keeps its border and gives up its padding. */
+.picture-card { padding: 8px; }
+
+/* The drawing, when there is one. Held to the width of the block it sits in
+   and given the tint's own rounding, so it reads as part of the picture rather
+   than as an attachment to it. */
+.picture-art:not(:empty) { margin-top: 10px; }
+/* Capped, and never cropped. A square drawing at the full width of the block
+   is 300px tall on a 390px phone, which pushes Listen and the record button
+   off the bottom of the card — the picture is a hook, not the lesson.
+   `contain` rather than `cover` because a mnemonic with its corner cut off may
+   have lost the half that carries the sound. */
+.picture-image {
+  display: block;
+  width: 100%;
+  max-height: 210px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.picture-art-row { display: flex; gap: 14px; margin-top: 6px; }
+.picture-art-row .link { padding: 0; font-size: 0.78rem; }
+.picture-draw { width: 100%; }
+.picture-drawing { margin: 0; }
+
+/* The hint button while a question is standing, tinted rather than plain —
+   because the two buttons it stands next to are not equals. Reaching for the
+   picture is the method working; Show me hands over the answer. So the picture
+   is the one the eye lands on, and Show me stays a plain button below it.
+   Softer than a filled .btn-primary all the same: it is a hint, not the way
+   on. */
+.btn-picture {
+  background: color-mix(in srgb, var(--purple) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--purple) 45%, var(--line));
+  color: var(--purple-ink);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--purple) 45%, var(--line));
+}
 
 /* --------------------------------------------------- road and quiet modes */
 

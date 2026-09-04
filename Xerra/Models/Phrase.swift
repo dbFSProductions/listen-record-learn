@@ -34,6 +34,15 @@ struct Phrase: Identifiable, Codable, Hashable {
     var situation: String?
     /// Register, pragmatic meaning, or cultural context that helps it land.
     var usageNote: String?
+    /// The keyword-mnemonic pair — see the `catalanWords` comment in
+    /// SeedContent.swift for what makes one work. `sounds` is the bridge: what
+    /// the word sounds like in English and nothing else. `picture` is the one
+    /// absurd scene that holds that sound and the meaning together, so that
+    /// remembering the scene hands the word back. A bridge with no scene
+    /// hanging off it prints nothing — it is a riddle with its answer torn off.
+    /// Any card can carry them, not only a Paraules word.
+    var sounds: String?
+    var picture: String?
     /// Dot, line, or both — set only on cards that drill the shape of the past.
     /// A phrase without one is never asked the question.
     var aspect: Aspect?

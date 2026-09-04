@@ -101,6 +101,19 @@ export const cardAssistant = {
     });
   },
 
+  /* The keyword picture, drawn. The biggest and slowest thing the Worker
+     makes, and the only one that comes back as bytes rather than words —
+     which is exactly why it is an endpoint of its own rather than a field on
+     something else. See what replies did to /complete-card. The endpoint has
+     been live since Deb-o-lingo's Palabras unit shipped; this is the first
+     call to it from here. */
+  picture(payload, settings) {
+    return request("/picture", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",

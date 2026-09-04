@@ -56,6 +56,18 @@ def main():
             phrase["situation"] = situation
         if usage_note:
             phrase["usageNote"] = usage_note
+        # The keyword mnemonic. `picture` is the scene and is what renders;
+        # `sounds` is the bridge into it and prints nothing on its own, so a
+        # card carrying only the bridge is a mistake worth stopping for rather
+        # than a field to write through.
+        sounds = field(block, "sounds")
+        picture = field(block, "picture")
+        if picture:
+            phrase["picture"] = picture
+            if sounds:
+                phrase["sounds"] = sounds
+        elif sounds:
+            sys.exit(f"sounds with no picture on {text!r}")
         # Dot / line / both, and why this sentence is that shape. Only the
         # past-tense decks carry them; everything else omits the keys entirely.
         if aspect:
@@ -68,7 +80,7 @@ def main():
             sys.exit(f"aspectNote with no aspect on {text!r}")
         phrases.append(phrase)
 
-    if len(phrases) < 190:
+    if len(phrases) < 220:
         sys.exit(f"only parsed {len(phrases)} phrases — the Swift format probably changed")
 
     OUT.write_text(

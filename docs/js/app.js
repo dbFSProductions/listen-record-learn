@@ -74,6 +74,12 @@ const state = {
 
      Nothing in it is written to the phrase. See `checkTyped` for why. */
   typed: null,
+
+  /* The keyword picture, on a card that has one. Per card — loadPhrase resets
+     it — and only ever true because you asked for it: at level two the picture
+     is offered as a hint rather than shown, and reaching for it is not
+     peeking. See `drillPicture`. */
+  pictured: false,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -335,6 +341,155 @@ async function fetchReplies(phrase) {
   const result = await cardAssistant.replies(repliesRequest(phrase), settings);
   const replies = Array.isArray(result.replies) ? result.replies : [];
   return library.setReplies(phrase.id, replies);
+}
+
+/* The keyword picture: what the word sounds like in English, and the absurd
+   scene built out of that sound and the meaning. See the `catalanWords`
+   comment in SeedContent.swift for what makes one work and what makes one
+   useless — chiefly that the bridge has to be a sound the word actually has.
+
+   `picture` is what there is to show, so `sounds` on its own prints nothing:
+   a bridge with no scene hanging off it is a riddle with its answer torn off.
+   Any card can carry the pair, not only a Paraules word — they are ordinary
+   editable fields, so a picture can be hung on any word you keep losing. */
+function pictureBlock(phrase, style = "") {
+  if (!phrase?.picture?.trim()) return "";
+  const sounds = phrase.sounds?.trim();
+  return `
+    <div class="picture-note"${style ? ` style="${style}"` : ""}>
+      <strong>Picture it</strong>
+      ${sounds ? `<span class="picture-sounds">Sounds like &ldquo;${esc(sounds)}&rdquo;</span>` : ""}
+      <span>${esc(phrase.picture)}</span>
+      <div class="picture-art" data-art="${esc(phrase.id)}"></div>
+    </div>`;
+}
+
+/* The drawing of the scene, if there is one — and the offer to go and have one
+   made, if there isn't.
+
+   Filled in after the fact rather than inside `pictureBlock`, because the image
+   lives in IndexedDB and reading it is async while every render here is a
+   string. So the block leaves an empty slot and this fills it, which also means
+   the picture text is on screen at full speed whether or not there is a drawing
+   behind it.
+
+   It is never fetched on its own initiative, and that is the pedagogy rather
+   than the bill: imagining the scene yourself is the technique working, and a
+   picture handed over unasked removes the effort that makes it stick. Once made
+   it is kept, so a word is drawn once and is available offline afterwards like
+   the model audio is.
+
+   `controls` is the phrase sheet — the one place that can throw a drawing away
+   and ask for another. The drill shows what there is and keeps out of the way.
+
+   Blob URLs are held in a module-level map rather than made per render: the
+   drill re-renders on every reveal and every score, and a fresh object URL each
+   time would leak one per repaint. */
+const pictureURLs = new Map();
+
+function releasePicture(id) {
+  const url = pictureURLs.get(id);
+  if (url) URL.revokeObjectURL(url);
+  pictureURLs.delete(id);
+}
+
+async function wirePictureArt(root, phrase, { controls = false } = {}) {
+  const slot = root?.querySelector?.(`[data-art="${CSS.escape(phrase.id)}"]`);
+  if (!slot) return;
+
+  const paint = (blob) => {
+    if (!slot.isConnected) return;
+    if (!pictureURLs.has(phrase.id)) pictureURLs.set(phrase.id, URL.createObjectURL(blob));
+    slot.innerHTML = `<img class="picture-image" alt="${esc(phrase.picture)}" src="${pictureURLs.get(phrase.id)}">${
+      controls
+        ? `<div class="picture-art-row">
+             <button class="link" data-redraw>Draw it again</button>
+             <button class="link btn-danger" data-undraw>Remove the drawing</button>
+           </div>`
+        : ""
+    }`;
+    slot.querySelector("[data-redraw]")?.addEventListener("click", () => draw());
+    slot.querySelector("[data-undraw]")?.addEventListener("click", async () => {
+      await audioStore.deletePicture(phrase.id);
+      releasePicture(phrase.id);
+      offer();
+    });
+  };
+
+  const offer = () => {
+    if (!slot.isConnected) return;
+    slot.innerHTML = settings.hasAssistant
+      ? `<button class="btn btn-picture picture-draw">Draw this for me</button>
+         <div class="notice bad picture-art-error" hidden></div>`
+      : "";
+    slot.querySelector(".picture-draw")?.addEventListener("click", () => draw());
+  };
+
+  async function draw() {
+    slot.innerHTML = `<p class="small muted picture-drawing"><span class="spinner"></span> Drawing it… this one takes a while.</p>`;
+    try {
+      const { image } = await cardAssistant.picture(
+        {
+          languageCode: phrase.language,
+          languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
+          card: {
+            text: phrase.text,
+            translation: phrase.translation,
+            sounds: phrase.sounds ?? "",
+            picture: phrase.picture ?? "",
+          },
+        },
+        settings
+      );
+      if (!image?.data) throw new Error("Nothing came back to draw.");
+      /* Shrunk before it is kept. What arrives is a full-size render, and this
+         is a thumbnail on a phone whose storage iOS is willing to evict — a
+         few hundred kilobytes a word would outweigh the rest of the app. */
+      const blob = await shrinkImage(base64ToBlob(image.data, image.mimeType || "image/png"));
+      await audioStore.putPicture(phrase.id, blob);
+      releasePicture(phrase.id);
+      paint(blob);
+    } catch (error) {
+      if (!slot.isConnected) return;
+      offer();
+      const box = slot.querySelector(".picture-art-error");
+      if (box) {
+        box.textContent = error.message;
+        box.hidden = false;
+      } else toast(error.message);
+    }
+  }
+
+  const existing = await audioStore.getPicture(phrase.id);
+  if (existing) paint(existing);
+  else offer();
+}
+
+function base64ToBlob(data, mimeType) {
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+/* Down to a card-sized thumbnail before it is stored. WebP where the browser
+   will encode it and whatever it falls back to where it won't — Safari quietly
+   returns PNG, which is bigger but still a fraction of what arrived. If the
+   canvas refuses entirely, the original is kept rather than nothing. */
+async function shrinkImage(blob, max = 512) {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const shrunk = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    return shrunk ?? blob;
+  } catch {
+    return blob;
+  }
 }
 
 function scoreClass(score) {
@@ -663,7 +818,12 @@ function renderPractice() {
       phrase.deck.toLowerCase().includes(query) ||
       (phrase.situation ?? "").toLowerCase().includes(query) ||
       (phrase.usageNote ?? "").toLowerCase().includes(query) ||
-      (phrase.focusNote ?? "").toLowerCase().includes(query);
+      (phrase.focusNote ?? "").toLowerCase().includes(query) ||
+      /* The keyword picture is searchable too, and the bridge especially: the
+         way back to a word you have half lost is often the daft scene rather
+         than any of its Catalan. "ten-a-door" has to find the fork. */
+      (phrase.picture ?? "").toLowerCase().includes(query) ||
+      (phrase.sounds ?? "").toLowerCase().includes(query);
 
     const hits = phrases.filter(match);
     if (!hits.length) return `<div class="empty"><p>Nothing matches.</p></div>`;
@@ -1320,6 +1480,7 @@ async function loadPhrase() {
   state.roadRevealed = false;
   state.aspectChoice = null;
   state.typed = null;
+  state.pictured = false;
   scoring.lastError = null;
   if (!phrase) return render();
 
@@ -1473,6 +1634,8 @@ function renderDrill() {
       }
     </div>`}
 
+    ${road ? "" : drillPicture(phrase, questioned)}
+
     ${
       asking
         ? `<button class="btn" id="show-me" style="width:100%">Show me</button>`
@@ -1576,6 +1739,13 @@ function renderDrill() {
   document.getElementById("listen")?.addEventListener("click", () => playModel(1));
   document.getElementById("slow")?.addEventListener("click", () => playModel(settings.slowRate));
   document.getElementById("record")?.addEventListener("click", toggleRecording);
+  /* The picture, asked for rather than shown. Re-rendering is safe here for the
+     same reason it is safe on the shape gate: while the question is standing
+     there is no attempt on the screen for a render() to throw away. */
+  document.getElementById("picture-hint")?.addEventListener("click", () => {
+    state.pictured = true;
+    render();
+  });
   document.getElementById("show-me")?.addEventListener("click", () => {
     state.revealed = true;
     state.peeked = true;
@@ -1712,6 +1882,8 @@ function renderDrill() {
       loadPhrase();
     });
   });
+
+  wirePictureArt(view, phrase);
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
 
@@ -1895,6 +2067,33 @@ function drillReplies(phrase, asking) {
       <button class="btn btn-primary" id="drill-get-replies" style="width:100%">What might they say back?</button>
       <div id="drill-replies-error" class="notice bad" hidden></div>
     </div>`;
+}
+
+/* The picture, and which side of the level-two line it falls on — which is
+   neither of the sides everything else in the drill takes.
+
+   At level one it is reference material like the situation card, so it waits
+   behind the meaning: the scene names the English, and hiding the translation
+   and then printing "a fork with keys for prongs" would be pointless.
+
+   While a question is standing it is the whole point of the method. The
+   Catalan is being withheld and the picture is the road back to it, so it is
+   offered as a button rather than shown — and reaching for it is NOT peeking.
+   Show me hands over the answer; the picture makes you produce it, which is
+   the technique working exactly as intended. So it leaves `peeked` alone, and
+   once you have asked it stays on the card for the rest of the go.
+
+   The question it answers is a written one either way — level two's, or quiet
+   mode's — which is why it reads `questioned` rather than `asking`. Road mode
+   takes it off entirely: it is a paragraph to read, which is the whole of what
+   that mode is for not having on the screen. */
+function drillPicture(phrase, questioned) {
+  if (!phrase.picture?.trim()) return "";
+  if (questioned && !state.pictured) {
+    return `<button class="btn btn-picture" id="picture-hint" style="width:100%;margin-bottom:12px">Show me the picture</button>`;
+  }
+  if (!questioned && !state.showTranslation && !state.pictured) return "";
+  return `<div class="card picture-card">${pictureBlock(phrase)}</div>`;
 }
 
 /* Answers you kept from a chat, printed back under the card you kept them on.
@@ -2527,6 +2726,12 @@ function showPhrase(phrase) {
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
      ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
+     ${
+       /* The sheet is where you look a card up rather than being tested on it,
+          so the picture is simply printed — no hint button, no gate — and it
+          is the one place a drawing can be thrown away and asked for again. */
+       pictureBlock(phrase, "margin-bottom:14px")
+     }
      <div class="btn-row" style="margin-bottom:14px">
        <button class="btn btn-primary" id="p-practise">Practise now</button>
        <button class="btn" id="p-edit">Edit</button>
@@ -2567,6 +2772,8 @@ function showPhrase(phrase) {
      }
      <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
   );
+
+  wirePictureArt(sheetBody, phrase, { controls: true });
 
   /* Moving a card is a property of the card, so it is here rather than behind
      Edit: this is also the only place that says which deck the card is in, and
@@ -3193,6 +3400,18 @@ function editPhrase(phrase, onSaved = null) {
        <textarea id="f-usage">${esc(phrase?.usageNote ?? "")}</textarea></label>
      <label class="field"><span>Pronunciation note (optional)</span>
        <textarea id="f-note">${esc(phrase?.focusNote ?? "")}</textarea></label>
+     <label class="field"><span>Sounds like (optional)</span>
+       <textarea id="f-sounds" placeholder="The English hiding inside it">${esc(phrase?.sounds ?? "")}</textarea></label>
+     <label class="field"><span>Picture it (optional)</span>
+       <textarea id="f-picture" placeholder="One daft scene with the sound AND the meaning in it">${esc(
+         phrase?.picture ?? ""
+       )}</textarea></label>
+     ${
+       settings.hasAssistant
+         ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">Invent a picture for me</button>`
+         : ""
+     }
+     <div id="f-picture-note" class="notice" hidden></div>
      ${
        settings.hasAssistant
          ? `<button class="btn" id="f-ai" style="width:100%;margin-bottom:10px">Rebuild the rest with AI</button>
@@ -3212,6 +3431,7 @@ function editPhrase(phrase, onSaved = null) {
 
   // Holds the replies a rebuild produced, so Save can carry them across.
   const rebuild = wireEditorAI(phrase, language);
+  wirePictureAI();
 
   document.getElementById("f-save").onclick = () => {
     const text = document.getElementById("f-text").value.trim();
@@ -3227,6 +3447,8 @@ function editPhrase(phrase, onSaved = null) {
       situation: document.getElementById("f-situation").value.trim() || null,
       usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,
+      sounds: document.getElementById("f-sounds").value.trim() || null,
+      picture: document.getElementById("f-picture").value.trim() || null,
       // A rebuild replaces them; an ordinary edit leaves whatever was there.
       replies: rebuild.replies ?? phrase?.replies ?? [],
     };
@@ -3241,6 +3463,92 @@ function editPhrase(phrase, onSaved = null) {
      Edit button in the drill topbar opens — so it goes through the shared one,
      which takes the card out of the queue on the way. */
   document.getElementById("f-delete")?.addEventListener("click", () => deletePhrase(phrase));
+}
+
+/* "Invent a picture for me" — the one call in the app that asks for something
+   the Worker was never taught about, and gets it through /chat rather than
+   through an endpoint of its own. That is deliberate: /picture draws a scene,
+   it doesn't write one, and a new endpoint for this would mean a Worker deploy
+   that serves all three apps. This needs nothing — it is one turn of the same
+   conversation the card chat panel already has, with the question written for
+   you instead of by you.
+
+   The answer is asked for as two labelled lines and parsed back into the two
+   boxes, but a model that ignores the format costs only the split: the whole
+   reply lands in Picture and can be cut about by hand. Nothing is saved until
+   Save, as everywhere else in this editor. */
+const PICTURE_REQUEST = `Invent a keyword mnemonic for this card, for an English speaker learning it.
+
+Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.
+
+Answer in exactly two lines, with nothing before or after them:
+SOUNDS LIKE: <the English sound bridge, a few words>
+PICTURE: <one sentence>`;
+
+function parsePicture(reply) {
+  const text = String(reply ?? "").trim();
+  const sounds = text.match(/sounds\s*like\s*:\s*(.+)/i)?.[1]?.trim() ?? "";
+  const picture = text.match(/picture\s*:\s*([\s\S]+)/i)?.[1]?.trim() || text;
+  return { sounds: sounds.replace(/^["\u201c\u2018']+|["\u201d\u2019']+$/g, ""), picture };
+}
+
+function wirePictureAI() {
+  const button = document.getElementById("f-picture-ai");
+  if (!button) return;
+  const noteBox = document.getElementById("f-picture-note");
+
+  button.onclick = async () => {
+    const text = document.getElementById("f-text").value.trim();
+    const translation = document.getElementById("f-translation").value.trim();
+    /* Both sides, and not for tidiness: the scene has to hold the sound of the
+       phrase and the English meaning at once, so half a card can't make one. */
+    if (!text || !translation) {
+      toast("Fill in both sides first — a picture needs the sound and the meaning.");
+      return;
+    }
+
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Thinking…`;
+    noteBox.hidden = true;
+    try {
+      const { reply } = await cardAssistant.chat(
+        {
+          ...chatContext({
+            text,
+            translation,
+            language: settings.language,
+            deck: document.getElementById("f-deck").value,
+            situation: document.getElementById("f-situation").value.trim(),
+            usageNote: document.getElementById("f-usage").value.trim(),
+            focusNote: document.getElementById("f-note").value.trim(),
+            replies: [],
+          }),
+          history: [{ role: "user", text: PICTURE_REQUEST }],
+        },
+        settings
+      );
+      const made = parsePicture(reply);
+      if (!made.picture) throw new Error("Nothing came back. Try again.");
+      const soundsField = document.getElementById("f-sounds");
+      const pictureField = document.getElementById("f-picture");
+      // The sheet can be gone by now — Cancel was tapped while it thought.
+      if (!pictureField) return;
+      if (made.sounds) soundsField.value = made.sounds;
+      pictureField.value = made.picture;
+      autosize(soundsField);
+      autosize(pictureField);
+      noteBox.className = "notice";
+      noteBox.textContent = "Have a look — change anything that isn't yours, and it only counts once you Save.";
+      noteBox.hidden = false;
+    } catch (error) {
+      noteBox.className = "notice bad";
+      noteBox.textContent = error.message;
+      noteBox.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Invent a picture for me";
+    }
+  };
 }
 
 /* "Rebuild the rest with AI" — the same /complete-card call the Add tab makes,

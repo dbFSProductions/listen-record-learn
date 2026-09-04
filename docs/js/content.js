@@ -1783,5 +1783,293 @@ export const SEED_PHRASES = [
     "language": "es-ES",
     "aspect": "pastPerfect",
     "aspectNote": "Not being invited came before not going. The reason sits one step further back."
+  },
+  {
+    "text": "la forquilla",
+    "translation": "the fork",
+    "deck": "Paraules · A taula",
+    "focusNote": "fur-KEE-lya. The unstressed o is a u and the final a is a schwa. The ll is the palatal one — the lli of 'million', never the plain y of 'yes'.",
+    "picture": "Every prong of the fork ends in a key, and it opens every door in the flat.",
+    "sounds": "FORK-ee-ya"
+  },
+  {
+    "text": "la cullera",
+    "translation": "the spoon",
+    "deck": "Paraules · A taula",
+    "focusNote": "ku-LYE-rə, tongue flat on the roof of the mouth for the ll — the lli of 'million'. The single r between vowels is one light tap.",
+    "picture": "A pigeon lands in your soup, coos 'coo — yeah!', and rows off using the spoon as an oar.",
+    "sounds": "coo — YEAH!"
+  },
+  {
+    "text": "el ganivet",
+    "translation": "the knife",
+    "deck": "Paraules · A taula",
+    "focusNote": "gə-ni-VET, stress right at the end. The first a is a schwa and the v is said as a b.",
+    "picture": "'I'm gonna bet' — and you stake your last knife, stabbing it blade-first into the table.",
+    "sounds": "gonna BET"
+  },
+  {
+    "text": "el got",
+    "translation": "the glass",
+    "deck": "Paraules · A taula",
+    "focusNote": "One syllable, open o, hard t. Nothing like English 'goat'.",
+    "picture": "'Got it!' — you catch the falling glass an inch off the tiles, every single time.",
+    "sounds": "GOT"
+  },
+  {
+    "text": "la taula",
+    "translation": "the table",
+    "deck": "Paraules · A taula",
+    "focusNote": "TAU-lə. The au is the 'ow' of 'now', and the final a is a schwa.",
+    "picture": "The table is a towel on four legs: put a plate down and the whole thing sags into a hammock.",
+    "sounds": "TOWEL"
+  },
+  {
+    "text": "el pa",
+    "translation": "the bread",
+    "deck": "Paraules · A taula",
+    "focusNote": "One syllable and a full open a: pah. Nothing after it — no vowel, no consonant to lean on.",
+    "picture": "Your pa is baked out of bread; hug him and you come away covered in crumbs.",
+    "sounds": "PA"
+  },
+  {
+    "text": "el carrer",
+    "translation": "the street",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "kə-RRE. The rr is a hard roll, the first e is a schwa, and the final r is silent.",
+    "picture": "A street so crammed with cars that when you ask where to park, the street itself shrugs: 'car? eh.'",
+    "sounds": "car? … eh"
+  },
+  {
+    "text": "la parada",
+    "translation": "the (bus) stop",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "pə-RA-də. Two schwas around the one full A, and the d between vowels is soft, like the th in 'this'.",
+    "picture": "The bus stop is where the whole crowd goes 'RAH!' when the number 6 finally shows up.",
+    "sounds": "puh-RAH-duh, a big 'RAH!'"
+  },
+  {
+    "text": "el semàfor",
+    "translation": "the traffic light",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "sə-MA-fur. Stress on the à, not on the front the way English says 'semaphore', and the final o is a u.",
+    "picture": "The traffic light has a sailor inside it waving semaphore flags instead of changing colour.",
+    "sounds": "semaphore"
+  },
+  {
+    "text": "la botiga",
+    "translation": "the shop",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "bu-TI-gə. The o is a u, the g is soft enough to be almost a gargle, and the final a is a schwa.",
+    "picture": "Every shop in town is a boutique now, even the ironmonger — hammers on velvet, one per window.",
+    "sounds": "a boutique, with a g"
+  },
+  {
+    "text": "la bossa",
+    "translation": "the bag",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "BO-sə, closed o and a sharp double s. A single s here would voice into a z.",
+    "picture": "Your boss lives in your bag and shouts instructions every time you open it.",
+    "sounds": "BOSS-a"
+  },
+  {
+    "text": "els diners",
+    "translation": "the money",
+    "deck": "Paraules · Al carrer",
+    "focusNote": "di-NES. The final -rs is silent, so the word ends on the s — never the English 'diners'.",
+    "picture": "The Loch Ness monster — Dee Ness — surfaces with your wallet in her teeth, and the whole lake is paved with coins.",
+    "sounds": "dee-NESS"
+  },
+  {
+    "text": "tenir",
+    "translation": "to have",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "tə-NI. Schwa first, and the final r of the infinitive is silent.",
+    "picture": "You have ten knees down each leg, and no trousers will ever fit again.",
+    "sounds": "ten-NEES"
+  },
+  {
+    "text": "voler",
+    "translation": "to want",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "bu-LE. The v is said as a b, the unstressed o is a u, and the final r is silent.",
+    "picture": "You want the last croquette so badly you go BOO at the table and lay hands on it before anyone else moves.",
+    "sounds": "boo-LEH"
+  },
+  {
+    "text": "anar",
+    "translation": "to go",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "ə-NA. Schwa first, full a second, and no r at the end.",
+    "picture": "Anna is always going: say her name and the door is already swinging shut behind her.",
+    "sounds": "uh-NAH (Anna)"
+  },
+  {
+    "text": "fer",
+    "translation": "to do, to make",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "FE with an open e and no r — 'fair' with the r bitten off.",
+    "picture": "Everything you do, you do at the fair: the washing-up on the waltzers, the ironing on the ghost train.",
+    "sounds": "FEH"
+  },
+  {
+    "text": "saber",
+    "translation": "to know",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "sə-BE, stress at the end. The b between vowels is soft, and the final r is silent.",
+    "picture": "You know the answer because there is a sabre at your throat, and it is getting closer.",
+    "sounds": "suh-BAY (a sabre)"
+  },
+  {
+    "text": "poder",
+    "translation": "to be able to",
+    "deck": "Paraules · Cada dia",
+    "focusNote": "pu-DE. The o is a u, the d is soft, and the r goes the way of every other infinitive's.",
+    "picture": "On Poo Day you can do anything — fly, sing, eat two lunches. The other six days you can't.",
+    "sounds": "poo-DEH (Poo Day)"
+  },
+  {
+    "text": "on?",
+    "translation": "where?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "Open o and a clear n. One syllable, and nothing in front of it.",
+    "picture": "Where is the light switch? It is ON — it has been on the whole time, glowing at the wall you are feeling.",
+    "sounds": "ON"
+  },
+  {
+    "text": "quan?",
+    "translation": "when?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "kwan. The qu is 'kw' here, and the a is full because it carries the stress.",
+    "picture": "Master Kwan drops from the ceiling whenever anybody asks when, and then refuses to say.",
+    "sounds": "KWAN"
+  },
+  {
+    "text": "quant?",
+    "translation": "how much?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "The same as 'quan' with a t on the end, and that t is the only thing that tells them apart.",
+    "picture": "'How much?' — the shopkeeper writes QUANTITY across the till in chalk and adds another zero.",
+    "sounds": "KWANT (quantity)"
+  },
+  {
+    "text": "qui?",
+    "translation": "who?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "kee. Before an i the u is silent, so the qu is just a k.",
+    "picture": "Who is at the door? Only the key knows — it turns itself in the lock and lets them in.",
+    "sounds": "KEY"
+  },
+  {
+    "text": "per què?",
+    "translation": "why?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "pər KE. Open e on 'què', which takes the stress; the r of 'per' is one light tap.",
+    "picture": "Why? Kay. It was Kay. It is always Kay, and Kay has left the country.",
+    "sounds": "per KAY"
+  },
+  {
+    "text": "com?",
+    "translation": "how?",
+    "deck": "Paraules · Preguntes",
+    "focusNote": "Closed o and a real m at the end — not the English 'comb' with its silent b.",
+    "picture": "How does anything get done here? With a comb. You comb the lawn, comb the soup, comb the dog.",
+    "sounds": "COMB"
+  },
+  {
+    "text": "ara",
+    "translation": "now",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "A-rə. Stress on the first a, schwa on the second, and the r is a single tap.",
+    "picture": "Ra the sun god comes through the ceiling shouting 'AH-ra! Now! Not in a minute!'",
+    "sounds": "AH — RA!"
+  },
+  {
+    "text": "avui",
+    "translation": "today",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "ə-VUI, stress at the end. The v is said as a b, and 'ui' is one glide rather than two syllables.",
+    "picture": "Every morning a ghost jumps out going 'BOO-eeee!' — and it only ever does it today, never yesterday.",
+    "sounds": "a BOO-ee"
+  },
+  {
+    "text": "ahir",
+    "translation": "yesterday",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "ə-I. The h is silent and so is the final r, so the whole word is two vowels.",
+    "picture": "Yesterday is locked out on the balcony going 'aaa-EEE', and you are not opening the door.",
+    "sounds": "uh-EEE"
+  },
+  {
+    "text": "demà",
+    "translation": "tomorrow",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "də-MA, stress on the à. The first e is a schwa — never 'DEH-ma'.",
+    "picture": "Tomorrow your ma arrives. She has been arriving tomorrow for a year.",
+    "sounds": "duh-MA"
+  },
+  {
+    "text": "sempre",
+    "translation": "always",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "SEM-prə. Open e at the front, schwa at the end — the last syllable is not 'pray'.",
+    "picture": "Sam prays always — in the bath, on the bus, at the lights, in the middle of your sentence.",
+    "sounds": "SAM, praying"
+  },
+  {
+    "text": "mai",
+    "translation": "never",
+    "deck": "Paraules · El rellotge",
+    "focusNote": "One syllable, rhyming with English 'my'. Never ma-i.",
+    "picture": "'My turn!' you shout, every single time, and it never is.",
+    "sounds": "MY"
+  },
+  {
+    "text": "l'avió",
+    "translation": "the plane",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "ə-vi-O, stress right at the end. The v is a b and the ó is closed.",
+    "picture": "The plane is one enormous bee — 'a bee, oh!' — and you board it through the mouth.",
+    "sounds": "a BEE, OH!"
+  },
+  {
+    "text": "la maleta",
+    "translation": "the suitcase",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "mə-LE-tə. Schwas at both ends, closed e in the middle carrying the stress.",
+    "picture": "The suitcase is packed with letters, thousands of them, every one addressed to you and none of them opened.",
+    "sounds": "ma-LET-a (my letter)"
+  },
+  {
+    "text": "l'escala",
+    "translation": "the stairs",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "əs-KA-lə. The initial e is a schwa, so it starts on a breath, and the final a is a schwa too.",
+    "picture": "The stairs are paved with scallops, and each one snaps shut on your ankle as you climb.",
+    "sounds": "us-KA-la (a scallop)"
+  },
+  {
+    "text": "el llit",
+    "translation": "the bed",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "The ll is the palatal one, tongue flat against the roof of the mouth — 'million', not 'yes' — and the final t is crisp.",
+    "picture": "The bed fires you out at six in the morning — 'YEET!' — straight through the window.",
+    "sounds": "YEET"
+  },
+  {
+    "text": "el bitllet",
+    "translation": "the ticket",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "bi-LLET, and the tll in the middle is one long palatal ll. The final t is pronounced.",
+    "picture": "The ticket inspector is a bee: 'No ticket yet? Bzzz.'",
+    "sounds": "bee-YET"
+  },
+  {
+    "text": "la clau",
+    "translation": "the key",
+    "deck": "Paraules · Fora de casa",
+    "focusNote": "One syllable: 'clow', rhyming with 'cow'. The au is never the 'aw' of English 'claw'.",
+    "picture": "A clown holds your front-door key between his teeth and says 'clow!' every time you reach for it.",
+    "sounds": "CLOW ('clown', no n)"
   }
 ];

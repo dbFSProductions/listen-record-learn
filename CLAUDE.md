@@ -471,6 +471,101 @@ marking and the CSS are all drill-local, and the Worker is untouched — but
 `checkTyped`'s accent folding is doing Catalan-specific work (the interpunct)
 that Spanish has no use for.
 
+### A word, a sound and one ridiculous picture
+
+The six **Paraules** decks (thirty-six words, folded under one family row) are
+vocabulary by the keyword method, ported from Deb-o-lingo's Palabras unit and
+written fresh for Catalan. You hear an English sound inside the Catalan word
+and build one absurd scene out of that sound and the meaning: *la clau* sounds
+like a clown with the n bitten off, so a clown holds your front-door key in his
+teeth. Every other deck here teaches something you *say*; this is the one that
+teaches single words.
+
+- **Two fields, and the split is load-bearing.** `sounds` is the bridge — what
+  the word sounds like in English and nothing else. `picture` is the scene, and
+  its one job is to contain **both** the sound and the meaning, so that
+  recalling the scene hands the word back. A scene with the sound but not the
+  meaning is useless; so is a pretty one with neither. `picture` alone renders;
+  `sounds` alone renders nothing, being a riddle with its answer torn off.
+- **Never bridge to a sound the word hasn't got**, and in Catalan that bites
+  harder than it does in Spanish. *La clau* is not "claw" — au is the vowel in
+  *cow*, and a mnemonic that teaches the wrong mouth is worse than none in an
+  app that scores pronunciation for a living. It also bites on **stress**,
+  which is what decides which Catalan vowels survive: *l'escala* is not
+  "escalator" and *la maleta* is not Deb's "mallet", because English puts the
+  stress on the front of both and Catalan puts it in the middle. The `ll`
+  bridges (*forquilla*, *cullera*, *el llit*, *el bitllet*) are the one place
+  the bridge is deliberately approximate — English has no [ʎ] to bridge to, so
+  the scene says "ya" and the `focusNote` says *the lli of 'million', never the
+  plain y of 'yes'*.
+- **They are ordinary fields on a phrase, not a new store.** That buys the
+  editor, export, import and the weekly reinstall for nothing — and it means
+  *any* card can carry a picture, not only a Paraules word, which is where most
+  of the value ends up: a picture on the one word inside a phrase you keep
+  losing. Resist making them a special kind of card, for the reason About me
+  gives above. `gen-content.py` refuses a `sounds` with no `picture` rather
+  than writing half a mnemonic through.
+- **The drill's gates, and the picture takes a third position.** At level one
+  it waits behind `showTranslation` like the notes do — the scene names the
+  English, so printing it under a hidden meaning would be pointless. While a
+  question is standing it is *the point*: the Catalan is being withheld and the
+  picture is the road back to it, so it is offered as **Show me the picture**
+  rather than shown, above the plain Show me. It reads `questioned` rather than
+  `asking`, so quiet mode's typed question gets the hint too — that question is
+  the same question. Road mode takes it off entirely: it is a paragraph to
+  read.
+- **Reaching for the picture is not peeking.** `state.pictured` is its own flag
+  and deliberately does not set `peeked`: Show me hands over the answer, the
+  picture makes you produce it, and that is the method working as intended. The
+  attempt is still filed as `"recall"`. The hint button is tinted
+  (`.btn-picture`) and Show me is left plain, because the hierarchy is the
+  pedagogy.
+- **"Invent a picture for me" goes through `/chat`, and that is not laziness.**
+  A new endpoint would mean a Worker deploy that serves all three apps; this is
+  one turn of the conversation `cardChatPanel` already has, with the question
+  written for you. The answer is asked for as two labelled lines and parsed
+  back into the two boxes; a model that ignores the format costs only the
+  split, since the whole reply lands in Picture. Don't "improve" it into a
+  `/complete-card` field without reading what replies did to the Add tab.
+- **The scene gets drawn, and only when asked.** `/picture` on the Worker turns
+  the sentence into an image — the endpoint has been live since Deb-o-lingo's
+  unit shipped, so **this needed no Worker change at all**. The drawing is kept
+  in IndexedDB by phrase id and shown inside the same block, behind the same
+  gates, as the text. It is never fetched on its own initiative, and that is
+  the pedagogy rather than the bill: imagining the scene yourself is the
+  technique working, and a picture handed over unasked removes the effort that
+  makes it stick.
+- **Third IndexedDB store, so `DB_VERSION` went to 2.** The upgrade handler
+  creates whatever is missing, so an existing install keeps its recordings and
+  its cached model audio and gains the box. Worth knowing when testing: with no
+  Azure key nothing else touches IndexedDB, so **looking for a drawing is what
+  opens the database** and therefore when the upgrade actually runs. Drawings
+  are not in the export, for the reason recordings aren't — blobs stay on the
+  device — but they go when the card does.
+- **What comes back is shrunk before it is kept** — 512px, WebP where the
+  browser will encode it. A full-size render per word would outweigh the rest
+  of the app on a phone whose storage iOS is willing to evict.
+- **It sits in the editor, not on the sheet.** One implementation, reached from
+  the phrase sheet's Edit and from the drill's Edit alike, landing where the
+  result can be rewritten — a picture you invent yourself outlasts one you were
+  handed. Nothing is written until Save. The sheet is where a *drawing* is
+  thrown away and asked for again (`[data-undraw]`), which is the one control
+  the drill doesn't get.
+- **Purple, and it was already spoken for.** Purple is what memory looks like
+  here — it is the level-two badge. `--purple-ink` is new and is purple *as
+  lettering*, on the `--amber` precedent: `--purple` is a fill and vanishes as
+  small text on white.
+
+The words are searchable by their bridge as well as their Catalan, because the
+way back to a word you have half lost is usually the daft scene rather than any
+of its spelling.
+
+Deb-o-lingo has the same machinery with deliberately different scenes — hers
+are dollars and her own week. **Port the machinery, never the pictures**: a
+picture is aimed at one mouth and one life, the same way a focusNote is. The
+one real divergence is where the cards live, which is the deck-versus-path
+difference the rest of this file already has.
+
 ### Dot or line: naming the shape before saying the sentence
 
 The Spanish past decks are built on one picture, and there are five shapes in
@@ -1117,6 +1212,11 @@ which is what keeps the everyday Catalan cards byte-identical to what they were
 before Spanish arrived — including the Catalan past decks, which carry an
 `aspect` but no `language:` line at all.
 
+`sounds` and `picture` are the keyword mnemonic, and only the Paraules decks
+carry them. `picture` is the scene and is what renders, so a card with a
+`sounds` and no `picture` exits the generator rather than being written through
+as half a mnemonic.
+
 Every phrase carries a `focusNote` naming what to listen for. It's shown while
 drilling and is the pedagogical point of the app, not decoration. New phrases
 need one — including the Spanish ones, where it does double duty: the -aba and
@@ -1624,6 +1724,28 @@ pills — at 320, 375 and 390, with a `1/207` progress pill, asserting the bar's
 `scrollWidth` never exceeds its `clientWidth` and that the Quiet pill's right
 edge stays inside the viewport.
 
+For the keyword pictures, with `/picture` and `/chat` stubbed: a Paraules card
+opens with `.picture-note` carrying its `.picture-sounds` and no
+`#picture-hint`, `Salutacions` has neither, and with *Show the meaning up
+front* off the picture waits for `#reveal` alongside the translation. Seed four
+passing attempts on one and the same card offers `#picture-hint` with no
+`.picture-note` — pressing it paints the picture while `.drill-text` still
+reads the English, `#listen` is still absent and the *Shown, not remembered*
+line is still off the card, which is the assertion that says peeking and
+picturing are different things. Quiet mode offers the same hint at level one
+and the typed question stays standing behind it; road mode has neither. Nothing
+is fetched until `.picture-draw` is pressed; one press paints `.picture-image`,
+a return to the card shows it again with no second call, the blob in the
+`pictures` store is an image and smaller than what was sent, a 503 lands in
+`.picture-art-error` with the offer still there, and the sheet's `[data-undraw]`
+empties the store and puts the offer back. Searching for `clown` finds *la
+clau* by its bridge alone; the editor carries `#f-sounds` and `#f-picture`, an
+edit to either is saved on the phrase, and `#f-picture-ai` parses two labelled
+lines into the two boxes. Two more that are easy to lose: an install still on
+`DB_VERSION` 1 upgrades in place and keeps its recordings — drill a card *with
+a picture* to trigger it, since with no Azure key nothing else opens the
+database — and deleting a card takes its drawing out of the store with it.
+
 The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
@@ -1756,7 +1878,13 @@ the parser losing a block to a formatting change.
   sentences, drawn with each language's own machinery, which is why `endings`
   in `ASPECTS` is keyed by locale. Ported to Deb-o-lingo in a three-shape cut
   (dot, line, present perfect) with its own content and a louder endings line.
-- 255 phrases: 207 Catalan across seventeen decks, and 48 Spanish across six.
+- **Paraules** is vocabulary by the keyword method — thirty-six single words in
+  six decks under one family, each with a sound bridge and one absurd scene,
+  drawn on request through the Worker's `/picture`. `sounds` / `picture` on the
+  phrase, `pictureBlock` / `wirePictureArt` / `drillPicture` in app.js, a third
+  IndexedDB store for the drawings. Ported from Deb-o-lingo's Palabras with its
+  own scenes, and it needed no Worker change.
+- 291 phrases: 243 Catalan across twenty-three decks, and 48 Spanish across six.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -1771,8 +1899,10 @@ the parser losing a block to a formatting change.
   England instead of Germany, the band instead of the hotel, the rehearsal
   instead of the phantom brother, in both languages — and reworded the Catalan
   rain card from the *va estar plovent* calque to *va ploure* via
-  `SEED_REPLACEMENTS`, keeping its attempts.
-- v57 / `xerra-v57` — `js/version.js` first, `sw.js` second, as ever.
+  `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
+  newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
+  de casa, six words each.
+- v58 / `xerra-v58` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
