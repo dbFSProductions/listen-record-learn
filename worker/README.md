@@ -4,7 +4,7 @@ This Worker keeps the Gemini API key out of the public web app. It accepts a
 rough Catalan/English card, asks Gemini for structured card details, validates
 the result, and returns it to Xerra.
 
-Five endpoints, each with its own failure so a slow one can't take a fast one
+Six endpoints, each with its own failure so a slow one can't take a fast one
 down with it:
 
 | | |
@@ -14,6 +14,7 @@ down with it:
 | `/chat` | Follow-up questions about a card — grammar, etymology, usage. |
 | `/interview` | The next English question in the About me interview. |
 | `/about-cards` | An About me transcript → three to five cards. The only call that writes several cards, so it gets a longer per-attempt budget and a smaller card shape. |
+| `/picture` | A keyword mnemonic → one drawing of it, base64. The only call that returns an image, and the only one with no fallback model. |
 | `/health` | Asks the model for one word, so "connected" means a model actually answered. |
 
 Each endpoint picks its own model and patience. `/interview` and `/chat` are
@@ -25,6 +26,21 @@ Setting `GEMINI_FAST_MODEL` equal to `GEMINI_MODEL` undoes that split.
 Every response carries `ms`, `model` and `models` (how many were tried; more
 than one means the first failed). The app records them and shows medians per
 endpoint under **Settings → Card assistant speed**.
+
+`/picture` is the odd one out and worth knowing about before you touch it. It
+runs `GEMINI_IMAGE_MODEL` alone — there is no sensible fallback, because a model
+that cannot draw cannot half-draw — and it sends no `generation_config`, since
+an image model has no `thinking_level` to turn down and rejects the field. It
+gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card, on the same
+reasoning as `/about-cards`: a big output squeezed into a small window reports
+"Gemini is busy" for something that was merely still working.
+
+**`outputImageOf` reads the response forgivingly on purpose.** There is no
+Gemini key in this repo and no fixture to replay, so the image path cannot be
+exercised before it is deployed. It therefore accepts the bytes from either
+`output_image` or a `model_output` step, under either spelling of `data` /
+`mime_type`. If a future API change moves them again, that function is the one
+to fix — the app's error, *"the model drew nothing"*, is what points here.
 
 **This Worker serves the sister fork Deb-o-lingo as well as Xerra**, which
 takes the target language per request. `/complete-card`, `/chat` and `/replies`
@@ -72,6 +88,7 @@ Two `[vars]` in `wrangler.toml` control this:
 |---|---|
 | `GEMINI_MODEL` | Tried first. |
 | `GEMINI_FALLBACK_MODEL` | Tried only when the primary is rate-limited (429), overloaded (5xx), or gone (404). Set to `""` to fail instead. |
+| `GEMINI_IMAGE_MODEL` | `/picture` only, and used alone — there is nothing to fall back to. |
 
 `GEMINI_MODEL` deliberately sits one release behind the newest Flash. Pinning it
 to `gemini-3.7-flash` in the week it shipped (2026-08-13) made card generation
