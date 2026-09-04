@@ -30,6 +30,12 @@
   --purple: #b56bf2;
   --purple-dark: #9147cc;
   --amber: #cd9d00;
+  /* Quiet mode's colour, and the only thing it is used for. Teal because every
+     other strong colour in this palette is already saying something in the
+     drill — see the mode-toggle block below. Deb-o-lingo has no quiet mode, so
+     this is the one variable in the palette the two forks don't share. */
+  --teal: #00c2b2;
+  --teal-dark: #00a294;
 
   --accent: var(--green);     /* the action colour, and the model waveform */
   --accent-on: #ffffff;
@@ -484,15 +490,18 @@ button { font: inherit; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .topbar-end { display: flex; align-items: center; gap: 6px; }
 
-/* ------------------------------------------------------------- road mode */
+/* --------------------------------------------------- road and quiet modes */
 
-/* The switch is a pill in the drill's topbar rather than a link, because it is
-   the one control that is *on* or *off* rather than a thing you do — and gold,
-   which is the only strong colour in the palette not already spoken for in the
-   drill (green is the primary and the record button, blue is You, purple is
-   the level-two badge, red is recording). White does not sit on gold, so the
-   lettering here is dark on both grounds. */
-.road-toggle {
+/* Two pills in the drill's topbar rather than links, because they are the
+   controls that are *on* or *off* rather than things you do. Road is gold and
+   quiet is teal: those are the two strong colours not already spoken for in
+   the drill (green is the primary and the record button, blue is You, purple
+   is the level-two badge, red is recording), and purple in particular had to
+   be left alone — a purple quiet pill sitting beside a purple "Level 2" badge
+   would read as the same thing, which is exactly what it isn't.
+
+   White does not sit on either fill, so the lettering is dark on both. */
+.mode-toggle {
   appearance: none;
   border: 2px solid var(--line);
   border-radius: 999px;
@@ -507,12 +516,18 @@ button { font: inherit; }
   cursor: pointer;
   box-shadow: 0 3px 0 var(--line);
 }
-.road-toggle:active { transform: translateY(3px); box-shadow: none; }
+.mode-toggle:active { transform: translateY(3px); box-shadow: none; }
 .road-toggle[aria-pressed="true"] {
   background: var(--gold);
   border-color: var(--gold);
   color: #4b3a00;
   box-shadow: 0 3px 0 var(--gold-dark);
+}
+.quiet-toggle[aria-pressed="true"] {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #00332e;
+  box-shadow: 0 3px 0 var(--teal-dark);
 }
 
 /* What is left has to be hittable without looking straight at it, so the
@@ -524,6 +539,37 @@ button { font: inherit; }
 .road .record svg { width: 44px; height: 44px; }
 .road .record-ring { inset: -9px; }
 .road .score-head { gap: 18px; }
+
+/* Quiet mode. The box is the one thing on the screen you are meant to be
+   looking at, so it gets the room the record circle had. */
+.quiet-answer { margin: 22px 0 10px; }
+.quiet-answer .field { margin-bottom: 12px; }
+.quiet-answer textarea { font-size: 1.15rem; font-weight: 700; }
+
+/* The verdict borrows the border-and-tint the aspect verdict and the .notice
+   pair already use, in the two colours this app scores in — plus the gold it
+   flags road mode with for the middle case, which is neither right nor wrong
+   but a keyboard problem. */
+.quiet-verdict { margin-top: 16px; border: 2px solid var(--line); }
+.quiet-verdict strong { display: block; font-size: 1.05rem; }
+.quiet-verdict.right { border-color: var(--green); background: var(--accent-soft); }
+.quiet-verdict.accents { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
+.quiet-verdict.wrong { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
+
+/* Your own answer, played back with the marks on it. A wrong word is struck
+   through as well as coloured, and a word that only missed its accents is
+   underlined rather than crossed out — colour alone would not survive a glance
+   or a colour-blind reader, which is the same rule the page heads follow. */
+.typed-back { margin: 9px 0 12px; font-size: 1.1rem; font-weight: 700; line-height: 1.7; }
+.typed-word { padding: 1px 3px; border-radius: 5px; }
+.typed-word.ok { color: var(--practise-ink); }
+.typed-word.accent {
+  color: var(--amber);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+.typed-word.miss { color: var(--red-dark); text-decoration: line-through; }
 
 /* -------------------------------------------------------------- page heads */
 
