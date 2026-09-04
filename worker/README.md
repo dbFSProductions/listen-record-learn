@@ -80,6 +80,53 @@ local development by default. If the published origin changes, update
 **Save and test** asks the Worker to send one real prompt to Gemini, so a green
 result means the model actually answered — not merely that a key is present.
 
+## Trying the drawing before you ship it
+
+`/picture` is the one call here that cannot be checked by reading the code,
+because the shape of a Gemini image response is not something this repo has a
+fixture for. Two ways to find out, in increasing order of how much they touch:
+
+**1. Ask Gemini directly. No deploy, no Worker, ten seconds.**
+
+```bash
+GEMINI_API_KEY=... node worker/tools/draw-one.mjs
+```
+
+It builds the same prompt and sends the same request the Worker sends —
+importing `buildPicturePrompt` and `outputImageOf` from `src/index.js`, so a
+pass is a pass for the deployed code and not for a copy of it. It prints the
+shape of what came back, runs the Worker's reader over it, and writes
+`worker/tools/drawn.png` if that reader found the bytes. Pass a different model
+id as the first argument to try one.
+
+What its three failures mean:
+
+- **HTTP 404** — that model id is wrong or retired. Whatever id does work is
+  what `GEMINI_IMAGE_MODEL` should say.
+- **"outputImageOf found no image"** — the call worked and the reader is wrong.
+  The shape it printed just above is exactly what needs fixing, and fixing it
+  is a change to that one function.
+- **A drawing that is technically fine and pedagogically useless** — that is
+  `buildPicturePrompt`, not the plumbing.
+
+**2. Run the whole Worker locally.** Put the two secrets in `worker/.dev.vars`
+(same names as the deployed secrets, git-ignored), then:
+
+```bash
+cd worker && npx wrangler dev
+curl -s localhost:8787/picture \
+  -H "Authorization: Bearer $APP_PASSCODE" -H 'Content-Type: application/json' \
+  -d '{"languageCode":"es-ES","languageName":"Spanish (Spain)","card":{
+        "text":"el tenedor","translation":"the fork","sounds":"ten-a-door",
+        "picture":"A ten-pound note pinned to the front door, and the pin is a fork."}}' \
+  | python3 -c 'import json,sys,base64; d=json.load(sys.stdin)["image"]; open("drawn.png","wb").write(base64.b64decode(d["data"]))'
+```
+
+That exercises auth, validation, the rate limiter, the model chain and the
+response shape — everything the phone will hit — without touching production.
+Only after one of these works is merging worth doing, because `worker/**` is on
+the deploy trigger and merging *is* shipping.
+
 ## Choosing the model
 
 Two `[vars]` in `wrangler.toml` control this:

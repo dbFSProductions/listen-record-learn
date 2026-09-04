@@ -471,7 +471,7 @@ class TransientError extends Error {
    rather than betting the feature on one shape being right. If a future SDK
    change moves it again, this is the function to fix, and the client's error
    message ("the model drew nothing") is what will point you here. */
-function outputImageOf(payload) {
+export function outputImageOf(payload) {
   const candidates = [
     payload?.output_image,
     payload?.outputImage,
@@ -778,7 +778,7 @@ async function drawPicture(request, env, trace) {
   return image;
 }
 
-function buildPicturePrompt(request) {
+export function buildPicturePrompt(request) {
   const { card } = request;
   return `Draw one illustration of this scene, for a language learner's flashcard.
 
@@ -793,7 +793,7 @@ ${card.sounds ? `It is a pun on the English "${card.sounds}", so make anything t
 Style: a bold, funny, brightly coloured cartoon on a plain background. Simple shapes, few objects, readable as a thumbnail on a phone. Comic exaggeration is wanted — the sillier the better, because that is what makes it stick. No lettering, no captions, no speech bubbles, no watermark.`;
 }
 
-function validatePicture(value) {
+export function validatePicture(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new PublicError("The card data is invalid.", 400);
   }

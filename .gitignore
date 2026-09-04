@@ -30,3 +30,7 @@ worker/.wrangler/
 
 # macOS
 .DS_Store
+
+# What worker/tools/draw-one.mjs writes when it succeeds — a scratch image,
+# not a fixture. Look at it, then let it go.
+worker/tools/drawn.*
