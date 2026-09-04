@@ -73,6 +73,9 @@ and change it there.
 
 Two things to know before "fixing" it:
 
+- **`--teal` is the one colour the two forks don't share.** It is quiet mode's,
+  and quiet mode is Xerra-only; everything else in the palette is meant to stay
+  in step.
 - **White on these fills does not clear 4.5:1**, and that is the accepted
   trade-off of the look, not an oversight. The `-ink` variants are the darkened
   versions, and they are what text on the page background uses.
@@ -378,6 +381,85 @@ mode), the record button, **You**, and the score.
 Deb-o-lingo does not have this. It would port — the flag, the gates and the
 CSS are all drill-local — but its drill card has never carried the situation or
 the usage note, so half of what road mode is for taking off is not there.
+
+### Quiet mode: the drill with the speaking taken off it
+
+Road mode's mirror, and the other half of one question — *which channels have
+you got?* On the road you can speak but not look. In a train, an office, or a
+room with someone asleep in it you can look but not speak. So quiet mode keeps
+everything you can read and replaces the record button with a box you write the
+answer into.
+
+- **One flag, and the two modes cannot both be on.** `quietNow()` is
+  `settings.quietMode && !settings.roadMode`, so a settings blob carrying both
+  (an old export, a half-finished write) drills as road mode rather than as
+  some half-and-half screen with a record button and a text box on it. Both
+  toggles clear the other when they are switched on, in the topbar and in
+  Settings. As with road mode there is no second renderer.
+- **It makes *every* card a question, and that is the whole of what it adds to
+  the level-two machinery.** Typing a phrase that is printed on the screen is
+  copying, so the phrase is withheld at level one too — the English goes where
+  it goes at level two, and the card comes back when you have committed to an
+  answer. `questioned` is `asking || typing`, and everything that already
+  waited for a level-two answer waits for a typed one for exactly the same
+  reason, so the two are read as one flag from there down.
+- **Level two is the one thing road mode had to refuse and this one doesn't.**
+  A level-two question *is* a written question, so quiet mode can ask it —
+  `loadPhrase` needs no `!settings.quietMode` beside its `!settings.roadMode`.
+  What still holds is that the model audio is the answer: `asking` withholds
+  Listen exactly as before, which is also what makes level one and level two
+  feel different in this mode. At level one you may hear it before you write.
+- **Which means the two exercises are one screen.** Write it from the English
+  and you are practising recall; tap Listen first and write what you hear and
+  you are doing dictation. There is deliberately no setting choosing between
+  them — it would be two modes built to save one tap — and a card with no
+  English still asks, with the audio as the whole prompt.
+- **Nothing a typed go produces is persisted.** No attempt, no tally, nothing
+  in export/import. `library.goodAttempts` counts an *unscored* attempt as a
+  good one — that is the no-Azure path and it is right there — so a typed go
+  filed as an attempt would push a phrase to level two after four quiet
+  sessions in which you had never once said it, and would land in `bestScore`
+  and the history besides. Credit in this app means having said it well, and
+  the verdict says so out loud. Same call the dot-or-line gate makes about a
+  wrong shape, for the same reason: a memory of what you get wrong is a decay
+  rule wanting to be designed, not a counter bolted on here.
+- **The mark is which word, not a percentage.** `checkTyped` is the whole of
+  it. `normaliseSentence` is already the right first pass — it folds case,
+  curly apostrophes, punctuation and whitespace and deliberately leaves
+  straight apostrophes and hyphens alone. `alignWords` is a plain LCS over the
+  accent-folded words, because comparing position by position marks every word
+  after a missed one as wrong, which is the opposite of naming the one you got
+  wrong. There is no dial and no number: nothing was scored, and a number
+  invented here would sit beside real ones in the same app.
+- **Three verdicts, and the middle one is the point.** An answer right but for
+  its accents is **right**, marked with a wavy underline on the words that lost
+  them. Accents are a long-press on an iOS keyboard; failing `esta` for `està`
+  makes the mode too annoying to use, and silently accepting it teaches the
+  wrong spelling. `l·l` written `ll` folds the same way, and for the same
+  reason. A wrong word is struck through as well as coloured — colour alone
+  wouldn't survive a glance or a colour-blind reader.
+- **`autocorrect` and `spellcheck` are off, and are not decoration.** iOS will
+  correct your Catalan for you, and a mode that marks you on what the keyboard
+  knows is worse than no mode. `lang` is the card's own locale so the keyboard
+  and its dictation key are in the right language.
+- **The shape gate still stands, unlike in road mode.** It is already silent
+  and tappable, so quiet mode is the most at home it has ever been — you name
+  the shape, then write the sentence. Its `aspectNote` waits behind the typed
+  question the same way it waits behind a level-two one.
+- **Enter checks; an empty box is refused rather than marked.** "I don't know"
+  is Show me, which reveals without marking anything and so prints no verdict.
+  It only appears at level one — level two already has its own full-width Show
+  me, the one that plays the audio with it.
+- **The switch is teal**, the last strong colour in the palette not already
+  doing a job in the drill. Purple was the near miss and had to be left alone:
+  a purple Quiet pill beside a purple *Level 2* badge reads as the same thing,
+  which is exactly what it isn't. `--teal` is the one palette variable the two
+  forks don't share.
+
+Deb-o-lingo doesn't have this. It would port whole — the flag, the gates, the
+marking and the CSS are all drill-local, and the Worker is untouched — but
+`checkTyped`'s accent folding is doing Catalan-specific work (the interpunct)
+that Spanish has no use for.
 
 ### Dot or line: naming the shape before saying the sentence
 
@@ -1471,7 +1553,31 @@ and offers `#road-hide`; `#next` goes bare again; `#road-toggle` flips
 `aria-pressed`, writes `roadMode` to `xerra.settings` and survives a reload; and
 a phrase with four good attempts behind it drills listen-and-repeat with no
 `.level-badge` while the mode is on and has its `.recall-prompt` back once it is
-off. The Add review can be driven with the assistant stubbed —
+off. For quiet mode, with the same two stubs and the same `serviceWorkers: "block"`:
+with it on, the drill has `#quiet-input`, `#quiet-check`, `#listen` and
+`.drill-text.recall-prompt` and has no `#record`, `#drill-edit` or
+`.focus-note`; the box carries `autocorrect="off"`, `spellcheck="false"` and
+the card's `lang`; checking the exact text paints `.quiet-verdict.right`, puts
+the phrase back in `.drill-text` and brings `#drill-edit` with it; the same text
+with its accents and interpuncts stripped paints `.quiet-verdict.accents` with
+`.typed-word.accent` on the words that lost them and nothing struck through; a
+dropped word is named in the *Left out* line while the words you did get stay
+`.typed-word.ok`; a wrong answer paints `.quiet-verdict.wrong` with
+`.typed-word.miss`; `xerra.attempts` is the same length afterwards as before,
+which is the assertion that matters most; Enter in the box checks, an empty
+Check is refused and leaves the box, and `#quiet-show` reveals without printing
+a verdict. On a card with four attempts behind it the level-two badge stands,
+`#listen` is absent until the answer is in, `#show-me` is there and
+`#quiet-show` is not, and typing it leaves no *Shown, not remembered* line. On
+a past-tense card the shape gate comes first and `#quiet-input` only appears
+once it is answered, with `.aspect-why` waiting behind the typed question.
+`#road-toggle` and `#quiet-toggle` each turn the other off, in the drill and in
+Settings (`#s-road` / `#s-quiet`, unchecked in place rather than by a
+re-render), and a settings blob with both true drills as road mode. Worth
+checking the topbar's `scrollWidth` at 390px too, since it now carries two
+pills.
+
+The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
 the preview line following an edit to the phrase box, `#edit-inputs` focusing
 `#add-situation`, `#try-again` sending the edited situation back, and
@@ -1554,7 +1660,7 @@ the parser losing a block to a formatting change.
 
 ---
 
-## State as of 2026-08-31
+## State as of 2026-09-04
 
 - `main` now carries the full v0.1 app — Swift and web. The earlier note that
   this work sat unmerged on `claude/catalan-learning-app-iphone-k407k3` is out
@@ -1575,6 +1681,14 @@ the parser losing a block to a formatting change.
   score, with a per-card `Show the phrase` — for practising on the move.
   `settings.roadMode`, `state.roadRevealed`, `roadNow()` in app.js. Level two
   waits until it is off. Not in Deb-o-lingo.
+- **Quiet mode** is its mirror — for a train or an office, where you can look
+  but not speak. The record button becomes a box you write the answer into, the
+  phrase is withheld at level one as well as level two, and the mark is which
+  word went wrong rather than a score. Accents are marked but forgiven. Nothing
+  a typed go produces is persisted, so the four good goes to level two are
+  still spoken ones. `settings.quietMode`, `state.typed`, `quietNow()` and
+  `checkTyped()` in app.js. Mutually exclusive with road mode. Not in
+  Deb-o-lingo.
 - Cards carry `replies` — what you'd hear back — shown on the Add review, the
   phrase sheet and under the drill, and `notes` — answers kept from a chat,
   asked for and shown under the drill card itself. The Add review also plays the card itself
@@ -1611,6 +1725,7 @@ the parser losing a block to a formatting change.
   instead of the phantom brother, in both languages — and reworded the Catalan
   rain card from the *va estar plovent* calque to *va ploure* via
   `SEED_REPLACEMENTS`, keeping its attempts.
+- v56 / `xerra-v56` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

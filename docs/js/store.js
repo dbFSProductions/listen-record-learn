@@ -968,6 +968,16 @@ const DEFAULT_SETTINGS = {
      is a setting rather than a flag on the drill because it is a way you are
      practising for the whole walk, not a decision about one card. */
   roadMode: false,
+  /* Quiet mode: road mode's mirror, and the other half of the same question —
+     which channels have you got right now? On the road you can speak but not
+     look; in a train, an office, or a room with someone asleep in it you can
+     look but not speak. So the drill keeps everything you can read and swaps
+     the record button for a box you type the answer into.
+
+     A setting rather than a flag on the card, for road mode's reason: it is
+     where you are, not a decision about this sentence. The two are mutually
+     exclusive — see `quietNow` in app.js, which is what actually enforces it. */
+  quietMode: false,
   /* Dot or line: on a card that carries a shape, the drill asks you to name it
      before it will show you the sentence. Only the past-tense decks carry one,
      so this switch does nothing at all to the rest of the library — it is here

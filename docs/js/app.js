@@ -65,6 +65,15 @@ const state = {
      have asked to see *this* card anyway. It resets on the next card, so one
      look doesn't quietly end the mode. */
   roadRevealed: false,
+
+  /* Quiet mode's answer for this card: null while the question is standing,
+     and the marked result once you have checked it. Answering *is* the reveal
+     here — there is no separate `quietRevealed`, because the whole card comes
+     back the moment you have committed to an answer — and it resets on the
+     next card like `peeked` and `aspectChoice` do.
+
+     Nothing in it is written to the phrase. See `checkTyped` for why. */
+  typed: null,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -1147,6 +1156,110 @@ function roadNow() {
   return settings.roadMode && !state.roadRevealed;
 }
 
+/* And its mirror. Road mode and quiet mode are two answers to one question —
+   which channels have you got? — so they cannot both be true, and this is the
+   one place that says so rather than every caller checking both. A settings
+   blob that somehow carries both (an old export, a half-finished write) drills
+   as road mode rather than as some half-and-half screen with a record button
+   and a text box on it.
+
+   There is no per-card escape hatch to read here the way `roadNow` has one:
+   answering the question *is* the reveal, so `state.typed` does that job. */
+function quietNow() {
+  return settings.quietMode && !settings.roadMode;
+}
+
+/* ------------------------------------------------- marking a typed answer
+
+   Quiet mode has no audio to send anywhere, so nothing Azure says applies and
+   there is no score to give. What there is instead is the text you typed and
+   the text you meant, and the useful thing to say about them is *which word*
+   went wrong — the same claim `attemptScore` makes about a spoken go, one
+   medium over: a reader doesn't average you either.
+
+   Three verdicts rather than two, and the middle one is the point. Accents are
+   a long-press on an iOS keyboard, and marking `esta` wrong for missing the
+   accent on `està` would make the mode too annoying to use — but silently
+   accepting it would teach the wrong spelling. So it is right, and it is told
+   which words lost their accents.
+
+   `normaliseSentence` is already the right first pass: it folds case, curly
+   apostrophes, punctuation and whitespace, and deliberately leaves straight
+   apostrophes and hyphens alone because those are structural in Catalan. The
+   accent-tolerant pass strips combining marks on top of it (so `ç` folds to
+   `c`, `à` to `a`) and drops the interpunct, since `l·l` typed as `ll` is a
+   keyboard problem rather than a spelling one. */
+
+function typedWords(value) {
+  return String(value ?? "")
+    .split(/\s+/)
+    .map((raw) => ({ raw, norm: normaliseSentence(raw) }))
+    .filter((word) => word.norm)
+    .map((word) => ({ ...word, bare: foldAccents(word.norm) }));
+}
+
+function foldAccents(value) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/·/g, "");
+}
+
+/* Which of your words landed, and which of theirs never turned up. Straight
+   longest-common-subsequence over the accent-folded words: comparing position
+   by position would mark every word after a missed one as wrong, which is the
+   opposite of naming the one you got wrong. Phrases are a handful of words, so
+   the quadratic table costs nothing. */
+function alignWords(mine, theirs) {
+  const table = Array.from({ length: mine.length + 1 }, () => new Array(theirs.length + 1).fill(0));
+  for (let i = mine.length - 1; i >= 0; i--) {
+    for (let j = theirs.length - 1; j >= 0; j--) {
+      table[i][j] =
+        mine[i].bare === theirs[j].bare
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+    }
+  }
+  const marks = mine.map(() => "miss");
+  const landed = theirs.map(() => false);
+  let i = 0;
+  let j = 0;
+  while (i < mine.length && j < theirs.length) {
+    if (mine[i].bare === theirs[j].bare) {
+      marks[i] = mine[i].norm === theirs[j].norm ? "ok" : "accent";
+      landed[j] = true;
+      i++;
+      j++;
+    } else if (table[i + 1][j] >= table[i][j + 1]) {
+      i++;
+    } else {
+      j++;
+    }
+  }
+  return { marks, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.raw) };
+}
+
+/* The whole of what a typed go produces, and it is deliberately not persisted
+   anywhere: no attempt record, no tally, nothing in export/import.
+
+   `library.goodAttempts` counts an *unscored* attempt as a good one — that is
+   the no-Azure path, and it is right there — so a typed go filed as an attempt
+   would push a phrase to level two after four quiet sessions in which you had
+   never once said it out loud, and would land in `bestScore` and the history
+   besides. Credit in this app means having said it well. This is the same call
+   the dot-or-line gate makes about a wrong shape, for the same reason: a
+   memory of what you get wrong is a decay rule wanting to be designed, not a
+   counter bolted on here. */
+function checkTyped(typed, phrase) {
+  const mine = typedWords(typed);
+  const theirs = typedWords(phrase.text);
+  const same = (key) => mine.map((w) => w[key]).join(" ") === theirs.map((w) => w[key]).join(" ");
+  const verdict = same("norm") ? "right" : same("bare") ? "accents" : "wrong";
+  const { marks, missing } = alignWords(mine, theirs);
+  return {
+    verdict,
+    words: mine.map((word, at) => ({ raw: word.raw, mark: marks[at] })),
+    missing,
+  };
+}
+
 /* Deleting a phrase has to reach the drill, because the queue holds the phrase
    *objects* rather than their ids: `library.remove` takes the card out of the
    library and leaves the drill showing it, with the pill still counting it, so
@@ -1206,6 +1319,7 @@ async function loadPhrase() {
   state.peeked = false;
   state.roadRevealed = false;
   state.aspectChoice = null;
+  state.typed = null;
   scoring.lastError = null;
   if (!phrase) return render();
 
@@ -1242,6 +1356,12 @@ function renderDrill() {
      flag read in several places rather than a second renderer, so the drill
      can't fork into two that then drift apart. */
   const road = roadNow();
+  /* Quiet mode: the same drill with the speaking taken off it. The record
+     button becomes a box you type into, and — because typing a phrase that is
+     printed on the screen is copying — the phrase is withheld at level one as
+     well as at level two. That is the whole of what quiet mode adds to the
+     level-two machinery: it makes *every* card a question. */
+  const quiet = quietNow();
   /* Dot or line. Only the past-tense decks carry a shape, so `shape` is null
      for every other card in the app and none of what follows costs them
      anything. It stacks *above* level two rather than competing with it: you
@@ -1256,6 +1376,14 @@ function renderDrill() {
   // Still being asked: the phrase, its notes and the model audio are all
   // withheld, because any of them answers the question.
   const asking = state.recall && !state.revealed && !road;
+  /* Quiet mode's own standing question. An attempt already on screen ends it
+     the way recording ends a level-two question — if you have said this card,
+     it has been answered by the means that actually counts. */
+  const typing = quiet && !state.typed && !state.attempt;
+  /* "Printing this would answer the question in front of you." Everything that
+     waits for a level-two answer waits for a typed one too, and for exactly
+     the same reason, so the two flags are read as one from here down. */
+  const questioned = asking || typing;
 
   const topbar = `
     <div class="topbar">
@@ -1263,15 +1391,21 @@ function renderDrill() {
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
         ${starButton(phrase, "star drill-star")}
-        <button class="road-toggle" id="road-toggle" aria-pressed="${settings.roadMode}"
+        <button class="mode-toggle road-toggle" id="road-toggle" aria-pressed="${settings.roadMode}"
                 aria-label="${settings.roadMode ? "Leave road mode" : "Road mode"}"
                 title="${settings.roadMode ? "Leave road mode" : "Road mode"}">Road</button>
+        <button class="mode-toggle quiet-toggle" id="quiet-toggle" aria-pressed="${settings.quietMode}"
+                aria-label="${settings.quietMode ? "Leave quiet mode" : "Quiet mode"}"
+                title="${settings.quietMode ? "Leave quiet mode" : "Quiet mode"}">Quiet</button>
         ${
-          /* Edit opens a sheet of text boxes, which is the one thing this mode
+          /* Edit opens a sheet of text boxes, which is the one thing road mode
              is for not doing. Revealing brings it back with the card. It goes
-             while the shape question is standing for the same reason: the
-             editor prints the sentence you are being asked to think about. */
-          road || gating ? "" : `<button class="link" id="drill-edit">Edit</button>`
+             while a question is standing — the shape gate's or quiet mode's —
+             for the same reason: the editor prints the sentence you are being
+             asked to produce. Level two is left alone: it has always kept its
+             Edit button, and taking it away would be a change to that feature
+             rather than to this one. */
+          road || gating || typing ? "" : `<button class="link" id="drill-edit">Edit</button>`
         }
       </span>
     </div>`;
@@ -1285,20 +1419,34 @@ function renderDrill() {
     ${
       asking
         ? `<p class="instruction">From memory — how do you say this in ${esc(language)}?</p>`
+        : typing
+        ? `<p class="instruction">${
+            phrase.translation?.trim()
+              ? `Write it in ${esc(language)}`
+              : `Listen, then write what you hear`
+          }</p>`
         : state.recall && attempt && !road
         ? `<p class="instruction">Here's the phrase — how close were you?</p>`
         : ""
     }
 
-    ${road ? "" : aspectVerdict(shape, state.aspectChoice, asking)}
+    ${road ? "" : aspectVerdict(shape, state.aspectChoice, questioned)}
 
     ${road ? "" : `
     <div class="card">
       ${state.recall ? `<div class="level-badge">Level 2 · from memory</div>` : ""}
       ${
-        asking
-          ? `<p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
-             <p class="tiny muted" style="margin:10px 0 0">Say it out loud, then you'll see it.</p>`
+        questioned
+          ? `<p class="drill-text recall-prompt">${
+              /* Normally the English is the question. A card with no English on
+                 it can still be asked in quiet mode, though — the model audio
+                 is a prompt of its own, and dictation is half of what the mode
+                 is for. */
+              esc(phrase.translation?.trim() || "Listen and write what you hear")
+            }</p>
+             <p class="tiny muted" style="margin:10px 0 0">${
+               typing ? "Type it below and you'll see it." : "Say it out loud, then you'll see it."
+             }</p>`
           : `<p class="drill-text">${esc(phrase.text)}</p>
              ${
                state.showTranslation
@@ -1334,11 +1482,26 @@ function renderDrill() {
         : !hasModel && settings.hasAzure && speech.lastError
         ? `<div class="notice bad" style="margin-top:10px">${esc(speech.lastError)}</div>`
         : !hasModel
-        ? `<div class="notice" style="margin-top:10px">Using the browser voice. Comparison and scoring need an Azure key.</div>`
+        ? `<div class="notice" style="margin-top:10px">${
+            /* Quiet mode never records, so there is nothing for Azure to
+               compare or score and saying so here would be answering a
+               question nobody asked. What is still true is which voice you
+               are about to hear. */
+            quiet
+              ? "Using the browser voice. The Catalan voices need an Azure key."
+              : "Using the browser voice. Comparison and scoring need an Azure key."
+          }</div>`
         : ""
     }
 
-    <div class="record-wrap">
+    ${
+      /* The one swap the mode is built on. Everything else here is a thing
+         being hidden; this is the thing being replaced. */
+      quiet
+        ? typing
+          ? typeBox(phrase, asking)
+          : typedVerdict()
+        : `<div class="record-wrap">
       <button class="record" id="record" aria-label="Record">
         <span class="record-ring" id="ring"></span>
         <svg viewBox="0 0 24 24" id="record-icon"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 18v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -1346,7 +1509,8 @@ function renderDrill() {
       <p class="small muted" id="record-label">${
         asking ? `Tap, say it in ${esc(language)}, tap again` : "Tap, say it, tap again"
       }</p>
-    </div>
+    </div>`
+    }
 
     <div id="comparison">${attempt ? renderComparison(road) : ""}</div>
 
@@ -1362,9 +1526,9 @@ function renderDrill() {
         : ""
     }
 
-    ${road ? "" : drillContext(phrase, asking)}
-    ${road ? "" : drillReplies(phrase, asking)}
-    <div id="drill-notes">${road ? "" : drillNotes(phrase, asking)}</div>
+    ${road ? "" : drillContext(phrase, questioned)}
+    ${road ? "" : drillReplies(phrase, questioned)}
+    <div id="drill-notes">${road ? "" : drillNotes(phrase, questioned)}</div>
     ${
       /* Asking about the phrase you have just said is half of practising it —
          you get it right, and then want to know why it's `tingui`. The box
@@ -1372,7 +1536,7 @@ function renderDrill() {
          the card, so it stays out while a level-two question is standing: it
          would be a way round the question. Road mode takes it too — it is a
          text box, and it prints the phrase in the answer. */
-      settings.hasAssistant && !asking && !road ? `<section id="drill-chat" hidden></section>` : ""
+      settings.hasAssistant && !questioned && !road ? `<section id="drill-chat" hidden></section>` : ""
     }
 
     <div class="btn-row" style="margin-top:18px">
@@ -1423,6 +1587,45 @@ function renderDrill() {
   });
   document.getElementById("history")?.addEventListener("click", () => showHistory(phrase));
 
+  /* Quiet mode's answer. Checking reveals the card the way recording does, and
+     for the same reason — you have committed to an answer, so there is nothing
+     left to give away. Nothing is filed; `checkTyped` says why. */
+  const typeField = document.getElementById("quiet-input");
+  const submitTyped = () => {
+    const written = typeField.value.trim();
+    if (!written) {
+      toast("Write your answer, or tap Show me.");
+      typeField.focus();
+      return;
+    }
+    state.typed = checkTyped(written, phrase);
+    state.revealed = true;
+    render();
+  };
+  if (typeField) {
+    autosize(typeField);
+    typeField.addEventListener("input", () => autosize(typeField));
+    /* One phrase, one line: Enter is Check. Shift+Enter still breaks a line,
+       for the rare card that runs to two. */
+    typeField.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        submitTyped();
+      }
+    });
+  }
+  document.getElementById("quiet-check")?.addEventListener("click", submitTyped);
+  /* Giving up on a quiet card. It reveals without marking anything, so there is
+     no verdict to print — and it only sets `peeked` where that word means
+     something, which is on a card that was a memory question. */
+  document.getElementById("quiet-show")?.addEventListener("click", () => {
+    state.typed = { shown: true };
+    state.revealed = true;
+    if (state.recall) state.peeked = true;
+    render();
+    playModel(1);
+  });
+
   /* One switch, flipped from where you are using it. It writes the setting, so
      the mode outlives this card, this deck and this reload — you are on the
      road until you say you aren't.
@@ -1434,13 +1637,35 @@ function renderDrill() {
      kind of go it was. */
   document.getElementById("road-toggle").addEventListener("click", () => {
     settings.roadMode = !settings.roadMode;
+    // Two answers to one question, so putting one on takes the other off.
+    if (settings.roadMode) settings.quietMode = false;
     settings.save();
     state.roadRevealed = false;
+    state.typed = null;
     if (settings.roadMode && state.recall && !state.attempt) {
       state.recall = false;
       state.revealed = true;
       state.peeked = false;
     }
+    render();
+  });
+
+  /* The same switch for quiet mode, in the same place and for the same reason:
+     you decide you are somewhere you can't speak while you are already in the
+     drill, not before you started it.
+
+     Turning it on mid-card puts the question back — the card you were reading
+     off the screen becomes one you have to write — which is only fair while you
+     haven't answered yet; `typing` already stands down once there's an attempt
+     on screen, so a card you have said stays said. Level two needs no special
+     handling here, unlike road mode: a written question is exactly what quiet
+     mode is able to ask. */
+  document.getElementById("quiet-toggle").addEventListener("click", () => {
+    settings.quietMode = !settings.quietMode;
+    if (settings.quietMode) settings.roadMode = false;
+    settings.save();
+    state.typed = null;
+    state.roadRevealed = false;
     render();
   });
 
@@ -1704,6 +1929,64 @@ function drillContext(phrase, asking) {
       ${blocks
         .map(([label, body]) => `<div class="phrase-context"><strong>${label}</strong><span>${esc(body)}</span></div>`)
         .join("")}
+    </div>`;
+}
+
+/* The box, and the two ways out of it.
+
+   `autocorrect` and `spellcheck` are off deliberately and are not decoration:
+   iOS will happily correct your Catalan for you, and a mode that marks you on
+   what the keyboard knows is worse than no mode at all. `lang` is the card's
+   own locale, so the keyboard and its dictation key are in the right language.
+
+   The Show me link only appears at level one. Level two already has its own
+   full-width Show me above — the one that plays the audio with it — and two
+   ways to give up on one screen is one too many. */
+function typeBox(phrase, asking) {
+  return `
+    <div class="quiet-answer">
+      <label class="field">
+        <span>Your answer</span>
+        <textarea id="quiet-input" rows="1" lang="${esc(phrase.language)}"
+                  autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></textarea>
+      </label>
+      <button class="btn btn-primary" id="quiet-check" style="width:100%">Check</button>
+      ${
+        asking
+          ? ""
+          : `<p class="center" style="margin:12px 0 0"><button class="link" id="quiet-show">Show me</button></p>`
+      }
+    </div>`;
+}
+
+/* What you wrote, marked. The phrase itself is on the card directly above by
+   the time this renders, so this half prints your answer rather than reprinting
+   theirs — the eye does the comparing, and the marks say where to look.
+
+   No dial and no percentage. There is no audio here, so there is nothing Azure
+   could have scored, and a number invented on the spot would sit next to real
+   ones in the same app and read as though it meant the same thing. */
+function typedVerdict() {
+  const answer = state.typed;
+  if (!answer || answer.shown) return "";
+  const head =
+    answer.verdict === "right"
+      ? "That's it."
+      : answer.verdict === "accents"
+      ? "Right — mind the accents."
+      : "Not quite.";
+  return `
+    <div class="card quiet-verdict ${answer.verdict}">
+      <strong>${head}</strong>
+      <p class="typed-back">${answer.words
+        .map((word) => `<span class="typed-word ${word.mark}">${esc(word.raw)}</span>`)
+        .join(" ")}</p>
+      ${
+        answer.missing.length
+          ? `<p class="tiny muted">Left out: ${esc(answer.missing.join(" · "))}</p>`
+          : ""
+      }
+      <p class="tiny muted">Not scored or kept — the ${RECALL_AFTER} good goes to level two are spoken ones.</p>
     </div>`;
 }
 
@@ -3323,6 +3606,15 @@ function renderSettings() {
         the record button, You and the score, and takes everything you'd have to read off the screen — there's a
         "Show the phrase" under the score when you want it. Level 2 waits until you're back off the road. It can be
         turned on and off from the drill itself.</p>
+      <div class="switch-row">
+        <span>Quiet mode — write it instead</span>
+        <input type="checkbox" id="s-quiet" ${settings.quietMode ? "checked" : ""}>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">For a train, an office, or a room with someone asleep in it. The drill
+        keeps Listen and swaps the record button for a box: you get the English and write the ${esc(language.englishName)},
+        or tap Listen first and write what you hear. Accents are marked but forgiven. Nothing you write is scored or kept
+        — the ${RECALL_AFTER} good goes to Level 2 are spoken ones — so it's practice rather than progress. It's the
+        opposite of road mode, so turning one on turns the other off.</p>
     </div>
 
     <div class="section-label">Audio</div>
@@ -3456,8 +3748,25 @@ function renderSettings() {
     settings.save();
   };
 
+  /* The two modes are exclusive, and the other checkbox is corrected in place
+     rather than by re-rendering the page — a `render()` here would throw away
+     the scroll position of a long settings page on the tap that is meant to
+     flip one switch. */
   document.getElementById("s-road").onchange = (event) => {
     settings.roadMode = event.target.checked;
+    if (settings.roadMode && settings.quietMode) {
+      settings.quietMode = false;
+      document.getElementById("s-quiet").checked = false;
+    }
+    settings.save();
+  };
+
+  document.getElementById("s-quiet").onchange = (event) => {
+    settings.quietMode = event.target.checked;
+    if (settings.quietMode && settings.roadMode) {
+      settings.roadMode = false;
+      document.getElementById("s-road").checked = false;
+    }
     settings.save();
   };
 
