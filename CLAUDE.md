@@ -919,6 +919,26 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
+- **`/picture` is the sixth endpoint, and Xerra does not call it.** The two
+  Spanish forks teach vocabulary by the keyword method — the word sounds like
+  something in English, and one absurd scene holds that sound and the meaning
+  together — and this draws that scene. It is the only call here that returns
+  bytes rather than words, so it earns its own endpoint on exactly the argument
+  `/replies` won: an image is the biggest, slowest output this Worker makes and
+  card generation must stay small and fast. It runs `GEMINI_IMAGE_MODEL` alone
+  (no fallback — nothing else in the chain can draw), sends **no
+  `generation_config`** (an image model has no `thinking_level` and rejects the
+  field, which is why `callModel` now takes one and `null` omits the key), and
+  gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card. Nothing
+  the other endpoints send changed shape, so this was additive for all three
+  apps — but `worker/**` is on the deploy trigger, so merging it shipped it.
+- **`outputImageOf` accepts more than one response shape on purpose.** No repo
+  here holds a Gemini key and there is no image fixture to replay, so that path
+  could not be tried before it was deployed. It reads the bytes from
+  `output_image` or from a `model_output` step, under either spelling of `data`
+  and `mime_type`. If Google moves them, that function is the fix — and the
+  phone's error, *"the model drew nothing"*, is what points at it. **If Xerra
+  ever grows keyword pictures of its own, this endpoint is already there.**
 
 **`aiLog` is Xerra-only, so `card-assistant.js` is no longer the verbatim copy
 Deb-o-lingo took.** The timing lives in `request()`, which is the one place

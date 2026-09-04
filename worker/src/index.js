@@ -159,6 +159,27 @@ const DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite";
    entirely without touching code. */
 const DEFAULT_FAST_MODEL = "gemini-3.5-flash-lite";
 
+/* The one call here that does not produce words. /picture draws the keyword
+   mnemonic the Palabras units are built on — a ten-pound note pinned to a door
+   with a fork — so it needs an image model, and there is no sensible text
+   fallback for it: a model that cannot draw cannot half-draw. Its chain is
+   therefore one model long, and a failure is an honest failure.
+   GEMINI_IMAGE_MODEL in wrangler.toml overrides it. */
+const DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image";
+
+/* How long a drawing may take. Longer than a card and shorter than the whole
+   budget, on the same reasoning as BATCH_TIMEOUT_MS: an image is a big output,
+   and squeezing it into the window sized for one card would report "Gemini is
+   busy" for something that was merely still drawing. */
+const IMAGE_TIMEOUT_MS = 40_000;
+
+/* A drawing that arrives as more base64 than this is not worth forwarding to a
+   phone. Nano-banana output at default size sits comfortably under it; the cap
+   is here so a model change upstream cannot quietly start pushing megabytes
+   through a Worker response and into IndexedDB. The client shrinks what it
+   keeps anyway. */
+const MAX_IMAGE_CHARS = 4_000_000;
+
 // The app aborts at 70s. Retries *and* the fallback model have to finish inside
 // that, or the user sees a generic timeout instead of the real reason.
 const TOTAL_BUDGET_MS = 60_000;
@@ -221,7 +242,7 @@ export default {
       }
     }
 
-    if (!["/complete-card", "/chat", "/replies", "/interview", "/about-cards"].includes(url.pathname)) {
+    if (!["/complete-card", "/chat", "/replies", "/interview", "/about-cards", "/picture"].includes(url.pathname)) {
       return json({ error: "Not found." }, 404, cors);
     }
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors);
@@ -249,6 +270,8 @@ export default {
           ? { reply: await nextInterviewQuestion(validateInterview(body), env, trace) }
           : url.pathname === "/about-cards"
           ? { cards: await aboutCards(validateInterview(body), env, trace) }
+          : url.pathname === "/picture"
+          ? { image: await drawPicture(validatePicture(body), env, trace) }
           : { reply: await answerQuestion(validateChat(body), env, trace) };
       return json({ ...result, ms: Date.now() - started, model: trace.model, models: trace.models }, 200, cors);
     } catch (error) {
@@ -260,6 +283,9 @@ export default {
 };
 
 function modelChain(env, chain = "quality") {
+  // One model, no fallback: nothing else in the chain can draw. See
+  // DEFAULT_IMAGE_MODEL.
+  if (chain === "image") return [(env.GEMINI_IMAGE_MODEL || "").trim() || DEFAULT_IMAGE_MODEL];
   const primary = (env.GEMINI_MODEL || "").trim() || DEFAULT_MODEL;
   const fallbackVar = env.GEMINI_FALLBACK_MODEL;
   const fallback = (fallbackVar === undefined ? DEFAULT_FALLBACK_MODEL : fallbackVar).trim();
@@ -282,7 +308,16 @@ function timeLeft(deadline) {
 async function callGemini(
   env,
   requestBody,
-  { budgetMs = TOTAL_BUDGET_MS, attemptMs = ATTEMPT_TIMEOUT_MS, chain = "quality", trace = null } = {}
+  {
+    budgetMs = TOTAL_BUDGET_MS,
+    attemptMs = ATTEMPT_TIMEOUT_MS,
+    chain = "quality",
+    trace = null,
+    /* Every text call here wants thinking turned down. An image model has no
+       thinking_level to turn down and rejects the field, so /picture passes
+       null and the key is left off the request entirely. */
+    generationConfig = { thinking_level: "low" },
+  } = {}
 ) {
   const deadline = Date.now() + budgetMs;
   const models = modelChain(env, chain);
@@ -292,7 +327,7 @@ async function callGemini(
   for (const model of models) {
     tried += 1;
     try {
-      const payload = await callModel(env, model, requestBody, deadline, attemptMs);
+      const payload = await callModel(env, model, requestBody, deadline, attemptMs, generationConfig);
       /* Which model actually answered, and whether it was the first one asked.
          Both go back to the app, because "slow" and "slow because the primary
          timed out and the fallback did the work" are different problems and
@@ -313,14 +348,22 @@ async function callGemini(
   throw lastTransient.asPublicError();
 }
 
-async function callModel(env, model, requestBody, deadline, attemptMs = ATTEMPT_TIMEOUT_MS) {
+async function callModel(
+  env,
+  model,
+  requestBody,
+  deadline,
+  attemptMs = ATTEMPT_TIMEOUT_MS,
+  // Gemini 3 models think at "high" by default, which routinely takes longer
+  // than this Worker is willing to wait. No text task here needs deep
+  // reasoning, and "low" keeps answers inside the timeout. null omits the key,
+  // which is what the image model wants.
+  generationConfig = { thinking_level: "low" }
+) {
   const body = JSON.stringify({
     model,
     store: false,
-    // Gemini 3 models think at "high" by default, which routinely takes
-    // longer than this Worker is willing to wait. Neither task here needs
-    // deep reasoning, and "low" keeps answers inside the timeout.
-    generation_config: { thinking_level: "low" },
+    ...(generationConfig ? { generation_config: generationConfig } : {}),
     ...requestBody,
   });
 
@@ -416,6 +459,35 @@ class TransientError extends Error {
     }
     return new PublicError(`Gemini is overloaded right now (${this.model}). Try again in a moment.`, 503);
   }
+}
+
+/* The drawing, out of the response.
+ 
+   Deliberately forgiving about where it finds it. The Interactions API returns
+   generated image bytes both as a step in `steps` and through an `output_image`
+   convenience field, and this Worker has no way to try the call at deploy time
+   — there is no Gemini key in the repo and no image fixture to replay. So it
+   looks in both places and accepts either spelling of the two field names
+   rather than betting the feature on one shape being right. If a future SDK
+   change moves it again, this is the function to fix, and the client's error
+   message ("the model drew nothing") is what will point you here. */
+export function outputImageOf(payload) {
+  const candidates = [
+    payload?.output_image,
+    payload?.outputImage,
+    ...(payload?.steps ?? [])
+      .filter((step) => step.type === "model_output")
+      .flatMap((step) => step.content ?? [])
+      .filter((content) => content?.type === "image" || content?.inline_data || content?.inlineData),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const node = candidate.inline_data ?? candidate.inlineData ?? candidate;
+    const data = node.data ?? node.image ?? null;
+    if (typeof data !== "string" || !data) continue;
+    return { data, mimeType: node.mime_type ?? node.mimeType ?? "image/png" };
+  }
+  return null;
 }
 
 function outputTextOf(payload) {
@@ -675,6 +747,74 @@ Reply to the learner's last message.`;
 /* A finished card, flat — same fields the chat endpoint reads from its `card`,
    plus the language. Deliberately not validateDraft: this is a card that
    already exists, not a rough learner draft to be corrected. */
+/* The keyword picture, drawn.
+ 
+   Deb-o-lingo and Mum-o-lingo teach vocabulary by the keyword method: the word
+   sounds like something in English, and one absurd scene holds that sound and
+   the meaning together, so recalling the scene hands back the word. The scene
+   is written on the card as `picture`. This turns that sentence into a drawing.
+ 
+   Its own endpoint, for the reason /replies has its own: an image is the
+   biggest and slowest output this Worker produces, and card generation must
+   stay the small fast call it is. Nothing else here changes shape, so both
+   sister apps are unaffected until they grow a button for it.
+ 
+   The scene is the learner's own text and is passed through as the subject of
+   the drawing, never as instructions — an image model has no tools to be
+   steered into, and the worst a strange scene can do is produce a strange
+   picture, which is the entire point of the feature. */
+async function drawPicture(request, env, trace) {
+  const { payload } = await callGemini(
+    env,
+    { input: buildPicturePrompt(request) },
+    { chain: "image", attemptMs: IMAGE_TIMEOUT_MS, generationConfig: null, trace }
+  );
+
+  const image = outputImageOf(payload);
+  if (!image) throw new PublicError("The model drew nothing. Try again.", 502);
+  if (image.data.length > MAX_IMAGE_CHARS) {
+    throw new PublicError("The drawing came back too large to send.", 502);
+  }
+  return image;
+}
+
+export function buildPicturePrompt(request) {
+  const { card } = request;
+  return `Draw one illustration of this scene, for a language learner's flashcard.
+
+The scene is a memory hook: it holds an English sound and a meaning together, so that remembering the picture hands back a foreign word. Draw the scene itself — the objects and the action in it — not a person studying, not a classroom, and not the word written out.
+
+Scene: ${card.picture}
+
+${card.sounds ? `It is a pun on the English "${card.sounds}", so make anything that sound names literally present and obvious in the picture.
+
+` : ""}What it has to teach: ${card.text}, which means "${card.translation}" in ${request.languageName}.
+
+Style: a bold, funny, brightly coloured cartoon on a plain background. Simple shapes, few objects, readable as a thumbnail on a phone. Comic exaggeration is wanted — the sillier the better, because that is what makes it stick. No lettering, no captions, no speech bubbles, no watermark.`;
+}
+
+export function validatePicture(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new PublicError("The card data is invalid.", 400);
+  }
+  const request = {};
+  for (const field of ["languageCode", "languageName"]) {
+    request[field] = typeof value[field] === "string" ? value[field].trim().slice(0, 200) : "";
+  }
+  if (!request.languageCode || !request.languageName) throw new PublicError("Choose a language first.", 400);
+
+  const card = value.card && typeof value.card === "object" && !Array.isArray(value.card) ? value.card : {};
+  request.card = {};
+  for (const field of ["text", "translation", "sounds", "picture"]) {
+    request.card[field] = typeof card[field] === "string" ? card[field].trim().slice(0, 600) : "";
+  }
+  // The scene is the drawing brief. Without one there is nothing to draw, and
+  // inventing one here would be a different feature on a different model.
+  if (!request.card.picture) throw new PublicError("Write the picture first, then it can be drawn.", 400);
+  if (!request.card.text) throw new PublicError("There's no card to draw yet.", 400);
+  return request;
+}
+
 function validateCardRequest(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new PublicError("The card data is invalid.", 400);

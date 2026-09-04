@@ -15,6 +15,11 @@ GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 # to GEMINI_MODEL if this one fails. Set it equal to GEMINI_MODEL to put those
 # calls back on the big model without a code change.
 GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
+# The one call that draws instead of writing: /picture, which turns a keyword
+# mnemonic ("a ten-pound note pinned to a door with a fork") into an image.
+# It has no fallback — nothing else in the chain can draw — so a wrong id here
+# is a 404 naming this variable rather than a silent downgrade.
+GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
 ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]
