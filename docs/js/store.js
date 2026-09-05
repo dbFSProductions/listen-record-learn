@@ -796,6 +796,24 @@ export const library = {
     return replies;
   },
 
+  /* A re-imagined keyword scene. Mutated in place for the same reason the note,
+     the star and the replies are: `update` replaces the object and the drill is
+     holding a reference to it in `state.queue`, so the card you re-imagined
+     would carry on showing the scene it was rendered with.
+
+     It writes both halves together because they are one mnemonic — a new scene
+     hung off the old sound bridge is a riddle whose answer has moved. A blank
+     `sounds` is allowed and clears it; a blank `picture` is refused, since that
+     would leave the card with a bridge and nothing on the end of it. */
+  setPicture(phraseID, { sounds, picture }) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase || !picture?.trim()) return null;
+    phrase.sounds = sounds?.trim() || null;
+    phrase.picture = picture.trim();
+    this.savePhrases();
+    return phrase;
+  },
+
   /* Refile a card. Mutated in place for the same reason the note, the star and
      the replies are: `update` replaces the object and the drill is holding a
      reference to it in `state.queue`, so the card you moved would carry on
