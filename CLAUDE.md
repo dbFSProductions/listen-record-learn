@@ -353,6 +353,38 @@ it is ours to replace; edited at all, it is yours and it stays. **The general
 shape is worth keeping** — "did the user write this?" cannot be answered by
 "is it non-empty" on any field the app also writes to.
 
+#### The colour carries the gender, so the words don't have to
+
+**That is the whole point of the blue and the pink** — and the picture prompt
+was never told. So it spent the bridge and the scene on *el* and *la*, encoding
+in words the one thing the drawing already says in colour, and the mnemonic paid
+twice for it.
+
+`PICTURE_BRIEF` now says it: on a noun, the gender is carried by the colour the
+object is painted, so keep the article out of **both** lines and build the
+bridge and the scene from the noun itself.
+
+#### Every box the app writes to needs the same question asked of it
+
+*Fill in the rest for me* skipped the completion whenever both language boxes
+were full — an optimisation that was exactly wrong, because **after the first
+press both boxes are always full**. Change the English and the word never
+followed; it sat there answering the question you had just stopped asking.
+
+`lastMade` now holds all four fields, and the rule is the same one the editor's
+AI rebuild uses: **whichever side is *yours* is the brief, and the other is
+dropped so it gets written again.**
+
+- You edited the English → send the English alone, the word is rewritten.
+- You edited the word → send the word alone, the English is rewritten.
+- You typed both yourself → nothing of ours to refresh, so no call at all.
+- Sounds and picture the same: ours to replace, yours to leave.
+
+**The general rule, now three bugs deep:** *"did the user write this?"* can
+never be answered by *"is it non-empty"* on a field the app also writes to, and
+it cannot be answered by *"is anything missing"* either. Remember what you
+wrote, and compare.
+
 #### "Don't know" is the first option, and the reading goes underneath
 
 The slot read *El or La — colour it blue or pink*, which is **a description of
