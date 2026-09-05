@@ -330,6 +330,33 @@ it — the same place Deb-o-lingo and Mum-o-lingo put theirs. At the bottom of a
 section holding two hundred phrases it was a screen and a half of scrolling
 away, which is not where you are standing when you decide to add one.
 
+### One side is enough, and the rest is filled in
+
+The first cut demanded the word **and** its English before it would save, and
+its only assistant button made a picture — which itself needed both boxes
+filled. So you had to do the app's job before the app would help, which is the
+opposite of the point.
+
+- **Either side will do.** `if (!text && !translation)` — you have heard a word
+  and don't know what it means, or you know the meaning and want the word.
+  Whichever you have is enough to start.
+- **"Fill in the rest for me" is one press for the whole card**, and it is two
+  calls in order because they answer different questions and the second needs
+  the first's answer: `/complete-card` for the missing side, then `/chat` for
+  the sound bridge and the scene, built from the **completed** word rather than
+  from whatever was in the box. When both boxes are already full the first call
+  is skipped, so a card typed out in full costs one call rather than two.
+- **A picture you wrote is never overwritten.** Only `sounds` is taken in that
+  case — it is the one part you cannot reasonably work out yourself, and it is
+  why the call still runs at all. The note under the box says so, because a
+  button that might eat what you wrote is a button you don't press.
+- **The gender needs no call.** It is read off the article the moment the word
+  lands in the box, which is why the completion dispatches an `input` event
+  rather than only setting `.value`.
+- **No worked example in the word box.** A placeholder spelling out *el
+  tenedor, not tenedor* is a sentence to read past every time, and the gender
+  note under the field already says what it was there to say.
+
 ### Add a word, and the thing the app could not do
 
 `/complete-card` writes a *phrase*: a situation, a usage note, a tip, replies.
