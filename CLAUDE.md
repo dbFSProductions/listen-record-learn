@@ -323,6 +323,13 @@ already asks the question, and a two-line example in a two-row box is a wall of
 grey text to read past every time you are in a hurry, which is the only time
 Quick is open. Removed; the field label does the work.
 
+### The add button goes above the list
+
+`.section-add` sits under the search box and above the list, not at the foot of
+it — the same place Deb-o-lingo and Mum-o-lingo put theirs. At the bottom of a
+section holding two hundred phrases it was a screen and a half of scrolling
+away, which is not where you are standing when you decide to add one.
+
 ### Add a word, and the thing the app could not do
 
 `/complete-card` writes a *phrase*: a situation, a usage note, a tip, replies.

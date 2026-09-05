@@ -960,8 +960,8 @@ function renderPractice(section = null) {
   view.innerHTML = `
     ${head}
     ${section ? searchBox : ""}
-    <div id="practice-list"></div>
     ${sectionAddButton(section)}
+    <div id="practice-list"></div>
     ${section ? "" : searchBox}
     ${
       section || settings.hasAzure
