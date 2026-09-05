@@ -161,6 +161,7 @@ body {
 .sec-grammar { --sec: var(--gold);   --sec-dark: var(--gold-dark);   --sec-on: #4b4b4b; --sec-ink: var(--amber);        --sec-soft: color-mix(in srgb, var(--gold) 20%, transparent); }
 .sec-vocab   { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
 .sec-quick   { --sec: var(--orange); --sec-dark: var(--orange-dark); --sec-on: #ffffff; --sec-ink: var(--add-ink);      --sec-soft: color-mix(in srgb, var(--orange) 16%, transparent); }
+.sec-phrases { --sec: var(--phrases-accent); --sec-dark: var(--phrases-dark); --sec-on: var(--phrases-on); --sec-ink: var(--phrases-ink); --sec-soft: var(--phrases-soft); }
 
 h1 { font-size: 1.6rem; font-weight: 800; margin: 6px 0 16px; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; font-weight: 800; margin: 0; }
@@ -237,16 +238,28 @@ p { margin: 0 0 10px; }
 .tile-purple { background: var(--purple); box-shadow: 0 4px 0 var(--purple-dark); }
 .tile-orange { background: var(--orange); box-shadow: 0 4px 0 var(--orange-dark); }
 .tile-green { background: var(--green); box-shadow: 0 4px 0 var(--green-dark); }
-/* The sixth square, with nothing in it yet. An outline rather than a hole, so
-   two rows and a half still read as a grid; no slab and no press, because it
-   is not a control. */
-.tile-blank {
-  background: transparent;
-  border: 2px dashed var(--line);
-  box-shadow: none;
-  cursor: default;
+
+/* The home header: the colla's crest, the wordmark and the gear, on the page
+   ground rather than on a banner — the same header the sister apps wear, with
+   their parrot swapped for the crest. The language line sits under it because
+   this is the one app of the three with more than one language to be in. */
+.home-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
-.tile-blank:active { transform: none; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.crest { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: block; }
+.wordmark {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--green);
+  letter-spacing: -0.02em;
+}
+.section-intro { margin: -4px 0 14px; }
+/* The gear on the page ground, where a translucent white disc would vanish. */
+.home-head .head-gear { margin: 0; background: var(--line); color: var(--text-2); }
 
 /* Quick's answer. The phrase is the biggest thing on the page because it is
    the only thing you came for, and Listen is full width under it — this is a
@@ -1087,6 +1100,11 @@ canvas { width: 100%; display: block; }
 .reply-main { flex: 1; min-width: 0; }
 .reply-text { display: block; font-weight: 700; overflow-wrap: anywhere; }
 .reply-translation { display: block; margin-top: 2px; font-size: 0.82rem; color: var(--text-2); overflow-wrap: anywhere; }
+/* The way from a reply you like to a card of its own, under its English. A
+   plain link rather than a button: the play button is the point of the row and
+   two buttons on one line would fight it. Kept, it goes quiet. */
+.reply-keep { display: inline-block; padding: 5px 0 0; font-size: 0.78rem; font-weight: 800; }
+.reply-keep:disabled { color: var(--text-3); cursor: default; }
 
 /* The card you're about to save, said out loud. Same shape as a reply — play
    button, the line, its English — because it does the same job one step up, so

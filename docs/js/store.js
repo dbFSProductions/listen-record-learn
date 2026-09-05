@@ -1147,7 +1147,10 @@ const DEFAULT_SETTINGS = {
   language: "ca-ES",
   azureKey: "",
   azureRegion: "northeurope",
-  azureVoice: "ca-ES-JoanaNeural",
+  /* Enric: the male Catalan voice. The default is male in every language — see
+     `defaultVoice` — and this is `defaultVoice("ca-ES")` spelled out, because
+     LANGUAGES is declared further down the file. */
+  azureVoice: "ca-ES-EnricNeural",
   assistantEndpoint: "",
   assistantPasscode: "",
   slowRate: 0.65,
@@ -1184,6 +1187,13 @@ export const settings = {
 
   load() {
     Object.assign(this, DEFAULT_SETTINGS, readJSON(KEYS.settings, {}));
+    /* A saved voice that isn't one of the saved language's — an old export, a
+       voice Azure retired — falls back to the language's default rather than
+       being sent to Azure, which would answer with an error on every Listen.
+       A saved voice that is valid is left alone whatever its gender: the
+       default is a default, not a preference imposed on a choice already made. */
+    const voices = LANGUAGES[this.language]?.voices ?? [];
+    if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
   },
 
   save() {
@@ -1216,6 +1226,18 @@ export function familyOpen(name, deckCount, foldBig = true) {
 export function setFamilyOpen(name, open) {
   settings.openFamilies = { ...settings.openFamilies, [name]: open };
   settings.save();
+}
+
+/* The voice a language starts on, and the one it goes back to when you switch
+   to it: the male one. Asked for from the phone — the lists lead with a female
+   voice in all three languages, so every language switch meant a second trip
+   to the voice select to put the male voice back. Whichever voice is preferred
+   is a fact about the one person using this app rather than about the
+   languages, so it lives here in one place and nowhere else. The first voice
+   is the fallback for a language with no male one. */
+export function defaultVoice(language) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
 }
 
 export const LANGUAGES = {
