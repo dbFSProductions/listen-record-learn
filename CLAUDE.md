@@ -161,7 +161,8 @@ everyday decks, the six past-tense decks and the six Paraules decks, folded but
 competing for the same list. Those are three different kinds of practice —
 sentences you say, a shape you name before you say it, single words with a
 picture — and the list gave you no way to say which you were in the mood for.
-So the tab opens on **four tiles**: Decks, Grammar, Vocab and Quick.
+So the tab opens on **four tiles**: Decks, Grammar, Vocab and Quick — six
+squares now, with About me the fifth and the sixth blank; see below.
 
 - **`SECTION_FAMILIES` in store.js is the whole of it, and `sectionOf` is the
   one reader.** A tile owns *deck families*, not a field on the phrase — the
@@ -194,10 +195,27 @@ So the tab opens on **four tiles**: Decks, Grammar, Vocab and Quick.
   `family:`. `section:grammar` drills all forty-eight past cards whatever
   family they are in, which is what *Shuffle all of Grammar* starts, so
   `deckNameProblem` has to refuse it like the other three.
-- **About me, ★ Favourites and Shuffle all belong to Decks and show nowhere
-  else.** None of them is a past-tense unit or a keyword word, and a Favourites
-  row inside Grammar would drill Catalan you starred in a café. About me is
-  therefore one tap deeper than it was; it is still the top row where it lives.
+- **★ Favourites and Shuffle all belong to Decks and show nowhere else.**
+  Neither is a past-tense unit or a keyword word, and a Favourites row inside
+  Grammar would drill Catalan you starred in a café. About me used to be the
+  third of these and the top row of Decks; it is its own square now.
+- **About me is the fifth square, and the sixth is blank.** The row inside
+  Decks was one tap deeper than the interview deserved, and a deck the app
+  writes about you is no more one of "the phrases you practise" than a
+  past-tense unit is. So `about: [ABOUT_DECK]` joined `SECTION_FAMILIES`, which
+  is what takes the deck out of the Decks count and the Decks list at once —
+  no skip in `deckList` needed — and the tile does what the row did: it opens
+  the workshop, which lists the cards. It is the one tile carrying `data-about`
+  rather than `data-section`, because it opens a page and not a list, and it
+  is green because its page has always worn Practice's green. **It is always
+  shown**, unlike the row, which hid with no assistant and no cards: a tile
+  that comes and goes leaves a hole in a grid, so the tile says *Needs the
+  assistant* instead and the page it opens now links to Settings. `TILES` holds
+  a `null` for the blank square — the sister apps fill theirs with a Phrases
+  tile this app has no use for, since the search box is right under the grid —
+  and `TILE_BY_KEY` filters it, which is the one place a null there bites.
+  Search still finds an About me card from the tiles, since it reads the whole
+  library.
 - **Each tile's page wears that tile's colour**, so Grammar's banner is the gold
   square you tapped. Inside the view `--sec` paints the page head and nothing
   else — the tab bar carries its own `sec-` class and the primary buttons are on
@@ -1545,14 +1563,12 @@ v2 list.
   `library.add` knows where they came from. Resist any urge to give them a flag
   — the moment they are a special kind of phrase, every list in the app has to
   learn about them.
-- **The row is the one thing that is special, and it breaks a rule on purpose.**
-  Every other deck row drills; this one opens the workshop, because the only
-  way to put cards in the deck is the interview. The triangle still opens to the
-  cards and those still drill, through the same `startDeck` as everywhere else.
-  It also shows *before the deck exists*, which no other row does — "the first
-  time you open it, it asks about you" needs something to open. It sits above
-  ★ Favourites because an empty invitation has to be found; a deck full of
-  cards would not have earned the position.
+- **The tile is the one thing that is special, and it breaks a rule on
+  purpose.** Every other tile opens a list; this one opens the workshop,
+  because the only way to put cards in the deck is the interview, and the
+  workshop lists the cards, which drill through the same `startDeck` as
+  everywhere else. It was a row at the top of Decks before it was a square on
+  the home screen — see *Four squares* above for why it moved.
 - **Two endpoints, not one, and for the established reason.** `/interview` asks
   the next question, `/about-cards` turns the transcript into three to five
   cards. Writing five cards is the big slow call and asking one question is not,
@@ -2318,8 +2334,9 @@ inside the hint. `#save-another` leaves you on Add with an empty form and the
 card in `xerra.phrases`; `#save-practise` puts `.drill-text` on screen showing
 the card just made, with a progress pill counting its whole deck rather than
 `1/1`. For About me, with `/interview` and `/about-cards` stubbed:
-`[data-about]` is on the deck list before the deck exists and absent entirely
-with no assistant configured, opening it fires one `/interview` call by itself
+`[data-about]` is a home tile before the deck exists and is still there with no
+assistant configured, reading *Needs the assistant* and opening a page that
+links to Settings; with one, opening it fires one `/interview` call by itself
 and puts the question in `.chat-msg.assistant`, `#about-make` is disabled until
 a learner turn exists, a batch containing a punctuation-only repeat of an
 existing card adds one fewer than it returned, the made cards are ordinary
@@ -2383,10 +2400,13 @@ About me path too whenever `renderDrill`'s topbar is touched — the two
 functions both open with `view.innerHTML = \`<div class="topbar">`, so a
 careless replacement lands in the wrong one.
 
-For the four tiles: the home page has exactly four `.tile`s titled Decks,
-Grammar, Vocab and Quick and no `[data-deck]` at all; their counts come from the
-library (48 behind Grammar, 36 behind Vocab); typing into `#search` from the
-tiles still finds *la clau*, and clearing it brings the tiles back;
+For the tiles: the home page has exactly six `.tile`s — five buttons titled
+Decks, Grammar, Vocab, Quick and About me, plus one `.tile-blank` that is not a
+button — and no `[data-deck]` at all; their counts come from the library (48
+behind Grammar, 36 behind Vocab, and the Decks count leaves About me cards out);
+typing into `#search` from the tiles still finds *la clau* and an About me card
+alike, and clearing it brings the tiles back; `[data-section="decks"]` lists no
+About me row and no About me deck;
 `[data-section="grammar"]` lists only `Passat` deck keys with its family already
 open, has no `[data-about]`, and offers `[data-deck="section:grammar"]` which
 queues `1/48`; `#back` from that drill lands on Grammar rather than on the
@@ -2422,10 +2442,12 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
   rows accordion open to the cards inside them and carry no score of their own.
-- **Practice opens on four tiles** — Decks, Grammar, Vocab, Quick — rather than
-  on one long list of every deck. `SECTION_FAMILIES` / `sectionOf` in store.js
-  say which tile a deck is behind and everything unclaimed is Decks;
-  `state.section` is which one you are in, `null` being the tiles.
+- **Practice opens on six squares** — Decks, Grammar, Vocab, Quick, About me
+  and a blank — rather than on one long list of every deck. `SECTION_FAMILIES`
+  / `sectionOf` in store.js say which tile a deck is behind and everything
+  unclaimed is Decks; `state.section` is which one you are in, `null` being
+  the tiles. About me's tile opens the interview page directly (`state.about`)
+  rather than a list.
 - **Quick** is a box you ask for a phrase from — *I'm about to walk into a
   pharmacy, how do I ask if they have my medicine* — which answers, plays it,
   and files it as an ordinary card in the `Quick` deck. `renderQuick` in app.js,
@@ -2504,7 +2526,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v62 / `xerra-v62` — `js/version.js` first, `sw.js` second, as ever.
+- v70 / `xerra-v70` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

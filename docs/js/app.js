@@ -882,6 +882,9 @@ const SECTIONS = {
   quick: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>`,
   },
+  about: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>`,
+  },
 };
 
 /* What each tile is called, what it says under its name, and which colour it
@@ -894,15 +897,32 @@ const SECTIONS = {
    blue is you, purple is level two, gold is road mode, teal is quiet), and
    none of that is on screen here. Vocab takes purple because that is already
    the keyword picture's colour, and Quick takes Add's orange because what it
-   does is make a card. */
+   does is make a card.
+
+   About me is the fifth. It was the top row inside Decks — the one row there
+   that opened the interview rather than drilling — and a deck the app writes
+   about you is not one of the phrases you practise any more than a past-tense
+   unit is, so it has a square of its own. Green, because its page has always
+   worn Practice's green and because green is the one strong colour the other
+   four don't use. It is the only tile that opens a page rather than a list,
+   which is why it carries `data-about` and not `data-section`: the tile is the
+   old row, moved.
+
+   The sixth square is blank. Two columns want an even count, and the sister
+   apps fill theirs with a Phrases tile this app has no need of — the search box
+   is right under the grid. Something will earn the slot; until then it is
+   drawn as an outline rather than left as a hole, so the grid still reads as a
+   grid. */
 const TILES = [
   { key: "decks", title: "Decks", blurb: "Phrases you practise", colour: "blue" },
   { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
+  { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
+  null,
 ];
 
-const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
+const TILE_BY_KEY = Object.fromEntries(TILES.filter(Boolean).map((tile) => [tile.key, tile]));
 
 function pageHead(section, title, subtitle, trailing = "") {
   return `
@@ -1035,12 +1055,22 @@ function renderPractice(section = null) {
     return `
       <div class="tiles">
         ${TILES.map((tile) => {
+          if (!tile) return `<div class="tile tile-blank" aria-hidden="true"></div>`;
           const count =
             tile.key === "quick"
               ? library.inDeck(QUICK_DECK, settings.language).length
+              : tile.key === "about"
+              ? library.inDeck(ABOUT_DECK, settings.language).length
               : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
+          /* About me's tile says what the row used to: the interview is the
+             way in until there are cards, and the count once there are. With
+             no assistant and no cards it says so rather than hiding — a tile
+             that comes and goes leaves a hole in a grid, and the page it opens
+             names Settings as the way to fix it. */
           return `
-            <button class="tile tile-${tile.colour}" data-section="${tile.key}">
+            <button class="tile tile-${tile.colour}" ${
+              tile.key === "about" ? `data-about="1"` : `data-section="${tile.key}"`
+            }>
               <span class="tile-mark" aria-hidden="true">${SECTIONS[tile.key].mark}</span>
               <span class="tile-title">${esc(tile.title)}</span>
               <span class="tile-blurb">${esc(tile.blurb)}</span>
@@ -1049,6 +1079,12 @@ function renderPractice(section = null) {
                   ? count
                     ? `${count} asked for`
                     : "Ask for one"
+                  : tile.key === "about"
+                  ? count
+                    ? `${count} card${count === 1 ? "" : "s"} about you`
+                    : settings.hasAssistant
+                    ? "Tell it about you"
+                    : "Needs the assistant"
                   : count
                   ? `${count} phrase${count === 1 ? "" : "s"}`
                   : "Empty"
@@ -1122,60 +1158,20 @@ function renderPractice(section = null) {
       </div>`;
   }
 
-  /* The one row on this page that doesn't drill. Every other deck row is a
-     queue you can start; this one is a deck with a machine behind it, and the
-     only way to put cards in it is the interview. So the title opens the
-     workshop and the triangle still opens the cards — which do drill, through
-     the same startDeck as everywhere else.
+  /* Two of these rows belong to Decks and to nothing else. ★ Favourites
+     collects sentences from wherever they live, and Shuffle all is the whole
+     library — neither is a past-tense unit or a keyword word, and a Favourites
+     row inside Grammar would drill Catalan you starred in a café.
 
-     It shows before the deck exists, which no other row does, because "the
-     first time you open it, it asks about you" needs something to open. Once
-     the assistant is gone from Settings the row stays only if it has cards to
-     show: an empty row leading to a page that can only say "configure the
-     assistant" is a dead end. */
-  function aboutRow() {
-    const cards = library.inDeck(ABOUT_DECK, settings.language);
-    if (!cards.length && !settings.hasAssistant) return "";
-    const open = state.openDecks.has(ABOUT_DECK);
-    return `
-      <div class="row deck-row">
-        <button class="row-open" data-about="1">
-          <span class="row-main">
-            <span class="row-title">${esc(ABOUT_DECK)}</span>
-            <span class="row-sub">${
-              cards.length
-                ? `${cards.length} card${cards.length === 1 ? "" : "s"} about your life`
-                : "Tell the app about you, and it writes the cards"
-            }</span>
-          </span>
-          <span class="chev">›</span>
-        </button>
-        ${
-          cards.length
-            ? `<button class="fold" data-deck-fold="${esc(ABOUT_DECK)}" aria-expanded="${open}"
-                       aria-label="${open ? "Hide" : "Show"} the phrases in ${esc(ABOUT_DECK)}">
-                 <span class="tri">${open ? "▼" : "▶"}</span>
-               </button>`
-            : ""
-        }
-      </div>
-      ${open && cards.length ? cards.map((phrase) => deckCardRow(phrase, ABOUT_DECK, false)).join("") : ""}`;
-  }
-
-  /* Three of these rows belong to Decks and to nothing else. About me is a
-     deck of sentences about your life, ★ Favourites collects them from
-     wherever they live, and Shuffle all is the whole library — none of them is
-     a past-tense unit or a keyword word, and a Favourites row inside Grammar
-     would drill Catalan you starred in a café. */
+     About me used to be the top row here too. It is a tile now, and its deck
+     is its own section (`SECTION_FAMILIES` in store.js), so `families` has
+     already left it out by the time this runs — no skip needed. */
   function deckList() {
     const home = !section || section === "decks";
     const favourites = starred();
     const rows = [
-      home ? aboutRow() : "",
       ...(home && favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
       ...families.flatMap((family) => {
-        // Already drawn at the top by aboutRow(), with its own way in.
-        if (family.name === ABOUT_DECK) return [];
         if (family.decks.length === 1) {
           const deck = family.decks[0];
           return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
@@ -1303,8 +1299,8 @@ function renderPractice(section = null) {
       )
     );
 
-    // The one row that doesn't drill: About me leads to the interview that
-    // fills it. Its triangle still opens to its cards, which do drill.
+    // The one tile that doesn't open a list: About me leads to the interview
+    // that fills it, and its cards are listed there.
     list.querySelectorAll("[data-about]").forEach((button) =>
       button.addEventListener("click", () => {
         state.about = true;
@@ -1734,7 +1730,7 @@ function renderAbout() {
            tell it more whenever you like.</p>`
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
-           passcode. Add them in Settings and come back.</div>`
+           passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
     }`;
 
   const log = document.getElementById("about-log");

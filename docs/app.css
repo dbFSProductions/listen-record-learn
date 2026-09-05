@@ -236,6 +236,17 @@ p { margin: 0 0 10px; }
 .tile-gold { background: var(--gold); box-shadow: 0 4px 0 var(--gold-dark); color: #4b4b4b; }
 .tile-purple { background: var(--purple); box-shadow: 0 4px 0 var(--purple-dark); }
 .tile-orange { background: var(--orange); box-shadow: 0 4px 0 var(--orange-dark); }
+.tile-green { background: var(--green); box-shadow: 0 4px 0 var(--green-dark); }
+/* The sixth square, with nothing in it yet. An outline rather than a hole, so
+   two rows and a half still read as a grid; no slab and no press, because it
+   is not a control. */
+.tile-blank {
+  background: transparent;
+  border: 2px dashed var(--line);
+  box-shadow: none;
+  cursor: default;
+}
+.tile-blank:active { transform: none; }
 
 /* Quick's answer. The phrase is the biggest thing on the page because it is
    the only thing you came for, and Listen is full width under it — this is a
