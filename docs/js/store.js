@@ -378,9 +378,33 @@ export function deckFamily(deck) {
 
    Keyed by family across all three languages, because a library is one
    language at a time but this table is not. */
+/* The vocabulary family, per language. It is a *deck name prefix* and nothing
+   more — the same string that puts `Paraules · A taula` in the Words section —
+   so adding a language here is what makes its words findable, and there is no
+   second field on a phrase saying "this is a word". */
+const VOCAB_FAMILY = {
+  "ca-ES": "Paraules",
+  "es-ES": "Palabras",
+  "it-IT": "Parole",
+};
+
+export function vocabFamily(language) {
+  return VOCAB_FAMILY[language] ?? VOCAB_FAMILY["ca-ES"];
+}
+
+/* Where a word you add yourself is filed, unless you say otherwise — the
+   vocabulary twin of MY_PHRASES, and an ordinary deck in exactly the same way.
+   The leaf is English beside Catalan deck names for the same reason
+   MY_PHRASES is: it is yours, not part of the course. */
+export const MY_WORDS_LEAF = "My words";
+
+export function myWordsDeck(language) {
+  return `${vocabFamily(language)}${SUBDECK}${MY_WORDS_LEAF}`;
+}
+
 const SECTION_FAMILIES = {
   grammar: ["Passat", "Pasado"],
-  vocab: ["Paraules", "Palabras"],
+  vocab: Object.values(VOCAB_FAMILY),
 };
 
 /** "grammar", "vocab", or "decks" for everything else. */

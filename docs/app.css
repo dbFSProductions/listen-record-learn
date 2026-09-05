@@ -64,7 +64,6 @@
   --line: #e5e5e5;
 
   --radius: 16px;
-  --tabbar-h: 74px;
 
   /* Section accents, one per tab, same four as Deb-o-lingo's tab bar.
      `-accent` is the full-strength colour a page or tab is filled with,
@@ -136,7 +135,9 @@ html, body {
 
 body {
   min-height: 100dvh;
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  /* No tab bar to clear any more — just the home indicator, plus enough room
+     that the last control on a page isn't flush against the bottom edge. */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 18px);
 }
 
 .view {
@@ -463,65 +464,43 @@ button { font: inherit; }
    pairs the two so the ones that say they're dangerous look it. */
 .link.btn-danger { color: var(--red); }
 
-/* ----------------------------------------------------------------- tabbar */
+/* -------------------------------------------------------------- page head */
 
-/* Chunky coloured pills rather than grey glyphs. Every tab wears its own
-   section colour all the time; the current one is the fully lit, raised one
-   with a white ring — so the tab bar reads as a colour key for the whole app,
-   and "where am I" survives a colour-blind glance through the ring and the
-   lift, not the hue alone. */
-
-.tabbar {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding: 8px 10px calc(env(safe-area-inset-bottom) + 10px);
-  display: flex;
-  gap: 8px;
-  background: var(--surface);
-  border-top: 2px solid var(--line);
-  z-index: 40;
-}
-.tab {
-  flex: 1;
-  background: var(--sec);
+/* The gear, top right of the tiles. Settings is the one screen belonging to no
+   section, so it is the only thing that kept a permanent control — and it sits
+   on the home page rather than in a bar, because that is the one page you can
+   always get back to. Sized to the same 44px target the tabs had. */
+.head-gear {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
   border: 0;
-  border-radius: 16px;
+  border-radius: 12px;
+  background: transparent;
   color: var(--sec-on);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.66rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--sec-dark);
-  opacity: 0.8;
-  transition: opacity 0.15s ease, transform 0.15s ease;
 }
-.tab-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+.head-gear svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.tab:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--sec-dark); }
-.tab[aria-current="true"] {
-  opacity: 1;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 0 var(--sec-dark), inset 0 0 0 3px rgba(255, 255, 255, 0.92);
-}
-.tab[aria-current="true"]:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--sec-dark), inset 0 0 0 3px rgba(255, 255, 255, 0.92);
-}
+.head-gear:active { transform: translateY(2px); }
 
-@media (prefers-reduced-motion: reduce) {
-  .tab { transition: none; }
+/* "Add a phrase" / "Add a word", under the list it would add to. Full width
+   and quiet: adding is what you came to this section to do only sometimes, and
+   the list above it is the reason you are here. */
+.section-add {
+  width: 100%;
+  margin-top: 14px;
 }
 
 /* ------------------------------------------------------------------ drill */
@@ -1249,7 +1228,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
+  bottom: calc(env(safe-area-inset-bottom) + 22px);
   transform: translateX(-50%);
   background: var(--text);
   color: var(--bg);

@@ -201,6 +201,75 @@ hit twice on the way in.
 Neither sister fork has this. It would port whole — the page is one call and one
 `library.add`, and the Worker already has the field.
 
+### There is no tab bar, and adding belongs to a section
+
+Three tabs — Practice, Add, Settings — for three things that were never peers.
+Practice was the home screen, Add was something you do occasionally, Settings
+rarer still. Once the tiles arrived the bar was also duplicating them: a
+Practice button sitting under four squares that *are* Practice.
+
+- **The tiles are the home now**, and `goHome()` is the one way back to them.
+  Every page below them prints `homeLink()` — *‹ Practice* — and one delegated
+  listener on `view` handles all of them, so a page only has to print the link.
+- **Settings kept a permanent control, because it is the one screen that
+  belongs to no section.** It is about the app rather than about anything you
+  practise, so it gets `gearButton()` in the tiles' `page-head` — and only
+  there, since the tiles are the one page you can always reach.
+- **What the bar cost was not just 74px.** It was the top-level slot that made
+  Add a *place*. `--tabbar-h` is gone, `body` clears only the home indicator
+  now, and the toast sits on that instead.
+
+**Adding is now something you do to a section, and `ADD_BY_SECTION` is the
+whole of it.** Phrases offers *Add a phrase*, Words offers *Add a word*, and
+the button carries which kind it makes.
+
+- **Past offers nothing, on purpose.** An `aspect` is not user content — it is
+  a claim about the sentence that is either right or teaching the wrong thing,
+  and it never travels alone: `aspectNote`, `marked` and `infinitive` all have
+  to agree with it, and `marked` has to reduce to `text` exactly or the
+  highlight silently dies. The past decks are also a *designed* curriculum,
+  built out of minimal pairs with one odd card per deck so a deck's name never
+  answers its own question; cards typed in beside them dilute that by
+  construction. They stay authored, in `SeedContent.swift`.
+- **Quick offers nothing either, because Quick *is* an add** — the whole
+  section is a box you ask for a phrase from.
+- **Not a type picker at the top of one form.** You press the button from
+  inside the section, so the kind is decided before the form opens and the form
+  asks only what that kind needs.
+
+### Add a word, and the thing the app could not do
+
+`/complete-card` writes a *phrase*: a situation, a usage note, a tip, replies.
+There was no way to author `sounds` and `picture` at all — they arrived with
+the seed content, or you added a phrase and then reached for the editor's
+*Invent a picture for me* on a card that already existed. **So the Words
+section was read-only in practice**, which is a strange thing for a section to
+be in an app whose point is that you add what you personally keep losing.
+
+- **Almost all of it is parts that already existed** — `genderField`,
+  `deckField`, and the editor's own picture call. It uses the editor's field
+  ids (`f-text`, `f-translation`, `f-sounds`, `f-picture`) so `wirePictureAI`
+  works here **verbatim** rather than being copied, which is why that function
+  now optional-chains `f-deck`, `f-situation`, `f-usage` and `f-note`: a word
+  has no situation to be used in. Change those ids and two screens break.
+- **No Worker change.** It calls the same `/chat` the editor does, so
+  Deb-o-lingo and Mum-o-lingo are untouched by it.
+- **`myWordsDeck(language)` is where a word goes by default** — the vocabulary
+  twin of `MY_PHRASES`, and an ordinary deck name in exactly the same way.
+  `VOCAB_FAMILY` maps a locale to its family prefix (`Paraules`, `Palabras`,
+  `Parole`) and `SECTION_FAMILIES.vocab` is now derived from it, so adding a
+  language's words to the Words section is one entry rather than two lists to
+  keep in step.
+- **The gender select follows the box.** Its first option reads the article off
+  the word, and you have not typed the word when the form is drawn — so it is
+  updated on `input` rather than decided once at render.
+- **A picture is optional; both languages are not.** You can file the word now
+  and hang something on it later, but a card needs the word and its English —
+  the same argument the editor's picture button makes.
+
+The forks still have their four-tab bar. This is Xerra-first work and wants
+rolling out with the tiles, not before them.
+
 ### There is one browsing surface, not two
 
 Practice and Phrases were two tabs listing the same decks, so Phrases is gone
