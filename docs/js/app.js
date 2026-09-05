@@ -768,7 +768,7 @@ function homeLink() {
    link. */
 view.addEventListener("click", (event) => {
   if (event.target.closest("[data-go-home]")) return goHome();
-  if (event.target.closest("#open-settings")) {
+  if (event.target.closest("#open-settings, #open-settings-notice")) {
     stopEverything();
     state.tab = "settings";
     render();
@@ -833,7 +833,12 @@ const SECTIONS = {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>`,
   },
   settings: {
-    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>`,
+    /* A toothed cog, not a spoked circle. The old mark — a small circle with
+       eight short spokes — read as a brightness or sun icon the moment it lost
+       the word "Settings" underneath it in the tab bar, and the gear on the
+       tiles was reported as not being findable at all. Reported from the
+       phone; a desktop screenshot at 2x will not tell you this. */
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.8-1.6L13.9 2h-3.8l-.4 2.9a7.6 7.6 0 0 0-2.8 1.6l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3.2l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.8 1.6l.4 2.9h3.8l.4-2.9a7.6 7.6 0 0 0 2.8-1.6l2.3 1 2-3.4z"/></svg>`,
   },
   /* The four tiles. Each is a face of the Practice tab rather than a tab of its
      own — the tab bar has three buttons and adding more would shrink every
@@ -963,7 +968,8 @@ function renderPractice(section = null) {
         ? ""
         : `<div class="section-label">Heads up</div>
            <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
-           the waveform comparison and scoring need one. Add it in Settings.</div>`
+           the waveform comparison and scoring need one.
+           <button class="link" id="open-settings-notice">Add it in Settings</button></div>`
     }`;
 
   const search = document.getElementById("search");
@@ -1349,8 +1355,7 @@ function renderQuick() {
       settings.hasAssistant
         ? `<div class="card">
              <label class="field"><span>What do you need to say, and where?</span>
-               <textarea id="quick-ask" lang="en-GB" rows="2"
-                 placeholder="I'm about to walk into a pharmacy — how do I ask if they have my medicine?"></textarea></label>
+               <textarea id="quick-ask" lang="en-GB" rows="2"></textarea></label>
              <button class="btn btn-primary" id="quick-go" style="width:100%">Get the phrase</button>
              <div class="notice bad" id="quick-error" hidden></div>
            </div>`

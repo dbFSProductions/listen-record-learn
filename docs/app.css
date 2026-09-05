@@ -479,14 +479,18 @@ button { font: inherit; }
   margin: -4px -4px -4px 0;
   padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: transparent;
+  border-radius: 50%;
+  /* A tinted disc rather than a bare glyph. On its own on a coloured banner an
+     unbacked icon reads as part of the artwork — the gear was reported as
+     simply not being found. The disc says "this is a button" before the icon
+     has to say what kind. */
+  background: rgba(255, 255, 255, 0.22);
   color: var(--sec-on);
   cursor: pointer;
 }
 .head-gear svg {
-  width: 23px;
-  height: 23px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.4;
