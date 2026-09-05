@@ -408,12 +408,18 @@ export function myWordsDeck(language) {
   return `${vocabFamily(language)}${SUBDECK}${MY_WORDS_LEAF}`;
 }
 
+/* About me is a section of one deck. It used to be the top row inside Decks —
+   the one row there that opened the interview rather than drilling — and it is
+   its own square on the home screen now, so its cards leave Decks with it: a
+   deck shown behind two tiles is a card in two places. Claiming the family here
+   is what takes it out of the Decks count and the Decks list at once. */
 const SECTION_FAMILIES = {
   grammar: ["Passat", "Pasado"],
   vocab: Object.values(VOCAB_FAMILY),
+  about: [ABOUT_DECK],
 };
 
-/** "grammar", "vocab", or "decks" for everything else. */
+/** "grammar", "vocab", "about", or "decks" for everything else. */
 export function sectionOf(deck) {
   const family = deckFamily(deck ?? "");
   for (const [section, families] of Object.entries(SECTION_FAMILIES)) {
@@ -423,8 +429,8 @@ export function sectionOf(deck) {
 }
 
 /* Where a phrase asked for in the moment is filed. An ordinary deck name like
-   MY_PHRASES and ABOUT_DECK — the cards in it drill, star, score and export
-   like any others, and it shows in Decks with the rest. */
+   MY_PHRASES — the cards in it drill, star, score and export like any others,
+   and it shows in Decks with the rest. */
 export const QUICK_DECK = "Quick";
 
 /** The part after the prefix — what a row says once its family is open. */

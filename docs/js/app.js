@@ -882,6 +882,9 @@ const SECTIONS = {
   quick: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>`,
   },
+  about: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>`,
+  },
 };
 
 /* What each tile is called, what it says under its name, and which colour it
@@ -894,15 +897,32 @@ const SECTIONS = {
    blue is you, purple is level two, gold is road mode, teal is quiet), and
    none of that is on screen here. Vocab takes purple because that is already
    the keyword picture's colour, and Quick takes Add's orange because what it
-   does is make a card. */
+   does is make a card.
+
+   About me is the fifth. It was the top row inside Decks — the one row there
+   that opened the interview rather than drilling — and a deck the app writes
+   about you is not one of the phrases you practise any more than a past-tense
+   unit is, so it has a square of its own. Green, because its page has always
+   worn Practice's green and because green is the one strong colour the other
+   four don't use. It is the only tile that opens a page rather than a list,
+   which is why it carries `data-about` and not `data-section`: the tile is the
+   old row, moved.
+
+   The sixth square is blank. Two columns want an even count, and the sister
+   apps fill theirs with a Phrases tile this app has no need of — the search box
+   is right under the grid. Something will earn the slot; until then it is
+   drawn as an outline rather than left as a hole, so the grid still reads as a
+   grid. */
 const TILES = [
   { key: "decks", title: "Decks", blurb: "Phrases you practise", colour: "blue" },
   { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
+  { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
+  null,
 ];
 
-const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
+const TILE_BY_KEY = Object.fromEntries(TILES.filter(Boolean).map((tile) => [tile.key, tile]));
 
 function pageHead(section, title, subtitle, trailing = "") {
   return `
@@ -1035,12 +1055,22 @@ function renderPractice(section = null) {
     return `
       <div class="tiles">
         ${TILES.map((tile) => {
+          if (!tile) return `<div class="tile tile-blank" aria-hidden="true"></div>`;
           const count =
             tile.key === "quick"
               ? library.inDeck(QUICK_DECK, settings.language).length
+              : tile.key === "about"
+              ? library.inDeck(ABOUT_DECK, settings.language).length
               : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
+          /* About me's tile says what the row used to: the interview is the
+             way in until there are cards, and the count once there are. With
+             no assistant and no cards it says so rather than hiding — a tile
+             that comes and goes leaves a hole in a grid, and the page it opens
+             names Settings as the way to fix it. */
           return `
-            <button class="tile tile-${tile.colour}" data-section="${tile.key}">
+            <button class="tile tile-${tile.colour}" ${
+              tile.key === "about" ? `data-about="1"` : `data-section="${tile.key}"`
+            }>
               <span class="tile-mark" aria-hidden="true">${SECTIONS[tile.key].mark}</span>
               <span class="tile-title">${esc(tile.title)}</span>
               <span class="tile-blurb">${esc(tile.blurb)}</span>
@@ -1049,6 +1079,12 @@ function renderPractice(section = null) {
                   ? count
                     ? `${count} asked for`
                     : "Ask for one"
+                  : tile.key === "about"
+                  ? count
+                    ? `${count} card${count === 1 ? "" : "s"} about you`
+                    : settings.hasAssistant
+                    ? "Tell it about you"
+                    : "Needs the assistant"
                   : count
                   ? `${count} phrase${count === 1 ? "" : "s"}`
                   : "Empty"
@@ -1122,60 +1158,20 @@ function renderPractice(section = null) {
       </div>`;
   }
 
-  /* The one row on this page that doesn't drill. Every other deck row is a
-     queue you can start; this one is a deck with a machine behind it, and the
-     only way to put cards in it is the interview. So the title opens the
-     workshop and the triangle still opens the cards — which do drill, through
-     the same startDeck as everywhere else.
+  /* Two of these rows belong to Decks and to nothing else. ★ Favourites
+     collects sentences from wherever they live, and Shuffle all is the whole
+     library — neither is a past-tense unit or a keyword word, and a Favourites
+     row inside Grammar would drill Catalan you starred in a café.
 
-     It shows before the deck exists, which no other row does, because "the
-     first time you open it, it asks about you" needs something to open. Once
-     the assistant is gone from Settings the row stays only if it has cards to
-     show: an empty row leading to a page that can only say "configure the
-     assistant" is a dead end. */
-  function aboutRow() {
-    const cards = library.inDeck(ABOUT_DECK, settings.language);
-    if (!cards.length && !settings.hasAssistant) return "";
-    const open = state.openDecks.has(ABOUT_DECK);
-    return `
-      <div class="row deck-row">
-        <button class="row-open" data-about="1">
-          <span class="row-main">
-            <span class="row-title">${esc(ABOUT_DECK)}</span>
-            <span class="row-sub">${
-              cards.length
-                ? `${cards.length} card${cards.length === 1 ? "" : "s"} about your life`
-                : "Tell the app about you, and it writes the cards"
-            }</span>
-          </span>
-          <span class="chev">›</span>
-        </button>
-        ${
-          cards.length
-            ? `<button class="fold" data-deck-fold="${esc(ABOUT_DECK)}" aria-expanded="${open}"
-                       aria-label="${open ? "Hide" : "Show"} the phrases in ${esc(ABOUT_DECK)}">
-                 <span class="tri">${open ? "▼" : "▶"}</span>
-               </button>`
-            : ""
-        }
-      </div>
-      ${open && cards.length ? cards.map((phrase) => deckCardRow(phrase, ABOUT_DECK, false)).join("") : ""}`;
-  }
-
-  /* Three of these rows belong to Decks and to nothing else. About me is a
-     deck of sentences about your life, ★ Favourites collects them from
-     wherever they live, and Shuffle all is the whole library — none of them is
-     a past-tense unit or a keyword word, and a Favourites row inside Grammar
-     would drill Catalan you starred in a café. */
+     About me used to be the top row here too. It is a tile now, and its deck
+     is its own section (`SECTION_FAMILIES` in store.js), so `families` has
+     already left it out by the time this runs — no skip needed. */
   function deckList() {
     const home = !section || section === "decks";
     const favourites = starred();
     const rows = [
-      home ? aboutRow() : "",
       ...(home && favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
       ...families.flatMap((family) => {
-        // Already drawn at the top by aboutRow(), with its own way in.
-        if (family.name === ABOUT_DECK) return [];
         if (family.decks.length === 1) {
           const deck = family.decks[0];
           return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
@@ -1303,8 +1299,8 @@ function renderPractice(section = null) {
       )
     );
 
-    // The one row that doesn't drill: About me leads to the interview that
-    // fills it. Its triangle still opens to its cards, which do drill.
+    // The one tile that doesn't open a list: About me leads to the interview
+    // that fills it, and its cards are listed there.
     list.querySelectorAll("[data-about]").forEach((button) =>
       button.addEventListener("click", () => {
         state.about = true;
@@ -1734,7 +1730,7 @@ function renderAbout() {
            tell it more whenever you like.</p>`
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
-           passcode. Add them in Settings and come back.</div>`
+           passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
     }`;
 
   const log = document.getElementById("about-log");
@@ -2000,7 +1996,10 @@ function quietNow() {
 function typedWords(value) {
   return String(value ?? "")
     .split(/\s+/)
-    .map((raw) => ({ raw, norm: normaliseSentence(raw) }))
+    /* `clean` is the word as written with the punctuation round it taken off —
+       what to print when naming one of theirs, since "ballarina." with the
+       full stop is not the word. */
+    .map((raw) => ({ raw, clean: raw.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, ""), norm: normaliseSentence(raw) }))
     .filter((word) => word.norm)
     .map((word) => ({ ...word, bare: foldAccents(word.norm) }));
 }
@@ -2009,28 +2008,71 @@ function foldAccents(value) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/·/g, "");
 }
 
+/* A slip of one letter is a slip, not a different word. `ballerina` for
+   `ballarina` was struck through as wrong *and* listed as left out — two marks
+   for one vowel, which is the mode being harsher than a teacher would be and
+   was reported as exactly that. So a word within a letter of the one meant is
+   *close*: it pairs with its word, so nothing is "left out", and it is shown
+   beside the spelling it should have had.
+
+   Optimal string alignment distance — insert, delete, substitute, or swap two
+   neighbours, since `muisc` is a typo and not a different word either. One
+   edit is allowed from four letters, two from eight; nothing shorter, because
+   `i` is one edit from `a` and both are words. Measured on the accent-folded
+   forms, so an accent lost on the same word isn't charged twice. */
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return d[a.length][b.length];
+}
+
+function closeEnough(a, b) {
+  const longest = Math.max(a.length, b.length);
+  if (longest < 4) return false;
+  return editDistance(a, b) <= (longest >= 8 ? 2 : 1);
+}
+
 /* Which of your words landed, and which of theirs never turned up. Straight
    longest-common-subsequence over the accent-folded words: comparing position
    by position would mark every word after a missed one as wrong, which is the
    opposite of naming the one you got wrong. Phrases are a handful of words, so
-   the quadratic table costs nothing. */
+   the quadratic table costs nothing.
+
+   Weighted, so that an exact word is worth two and a close one is worth one:
+   the alignment then never pairs a near miss where an exact match was there to
+   be had, and a close word only ever stands in for the word it is nearest to. */
 function alignWords(mine, theirs) {
+  const worth = (a, b) => (a.bare === b.bare ? 2 : closeEnough(a.bare, b.bare) ? 1 : 0);
   const table = Array.from({ length: mine.length + 1 }, () => new Array(theirs.length + 1).fill(0));
   for (let i = mine.length - 1; i >= 0; i--) {
     for (let j = theirs.length - 1; j >= 0; j--) {
-      table[i][j] =
-        mine[i].bare === theirs[j].bare
-          ? table[i + 1][j + 1] + 1
-          : Math.max(table[i + 1][j], table[i][j + 1]);
+      const pair = worth(mine[i], theirs[j]);
+      table[i][j] = Math.max(
+        table[i + 1][j],
+        table[i][j + 1],
+        pair ? table[i + 1][j + 1] + pair : 0
+      );
     }
   }
   const marks = mine.map(() => "miss");
+  const meant = mine.map(() => null);
   const landed = theirs.map(() => false);
   let i = 0;
   let j = 0;
   while (i < mine.length && j < theirs.length) {
-    if (mine[i].bare === theirs[j].bare) {
-      marks[i] = mine[i].norm === theirs[j].norm ? "ok" : "accent";
+    const pair = worth(mine[i], theirs[j]);
+    if (pair && table[i][j] === table[i + 1][j + 1] + pair) {
+      marks[i] = pair === 2 ? (mine[i].norm === theirs[j].norm ? "ok" : "accent") : "close";
+      if (pair === 1) meant[i] = theirs[j].clean;
       landed[j] = true;
       i++;
       j++;
@@ -2040,7 +2082,7 @@ function alignWords(mine, theirs) {
       j++;
     }
   }
-  return { marks, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.raw) };
+  return { marks, meant, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.clean) };
 }
 
 /* The whole of what a typed go produces, and it is deliberately not persisted
@@ -2057,12 +2099,23 @@ function alignWords(mine, theirs) {
 function checkTyped(typed, phrase) {
   const mine = typedWords(typed);
   const theirs = typedWords(phrase.text);
-  const same = (key) => mine.map((w) => w[key]).join(" ") === theirs.map((w) => w[key]).join(" ");
-  const verdict = same("norm") ? "right" : same("bare") ? "accents" : "wrong";
-  const { marks, missing } = alignWords(mine, theirs);
+  const { marks, meant, missing } = alignWords(mine, theirs);
+  /* Four verdicts, worst mark wins. A word that is simply not there, or a word
+     of yours that matches nothing, is wrong; a slip of a letter is close; an
+     accent is a keyboard problem; and the rest is right. Every word right and
+     nothing missing is the same sequence, which is what "right" used to be
+     checked as directly. */
+  const verdict =
+    missing.length || marks.includes("miss")
+      ? "wrong"
+      : marks.includes("close")
+      ? "close"
+      : marks.includes("accent")
+      ? "accents"
+      : "right";
   return {
     verdict,
-    words: mine.map((word, at) => ({ raw: word.raw, mark: marks[at] })),
+    words: mine.map((word, at) => ({ raw: word.raw, clean: word.clean, mark: marks[at], meant: meant[at] })),
     missing,
   };
 }
@@ -2457,6 +2510,19 @@ function renderDrill() {
     render();
     playModel(1);
   });
+  /* Another go at the same card. Clearing `typed` is what puts the question
+     back at level one; at level two the reveal has to be undone as well, so
+     the model audio is withheld again and level two's own Show me returns.
+     `peeked` is left as it was — a card you looked at before writing it was
+     still looked at, and the line under the card should go on saying so. The
+     verdict goes with the box coming back: what stands is the go in front of
+     you, not the last one. */
+  document.getElementById("quiet-again")?.addEventListener("click", () => {
+    state.typed = null;
+    if (state.recall) state.revealed = false;
+    render();
+    document.getElementById("quiet-input")?.focus();
+  });
 
   /* One switch, flipped from where you are using it. It writes the setting, so
      the mode outlives this card, this deck and this reload — you are on the
@@ -2829,12 +2895,20 @@ function typeBox(phrase, asking) {
    ones in the same app and read as though it meant the same thing. */
 function typedVerdict() {
   const answer = state.typed;
-  if (!answer || answer.shown) return "";
+  if (!answer) return "";
+  /* After Show me there is no verdict to print — nothing was marked — but there
+     is still a way back into the question. You have just read the answer, and
+     writing it from memory now is the one thing that makes reading it worth
+     anything. */
+  if (answer.shown) return `<p class="center" style="margin:16px 0 0">${againButton("Now write it from memory")}</p>`;
+  const slips = answer.words.filter((word) => word.mark === "close");
   const head =
     answer.verdict === "right"
       ? "That's it."
       : answer.verdict === "accents"
       ? "Right — mind the accents."
+      : answer.verdict === "close"
+      ? `Nearly — ${slips.length === 1 ? "one letter" : "a letter or two"} off.`
       : "Not quite.";
   return `
     <div class="card quiet-verdict ${answer.verdict}">
@@ -2843,12 +2917,33 @@ function typedVerdict() {
         .map((word) => `<span class="typed-word ${word.mark}">${esc(word.raw)}</span>`)
         .join(" ")}</p>
       ${
+        /* The spelling it should have had, one line per slip. A struck-through
+           word says only that it was wrong; a dotted one with its answer beside
+           it says what to fix, which is the whole of what a typo needs. */
+        slips.length
+          ? `<p class="tiny muted typed-fixes">${slips
+              .map((word) => `<span class="typed-fix"><s>${esc(word.clean)}</s> ${esc(word.meant)}</span>`)
+              .join(" · ")}</p>`
+          : ""
+      }
+      ${
         answer.missing.length
           ? `<p class="tiny muted">Left out: ${esc(answer.missing.join(" · "))}</p>`
           : ""
       }
       <p class="tiny muted">Not scored or kept — the ${RECALL_AFTER} good goes to level two are spoken ones.</p>
+      ${againButton("Write it again")}
     </div>`;
+}
+
+/* The way back into a quiet card's question. Until this existed the only way
+   to have another go at a card you had just got wrong was Next, and round the
+   whole deck again — which is the moment you least want to leave it. It
+   re-asks the same card: the box comes back, the phrase is withheld again, and
+   a fresh answer is marked the same way. One id whichever wording it wears, so
+   one listener serves both. */
+function againButton(label) {
+  return `<button class="btn" id="quiet-again" style="width:100%;margin-top:12px">${label}</button>`;
 }
 
 /* Listen. Azure's clip if we have it, the browser's voice if we don't — and a
