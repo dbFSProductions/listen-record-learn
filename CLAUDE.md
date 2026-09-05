@@ -2218,6 +2218,15 @@ existing card in `content.js` is byte-identical and `installNewSeedContent`
 still defaults to `ca-ES` for anything without one. What decides which library
 a seed card lands in is the Swift source and nothing else.
 
+**The voice a language opens on is its male one.** `defaultVoice` in store.js
+is the one reader: `DEFAULT_SETTINGS.azureVoice` is Enric, switching language in
+Settings lands on Álvaro or Diego, and `settings.load` falls back to it when a
+saved voice isn't one of the saved language's. Asked for from the phone — every
+voice list led with a female voice, so each language switch meant a second trip
+to the voice select. A saved voice that is valid is never touched, whatever its
+gender: the default is a default, not a preference imposed on a choice already
+made, and the voice list order in `LANGUAGES` is now presentation only.
+
 Two things to check when adding one: that Azure has neural voices for the
 locale (`gender` is only a label here — the id is what is sent), and that it is
 on Azure's Pronunciation Assessment list, or scoring degrades to the no-key
@@ -2615,7 +2624,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v73 / `xerra-v73` — `js/version.js` first, `sw.js` second, as ever.
+- v74 / `xerra-v74` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

@@ -3,7 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
-  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -5172,8 +5172,11 @@ function renderSettings() {
 
   document.getElementById("s-language").onchange = (event) => {
     settings.language = event.target.value;
+    // A new language means a new voice, and the one it opens on is the male
+    // one — see defaultVoice in store.js. A voice this language already has
+    // (the select can't offer one, but an export can carry one) is kept.
     const voices = LANGUAGES[settings.language].voices;
-    if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = voices[0].id;
+    if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = defaultVoice(settings.language);
     settings.save();
     render();
   };
