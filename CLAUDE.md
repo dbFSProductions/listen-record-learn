@@ -855,6 +855,16 @@ answer into.
   is Show me, which reveals without marking anything and so prints no verdict.
   It only appears at level one — level two already has its own full-width Show
   me, the one that plays the audio with it.
+- **Every verdict ends in *Write it again*, and Show me in *Now write it from
+  memory*.** Until that button existed the only way to have another go at a
+  card you had just got wrong was Next, and round the whole deck again — which
+  is the moment you least want to leave it. `#quiet-again` puts the question
+  back on the same card: `state.typed` cleared, and at level two `revealed`
+  cleared too, so the model audio is withheld again and level two's own Show me
+  returns. `peeked` is deliberately left alone — a card you looked at before
+  writing it was still looked at. The verdict goes with the box coming back;
+  what stands is the go in front of you, not the last one. Still nothing is
+  filed, so a card written five times is still a card said none.
 - **The switch is teal**, the last strong colour in the palette not already
   doing a job in the drill. Purple was the near miss and had to be left alone:
   a purple Quiet pill beside a purple *Level 2* badge reads as the same thing,
@@ -2259,7 +2269,15 @@ dropped word is named in the *Left out* line while the words you did get stay
 `.typed-word.miss`; `xerra.attempts` is the same length afterwards as before,
 which is the assertion that matters most; Enter in the box checks, an empty
 Check is refused and leaves the box, and `#quiet-show` reveals without printing
-a verdict. On a card with four attempts behind it the level-two badge stands,
+a verdict. For the way back in: `#quiet-again` is absent while the question
+stands, sits inside every `.quiet-verdict` reading *Write it again*, and reads
+*Now write it from memory* after `#quiet-show`; pressing it removes the verdict,
+withholds the phrase from `.drill-text` again, empties and focuses `#quiet-input`,
+brings `#quiet-show` back and leaves the progress pill where it was; a second
+answer is marked afresh; and `xerra.attempts` is still the same length. At level
+two it puts `#show-me` back and takes `#listen` off again, with no *Shown, not
+remembered* line unless Show me was actually used. On a card with four attempts
+behind it the level-two badge stands,
 `#listen` is absent until the answer is in, `#show-me` is there and
 `#quiet-show` is not, and typing it leaves no *Shown, not remembered* line. On
 a past-tense card the shape gate comes first and `#quiet-input` only appears
@@ -2526,7 +2544,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v70 / `xerra-v70` — `js/version.js` first, `sw.js` second, as ever.
+- v71 / `xerra-v71` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

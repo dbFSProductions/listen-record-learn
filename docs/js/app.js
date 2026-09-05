@@ -2453,6 +2453,19 @@ function renderDrill() {
     render();
     playModel(1);
   });
+  /* Another go at the same card. Clearing `typed` is what puts the question
+     back at level one; at level two the reveal has to be undone as well, so
+     the model audio is withheld again and level two's own Show me returns.
+     `peeked` is left as it was — a card you looked at before writing it was
+     still looked at, and the line under the card should go on saying so. The
+     verdict goes with the box coming back: what stands is the go in front of
+     you, not the last one. */
+  document.getElementById("quiet-again")?.addEventListener("click", () => {
+    state.typed = null;
+    if (state.recall) state.revealed = false;
+    render();
+    document.getElementById("quiet-input")?.focus();
+  });
 
   /* One switch, flipped from where you are using it. It writes the setting, so
      the mode outlives this card, this deck and this reload — you are on the
@@ -2825,7 +2838,12 @@ function typeBox(phrase, asking) {
    ones in the same app and read as though it meant the same thing. */
 function typedVerdict() {
   const answer = state.typed;
-  if (!answer || answer.shown) return "";
+  if (!answer) return "";
+  /* After Show me there is no verdict to print — nothing was marked — but there
+     is still a way back into the question. You have just read the answer, and
+     writing it from memory now is the one thing that makes reading it worth
+     anything. */
+  if (answer.shown) return `<p class="center" style="margin:16px 0 0">${againButton("Now write it from memory")}</p>`;
   const head =
     answer.verdict === "right"
       ? "That's it."
@@ -2844,7 +2862,18 @@ function typedVerdict() {
           : ""
       }
       <p class="tiny muted">Not scored or kept — the ${RECALL_AFTER} good goes to level two are spoken ones.</p>
+      ${againButton("Write it again")}
     </div>`;
+}
+
+/* The way back into a quiet card's question. Until this existed the only way
+   to have another go at a card you had just got wrong was Next, and round the
+   whole deck again — which is the moment you least want to leave it. It
+   re-asks the same card: the box comes back, the phrase is withheld again, and
+   a fresh answer is marked the same way. One id whichever wording it wears, so
+   one listener serves both. */
+function againButton(label) {
+  return `<button class="btn" id="quiet-again" style="width:100%;margin-top:12px">${label}</button>`;
 }
 
 /* Listen. Azure's clip if we have it, the browser's voice if we don't — and a
