@@ -1308,12 +1308,20 @@ function renderPractice(section = null) {
     const offsets = [0, -1, 1];
     let nodeIndex = 0;
     const current = units.flatMap((u) => u.lessons).find((l) => !progress.isDone(l.id))?.id ?? null;
+    /* Each unit folds behind its banner, the way a big family folds behind its
+       row on the deck list — eleven units of nodes is a long scroll for a path
+       you are somewhere in the middle of. The one holding START is open by
+       default and the rest are shut; a banner you have tapped is remembered
+       in `settings.openUnits`, absent meaning "follow START". */
+    const unitOpen = (unit) =>
+      settings.openUnits?.[unit.id] ?? unit.lessons.some((l) => l.id === current);
     const tick = `<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const star = `<svg viewBox="0 0 24 24"><path d="M12 2.6l2.8 5.9 6.4.8-4.7 4.4 1.2 6.3-5.7-3.1-5.7 3.1 1.2-6.3L2.8 9.3l6.4-.8z"/></svg>`;
     const unitsHtml = units
       .map((unit) => {
         const nodes = unit.lessons
           .map((lesson) => {
+            if (!unitOpen(unit)) return "";
             const done = progress.isDone(lesson.id);
             const isCurrent = lesson.id === current;
             const best = progress.bestFor(lesson.id);
@@ -1333,13 +1341,23 @@ function renderPractice(section = null) {
               </div>`;
           })
           .join("");
+        const open = unitOpen(unit);
+        const done = unit.lessons.filter((l) => progress.isDone(l.id)).length;
         return `
           <section class="unit">
-            <div class="unit-banner" style="--unit:var(--${unit.colour});--unit-dark:var(--${unit.colour}-dark)">
-              <div class="unit-name">${esc(unit.title)}</div>
-              <div class="unit-sub">${esc(unit.subtitle)}</div>
-            </div>
-            <div class="path">${nodes}</div>
+            <button class="unit-banner" data-unit-fold="${esc(unit.id)}" aria-expanded="${open}"
+                    style="--unit:var(--${unit.colour});--unit-dark:var(--${unit.colour}-dark)">
+              <span class="unit-main">
+                <span class="unit-name">${esc(unit.title)}</span>
+                <span class="unit-sub">${esc(
+                  open
+                    ? unit.subtitle
+                    : `${unit.lessons.length} lesson${unit.lessons.length === 1 ? "" : "s"} · ${done} done`
+                )}</span>
+              </span>
+              <span class="tri">${open ? "▼" : "▶"}</span>
+            </button>
+            ${open ? `<div class="path">${nodes}</div>` : ""}
           </section>`;
       })
       .join("");
@@ -1630,6 +1648,16 @@ function renderPractice(section = null) {
 
     list.querySelectorAll("[data-deck]").forEach((button) =>
       button.addEventListener("click", () => startDeck(button.dataset.deck))
+    );
+
+    // A unit's banner folds its nodes; the choice is remembered by deck name.
+    list.querySelectorAll("[data-unit-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const id = button.dataset.unitFold;
+        settings.openUnits = { ...settings.openUnits, [id]: button.getAttribute("aria-expanded") !== "true" };
+        settings.save();
+        paint();
+      })
     );
 
     // A node on the path: five cards of its deck, in order, and a tick at the end.

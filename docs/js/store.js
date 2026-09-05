@@ -1234,6 +1234,11 @@ const DEFAULT_SETTINGS = {
   // falls back to the FOLD_FROM rule, so a family you have never touched can
   // change its mind as decks are added to it.
   openFamilies: {},
+  /* Units on the Practice path you have folded open or shut, by deck name.
+     Anything absent follows the default — open if it holds the lesson START is
+     on, folded otherwise — so the one open unit walks down the path with you
+     until you say otherwise. Same shape as openFamilies, for the same reason. */
+  openUnits: {},
 };
 
 export const settings = {

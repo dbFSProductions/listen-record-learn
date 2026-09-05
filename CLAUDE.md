@@ -261,6 +261,15 @@ squares now, with About me the fifth and the sixth blank; see below.
     the library's language, the card count and the average when there is one.
     `state.celebration` wins over everything else in `render()` while it
     stands, and Continue puts you back on the path with the tick on.
+  - **Each unit folds behind its banner.** Eleven units of nodes is a long
+    scroll for a path you are somewhere in the middle of, so the banner is a
+    button with the deck rows' triangle: the unit holding START is open by
+    default and the rest are shut, showing *3 lessons · 1 done*. A banner you
+    have tapped is remembered in `settings.openUnits` by deck name, absent
+    meaning "follow START" — so the one open unit walks down the path with you
+    until you say otherwise, and a unit you have finished folds itself away.
+    Same shape as `openFamilies`, for the same reason. The Everything unit
+    doesn't fold; it is two nodes.
   - **Nothing is locked**, as in the forks. Every node is open from the first
     launch; the ticks record what you did, not what you may do.
 - **The drill's back link names where it goes.** It said *‹ Practice*
@@ -2574,8 +2583,14 @@ without Azure, and `#complete-continue` returns to the path with that node
 `.done`, START on the second, and `xerra.progress` carrying `Sounds#1` with
 `times: 1` and `best: null` — surviving a reload; a deck drilled from All
 Phrases to its Done shows no `.complete` and ticks nothing; and an export
-carries `progress`, which an import puts back. On the header, `.crest` is wider
-than `.head-gear`. For Quick, with
+carries `progress`, which an import puts back. For the folds: only the unit
+holding START (and Everything) has a `.path` by default, the other ten
+`[data-unit-fold]` banners read `aria-expanded="false"` with *N lessons · M
+done* in their `.unit-sub` and draw no `[data-lesson]`; tapping one opens its
+nodes and flips its sub to *N phrases · M lessons*, tapping the open one shuts
+it, both survive a reload, and with `openUnits` cleared and Sounds finished the
+default open unit is Salutacions while Sounds reads *2 lessons · 2 done*. On
+the header, `.crest` is wider than `.head-gear`. For Quick, with
 `/complete-card` stubbed: `#quick-ask` carries `lang="en-GB"`, what you type
 goes as `ask` with `english` empty and `deck` `"Quick"`, the phrase lands in
 `.quick-phrase` with a `.quick-listen` beside it, `xerra.phrases` gains one card
@@ -2694,7 +2709,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v76 / `xerra-v76` — `js/version.js` first, `sw.js` second, as ever.
+- v77 / `xerra-v77` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
