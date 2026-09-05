@@ -506,6 +506,10 @@ button { font: inherit; }
    place Deb-o-lingo and Mum-o-lingo put it. At the bottom of a section holding
    two hundred phrases it was below a screen and a half of scrolling, which is
    not where you are when you decide to add one. */
+/* What the app made of the article, under the select. Feedback, not a fourth
+   thing to choose between — which is why it is not an <option>. */
+.gender-hint { margin: 6px 0 0; }
+
 .section-add {
   width: 100%;
   margin: 0 0 14px;
