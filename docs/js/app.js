@@ -3,7 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
-  GENDERS, genderOf, sectionOf, QUICK_DECK,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -11,7 +11,6 @@ import { cardAssistant } from "./card-assistant.js";
 import { VERSION } from "./version.js";
 
 const view = document.getElementById("view");
-const tabbar = document.getElementById("tabbar");
 const sheet = document.getElementById("sheet");
 const sheetTitle = document.getElementById("sheet-title");
 const sheetBody = document.getElementById("sheet-body");
@@ -47,6 +46,12 @@ const state = {
      should put you, and a card reached by searching from the tiles should
      come back to the tiles rather than to a page you never opened. */
   section: null,
+
+  /* Which composer the Add screen is showing: "phrase" or "word". There is no
+     Add tab any more — you add from inside the section the thing belongs to,
+     so the kind is decided by the button you pressed rather than by a picker
+     at the top of a form. Null when you are not adding. */
+  addKind: null,
 
   /* The last thing Quick answered, so the card survives a repaint (playing it,
      keeping it, throwing it away). Cleared when you ask again. */
@@ -421,7 +426,7 @@ function genderCue(phrase) {
    Deliberately a plain field on the phrase like `sounds` and `picture`, not a
    new kind of card: it exports, imports and survives the weekly reinstall with
    everything else, for the reason About me's cards carry no flag. */
-function genderField(phrase) {
+function genderField(phrase, id = "f-gender") {
   const chosen = phrase?.gender ?? "";
   const derived = genderOf({ text: phrase?.text ?? "" });
   const auto = derived
@@ -429,7 +434,7 @@ function genderField(phrase) {
     : "From the article — it doesn't say";
   return `
     <label class="field"><span>Gender (optional)</span>
-      <select id="f-gender">
+      <select id="${id}" data-gender-auto>
         <option value=""${chosen ? "" : " selected"}>${auto}</option>
         ${Object.entries(GENDERS)
           .map(
@@ -720,26 +725,90 @@ sheet.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-sheet")) closeSheet();
 });
 
-// -------------------------------------------------------------------- tabs
+// ---------------------------------------------------------------- going home
 
-tabbar.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-tab]");
-  if (!button) return;
+/* There is no tab bar any more, so this is the way back to the tiles, and
+   every page that isn't the tiles carries a link to it.
+
+   The bar was three buttons for three things that were never peers: Practice
+   was the home screen, Add was something you do occasionally, Settings rarer
+   still. Once the tiles arrived it was also duplicating them — a Practice
+   button sitting under four squares that are Practice. What it cost was a
+   permanent 74px strip and the top-level slot that made Add a *place* rather
+   than something you do to a section. */
+function goHome() {
   stopEverything();
-  state.tab = button.dataset.tab;
+  state.tab = "practise";
   state.deck = null;
   state.about = false;
-  // Tapping Practice from anywhere lands on the tiles, not on the last section
-  // you happened to be in — the tab is the way home.
   state.section = null;
+  state.addKind = null;
   state.search = "";
   render();
+}
+
+/* The gear, top right of the tiles. Settings is the one screen that belongs to
+   no section — it is about the app rather than about anything you practise —
+   so it is the only thing that kept a permanent control, and the tiles page is
+   the only place that shows it. */
+function gearButton() {
+  return `<button class="head-gear" id="open-settings" aria-label="Settings">
+    ${SECTIONS.settings.mark}
+  </button>`;
+}
+
+/* Back to the tiles, worn by every page below them. The label names the
+   destination rather than saying "Back", because the destination is a place
+   with a name and "back" depends on how you got here. */
+function homeLink() {
+  return `<button class="link" data-go-home="1">‹ Practice</button>`;
+}
+
+/* One listener for every way home, delegated, so a page only has to print the
+   link. */
+view.addEventListener("click", (event) => {
+  if (event.target.closest("[data-go-home]")) return goHome();
+  if (event.target.closest("#open-settings")) {
+    stopEverything();
+    state.tab = "settings";
+    render();
+    return;
+  }
+  /* Adding is now something you do *to a section*, so the button carries which
+     kind of card it makes and the section it came from is left in `state` for
+     the way back. */
+  const add = event.target.closest("[data-add-kind]");
+  if (add) {
+    stopEverything();
+    state.addKind = add.dataset.addKind;
+    state.tab = "add";
+    render();
+  }
 });
 
-function syncTabs() {
-  for (const tab of tabbar.querySelectorAll(".tab")) {
-    tab.setAttribute("aria-current", String(tab.dataset.tab === state.tab));
-  }
+/* What a section offers to add, if anything.
+
+   Phrases and Words each make a different kind of card and say so on the
+   button; **Past offers nothing on purpose**. An `aspect` is not user content
+   — it is a claim about the sentence that is either right or teaching the
+   wrong thing, and it never travels alone: `aspectNote`, `marked` and
+   `infinitive` all have to agree with it, and `marked` has to reduce to `text`
+   exactly or the highlight silently dies. The past decks are also a designed
+   curriculum, built out of minimal pairs with one odd card per deck so that a
+   deck's name never answers its own question; cards typed in beside them
+   dilute that by construction. So they stay authored, in SeedContent.swift.
+
+   Quick has no button either, because Quick *is* one — the whole section is a
+   box you ask for a phrase from. */
+const ADD_BY_SECTION = {
+  decks: { kind: "phrase", label: "Add a phrase" },
+  vocab: { kind: "word", label: "Add a word" },
+};
+
+function sectionAddButton(section) {
+  const offer = ADD_BY_SECTION[section];
+  if (!offer || !section) return "";
+  return `<button class="btn section-add" data-add-kind="${offer.kind}">${esc(offer.label)}</button>`;
 }
 
 function stopEverything() {
@@ -817,20 +886,27 @@ function pageHead(section, title, subtitle, trailing = "") {
 }
 
 function render() {
-  syncTabs();
   window.scrollTo(0, 0);
   /* The page wears the colour of the tile you came through, so Grammar's
      banner is the gold square you tapped. Not while drilling: the drill has
      its own colour language — green is the model, blue is you, gold is road
      mode — and a gold page head over a gold road-mode pill says two things
      with one colour. */
-  const accent = state.tab === "practise" && state.section && !state.deck ? state.section : state.tab;
+  const accent =
+    state.tab === "practise" && state.section && !state.deck
+      ? state.section
+      : /* Adding wears the colour of the section it adds to, on the same rule:
+           "Add a word" is reached from Words and belongs to it, so it is
+           purple rather than Add's orange. */
+      state.tab === "add" && state.addKind === "word"
+      ? "vocab"
+      : state.tab;
   view.className = `view page page-${state.tab} sec-${accent}`;
   if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
-  else if (state.tab === "add") renderAdd();
+  else if (state.tab === "add") state.addKind === "word" ? renderAddWord() : renderAdd();
   else renderSettings();
   autosizeAll(view);
 }
@@ -865,7 +941,7 @@ function renderPractice(section = null) {
     ? pageHead(section, TILE_BY_KEY[section].title, sectionSub(), backLink())
     : pageHead("practise", "Practice", `${LANGUAGES[settings.language].name} · ${
         library.drillable(settings.language).length
-      } phrases ready`);
+      } phrases ready`, gearButton());
 
   /* On the tiles the search box goes *under* them: the four squares are what
      the tab is for, and a box above them would push them down the page and read
@@ -880,6 +956,7 @@ function renderPractice(section = null) {
     ${head}
     ${section ? searchBox : ""}
     <div id="practice-list"></div>
+    ${sectionAddButton(section)}
     ${section ? "" : searchBox}
     ${
       section || settings.hasAzure
@@ -894,11 +971,6 @@ function renderPractice(section = null) {
     state.search = search.value;
     paint();
   });
-  view.querySelector("[data-home]")?.addEventListener("click", () => {
-    state.section = null;
-    state.search = "";
-    render();
-  });
   paint();
 
   function sectionSub() {
@@ -909,7 +981,7 @@ function renderPractice(section = null) {
   }
 
   function backLink() {
-    return `<button class="link" data-home="1">‹ Practice</button>`;
+    return homeLink();
   }
 
   function paint() {
@@ -3512,7 +3584,7 @@ function renderAdd() {
   let before = null;
 
   view.innerHTML = `
-    ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
+    ${pageHead("add", "Add a phrase", `Create a corrected ${language.englishName} card`, homeLink())}
     <p class="muted add-intro">Say where you'd be using it, then whatever you remember in ${esc(language.englishName)} or English. The assistant will correct it and build the rest of the card.</p>
 
     ${
@@ -3820,6 +3892,153 @@ function renderAdd() {
 /* What the assistant is told about the card it's being asked about. The drill
    and the phrase sheet ask about a saved phrase, so they share this; the Add
    tab reads its half-built card out of the form fields instead. */
+/* Add a word — the vocabulary composer, and the thing the app could not do
+   until now.
+
+   `/complete-card` writes a *phrase*: a situation, a usage note, a
+   pronunciation tip, replies. There was no way to author `sounds` and
+   `picture` at all — they arrived with the seed content, or you added a phrase
+   and then reached for the editor's "Invent a picture for me" on a card that
+   already existed. So the Words section was read-only in practice, which is a
+   strange thing for a section to be in an app whose whole point is that you
+   add what you personally keep losing.
+
+   It is deliberately not a second Add tab with a type picker at the top. You
+   press "Add a word" from inside Words, so the kind is already decided by the
+   time the form opens, and the form asks only what a word needs.
+
+   Almost all of it is parts that already existed: `composerField`,
+   `genderField`, `deckField`, and the editor's own picture call. It uses the
+   editor's field ids (`f-text`, `f-translation`, `f-sounds`, `f-picture`) so
+   `wirePictureAI` works here verbatim rather than being copied — which is why
+   that function now optional-chains the boxes a word hasn't got. */
+function renderAddWord() {
+  const language = LANGUAGES[settings.language];
+  const defaultDeck = myWordsDeck(settings.language);
+
+  view.innerHTML = `
+    ${pageHead("vocab", "Add a word", `One word, and something ridiculous to hang it on`, homeLink())}
+    <p class="muted add-intro">A word sticks when it is hooked to something absurd. Put the word and its English in,
+      and the assistant will find an English sound hiding in it and build a scene out of that sound and the meaning.</p>
+
+    ${
+      settings.hasAssistant
+        ? ""
+        : `<div class="notice add-setup">Without the card assistant you can still add the word and write your own
+             picture — the invent button needs the Worker address and passcode.
+             <button class="link" id="open-assistant-settings">Set it up</button></div>`
+    }
+
+    <div class="card add-card">
+      <div class="field">
+        <div class="field-head">
+          <label for="f-text">The word</label>
+        </div>
+        <textarea id="f-text" rows="1" lang="${settings.language}" autocapitalize="none"
+                  placeholder="With its article — el tenedor, not tenedor"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="f-translation">English</label>
+        </div>
+        <textarea id="f-translation" rows="1" lang="en-GB" autocapitalize="none"></textarea>
+      </div>
+
+      ${genderField(null, "f-gender")}
+
+      ${
+        settings.hasAssistant
+          ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">Invent a picture for me</button>`
+          : ""
+      }
+      <div id="f-picture-note" class="notice" hidden></div>
+
+      <label class="field"><span>Sounds like</span>
+        <textarea id="f-sounds" rows="2"></textarea></label>
+      <label class="field"><span>Picture</span>
+        <textarea id="f-picture" rows="3"></textarea></label>
+
+      ${deckField("word-deck", defaultDeck)}
+
+      <div class="btn-row">
+        <button class="btn" id="word-save">Save and add another</button>
+        <button class="btn btn-primary" id="word-practise">Save and practise now</button>
+      </div>
+      <div id="word-error" class="notice bad" hidden></div>
+    </div>`;
+
+  document.getElementById("open-assistant-settings")?.addEventListener("click", () => {
+    stopEverything();
+    state.tab = "settings";
+    render();
+  });
+
+  wireDeckField("word-deck");
+  wirePictureAI();
+
+  /* The gender select's first option reads the article off the word, so it has
+     to follow the box rather than being decided once at render — you have not
+     typed the word yet when this is drawn. */
+  const textField = document.getElementById("f-text");
+  const genderSelect = document.getElementById("f-gender");
+  textField.addEventListener("input", () => {
+    const derived = genderOf({ text: textField.value });
+    genderSelect.options[0].textContent = derived
+      ? `From the article — ${GENDERS[derived].label}`
+      : "From the article — it doesn't say";
+  });
+
+  document.getElementById("word-save").onclick = () => saveWord({ practise: false });
+  document.getElementById("word-practise").onclick = () => saveWord({ practise: true });
+
+  function saveWord({ practise }) {
+    const errorBox = document.getElementById("word-error");
+    const text = textField.value.trim();
+    const translation = document.getElementById("f-translation").value.trim();
+    const picture = document.getElementById("f-picture").value.trim();
+    const deck = document.getElementById("word-deck").value;
+
+    const fail = (message) => {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    };
+    errorBox.hidden = true;
+
+    /* Both sides, for the reason the editor gives: the scene has to hold the
+       sound of the word and its English meaning at once. A picture is optional
+       — you can file the word now and hang something on it later. */
+    if (!text || !translation) {
+      return fail(`The ${language.englishName} word and its English are both needed before saving.`);
+    }
+    const duplicate = library
+      .forLanguage(settings.language)
+      .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
+    if (duplicate) return fail("That word is already in the library.");
+
+    const saved = library.add({
+      text,
+      translation,
+      deck,
+      gender: genderSelect.value || null,
+      sounds: document.getElementById("f-sounds").value.trim() || null,
+      picture: picture || null,
+    });
+
+    if (practise) {
+      stopEverything();
+      state.tab = "practise";
+      state.addKind = null;
+      state.section = null;
+      toast(`Added to ${deck}.`);
+      startDeck(deck, saved.id);
+      return;
+    }
+    renderAddWord();
+    toast(`Added to ${deck}. Next one?`);
+  }
+}
+
 function chatContext(phrase) {
   return {
     languageCode: phrase.language,
@@ -4128,10 +4347,14 @@ function wirePictureAI() {
             text,
             translation,
             language: settings.language,
-            deck: document.getElementById("f-deck").value,
-            situation: document.getElementById("f-situation").value.trim(),
-            usageNote: document.getElementById("f-usage").value.trim(),
-            focusNote: document.getElementById("f-note").value.trim(),
+            /* Optional-chained because this is wired from two forms now: the
+               editor, which has all of these, and Add a word, which has only
+               the word and its English. A word has no situation to be used in
+               and no deck field of the editor's name. */
+            deck: document.getElementById("f-deck")?.value ?? "",
+            situation: document.getElementById("f-situation")?.value.trim() ?? "",
+            usageNote: document.getElementById("f-usage")?.value.trim() ?? "",
+            focusNote: document.getElementById("f-note")?.value.trim() ?? "",
             replies: [],
           }),
           history: [{ role: "user", text: scene.picture ? reimagineRequest(scene) : PICTURE_REQUEST }],
@@ -4489,7 +4712,7 @@ function renderSettings() {
   const language = LANGUAGES[settings.language];
 
   view.innerHTML = `
-    ${pageHead("settings", "Settings", `Voice, scoring and backup · ${language.name}`)}
+    ${pageHead("settings", "Settings", `Voice, scoring and backup · ${language.name}`, homeLink())}
 
     <div class="card">
       <label class="field"><span>Language</span>
