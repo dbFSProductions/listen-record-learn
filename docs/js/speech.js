@@ -49,12 +49,25 @@ export const speech = {
     if (!settings.hasAzure) return null;
 
     const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
-    const cached = await audioStore.getModel(key);
-    if (cached) return cached;
+    /* The cache read used to sit outside the try, so a database that would not
+       open — a blocked version upgrade, storage evicted mid-session, private
+       browsing — threw out of here, out of `loadPhrase`, and left the drill on
+       "Generating audio…" for good with no way to say what had happened. A
+       cache that cannot be read is a reason to synthesise, not to give up. */
+    try {
+      const cached = await audioStore.getModel(key);
+      if (cached) return cached;
+    } catch {
+      // Nothing to report yet: the call below is still the real attempt.
+    }
 
     try {
       const blob = await this.synthesise(phrase.text, phrase.language, settings);
-      await audioStore.putModel(key, blob);
+      // Failing to *keep* it is not failing to have it. A full or unavailable
+      // store costs the offline copy, never the audio you just asked for.
+      try {
+        await audioStore.putModel(key, blob);
+      } catch {}
       this.lastError = null;
       return blob;
     } catch (error) {
@@ -63,11 +76,20 @@ export const speech = {
     }
   },
 
-  /** Is this phrase already cached? Used to decide whether to show a spinner. */
+  /* Is this phrase already cached? Used to decide whether to show a spinner —
+     which is why an unreadable database answers "no" rather than throwing.
+     This is the first await in `loadPhrase`, before the drill has rendered
+     anything at all, so a rejection here took the whole card off the screen:
+     no phrase, no buttons, no way to tell what had happened. A question about
+     a spinner should never be able to do that. */
   async isCached(phrase, settings) {
     if (!settings.hasAzure) return false;
     const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
-    return Boolean(await audioStore.getModel(key));
+    try {
+      return Boolean(await audioStore.getModel(key));
+    } catch {
+      return false;
+    }
   },
 
   async synthesise(text, language, settings) {
@@ -131,15 +153,39 @@ export const browserSpeech = {
     return Boolean(window.speechSynthesis && this.voiceFor(language));
   },
 
-  speak(text, language, { rate = 1 } = {}) {
+  /* iOS will take an utterance, report a voice for the language, and then
+     simply never say it — after an <audio> element has played, with the ringer
+     switch off, or for no reason it will admit to. `speechSynthesis.speak`
+     returns nothing and throws nothing, so the app had no way to tell that
+     apart from working, and the button did nothing and said nothing.
+
+     `onSilent` closes that: if the utterance has neither started nor been
+     queued a beat later, nothing is going to come out and the caller can say
+     so. Deliberately a callback rather than a promise — speaking is fire and
+     forget, and only the failure is worth waiting around for. */
+  speak(text, language, { rate = 1, onSilent = null } = {}) {
     if (!window.speechSynthesis) return false;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const voice = this.voiceFor(language);
-    if (voice) utterance.voice = voice;
+    // Assigning a voice can throw if the list went stale under us, and a throw
+    // here would come out of the click handler as nothing at all. The default
+    // voice for the utterance's `lang` is a better outcome than silence.
+    try {
+      if (voice) utterance.voice = voice;
+    } catch {}
     utterance.lang = language;
     utterance.rate = rate;
+    let started = false;
+    utterance.onstart = () => (started = true);
+    utterance.onerror = () => onSilent?.();
     window.speechSynthesis.speak(utterance);
+    if (onSilent) {
+      setTimeout(() => {
+        const busy = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+        if (!started && !busy) onSilent();
+      }, 800);
+    }
     return true;
   },
 
