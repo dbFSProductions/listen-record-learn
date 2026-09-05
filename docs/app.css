@@ -502,9 +502,13 @@ button { font: inherit; }
 /* "Add a phrase" / "Add a word", under the list it would add to. Full width
    and quiet: adding is what you came to this section to do only sometimes, and
    the list above it is the reason you are here. */
+/* Under the search box and above the list, not at the foot of it — the same
+   place Deb-o-lingo and Mum-o-lingo put it. At the bottom of a section holding
+   two hundred phrases it was below a screen and a half of scrolling, which is
+   not where you are when you decide to add one. */
 .section-add {
   width: 100%;
-  margin-top: 14px;
+  margin: 0 0 14px;
 }
 
 /* ------------------------------------------------------------------ drill */
