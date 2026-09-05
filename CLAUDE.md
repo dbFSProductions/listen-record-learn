@@ -1466,6 +1466,23 @@ out of the diff. `.github/pull_request_template.md` has a slot for them (and
 for the "does this touch `worker/**`" question) so the PR half is structural
 rather than a thing to remember. Same rule in Deb-o-lingo.
 
+**The number is only good against `main` as it stands when you merge, and two
+branches will pick the same one.** Bumping is not the part that goes wrong —
+both sides of the collision that prompted this had bumped. What goes wrong is bumping
+relative to what your branch started from: #48 and #49 were cut from the same
+v59 and both wrote v60, so whichever landed second merged its bump as a no-op
+and shipped a changed `app.js` under a cache name the phone already had
+installed. Cache-first then served the old bundle, with the Settings panel
+agreeing that everything was fine — the one symptom the two numbers exist to
+make visible, hidden by the two numbers being right.
+
+So, before merging anything under `docs/`: read `main`'s two strings again and
+bump *past* them, and re-check after any rebase or merge of the base branch. If
+it has already happened, the fix is a bump-only commit on top (#50) rather than
+anything clever. A change that touches no shipped asset — this file, the PR
+template, `tools/` — needs no bump at all, and that is the other half of the
+rule: the number tracks what the phone downloads, not what the repo did.
+
 Bumping it is necessary and, on its own, was once not sufficient — see the
 mixed-bundle gotcha below. A local run from a fresh browser profile cannot
 show you any of this: the way to test a deploy is to serve the *old* tree,
