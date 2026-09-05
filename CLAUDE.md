@@ -288,6 +288,41 @@ the button carries which kind it makes.
   inside the section, so the kind is decided before the form opens and the form
   asks only what that kind needs.
 
+### The gear had to look like a gear
+
+Reported from the phone as *"I don't see how I get to settings"* — one release
+after the gear replaced the tab bar, and with the headless run passing 27/27 at
+the time, because every assertion asked whether `#open-settings` was **there**
+and none could ask whether it was **findable**.
+
+Two things were wrong and both are the same mistake:
+
+- **`SECTIONS.settings.mark` was a spoked circle, not a cog.** A small circle
+  with eight short strokes around it. Under the word *Settings* in the tab bar
+  it was fine; alone at 23px on a green banner it reads as a brightness or sun
+  icon. It is a toothed cog now.
+- **A bare glyph on a coloured banner reads as artwork.** `.head-gear` wears a
+  translucent white disc, so the control says "press me" before the icon has to
+  say what it does.
+
+**The lesson worth keeping is about the test, not the icon.** A DOM assertion
+proves a control exists; it cannot prove anyone will find it. Now that
+Playwright is installed, `page.screenshot()` and an actual look is the check for
+anything whose failure mode is *invisible rather than absent* — and it took one
+screenshot to see this.
+
+The Azure notice on the same page says "Add it in Settings", so it is a link
+now. It was the one sentence in the app naming a destination the reader could
+not reach.
+
+### Quick asks its question and then gets out of the way
+
+The ask box had a placeholder spelling out a whole example — *"I'm about to walk
+into a pharmacy — how do I ask if they have my medicine?"*. The label above it
+already asks the question, and a two-line example in a two-row box is a wall of
+grey text to read past every time you are in a hurry, which is the only time
+Quick is open. Removed; the field label does the work.
+
 ### Add a word, and the thing the app could not do
 
 `/complete-card` writes a *phrase*: a situation, a usage note, a tip, replies.
