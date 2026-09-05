@@ -316,9 +316,15 @@ export function aspectOf(phrase) {
    `l'escala` are the two words in the Paraules decks where a learner genuinely
    cannot recover the gender from what is printed — which is to say, the two
    where the cue is worth most. */
+/* `article` is what the learner actually reaches for. "Masculine" is the
+   grammar word for it, and useful in the picture cue, but when you are filing a
+   word the question in your head is "el or la?" — so that is what the field
+   asks, with the colour it paints beside it. Catalan and Spanish share both
+   articles; Italian's masculine changes shape with the sound after it, which is
+   why `ARTICLE_GENDER` below knows about il/lo/gli and this does not try to. */
 export const GENDERS = {
-  m: { label: "masculine", colour: "blue" },
-  f: { label: "feminine", colour: "pink" },
+  m: { label: "masculine", colour: "blue", article: "el" },
+  f: { label: "feminine", colour: "pink", article: "la" },
 };
 
 /* Definite and indefinite articles across the three languages in LANGUAGES.
