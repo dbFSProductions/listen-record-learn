@@ -14,20 +14,38 @@ up an Azure key; it isn't repeated here.
 
 | | | |
 |---|---|---|
-| `Xerra/` | Native SwiftUI, iOS | **Cannot currently be deployed.** See below. |
+| `Xerra/` | Native SwiftUI, iOS | Reference implementation. Buildable again — see below. |
 | `docs/` | Vanilla-JS PWA | **The one that actually runs.** Work here by default. |
 
-The native app came first and is the reference implementation. But the
-development Mac is a 2015 model, capped at macOS Monterey → Xcode 14.2 → iOS 16
-deployment target. The phone runs iOS 17+. Xcode cannot sign and install onto a
-device newer than it supports, so the Swift app builds but can never reach the
-hardware it was written for.
+The native app came first and is the reference implementation. For most of this
+project's life it could not be deployed: the development Mac was a 2015 model
+capped at macOS Monterey → Xcode 14.2 → iOS 16, the phone ran iOS 17+, and
+Xcode cannot sign and install onto a device newer than it supports. The whole
+PWA exists to route around that.
 
-The web app exists to route around exactly that, and it is what the user
-actually has on their phone. **Do not "fix" the Swift app's deployment target
-to make it build for the device — that's the thing that's impossible, not an
-oversight.** The Swift source stays in the repo because it is the source of
-truth for content (below) and the reference for the audio algorithms.
+**That constraint is gone.** The machine is now an M1 Mac mini on macOS 26 with
+Xcode 26.6 and the iOS 26.5 SDK (verified 2026-09-05), and the project's
+deployment target is already iOS 17. Nothing about the old ceiling applies, and
+the earlier instruction here — *don't "fix" the deployment target, it's
+impossible* — is withdrawn.
+
+What that does **not** mean is that the Swift app works. It has not been built
+in a long time and has had no attention while every feature below was written
+into the web app, so assume it is behind on content plumbing and missing
+everything from level two onwards. Two known gates as of the last attempt:
+
+- **The iOS platform is not downloaded.** `xcodebuild` reports *"iOS 26.5 is not
+  installed"*; `xcodebuild -downloadPlatform iOS` fetches it, and it is several
+  gigabytes. `xcodebuild -runFirstLaunch` was needed first and does **not**
+  require sudo on this machine.
+- **Free provisioning still forces the weekly reinstall.** That part of the
+  story is unchanged, and it is why storage is plain JSON — see *Storage*.
+
+So the web app remains the one that ships, and the default place to work. The
+difference is that the native app is now a *choice* rather than an
+impossibility, and "make it an actual iOS app" is a live option rather than a
+dead end. The Swift source is still the source of truth for content (below) and
+the reference for the audio algorithms either way.
 
 ---
 
@@ -1521,11 +1539,12 @@ the stressed syllable rather than talking about the grammar. That is
 ## Running it
 
 ```bash
-cd docs && python3 -m http.server 8765
-# then open http://127.0.0.1:8765
+cd docs && python3 -m http.server 8791
+# then open http://127.0.0.1:8791
 ```
 
-Must be `127.0.0.1` or `localhost` — microphone access requires a secure
+Port 8791 rather than 8765, which is often taken by another project on this
+machine. Must be `127.0.0.1` or `localhost` — microphone access requires a secure
 context, and those are treated as secure. A `file://` open will not work.
 
 ### On the actual phone
@@ -1977,10 +1996,28 @@ There's no test runner, but the app can be driven headlessly, which beats
 clicking through it:
 
 ```bash
-cd docs && python3 -m http.server 8765 --bind 127.0.0.1 &
-# then Playwright against http://127.0.0.1:8765 — Chromium is usually already
-# present at $PLAYWRIGHT_BROWSERS_PATH; do not run `playwright install`.
+cd docs && python3 -m http.server 8791 --bind 127.0.0.1 &
+# then Playwright against http://127.0.0.1:8791
 ```
+
+**Node and Playwright are installed on this machine** (Node via Homebrew,
+Chromium via `npx playwright install chromium`, 2026-09-05). Two things that
+cost time before they were written down:
+
+- **Playwright lives outside this repo, deliberately.** There is no
+  `package.json` here and there is not going to be one — the lack of a build
+  step is why this deploys to a phone at all. So the harness is installed in a
+  scratch directory of its own and the test scripts are run from there against
+  the served `docs/`. A `node_modules` inside the repo is the thing to avoid,
+  not Playwright itself.
+- **Pick a port and check it is free.** 8765 is often already serving another
+  project on this machine; a smoke test that "passed" against someone else's
+  page reported a title of *A/B listening room* and zero tiles. If the assertions
+  look absurd, check what is actually on the port before debugging the app.
+- The earlier note here said Chromium was already present at
+  `$PLAYWRIGHT_BROWSERS_PATH` and that `playwright install` should not be run.
+  That was untrue of this machine — the variable was empty and there was no
+  Playwright at all.
 
 Worth asserting on: no console errors on boot, the deck list matches
 `gen-content.py`'s reported counts, a deck opens and `.drill-text` is populated,
