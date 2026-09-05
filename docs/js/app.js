@@ -3,6 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
+  GENDERS, genderOf,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -360,8 +361,62 @@ function pictureBlock(phrase, style = "") {
       <strong>Picture it</strong>
       ${sounds ? `<span class="picture-sounds">Sounds like &ldquo;${esc(sounds)}&rdquo;</span>` : ""}
       <span>${esc(phrase.picture)}</span>
+      ${genderCue(phrase)}
       <div class="picture-art" data-art="${esc(phrase.id)}"></div>
     </div>`;
+}
+
+/* The gender cue, in the words as well as in the drawing.
+
+   It is an instruction to the reader rather than a label on the card — "paint
+   the plane blue" is something you do to the scene you are already imagining,
+   where "masculine · blue" is a second thing to memorise beside it. The colour
+   is carried by a dot rather than by coloured lettering: neither --blue nor a
+   pink of the same weight clears 4.5:1 as small text, and the swatch is the
+   part you read at a glance anyway.
+
+   The card's own text is named because that is the half a `l'` word cannot tell
+   you, and it is the half worth printing. */
+function genderCue(phrase) {
+  const gender = genderOf(phrase);
+  if (!gender) return "";
+  const { label, colour } = GENDERS[gender];
+  const thing = phrase.translation?.trim();
+  return `<span class="picture-gender">
+    <i class="gender-dot gender-${gender}"></i>
+    Paint ${thing ? `<b>${esc(thing)}</b>` : "it"} ${colour} in the scene —
+    <b>${esc(phrase.text)}</b> is ${label}.</span>`;
+}
+
+/* The one place a gender is stated rather than read.
+
+   Almost every card gets its colour from its own article, so the default option
+   says what the article gave and the field is there to be ignored. It earns its
+   place on the words the article can't answer — `l'avió`, `l'hora`, `l'escala`
+   — where without it the cue is simply absent from the card that needs it most.
+
+   Deliberately a plain field on the phrase like `sounds` and `picture`, not a
+   new kind of card: it exports, imports and survives the weekly reinstall with
+   everything else, for the reason About me's cards carry no flag. */
+function genderField(phrase) {
+  const chosen = phrase?.gender ?? "";
+  const derived = genderOf({ text: phrase?.text ?? "" });
+  const auto = derived
+    ? `From the article — ${GENDERS[derived].label}`
+    : "From the article — it doesn't say";
+  return `
+    <label class="field"><span>Gender (optional)</span>
+      <select id="f-gender">
+        <option value=""${chosen ? "" : " selected"}>${auto}</option>
+        ${Object.entries(GENDERS)
+          .map(
+            ([key, { label, colour }]) =>
+              `<option value="${key}"${chosen === key ? " selected" : ""}>${
+                label[0].toUpperCase() + label.slice(1)
+              } — ${colour}</option>`
+          )
+          .join("")}
+      </select></label>`;
 }
 
 /* The drawing of the scene, if there is one — and the offer to go and have one
@@ -379,8 +434,18 @@ function pictureBlock(phrase, style = "") {
    it is kept, so a word is drawn once and is available offline afterwards like
    the model audio is.
 
-   `controls` is the phrase sheet — the one place that can throw a drawing away
-   and ask for another. The drill shows what there is and keeps out of the way.
+   **Draw it again** is offered wherever a drawing is, the drill included: what
+   comes back is one roll of a stochastic model, and "that isn't it" is the
+   commonest thing to think on seeing it. It is one tap, it destroys nothing you
+   would miss, and the moment you want it is the moment you are looking at the
+   picture — which is mostly mid-drill, not on the phrase sheet. `controls` is
+   the sheet's extra: **Remove the drawing**, which is tidying up rather than
+   trying again, and belongs where you look a card up.
+
+   A failed redraw puts the old drawing back rather than the offer. Losing the
+   picture you had because the network dropped would read as the redraw having
+   deleted it — and the blob is still in the store, so the offer would be a lie
+   as well as a fright.
 
    Blob URLs are held in a module-level map rather than made per render: the
    drill re-renders on every reveal and every score, and a fresh object URL each
@@ -397,18 +462,20 @@ async function wirePictureArt(root, phrase, { controls = false } = {}) {
   const slot = root?.querySelector?.(`[data-art="${CSS.escape(phrase.id)}"]`);
   if (!slot) return;
 
-  const paint = (blob) => {
+  const paint = (blob, error = "") => {
     if (!slot.isConnected) return;
     if (!pictureURLs.has(phrase.id)) pictureURLs.set(phrase.id, URL.createObjectURL(blob));
-    slot.innerHTML = `<img class="picture-image" alt="${esc(phrase.picture)}" src="${pictureURLs.get(phrase.id)}">${
-      controls
-        ? `<div class="picture-art-row">
-             <button class="link" data-redraw>Draw it again</button>
-             <button class="link btn-danger" data-undraw>Remove the drawing</button>
-           </div>`
-        : ""
-    }`;
-    slot.querySelector("[data-redraw]")?.addEventListener("click", () => draw());
+    slot.innerHTML = `<img class="picture-image" alt="${esc(phrase.picture)}" src="${pictureURLs.get(phrase.id)}">
+      ${
+        settings.hasAssistant || controls
+          ? `<div class="picture-art-row">
+               ${settings.hasAssistant ? `<button class="link" data-redraw>Draw it again</button>` : ""}
+               ${controls ? `<button class="link btn-danger" data-undraw>Remove the drawing</button>` : ""}
+             </div>`
+          : ""
+      }
+      ${error ? `<div class="notice bad picture-art-error">${esc(error)}</div>` : ""}`;
+    slot.querySelector("[data-redraw]")?.addEventListener("click", () => draw(blob));
     slot.querySelector("[data-undraw]")?.addEventListener("click", async () => {
       await audioStore.deletePicture(phrase.id);
       releasePicture(phrase.id);
@@ -425,7 +492,7 @@ async function wirePictureArt(root, phrase, { controls = false } = {}) {
     slot.querySelector(".picture-draw")?.addEventListener("click", () => draw());
   };
 
-  async function draw() {
+  async function draw(previous = null) {
     slot.innerHTML = `<p class="small muted picture-drawing"><span class="spinner"></span> Drawing it… this one takes a while.</p>`;
     try {
       const { image } = await cardAssistant.picture(
@@ -437,6 +504,10 @@ async function wirePictureArt(root, phrase, { controls = false } = {}) {
             translation: phrase.translation,
             sounds: phrase.sounds ?? "",
             picture: phrase.picture ?? "",
+            /* Blue or pink on the object the word names. Optional at the
+               Worker, so a card with no gender to draw sends "" and gets the
+               prompt it always got. */
+            gender: genderOf(phrase) ?? "",
           },
         },
         settings
@@ -451,6 +522,8 @@ async function wirePictureArt(root, phrase, { controls = false } = {}) {
       paint(blob);
     } catch (error) {
       if (!slot.isConnected) return;
+      // A redraw that failed still has the drawing it was replacing.
+      if (previous) return paint(previous, error.message);
       offer();
       const box = slot.querySelector(".picture-art-error");
       if (box) {
@@ -3406,6 +3479,7 @@ function editPhrase(phrase, onSaved = null) {
        <textarea id="f-picture" placeholder="One daft scene with the sound AND the meaning in it">${esc(
          phrase?.picture ?? ""
        )}</textarea></label>
+     ${genderField(phrase)}
      ${
        settings.hasAssistant
          ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">Invent a picture for me</button>`
@@ -3449,6 +3523,7 @@ function editPhrase(phrase, onSaved = null) {
       focusNote: document.getElementById("f-note").value.trim() || null,
       sounds: document.getElementById("f-sounds").value.trim() || null,
       picture: document.getElementById("f-picture").value.trim() || null,
+      gender: document.getElementById("f-gender").value || null,
       // A rebuild replaces them; an ordinary edit leaves whatever was there.
       replies: rebuild.replies ?? phrase?.replies ?? [],
     };

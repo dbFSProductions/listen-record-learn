@@ -75,7 +75,9 @@ Two things to know before "fixing" it:
 
 - **`--teal` is the one colour the two forks don't share.** It is quiet mode's,
   and quiet mode is Xerra-only; everything else in the palette is meant to stay
-  in step.
+  in step. `--pink` is also only here so far, but that one is a porting job not
+  yet done rather than a divergence — it is the feminine half of the keyword
+  pictures' gender cue, and Spanish nouns have genders too.
 - **White on these fills does not clear 4.5:1**, and that is the accepted
   trade-off of the look, not an oversight. The `-ink` variants are the darkened
   versions, and they are what text on the page background uses.
@@ -535,6 +537,51 @@ teaches single words.
   the pedagogy rather than the bill: imagining the scene yourself is the
   technique working, and a picture handed over unasked removes the effort that
   makes it stick.
+- **Blue for masculine, pink for feminine, painted on the object the word
+  names.** Every mnemonic system that teaches gendered nouns bakes a fixed cue
+  into the scene — Linkword puts a boxer in every masculine one and perfume in
+  every feminine one, Fluent Forever puts the two genders in two different
+  rooms — and colour is the popular one. It is also the weakest of the three as
+  *prose*, because a colour is not an event; what rescues it here is that these
+  scenes get **drawn**, and a blue knife is legible in a thumbnail without
+  reading a word. One object is coloured, never the whole scene: a wash over
+  everything competes with the picture it is supposed to be marking.
+- **The gender is read off the card's own article**, so no seed content had to
+  learn about it and a noun typed into the Add tab gets the cue for free.
+  `genderOf` in store.js is the one reader and `ARTICLE_GENDER` covers all
+  three languages' articles. It refuses to guess at anything that isn't a noun
+  phrase — *El compte, si us plau* also starts with *el* — so a sentence, a
+  verb or anything punctuated is left alone rather than mislabelled.
+- **`phrase.gender` is the override, and it exists for `l'`.** Both Catalan
+  articles elide before a vowel, so `l'avió` and `l'escala` are the two words in
+  these decks a learner genuinely cannot read the gender off — which makes them
+  the two where the cue is worth most and the only two the Swift carries a
+  `gender:` on. It is an ordinary field on the phrase like `sounds` and
+  `picture`, so it exports, imports and reaches the editor for nothing.
+- **The two cards were already on the phone**, with no gender and no way to get
+  one: they are not newcomers, so neither `installNewSeedContent` nor
+  `SEED_REPLACEMENTS` would ever have reached them. The backfill pass beside
+  the retire pass is what does, and it only ever fills a blank — a gender you
+  set yourself in the editor is yours.
+- **The colour is carried by a swatch dot, not by the lettering.** Neither
+  `--blue` nor a pink of the same weight clears 4.5:1 as small text, and a cue
+  you have to decode from the shade of the type is a worse cue than one that
+  says *blue* out loud. The line reads as an instruction — *Paint the knife
+  blue in the scene* — because that is a thing you do to the scene you are
+  already imagining, where "masculine · blue" would be a second thing to
+  memorise beside it. `--pink` is new; unlike `--teal` it is **meant** to reach
+  Deb-o-lingo, whose Palabras cards have exactly the same problem.
+- **The Worker learned one optional paragraph** and is byte-identical without
+  it, which is what keeps the other two apps unaffected until they send a
+  `gender`. Same additive shape as `card.replies` on `/chat`.
+- **Draw it again is offered wherever a drawing is, the drill included.** What
+  comes back is one roll of a stochastic model and *that isn't it* is the
+  commonest thought on seeing it, so the redo belongs where you are looking at
+  the picture — which is mid-drill, not on the phrase sheet. The sheet keeps
+  **Remove the drawing**: throwing one away is tidying up, not trying again.
+  A failed redraw repaints the drawing you had rather than the offer — the blob
+  is still in the store, so showing *Draw this for me* would be a fright and a
+  lie at once.
 - **Third IndexedDB store, so `DB_VERSION` went to 2.** The upgrade handler
   creates whatever is missing, so an existing install keeps its recordings and
   its cached model audio and gains the box. Worth knowing when testing: with no
@@ -1741,7 +1788,21 @@ a return to the card shows it again with no second call, the blob in the
 empties the store and puts the offer back. Searching for `clown` finds *la
 clau* by its bridge alone; the editor carries `#f-sounds` and `#f-picture`, an
 edit to either is saved on the phrase, and `#f-picture-ai` parses two labelled
-lines into the two boxes. Two more that are easy to lose: an install still on
+lines into the two boxes. For the gender cue: `el ganivet` reads *Paint the
+knife blue* with a `.gender-dot.gender-m` and `la forquilla` reads *pink* with
+`.gender-f`; `l'avió` still reads masculine, which is the assertion the whole
+`gender` field exists for; `genderOf` returns null for *El compte, si us plau*,
+for `tenir` and for a bare `l'escala`, and `m` for `els diners`; the drawn
+request carries `card.gender`; `#f-gender` opens on *From the article —
+feminine* and picking Masculine repaints the line and writes `"m"` to the
+phrase. An install predating the field backfills the two `l'` words on load,
+leaves a card the article answers alone, leaves a gender you set yourself
+alone, and is a no-op the second time. On the Worker,
+`buildPicturePrompt` with no gender is byte-identical to what it was and an
+unknown gender is dropped rather than refused. For the redraw: `[data-redraw]`
+is in the drill as well as the sheet and `[data-undraw]` only in the sheet, a
+503 on a redraw leaves `.picture-image` on screen with the error beside it and
+the button still offered, and the next good one clears it. Two more that are easy to lose: an install still on
 `DB_VERSION` 1 upgrades in place and keeps its recordings — drill a card *with
 a picture* to trigger it, since with no Azure key nothing else opens the
 database — and deleting a card takes its drawing out of the store with it.
@@ -1884,6 +1945,12 @@ the parser losing a block to a formatting change.
   phrase, `pictureBlock` / `wirePictureArt` / `drillPicture` in app.js, a third
   IndexedDB store for the drawings. Ported from Deb-o-lingo's Palabras with its
   own scenes, and it needed no Worker change.
+- **Gender is blue or pink on the thing the word names**, in the scene and in
+  the drawing. Read off the card's own article by `genderOf` in store.js, with
+  `phrase.gender` overriding it for the words whose article elides to `l'`.
+  `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
+  in the palette. **Draw it again** now sits under every drawing rather than
+  only on the phrase sheet.
 - 291 phrases: 243 Catalan across twenty-three decks, and 48 Spanish across six.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
@@ -1902,7 +1969,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v58 / `xerra-v58` — `js/version.js` first, `sw.js` second, as ever.
+- v59 / `xerra-v59` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

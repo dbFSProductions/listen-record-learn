@@ -19,6 +19,10 @@ LANGUAGES = {"catalan": "ca-ES", "spanish": "es-ES", "italian": "it-IT"}
 # Keep in step with `Aspect` in Xerra/Models/Phrase.swift and `ASPECTS` in
 # docs/js/store.js — these strings are the key the drill looks the shape up by.
 ASPECTS = {"dot", "line", "both", "pastPerfect", "presentPerfect"}
+# Blue or pink on the object the word names. Written through as the one-letter
+# key `genderOf` in docs/js/store.js reads, and written at all only on the cards
+# whose article elides — everything else is worked out from the article.
+GENDERS = {"masculine": "m", "feminine": "f"}
 
 def field(block, name):
     m = re.search(name + r':\s*"((?:[^"\\]|\\.)*)"', block, re.S)
@@ -68,6 +72,11 @@ def main():
                 phrase["sounds"] = sounds
         elif sounds:
             sys.exit(f"sounds with no picture on {text!r}")
+        gender = enum_field(block, "gender")
+        if gender:
+            if gender not in GENDERS:
+                sys.exit(f"unknown gender .{gender} on {text!r}")
+            phrase["gender"] = GENDERS[gender]
         # Dot / line / both, and why this sentence is that shape. Only the
         # past-tense decks carry them; everything else omits the keys entirely.
         if aspect:

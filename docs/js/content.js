@@ -2030,7 +2030,8 @@ export const SEED_PHRASES = [
     "deck": "Paraules · Fora de casa",
     "focusNote": "ə-vi-O, stress right at the end. The v is a b and the ó is closed.",
     "picture": "The plane is one enormous bee — 'a bee, oh!' — and you board it through the mouth.",
-    "sounds": "a BEE, OH!"
+    "sounds": "a BEE, OH!",
+    "gender": "m"
   },
   {
     "text": "la maleta",
@@ -2046,7 +2047,8 @@ export const SEED_PHRASES = [
     "deck": "Paraules · Fora de casa",
     "focusNote": "əs-KA-lə. The initial e is a schwa, so it starts on a breath, and the final a is a schwa too.",
     "picture": "The stairs are paved with scallops, and each one snaps shut on your ankle as you climb.",
-    "sounds": "us-KA-la (a scallop)"
+    "sounds": "us-KA-la (a scallop)",
+    "gender": "f"
   },
   {
     "text": "el llit",
