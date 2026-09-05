@@ -250,7 +250,10 @@ p { margin: 0 0 10px; }
   margin-bottom: 12px;
 }
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.crest { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: block; }
+/* The crest outranks the cog. At 34px beside a 44px gear disc the gear was
+   the biggest thing on the header and read as the point of it; the logo is
+   46px now and the gear disc 34, so the eye lands where the brand is. */
+.crest { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; display: block; }
 .wordmark {
   font-size: 1.5rem;
   font-weight: 900;
@@ -259,7 +262,8 @@ p { margin: 0 0 10px; }
 }
 .section-intro { margin: -4px 0 14px; }
 /* The gear on the page ground, where a translucent white disc would vanish. */
-.home-head .head-gear { margin: 0; background: var(--line); color: var(--text-2); }
+.home-head .head-gear { margin: 0; width: 34px; height: 34px; background: var(--line); color: var(--text-2); }
+.home-head .head-gear svg { width: 19px; height: 19px; }
 
 /* Quick's answer. The phrase is the biggest thing on the page because it is
    the only thing you came for, and Listen is full width under it — this is a
@@ -817,6 +821,155 @@ button { font: inherit; }
 .typed-fixes { margin-top: 0; }
 .typed-fix { white-space: nowrap; }
 .typed-fix s { opacity: 0.7; margin-right: 2px; }
+
+/* -------------------------------------------------------------------- path */
+
+/* The Practice path, ported from the forks: a banner per unit, nodes winding
+   left–centre–right, a tick in gold once a lesson is done and a bobbing START
+   over the first one that isn't. The rules are the sister apps' rules to the
+   pixel, so the three journeys look like one. */
+.unit { margin-bottom: 6px; }
+/* The banner is the fold: a button wearing the unit's colour, with the
+   triangle the deck rows use. Shut, it stacks tight so a long course reads as
+   a list of units; open, it stands off its nodes as the forks' banner does. */
+.unit-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--unit);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  color: #fff;
+  box-shadow: 0 4px 0 var(--unit-dark);
+  margin-bottom: 22px;
+}
+.unit-banner[aria-expanded="false"] { margin-bottom: 12px; }
+.unit-banner:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--unit-dark); }
+.unit-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.unit-banner .tri { flex: none; font-size: 0.8rem; opacity: 0.9; }
+.unit-name { font-weight: 900; font-size: 1.1rem; letter-spacing: 0.01em; }
+.unit-sub { font-size: 0.84rem; opacity: 0.9; font-weight: 700; }
+.path {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 22px;
+}
+.node-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(calc(var(--offset) * 52px));
+  position: relative;
+}
+.node {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--node);
+  box-shadow: 0 7px 0 var(--node-dark);
+}
+.node:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--node-dark); }
+.node svg { width: 30px; height: 30px; fill: currentColor; }
+.node.current { animation: node-pulse 1.8s ease-in-out infinite; }
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 7px 0 var(--node-dark), 0 0 0 0 color-mix(in srgb, var(--node) 45%, transparent); }
+  50% { box-shadow: 0 7px 0 var(--node-dark), 0 0 0 12px transparent; }
+}
+.node-callout {
+  position: absolute;
+  top: -34px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--green);
+  animation: bob 1.2s ease-in-out infinite;
+  z-index: 2;
+  white-space: nowrap;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.node-title {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-align: center;
+  max-width: 130px;
+}
+
+/* ------------------------------------------------------------- completion */
+
+.complete {
+  text-align: center;
+  padding-top: 8vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.crest-big { width: 120px; height: 120px; animation: crest-hop 0.9s ease-in-out infinite; }
+@keyframes crest-hop {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+.complete-title {
+  color: var(--gold-dark);
+  font-size: 1.7rem;
+  font-weight: 900;
+  margin: 14px 0 20px;
+}
+.stat-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+.stat {
+  border: 2px solid var(--stat);
+  border-radius: 14px;
+  overflow: hidden;
+  min-width: 92px;
+}
+.stat-label {
+  background: var(--stat);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+}
+.stat-value {
+  padding: 8px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.confetto {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation: confetti-fall linear forwards;
+}
+@keyframes confetti-fall {
+  to { transform: translateY(110vh) rotate(720deg); opacity: 0.7; }
+}
 
 /* -------------------------------------------------------------- page heads */
 
