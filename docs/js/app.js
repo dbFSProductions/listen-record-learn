@@ -785,9 +785,11 @@ function gearButton() {
 
 /* Back to the tiles, worn by every page below them. The label names the
    destination rather than saying "Back", because the destination is a place
-   with a name and "back" depends on how you got here. */
+   with a name and "back" depends on how you got here. It read "‹ Practice"
+   while the tiles page was headed Practice; now that Practice is the top-left
+   tile the destination is Home, as it is in the sister apps. */
 function homeLink() {
-  return `<button class="link" data-go-home="1">‹ Practice</button>`;
+  return `<button class="link" data-go-home="1">‹ Home</button>`;
 }
 
 /* One listener for every way home, delegated, so a page only has to print the
@@ -829,6 +831,8 @@ view.addEventListener("click", (event) => {
 const ADD_BY_SECTION = {
   decks: { kind: "phrase", label: "Add a phrase" },
   vocab: { kind: "word", label: "Add a word" },
+  // The whole library offers the general kind, as the forks' Phrases page does.
+  phrases: { kind: "phrase", label: "Add a phrase" },
 };
 
 function sectionAddButton(section) {
@@ -885,12 +889,17 @@ const SECTIONS = {
   about: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>`,
   },
+  phrases: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>`,
+  },
 };
 
 /* What each tile is called, what it says under its name, and which colour it
-   wears. The order is the order they sit in, and it is deliberate: the two you
-   reach for daily are the top row, and Quick is bottom-right where a right
-   thumb lands.
+   wears. The order is the order they sit in, and it is the sister apps' order
+   exactly — Practice, Words, About me, Quick, The Past, All Phrases over there
+   — so a thumb that knows one home screen knows all three. The two you reach
+   for daily are the top row, About me and Quick the second, and the grammar
+   drill sits bottom-left beside the whole library.
 
    The colours are the page-accent ones rather than the drill's — inside the
    drill each strong colour is already saying something (green is the model,
@@ -899,30 +908,24 @@ const SECTIONS = {
    the keyword picture's colour, and Quick takes Add's orange because what it
    does is make a card.
 
-   About me is the fifth. It was the top row inside Decks — the one row there
-   that opened the interview rather than drilling — and a deck the app writes
-   about you is not one of the phrases you practise any more than a past-tense
-   unit is, so it has a square of its own. Green, because its page has always
-   worn Practice's green and because green is the one strong colour the other
-   four don't use. It is the only tile that opens a page rather than a list,
-   which is why it carries `data-about` and not `data-section`: the tile is the
-   old row, moved.
-
-   The sixth square is blank. Two columns want an even count, and the sister
-   apps fill theirs with a Phrases tile this app has no need of — the search box
-   is right under the grid. Something will earn the slot; until then it is
-   drawn as an outline rather than left as a hole, so the grid still reads as a
-   grid. */
+   Practice is the everyday decks — the tile was called Decks until the layout
+   was brought into line with the forks, where the same slot is the course
+   path. Its section key is still `decks`, because that is what `sectionOf`
+   answers for everything unclaimed and nothing downstream cares what the tile
+   says. About me is the one tile that opens a page rather than a list, which
+   is why it carries `data-about` and not `data-section`. All Phrases is the
+   whole library as one list — every deck of every section, the way the
+   Practice page looked before the tiles — with the search box on top. */
 const TILES = [
-  { key: "decks", title: "Decks", blurb: "Phrases you practise", colour: "blue" },
-  { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
+  { key: "decks", title: "Practice", blurb: "The everyday decks", colour: "blue" },
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
-  { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
   { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
-  null,
+  { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
+  { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
+  { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
 
-const TILE_BY_KEY = Object.fromEntries(TILES.filter(Boolean).map((tile) => [tile.key, tile]));
+const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
 
 function pageHead(section, title, subtitle, trailing = "") {
   return `
@@ -980,19 +983,35 @@ function renderPractice(section = null) {
      is the one exception and reads `phrases`, because a phrase you searched for
      must never be hiding behind a tile any more than it may hide inside a fold.
      Same invariant, one level up. */
-  const mine = section ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
+  /* All Phrases is the one section that is every section: the whole library
+     as one list, the way this page looked before the tiles. So `all` switches
+     every section filter off, and the big-family fold comes back on, since
+     this is once again a page listing every family. */
+  const all = section === "phrases";
+  const inSection = (deck) => !section || all || sectionOf(deck) === section;
+  const foldBig = !section || all;
+  const mine = section && !all ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
   const captures = mine.filter((p) => !p.text.trim());
-  const decks = library.decks(settings.language).filter((d) => !section || sectionOf(d) === section);
-  const families = library
-    .deckFamilies(settings.language)
-    .filter((f) => !section || f.decks.some((d) => sectionOf(d) === section));
-  const drillable = library.drillable(settings.language).filter((p) => !section || sectionOf(p.deck) === section);
+  const decks = library.decks(settings.language).filter(inSection);
+  const families = library.deckFamilies(settings.language).filter((f) => f.decks.some(inSection));
+  const drillable = library.drillable(settings.language).filter((p) => inSection(p.deck));
 
+  /* The home page leads with the brand rather than a Practice banner, as the
+     sister apps do: the colla's crest and the wordmark, the gear beside them,
+     and the language and its count on a quiet line underneath — the one thing
+     this app has to say at the top that the single-language forks don't. */
   const head = section
     ? pageHead(section, TILE_BY_KEY[section].title, sectionSub(), backLink())
-    : pageHead("practise", "Practice", `${LANGUAGES[settings.language].name} · ${
-        library.drillable(settings.language).length
-      } phrases ready`, gearButton());
+    : `<header class="home-head">
+         <div class="brand">
+           <img class="crest" src="icons/crest.png" alt="" width="34" height="34">
+           <span class="wordmark">fin·o·lingo</span>
+         </div>
+         ${gearButton()}
+       </header>
+       <p class="muted section-intro">${esc(language.name)} · ${
+         library.drillable(settings.language).length
+       } phrases ready</p>`;
 
   /* On the tiles the search box goes *under* them: the four squares are what
      the tab is for, and a box above them would push them down the page and read
@@ -1055,12 +1074,13 @@ function renderPractice(section = null) {
     return `
       <div class="tiles">
         ${TILES.map((tile) => {
-          if (!tile) return `<div class="tile tile-blank" aria-hidden="true"></div>`;
           const count =
             tile.key === "quick"
               ? library.inDeck(QUICK_DECK, settings.language).length
               : tile.key === "about"
               ? library.inDeck(ABOUT_DECK, settings.language).length
+              : tile.key === "phrases"
+              ? library.drillable(settings.language).length
               : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
           /* About me's tile says what the row used to: the interview is the
              way in until there are cards, and the count once there are. With
@@ -1167,7 +1187,9 @@ function renderPractice(section = null) {
      is its own section (`SECTION_FAMILIES` in store.js), so `families` has
      already left it out by the time this runs — no skip needed. */
   function deckList() {
-    const home = !section || section === "decks";
+    // Favourites and Shuffle all: the whole library's rows, so they belong on
+    // All Phrases as much as on Practice.
+    const home = !section || section === "decks" || all;
     const favourites = starred();
     const rows = [
       ...(home && favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
@@ -1176,7 +1198,7 @@ function renderPractice(section = null) {
           const deck = family.decks[0];
           return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
         }
-        const open = familyOpen(family.name, family.decks.length, !section);
+        const open = familyOpen(family.name, family.decks.length, foldBig);
         return [
           familyRow(family),
           ...(open
@@ -1274,7 +1296,7 @@ function renderPractice(section = null) {
       button.addEventListener("click", () => {
         const name = button.dataset.fold;
         const family = families.find((f) => f.name === name);
-        setFamilyOpen(name, !familyOpen(name, family.decks.length, !section));
+        setFamilyOpen(name, !familyOpen(name, family.decks.length, foldBig));
         paint();
       })
     );
@@ -1371,7 +1393,7 @@ function renderQuick() {
       "quick",
       "Quick",
       "One phrase, right now",
-      `<button class="link" id="quick-home">‹ Practice</button>`
+      `<button class="link" id="quick-home">‹ Home</button>`
     )}
     ${
       settings.hasAssistant
@@ -1673,7 +1695,7 @@ function renderAbout() {
 
   view.innerHTML = `
     <div class="topbar">
-      <button class="link" id="about-back">‹ Practice</button>
+      <button class="link" id="about-back">‹ Home</button>
     </div>
 
     ${pageHead(
@@ -2256,7 +2278,7 @@ function renderDrill() {
 
   const topbar = `
     <div class="topbar">
-      <button class="link" id="back">‹ Practice</button>
+      <button class="link" id="back">‹ ${esc(state.section ? TILE_BY_KEY[state.section]?.title ?? "Home" : "Home")}</button>
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
         ${starButton(phrase, "star drill-star")}

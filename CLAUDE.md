@@ -1,6 +1,9 @@
 # Xerra — working notes
 
-A Catalan pronunciation trainer. You hear a native model, record yourself, and
+A Catalan pronunciation trainer. The repo, the `<title>` and the manifest still
+say Xerra; the home screen says **fin·o·lingo**, under the crest of the Colla
+Castellera d'Horta, so that the three apps in this family look like a family —
+see *Fin-o-lingo at the top* below. You hear a native model, record yourself, and
 the app shows you where the two differ: stacked waveforms, pitch contour, and
 per-word / per-phoneme scoring.
 
@@ -210,12 +213,25 @@ squares now, with About me the fifth and the sixth blank; see below.
   is green because its page has always worn Practice's green. **It is always
   shown**, unlike the row, which hid with no assistant and no cards: a tile
   that comes and goes leaves a hole in a grid, so the tile says *Needs the
-  assistant* instead and the page it opens now links to Settings. `TILES` holds
-  a `null` for the blank square — the sister apps fill theirs with a Phrases
-  tile this app has no use for, since the search box is right under the grid —
-  and `TILE_BY_KEY` filters it, which is the one place a null there bites.
-  Search still finds an About me card from the tiles, since it reads the whole
-  library.
+  assistant* instead and the page it opens now links to Settings. Search still
+  finds an About me card from the tiles, since it reads the whole library.
+- **The grid is the sister apps' grid now: Practice, Vocab, About me, Quick,
+  Grammar, All Phrases.** For a while the sixth square was blank; parity won.
+  *Practice* is the tile that was called Decks — its section key is still
+  `decks`, because that is what `sectionOf` answers for everything unclaimed
+  and nothing downstream reads the tile's title. *All Phrases* is the whole
+  library as one list, the way this page looked before the tiles: in
+  `renderPractice`, `all` switches every section filter off, brings the
+  big-family fold back (this is once again a page listing every family), keeps
+  the ★ Favourites and Shuffle all rows, and offers *Add a phrase* the way the
+  forks' Phrases page offers *Add a card*. It wears `sec-phrases`, which is why
+  the `--phrases-*` variables are still in the palette. The home search box
+  stays under the grid even so — a phrase you searched for must never be
+  hiding behind a tile, and that invariant is cheaper than the redundancy.
+- **The drill's back link names where it goes.** It said *‹ Practice*
+  whatever you came from, which was wrong from Grammar before and would have
+  been actively misleading once Practice was a tile. It reads the section's
+  title now, or *Home* from the tiles.
 - **Each tile's page wears that tile's colour**, so Grammar's banner is the gold
   square you tapped. Inside the view `--sec` paints the page head and nothing
   else — the tab bar carries its own `sec-` class and the primary buttons are on
@@ -278,12 +294,38 @@ rarer still. Once the tiles arrived the bar was also duplicating them: a
 Practice button sitting under four squares that *are* Practice.
 
 - **The tiles are the home now**, and `goHome()` is the one way back to them.
-  Every page below them prints `homeLink()` — *‹ Practice* — and one delegated
-  listener on `view` handles all of them, so a page only has to print the link.
+  Every page below them prints `homeLink()` — *‹ Home*, as in the forks; it read
+  *‹ Practice* until Practice became a tile — and one delegated listener on
+  `view` handles all of them, so a page only has to print the link.
 - **Settings kept a permanent control, because it is the one screen that
   belongs to no section.** It is about the app rather than about anything you
-  practise, so it gets `gearButton()` in the tiles' `page-head` — and only
-  there, since the tiles are the one page you can always reach.
+  practise, so it gets `gearButton()` in the home header — and only there,
+  since the tiles are the one page you can always reach.
+
+### Fin-o-lingo at the top
+
+The home page led with a green *Practice* banner, which was the tab's name
+back when it had a tab. It leads with the brand now, exactly the way
+Deb-o-lingo and Mum-o-lingo do: `.home-head` with `.brand` — the crest at 34px
+beside the wordmark **fin·o·lingo** — and the gear on the right, on the page
+ground rather than on a banner.
+
+- **The crest is the Colla Castellera d'Horta's**, cropped to a circle from
+  the photo it was handed over as and saved as `docs/icons/crest.png` at
+  160px, which is enough for 34px at 3x. It is in the service worker's
+  precache list, so it is on the phone offline like the parrot is over there.
+  It is the *header* logo only: the app icons in `docs/icons/` are still
+  Xerra's, and the `<title>`, the manifest and this file's heading still say
+  Xerra. Renaming the app outright is a separate decision, and the manifest's
+  `short_name` is what the phone's home screen prints.
+- **The language line went under the header.** *Català · 243 phrases ready*
+  was the banner's subtitle, and it is the one thing this app has to say at the
+  top that the single-language forks don't, so it is a quiet `.section-intro`
+  line rather than gone.
+- **The gear needed its own paint.** `.head-gear` is a translucent white disc
+  built for a coloured banner and vanishes on the page ground, so
+  `.home-head .head-gear` gives it the forks' `--line` disc instead. Same
+  control, same id, same delegated listener.
 - **What the bar cost was not just 74px.** It was the top-level slot that made
   Add a *place*. `--tabbar-h` is gone, `body` clears only the home indicator
   now, and the toast sits on that instead.
@@ -2436,13 +2478,23 @@ About me path too whenever `renderDrill`'s topbar is touched — the two
 functions both open with `view.innerHTML = \`<div class="topbar">`, so a
 careless replacement lands in the wrong one.
 
-For the tiles: the home page has exactly six `.tile`s — five buttons titled
-Decks, Grammar, Vocab, Quick and About me, plus one `.tile-blank` that is not a
-button — and no `[data-deck]` at all; their counts come from the library (48
-behind Grammar, 36 behind Vocab, and the Decks count leaves About me cards out);
-typing into `#search` from the tiles still finds *la clau* and an About me card
-alike, and clearing it brings the tiles back; `[data-section="decks"]` lists no
-About me row and no About me deck;
+For the tiles: the home page has exactly six `.tile` buttons titled Practice,
+Vocab, About me, Quick, Grammar and All Phrases, in that order, and no
+`[data-deck]` at all; `.home-head .wordmark` reads *fin·o·lingo*, `.crest` has
+loaded (`naturalWidth > 0`), `#open-settings` is inside `.home-head`, there is
+no `.page-head` on the home page, and `.section-intro` carries the language and
+the count; the counts come from the library (48 behind Grammar, 36 behind
+Vocab, 243 behind All Phrases, and the Practice count leaves About me cards
+out); typing into `#search` from the tiles still finds *la clau* and an About
+me card alike, and clearing it brings the tiles back; `[data-section="decks"]`
+opens a page headed *Practice*, lists no About me row and no About me deck, and
+no `Passat` or `Paraules` key; `[data-section="phrases"]` opens a page headed
+*All Phrases* wearing `sec-phrases`, lists `Salutacions`, `*`, a
+`[data-fold="Castells"]` (big families fold there), the `Passat` and `Paraules`
+families and `[data-add-kind="phrase"]`, with `#search` on top; `#back` from a
+drill reads *‹ Practice*, *‹ All Phrases* or *‹ Grammar* after the tile it
+came through, and every `[data-go-home]`, `#about-back` and `#quick-home`
+reads *‹ Home*;
 `[data-section="grammar"]` lists only `Passat` deck keys with its family already
 open, has no `[data-about]`, and offers `[data-deck="section:grammar"]` which
 queues `1/48`; `#back` from that drill lands on Grammar rather than on the
@@ -2478,12 +2530,13 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
   rows accordion open to the cards inside them and carry no score of their own.
-- **Practice opens on six squares** — Decks, Grammar, Vocab, Quick, About me
-  and a blank — rather than on one long list of every deck. `SECTION_FAMILIES`
-  / `sectionOf` in store.js say which tile a deck is behind and everything
-  unclaimed is Decks; `state.section` is which one you are in, `null` being
-  the tiles. About me's tile opens the interview page directly (`state.about`)
-  rather than a list.
+- **Home is the brand header — the colla's crest and *fin·o·lingo* — over six
+  squares in the sister apps' order**: Practice, Vocab, About me, Quick,
+  Grammar, All Phrases. `SECTION_FAMILIES` / `sectionOf` in store.js say which
+  tile a deck is behind and everything unclaimed is Practice (key `decks`);
+  `state.section` is which one you are in, `null` being the tiles, `"phrases"`
+  the whole library as one list. About me's tile opens the interview page
+  directly (`state.about`) rather than a list.
 - **Quick** is a box you ask for a phrase from — *I'm about to walk into a
   pharmacy, how do I ask if they have my medicine* — which answers, plays it,
   and files it as an ordinary card in the `Quick` deck. `renderQuick` in app.js,
@@ -2562,7 +2615,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v72 / `xerra-v72` — `js/version.js` first, `sw.js` second, as ever.
+- v73 / `xerra-v73` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
