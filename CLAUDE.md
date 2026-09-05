@@ -826,6 +826,20 @@ answer into.
   after a missed one as wrong, which is the opposite of naming the one you got
   wrong. There is no dial and no number: nothing was scored, and a number
   invented here would sit beside real ones in the same app.
+- **A slip of one letter is a slip, not a different word.** `ballerina` for
+  `ballarina` was struck through as wrong *and* listed as left out — two marks
+  for one vowel, reported from the phone as the corrections being over-zealous,
+  which they were. `closeEnough` in app.js is the whole of the fix: a typed
+  word within one edit of the word meant (two from eight letters; nothing
+  under four, because `i` is one edit from `a` and both are words) is *close*.
+  It pairs with its word in `alignWords`, so nothing is "left out"; it is
+  dotted in amber rather than struck through; and the spelling it should have
+  had is printed under the line. The distance allows a swap of two neighbours,
+  since `muisc` is a typo too, and is measured on the accent-folded forms so an
+  accent lost on the same word isn't charged twice. The alignment is weighted —
+  an exact word is worth two, a close one is worth one — so a near miss never
+  stands in where an exact match was there to be had. The verdict is a fourth,
+  *Nearly — one letter off*, between accents and wrong: worst mark wins.
 - **Three verdicts, and the middle one is the point.** An answer right but for
   its accents is **right**, marked with a wavy underline on the words that lost
   them. Accents are a long-press on an iOS keyboard; failing `esta` for `està`
@@ -2264,6 +2278,10 @@ the card's `lang`; checking the exact text paints `.quiet-verdict.right` and put
 the phrase back in `.drill-text`; the same text
 with its accents and interpuncts stripped paints `.quiet-verdict.accents` with
 `.typed-word.accent` on the words that lost them and nothing struck through; a
+word one letter off — `ballerina` for `ballarina`, or two letters swapped —
+paints `.quiet-verdict.close` with `.typed-word.close` on that word, names the
+right spelling in `.typed-fixes`, and leaves *Left out* off the card, while a
+two-letter word swapped for another (`a` for `i`) is still `.typed-word.miss`; a
 dropped word is named in the *Left out* line while the words you did get stay
 `.typed-word.ok`; a wrong answer paints `.quiet-verdict.wrong` with
 `.typed-word.miss`; `xerra.attempts` is the same length afterwards as before,
@@ -2544,7 +2562,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v71 / `xerra-v71` — `js/version.js` first, `sw.js` second, as ever.
+- v72 / `xerra-v72` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

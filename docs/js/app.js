@@ -1996,7 +1996,10 @@ function quietNow() {
 function typedWords(value) {
   return String(value ?? "")
     .split(/\s+/)
-    .map((raw) => ({ raw, norm: normaliseSentence(raw) }))
+    /* `clean` is the word as written with the punctuation round it taken off —
+       what to print when naming one of theirs, since "ballarina." with the
+       full stop is not the word. */
+    .map((raw) => ({ raw, clean: raw.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, ""), norm: normaliseSentence(raw) }))
     .filter((word) => word.norm)
     .map((word) => ({ ...word, bare: foldAccents(word.norm) }));
 }
@@ -2005,28 +2008,71 @@ function foldAccents(value) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/·/g, "");
 }
 
+/* A slip of one letter is a slip, not a different word. `ballerina` for
+   `ballarina` was struck through as wrong *and* listed as left out — two marks
+   for one vowel, which is the mode being harsher than a teacher would be and
+   was reported as exactly that. So a word within a letter of the one meant is
+   *close*: it pairs with its word, so nothing is "left out", and it is shown
+   beside the spelling it should have had.
+
+   Optimal string alignment distance — insert, delete, substitute, or swap two
+   neighbours, since `muisc` is a typo and not a different word either. One
+   edit is allowed from four letters, two from eight; nothing shorter, because
+   `i` is one edit from `a` and both are words. Measured on the accent-folded
+   forms, so an accent lost on the same word isn't charged twice. */
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return d[a.length][b.length];
+}
+
+function closeEnough(a, b) {
+  const longest = Math.max(a.length, b.length);
+  if (longest < 4) return false;
+  return editDistance(a, b) <= (longest >= 8 ? 2 : 1);
+}
+
 /* Which of your words landed, and which of theirs never turned up. Straight
    longest-common-subsequence over the accent-folded words: comparing position
    by position would mark every word after a missed one as wrong, which is the
    opposite of naming the one you got wrong. Phrases are a handful of words, so
-   the quadratic table costs nothing. */
+   the quadratic table costs nothing.
+
+   Weighted, so that an exact word is worth two and a close one is worth one:
+   the alignment then never pairs a near miss where an exact match was there to
+   be had, and a close word only ever stands in for the word it is nearest to. */
 function alignWords(mine, theirs) {
+  const worth = (a, b) => (a.bare === b.bare ? 2 : closeEnough(a.bare, b.bare) ? 1 : 0);
   const table = Array.from({ length: mine.length + 1 }, () => new Array(theirs.length + 1).fill(0));
   for (let i = mine.length - 1; i >= 0; i--) {
     for (let j = theirs.length - 1; j >= 0; j--) {
-      table[i][j] =
-        mine[i].bare === theirs[j].bare
-          ? table[i + 1][j + 1] + 1
-          : Math.max(table[i + 1][j], table[i][j + 1]);
+      const pair = worth(mine[i], theirs[j]);
+      table[i][j] = Math.max(
+        table[i + 1][j],
+        table[i][j + 1],
+        pair ? table[i + 1][j + 1] + pair : 0
+      );
     }
   }
   const marks = mine.map(() => "miss");
+  const meant = mine.map(() => null);
   const landed = theirs.map(() => false);
   let i = 0;
   let j = 0;
   while (i < mine.length && j < theirs.length) {
-    if (mine[i].bare === theirs[j].bare) {
-      marks[i] = mine[i].norm === theirs[j].norm ? "ok" : "accent";
+    const pair = worth(mine[i], theirs[j]);
+    if (pair && table[i][j] === table[i + 1][j + 1] + pair) {
+      marks[i] = pair === 2 ? (mine[i].norm === theirs[j].norm ? "ok" : "accent") : "close";
+      if (pair === 1) meant[i] = theirs[j].clean;
       landed[j] = true;
       i++;
       j++;
@@ -2036,7 +2082,7 @@ function alignWords(mine, theirs) {
       j++;
     }
   }
-  return { marks, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.raw) };
+  return { marks, meant, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.clean) };
 }
 
 /* The whole of what a typed go produces, and it is deliberately not persisted
@@ -2053,12 +2099,23 @@ function alignWords(mine, theirs) {
 function checkTyped(typed, phrase) {
   const mine = typedWords(typed);
   const theirs = typedWords(phrase.text);
-  const same = (key) => mine.map((w) => w[key]).join(" ") === theirs.map((w) => w[key]).join(" ");
-  const verdict = same("norm") ? "right" : same("bare") ? "accents" : "wrong";
-  const { marks, missing } = alignWords(mine, theirs);
+  const { marks, meant, missing } = alignWords(mine, theirs);
+  /* Four verdicts, worst mark wins. A word that is simply not there, or a word
+     of yours that matches nothing, is wrong; a slip of a letter is close; an
+     accent is a keyboard problem; and the rest is right. Every word right and
+     nothing missing is the same sequence, which is what "right" used to be
+     checked as directly. */
+  const verdict =
+    missing.length || marks.includes("miss")
+      ? "wrong"
+      : marks.includes("close")
+      ? "close"
+      : marks.includes("accent")
+      ? "accents"
+      : "right";
   return {
     verdict,
-    words: mine.map((word, at) => ({ raw: word.raw, mark: marks[at] })),
+    words: mine.map((word, at) => ({ raw: word.raw, clean: word.clean, mark: marks[at], meant: meant[at] })),
     missing,
   };
 }
@@ -2844,11 +2901,14 @@ function typedVerdict() {
      writing it from memory now is the one thing that makes reading it worth
      anything. */
   if (answer.shown) return `<p class="center" style="margin:16px 0 0">${againButton("Now write it from memory")}</p>`;
+  const slips = answer.words.filter((word) => word.mark === "close");
   const head =
     answer.verdict === "right"
       ? "That's it."
       : answer.verdict === "accents"
       ? "Right — mind the accents."
+      : answer.verdict === "close"
+      ? `Nearly — ${slips.length === 1 ? "one letter" : "a letter or two"} off.`
       : "Not quite.";
   return `
     <div class="card quiet-verdict ${answer.verdict}">
@@ -2856,6 +2916,16 @@ function typedVerdict() {
       <p class="typed-back">${answer.words
         .map((word) => `<span class="typed-word ${word.mark}">${esc(word.raw)}</span>`)
         .join(" ")}</p>
+      ${
+        /* The spelling it should have had, one line per slip. A struck-through
+           word says only that it was wrong; a dotted one with its answer beside
+           it says what to fix, which is the whole of what a typo needs. */
+        slips.length
+          ? `<p class="tiny muted typed-fixes">${slips
+              .map((word) => `<span class="typed-fix"><s>${esc(word.clean)}</s> ${esc(word.meant)}</span>`)
+              .join(" · ")}</p>`
+          : ""
+      }
       ${
         answer.missing.length
           ? `<p class="tiny muted">Left out: ${esc(answer.missing.join(" · "))}</p>`

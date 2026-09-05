@@ -775,6 +775,7 @@ button { font: inherit; }
 .quiet-verdict strong { display: block; font-size: 1.05rem; }
 .quiet-verdict.right { border-color: var(--green); background: var(--accent-soft); }
 .quiet-verdict.accents { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
+.quiet-verdict.close { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
 .quiet-verdict.wrong { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
 
 /* Your own answer, played back with the marks on it. A wrong word is struck
@@ -791,6 +792,18 @@ button { font: inherit; }
   text-underline-offset: 3px;
 }
 .typed-word.miss { color: var(--red-dark); text-decoration: line-through; }
+/* A slip of a letter: amber like a lost accent, since both are "you had the
+   word", but dotted rather than wavy — this one does want fixing. */
+.typed-word.close {
+  color: var(--amber);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.typed-fixes { margin-top: 0; }
+.typed-fix { white-space: nowrap; }
+.typed-fix s { opacity: 0.7; margin-right: 2px; }
 
 /* -------------------------------------------------------------- page heads */
 
