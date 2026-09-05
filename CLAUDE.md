@@ -353,6 +353,39 @@ it is ours to replace; edited at all, it is yours and it stays. **The general
 shape is worth keeping** — "did the user write this?" cannot be answered by
 "is it non-empty" on any field the app also writes to.
 
+#### "Don't know" is the first option, and the reading goes underneath
+
+The slot read *El or La — colour it blue or pink*, which is **a description of
+the other two options sitting where a choice should be** — the list offered
+three things and two of them were the same two things. What that slot means is
+"I am not telling you; read it off the article", and the honest word for that is
+**Don't know**.
+
+What the app has worked out moved *under* the select, as `genderHint`: *Reading
+"el" — the picture will be blue.* Feedback, not a fourth thing to weigh up. It
+follows both the word box and the select, so choosing an override says what the
+override will do.
+
+#### Two bugs the same press produced
+
+- **The `/chat` call carried no language.** `chatContext` builds `languageCode`
+  from `phrase.language`, and *Fill in the rest for me* handed it a bare
+  `{ text, translation }` — so the Worker refused it with **"Choose a language
+  first."** every time, after the first call had already filled the word in.
+  The editor's picture button always passed `language`; this one never did.
+  **Anything built for `chatContext` needs `language` and `deck` on it**, and
+  the object is usually assembled by hand rather than being a real phrase, which
+  is exactly why it gets forgotten.
+- **A completed word came back as a sentence.** *"dog"* returned **"Un gos."**,
+  full stop and all — `/complete-card` writes phrases, because that is what it
+  is for. That is not cosmetic: **`genderOf` refuses any text containing
+  punctuation**, so the trailing stop silently cost the card its gender, which
+  is the one thing this screen exists to get right. Two guards, because either
+  alone is thin: the `situation` now says it is a single vocabulary word with
+  its article and not a sentence, and `stripTrailingStop` takes the punctuation
+  off the end whatever comes back. Only the *end* — an interior comma would mean
+  it really was a phrase.
+
 ### One side is enough, and the rest is filled in
 
 The first cut demanded the word **and** its English before it would save, and

@@ -429,28 +429,48 @@ function genderCue(phrase) {
    Deliberately a plain field on the phrase like `sounds` and `picture`, not a
    new kind of card: it exports, imports and survives the weekly reinstall with
    everything else, for the reason About me's cards carry no flag. */
+/* What the app has made of the word so far, said under the select rather than
+   inside it. Three states: you chose, it read the article, or there is nothing
+   to read yet. */
+function genderHint(text, chosen) {
+  if (chosen && GENDERS[chosen]) {
+    return `Set to ${GENDERS[chosen].article} — the picture will be ${GENDERS[chosen].colour}.`;
+  }
+  const derived = genderOf({ text });
+  if (derived) {
+    return `Reading “${GENDERS[derived].article}” — the picture will be ${GENDERS[derived].colour}.`;
+  }
+  return "Start the word with its article and this fills itself in.";
+}
+
 function genderField(phrase, id = "f-gender") {
   const chosen = phrase?.gender ?? "";
-  const derived = genderOf({ text: phrase?.text ?? "" });
-  /* "El or La" rather than "From the article": the article *is* the question
-     you are answering, and naming the colour here is what ties the field to the
-     blue or pink the picture will be painted. */
-  const auto = derived
-    ? `${cap(GENDERS[derived].article)} — colour it ${GENDERS[derived].colour}`
-    : "El or La — colour it blue or pink";
+  /* **The first option is "Don't know", and that is the whole shape of this
+     field.** It read "El or La — colour it blue or pink", which is a
+     *description of the two other options* sitting in the slot where a choice
+     should be — so the list offered three things and two of them were the same
+     two things. What that slot actually means is "I am not telling you, read it
+     off the article", and the honest word for that is Don't know.
+
+     What the app worked out goes *under* the select instead, where it is
+     feedback rather than a fourth option to weigh up. */
   return `
     <label class="field"><span>Gender (optional)</span>
       <select id="${id}" data-gender-auto>
-        <option value=""${chosen ? "" : " selected"}>${auto}</option>
+        <option value=""${chosen ? "" : " selected"}>Don't know</option>
         ${Object.entries(GENDERS)
           .map(
             ([key, { colour, article }]) =>
-              `<option value="${key}"${chosen === key ? " selected" : ""}>Always ${esc(
-                article
+              `<option value="${key}"${chosen === key ? " selected" : ""}>${cap(
+                esc(article)
               )} — colour it ${esc(colour)}</option>`
           )
           .join("")}
-      </select></label>`;
+      </select>
+      <p class="tiny muted gender-hint" data-gender-hint="${esc(id)}">${genderHint(
+        phrase?.text ?? "",
+        chosen
+      )}</p></label>`;
 }
 
 /* The drawing of the scene, if there is one — and the offer to go and have one
@@ -4051,7 +4071,12 @@ function renderAddWord() {
             {
               target: had.text,
               english: had.english,
-              situation: "",
+              /* It is a vocabulary card, not a phrase, and /complete-card
+                 writes phrases by default — it came back with "Un gos." for
+                 "dog", full stop and all. That matters beyond looking odd:
+                 `genderOf` refuses any text carrying punctuation, so a trailing
+                 full stop silently costs the card its gender. */
+              situation: "A single vocabulary word for a flashcard, given with its article. Not a sentence.",
               deck: document.getElementById("word-deck").value,
               languageCode: settings.language,
               languageName: language.englishName,
@@ -4060,8 +4085,9 @@ function renderAddWord() {
           );
           // The page can be gone by now — you left while it was thinking.
           if (!document.getElementById("f-text")) return;
-          word = result.text?.trim() || word;
-          english = result.translation?.trim() || english;
+          // Belt and braces on the same point: a word never ends in a stop.
+          word = stripTrailingStop(result.text) || word;
+          english = stripTrailingStop(result.translation) || english;
           textField.value = word;
           englishField.value = english;
           textField.dispatchEvent(new Event("input"));
@@ -4069,7 +4095,18 @@ function renderAddWord() {
 
         const { reply } = await cardAssistant.chat(
           {
-            ...chatContext({ text: word, translation: english, replies: [] }),
+            /* `language` and `deck` are what chatContext turns into
+               languageCode/languageName, and the Worker refuses the call
+               without them — "Choose a language first." The editor's picture
+               button always passed them; this one did not, so every press got
+               as far as filling the word and then failed. */
+            ...chatContext({
+              text: word,
+              translation: english,
+              language: settings.language,
+              deck: document.getElementById("word-deck")?.value ?? "",
+              replies: [],
+            }),
             history: [{ role: "user", text: mine ? reimagineRequest({ sounds: "", picture: mine }) : PICTURE_REQUEST }],
           },
           settings
@@ -4107,11 +4144,15 @@ function renderAddWord() {
   const textField = document.getElementById("f-text");
   const genderSelect = document.getElementById("f-gender");
   textField.addEventListener("input", () => {
-    const derived = genderOf({ text: textField.value });
-    genderSelect.options[0].textContent = derived
-      ? `${cap(GENDERS[derived].article)} — colour it ${GENDERS[derived].colour}`
-      : "El or La — colour it blue or pink";
+    paintGenderHint();
   });
+
+  genderSelect.addEventListener("change", paintGenderHint);
+
+  function paintGenderHint() {
+    const hint = view.querySelector('[data-gender-hint="f-gender"]');
+    if (hint) hint.textContent = genderHint(textField.value, genderSelect.value);
+  }
 
   document.getElementById("word-save").onclick = () => saveWord({ practise: false });
   document.getElementById("word-practise").onclick = () => saveWord({ practise: true });
@@ -4162,6 +4203,14 @@ function renderAddWord() {
     renderAddWord();
     toast(`Added to ${deck}. Next one?`);
   }
+}
+
+/* A word is not a sentence, and `genderOf` refuses text with punctuation in
+   it — so a trailing full stop on a completed word costs the card its gender
+   silently. Only the end is touched: "l'os" and "d'aigua" keep their
+   apostrophes, and an interior comma would mean it was a phrase after all. */
+function stripTrailingStop(value) {
+  return String(value ?? "").trim().replace(/[.!?;:,]+$/, "").trim();
 }
 
 function chatContext(phrase) {
