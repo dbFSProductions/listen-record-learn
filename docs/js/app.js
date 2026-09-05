@@ -3,7 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
-  GENDERS, genderOf,
+  GENDERS, genderOf, sectionOf, QUICK_DECK,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -40,6 +40,17 @@ const state = {
      the About me workshop. `about` wins over `deck` in render() so that
      leaving the workshop to drill and coming back lands where you expect. */
   about: false,
+
+  /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
+     "quick", or null for the tiles themselves. It is deliberately *not*
+     touched by starting a drill — the section you came from is where Back
+     should put you, and a card reached by searching from the tiles should
+     come back to the tiles rather than to a page you never opened. */
+  section: null,
+
+  /* The last thing Quick answered, so the card survives a repaint (playing it,
+     keeping it, throwing it away). Cleared when you ask again. */
+  quick: null,
 
   /* Which deck rows are accordioned open, by deck key. Held here rather than
      in settings: a family fold is a lasting opinion about a list that is
@@ -133,6 +144,12 @@ const FAVOURITES_DECK = "★";
    decks can share a name — "Castells" is both the family and the general deck
    inside it. */
 const FAMILY_PREFIX = "family:";
+/* And a whole tile drills as one queue too — `section:grammar` is all
+   forty-eight past-tense cards whatever family they are in. The fourth string
+   in deck-key space, which is why `deckNameProblem` has to refuse it: a deck
+   actually called "section:grammar" would drill the sentinel instead of
+   itself. */
+const SECTION_PREFIX = "section:";
 
 /* A deck name is a string on a phrase and a key in a list, and the app already
    spends three strings of its own in that space: "*" is shuffle-all,
@@ -146,7 +163,12 @@ const DECK_NAME_MAX = 40;
 function deckNameProblem(name) {
   if (!name) return "Give the deck a name.";
   if (name.length > DECK_NAME_MAX) return `Deck names stop at ${DECK_NAME_MAX} characters.`;
-  if (name === "*" || name === FAVOURITES_DECK || name.startsWith(FAMILY_PREFIX))
+  if (
+    name === "*" ||
+    name === FAVOURITES_DECK ||
+    name.startsWith(FAMILY_PREFIX) ||
+    name.startsWith(SECTION_PREFIX)
+  )
     return "That name is spoken for — try another.";
   // A leading or trailing "·" would make a family with no name or a deck with
   // no leaf, and both read as a blank row on Practice.
@@ -600,6 +622,10 @@ tabbar.addEventListener("click", (event) => {
   state.tab = button.dataset.tab;
   state.deck = null;
   state.about = false;
+  // Tapping Practice from anywhere lands on the tiles, not on the last section
+  // you happened to be in — the tab is the way home.
+  state.section = null;
+  state.search = "";
   render();
 });
 
@@ -633,7 +659,43 @@ const SECTIONS = {
   settings: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>`,
   },
+  /* The four tiles. Each is a face of the Practice tab rather than a tab of its
+     own — the tab bar has three buttons and adding more would shrink every
+     target on it — so they share `sec-practise` for the page accent and differ
+     only in their mark and their tile colour. */
+  decks: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="16" rx="2"/><path d="M19 7v13M7 9h5M7 13h5"/></svg>`,
+  },
+  grammar: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h16"/><circle cx="8" cy="17" r="2.5"/><path d="M13 17V7h6"/></svg>`,
+  },
+  vocab: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 4 3 3-2 6 5"/></svg>`,
+  },
+  quick: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>`,
+  },
 };
+
+/* What each tile is called, what it says under its name, and which colour it
+   wears. The order is the order they sit in, and it is deliberate: the two you
+   reach for daily are the top row, and Quick is bottom-right where a right
+   thumb lands.
+
+   The colours are the page-accent ones rather than the drill's — inside the
+   drill each strong colour is already saying something (green is the model,
+   blue is you, purple is level two, gold is road mode, teal is quiet), and
+   none of that is on screen here. Vocab takes purple because that is already
+   the keyword picture's colour, and Quick takes Add's orange because what it
+   does is make a card. */
+const TILES = [
+  { key: "decks", title: "Decks", blurb: "Phrases you practise", colour: "blue" },
+  { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
+  { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
+  { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
+];
+
+const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
 
 function pageHead(section, title, subtitle, trailing = "") {
   return `
@@ -650,10 +712,17 @@ function pageHead(section, title, subtitle, trailing = "") {
 function render() {
   syncTabs();
   window.scrollTo(0, 0);
-  view.className = `view page page-${state.tab} sec-${state.tab}`;
+  /* The page wears the colour of the tile you came through, so Grammar's
+     banner is the gold square you tapped. Not while drilling: the drill has
+     its own colour language — green is the model, blue is you, gold is road
+     mode — and a gold page head over a gold road-mode pill says two things
+     with one colour. */
+  const accent = state.tab === "practise" && state.section && !state.deck ? state.section : state.tab;
+  view.className = `view page page-${state.tab} sec-${accent}`;
   if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
-  else if (state.tab === "practise") renderPractice();
+  else if (state.tab === "practise" && state.section === "quick") renderQuick();
+  else if (state.tab === "practise") renderPractice(state.section);
   else if (state.tab === "add") renderAdd();
   else renderSettings();
   autosizeAll(view);
@@ -670,53 +739,113 @@ function render() {
    Captures get a section of their own. A phrase jotted down with no Catalan
    yet can't be drilled, so it belongs to no deck row and would otherwise have
    nowhere left to be tapped. */
-function renderPractice() {
+function renderPractice(section = null) {
   const language = LANGUAGES[settings.language];
   const phrases = library.forLanguage(settings.language);
-  const captures = phrases.filter((p) => !p.text.trim());
-  const decks = library.decks(settings.language);
-  const families = library.deckFamilies(settings.language);
-  const drillable = library.drillable(settings.language).length;
+  /* Everything below the tiles is the *section's* share of the library. Search
+     is the one exception and reads `phrases`, because a phrase you searched for
+     must never be hiding behind a tile any more than it may hide inside a fold.
+     Same invariant, one level up. */
+  const mine = section ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
+  const captures = mine.filter((p) => !p.text.trim());
+  const decks = library.decks(settings.language).filter((d) => !section || sectionOf(d) === section);
+  const families = library
+    .deckFamilies(settings.language)
+    .filter((f) => !section || f.decks.some((d) => sectionOf(d) === section));
+  const drillable = library.drillable(settings.language).filter((p) => !section || sectionOf(p.deck) === section);
 
-  if (!phrases.length) {
-    view.innerHTML = `
-      ${pageHead("practise", "Practice", `Nothing to drill in ${language.name} yet`)}
-      <div class="empty">
-        <svg viewBox="0 0 24 24"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>
-        <p>No phrases yet.</p>
-        <p class="small">Add some on the Add tab and they'll appear here as decks.</p>
-      </div>`;
-    return;
-  }
+  const head = section
+    ? pageHead(section, TILE_BY_KEY[section].title, sectionSub(), backLink())
+    : pageHead("practise", "Practice", `${LANGUAGES[settings.language].name} · ${
+        library.drillable(settings.language).length
+      } phrases ready`);
 
-  view.innerHTML = `
-    ${pageHead(
-      "practise",
-      "Practice",
-      drillable
-        ? `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
-            drillable === 1 ? "" : "s"
-          } ready in ${language.name}`
-        : `Nothing to drill in ${language.name} yet`
-    )}
+  /* On the tiles the search box goes *under* them: the four squares are what
+     the tab is for, and a box above them would push them down the page and read
+     as the main event. Inside a section it goes back on top, where it is the
+     filter for the list under it. */
+  const searchBox = `
     <label class="field">
       <input type="search" id="search" placeholder="Search phrases, decks and notes"
              value="${esc(state.search)}">
-    </label>
-    <div id="practice-list"></div>`;
+    </label>`;
+  view.innerHTML = `
+    ${head}
+    ${section ? searchBox : ""}
+    <div id="practice-list"></div>
+    ${section ? "" : searchBox}
+    ${
+      section || settings.hasAzure
+        ? ""
+        : `<div class="section-label">Heads up</div>
+           <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
+           the waveform comparison and scoring need one. Add it in Settings.</div>`
+    }`;
 
   const search = document.getElementById("search");
   search.addEventListener("input", () => {
     state.search = search.value;
     paint();
   });
+  view.querySelector("[data-home]")?.addEventListener("click", () => {
+    state.section = null;
+    state.search = "";
+    render();
+  });
   paint();
+
+  function sectionSub() {
+    if (!drillable.length) return `Nothing here yet in ${language.name}`;
+    return `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable.length} phrase${
+      drillable.length === 1 ? "" : "s"
+    }`;
+  }
+
+  function backLink() {
+    return `<button class="link" data-home="1">‹ Practice</button>`;
+  }
 
   function paint() {
     const query = state.search.trim().toLowerCase();
     const list = document.getElementById("practice-list");
-    list.innerHTML = query ? searchResults(query) : deckList();
+    list.innerHTML = query ? searchResults(query) : section ? deckList() : tiles();
     wire(list);
+  }
+
+  /* The four ways in. It replaced one long column that put the everyday decks,
+     the past-tense decks and the Paraules words in the same list, folded but
+     competing — three different kinds of practice with no way to say which one
+     you were in the mood for.
+
+     Counted from the library rather than hardcoded, so an empty section says
+     so instead of leading somewhere blank, and Quick shows what it has
+     collected. */
+  function tiles() {
+    return `
+      <div class="tiles">
+        ${TILES.map((tile) => {
+          const count =
+            tile.key === "quick"
+              ? library.inDeck(QUICK_DECK, settings.language).length
+              : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
+          return `
+            <button class="tile tile-${tile.colour}" data-section="${tile.key}">
+              <span class="tile-mark" aria-hidden="true">${SECTIONS[tile.key].mark}</span>
+              <span class="tile-title">${esc(tile.title)}</span>
+              <span class="tile-blurb">${esc(tile.blurb)}</span>
+              <span class="tile-count">${
+                tile.key === "quick"
+                  ? count
+                    ? `${count} asked for`
+                    : "Ask for one"
+                  : count
+                  ? `${count} phrase${count === 1 ? "" : "s"}`
+                  : "Empty"
+              }</span>
+            </button>`;
+        }).join("")}
+      </div>
+`;
   }
 
   /* A deck row does two things now, so it can't be one big button any more:
@@ -766,7 +895,7 @@ function renderPractice() {
      family; the chevron opens it. */
   function familyRow(family) {
     const inFamily = library.inFamily(family.name, settings.language);
-    const open = familyOpen(family.name, family.decks.length);
+    const open = familyOpen(family.name, family.decks.length, !section);
     return `
       <div class="row family-row">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
@@ -822,11 +951,17 @@ function renderPractice() {
       ${open && cards.length ? cards.map((phrase) => deckCardRow(phrase, ABOUT_DECK, false)).join("") : ""}`;
   }
 
+  /* Three of these rows belong to Decks and to nothing else. About me is a
+     deck of sentences about your life, ★ Favourites collects them from
+     wherever they live, and Shuffle all is the whole library — none of them is
+     a past-tense unit or a keyword word, and a Favourites row inside Grammar
+     would drill Catalan you starred in a café. */
   function deckList() {
+    const home = !section || section === "decks";
     const favourites = starred();
     const rows = [
-      aboutRow(),
-      ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
+      home ? aboutRow() : "",
+      ...(home && favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
       ...families.flatMap((family) => {
         // Already drawn at the top by aboutRow(), with its own way in.
         if (family.name === ABOUT_DECK) return [];
@@ -834,7 +969,7 @@ function renderPractice() {
           const deck = family.decks[0];
           return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
         }
-        const open = familyOpen(family.name, family.decks.length);
+        const open = familyOpen(family.name, family.decks.length, !section);
         return [
           familyRow(family),
           ...(open
@@ -861,23 +996,23 @@ function renderPractice() {
           : ""
       }
       ${
-        drillable
+        drillable.length
           ? `<div class="section-label">Everything</div>
              <div class="rows">
-               <button class="row" data-deck="*">
-                 <span class="row-main"><span class="row-title">Shuffle all decks</span>
-                 <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
+               <button class="row" data-deck="${home ? "*" : `${SECTION_PREFIX}${esc(section)}`}">
+                 <span class="row-main"><span class="row-title">Shuffle ${
+                   home ? "all decks" : `all of ${esc(TILE_BY_KEY[section].title)}`
+                 }</span>
+                 <span class="row-sub">${drillable.length} phrases in ${esc(language.name)}</span></span>
                  <span class="chev">›</span>
                </button>
              </div>`
-          : ""
-      }
-      ${
-        settings.hasAzure
-          ? ""
-          : `<div class="section-label">Heads up</div>
-             <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
-             the waveform comparison and scoring need one. Add it in Settings.</div>`
+          : `<div class="empty">
+               <p>Nothing here yet.</p>
+               <p class="small">Cards land here when their deck belongs to ${esc(
+                 TILE_BY_KEY[section]?.title ?? "this section"
+               )}.</p>
+             </div>`
       }`;
   }
 
@@ -916,11 +1051,23 @@ function renderPractice() {
   }
 
   function wire(list) {
+    // A tile, and the way back from behind one. The search box is cleared on
+    // both, because a query typed on the tiles is about the whole library and
+    // carrying it into a section would show results from outside that section
+    // under that section's heading.
+    list.querySelectorAll("[data-section]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.section = button.dataset.section;
+        state.search = "";
+        render();
+      })
+    );
+
     list.querySelectorAll("[data-fold]").forEach((button) =>
       button.addEventListener("click", () => {
         const name = button.dataset.fold;
         const family = families.find((f) => f.name === name);
-        setFamilyOpen(name, !familyOpen(name, family.decks.length));
+        setFamilyOpen(name, !familyOpen(name, family.decks.length, !section));
         paint();
       })
     );
@@ -980,6 +1127,217 @@ function renderPractice() {
   }
 }
 
+/* Quick: the phrase you need in the next thirty seconds.
+
+   Everything else in this app is practice arranged in advance — a deck you
+   picked, a card somebody wrote. This is the other direction: you are outside
+   a pharmacy, you do not know how to ask for your medicine, and you have about
+   as long as it takes to open the door. So it is one box, one button, the
+   phrase, and a Listen you can hit twice on the way in.
+
+   Three decisions worth keeping:
+
+   - **It writes an ordinary card into an ordinary deck.** `QUICK_DECK` is a
+     deck name and nothing else, so what Quick collects drills, stars, scores,
+     levels up, edits, exports and shows in Decks with everything else. That is
+     the whole point of the feature rather than a detail of it: the phrases you
+     needed in real life are the best deck in the app, and they only become one
+     if asking for them files them. Resist giving these cards a flag — the same
+     argument About me's cards make.
+   - **It saves without asking, and can be undone in one tap.** The Add tab is
+     deliberate about Save because you are composing there. Here you are
+     standing in a doorway, and a card you have to remember to keep is a card
+     you lose. *Don't keep it* is the way back, and it is one tap because the
+     mistake is cheap.
+   - **It goes through `/complete-card` with one extra field**, rather than
+     earning an endpoint of its own. What it wants *is* a card, and card
+     generation is already the small fast call — see what replies did to the Add
+     tab. The field is `ask`: your line as you typed it, which the Worker is
+     told to read as a request and never as text to translate. It is set only
+     when it is there, so the prompt both sister apps get is byte-identical.
+     `worker/tools/card-test.mjs` asserts exactly that. */
+function renderQuick() {
+  const language = LANGUAGES[settings.language];
+
+  view.innerHTML = `
+    ${pageHead(
+      "quick",
+      "Quick",
+      "One phrase, right now",
+      `<button class="link" id="quick-home">‹ Practice</button>`
+    )}
+    ${
+      settings.hasAssistant
+        ? `<div class="card">
+             <label class="field"><span>What do you need to say, and where?</span>
+               <textarea id="quick-ask" lang="en-GB" rows="2"
+                 placeholder="I'm about to walk into a pharmacy — how do I ask if they have my medicine?"></textarea></label>
+             <button class="btn btn-primary" id="quick-go" style="width:100%">Get the phrase</button>
+             <div class="notice bad" id="quick-error" hidden></div>
+           </div>`
+        : `<div class="notice">Quick needs the card assistant. Set it up in Settings and this becomes one box
+             you can ask for a phrase from.</div>`
+    }
+    <div id="quick-answer"></div>
+    <div id="quick-recent"></div>`;
+
+  document.getElementById("quick-home").onclick = () => {
+    state.section = null;
+    render();
+  };
+  document.getElementById("quick-go")?.addEventListener("click", ask);
+  paintAnswer();
+  paintRecent();
+
+  /* The answer, and the three things you can do with it. Painted in place
+     rather than through render(), for the reason the drill repaints its own
+     star: a re-render here would throw away what you are looking at. */
+  function paintAnswer() {
+    const box = document.getElementById("quick-answer");
+    /* Looked up again rather than trusted: the card can be deleted from its
+       own phrase sheet, or edited from the drill, while `state.quick` goes on
+       holding the object it was. */
+    const phrase = state.quick && library.phrases.find((p) => p.id === state.quick.id);
+    if (!phrase) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="card quick-card">
+        <p class="quick-phrase" lang="${esc(phrase.language)}">${esc(phrase.text)}</p>
+        <p class="quick-english">${esc(phrase.translation)}</p>
+        <button class="btn btn-primary quick-listen" data-quick-say>Listen</button>
+        ${phrase.focusNote ? `<p class="focus-note">${esc(phrase.focusNote)}</p>` : ""}
+        ${
+          phrase.usageNote
+            ? `<p class="small muted" style="margin:10px 0 0">${esc(phrase.usageNote)}</p>`
+            : ""
+        }
+        <p class="small muted quick-kept">Kept in your <b>${esc(QUICK_DECK)}</b> deck.</p>
+        <div class="btn-row">
+          <button class="btn" data-quick-drill>Practise it</button>
+          <button class="link btn-danger" data-quick-drop>Don't keep it</button>
+        </div>
+      </div>`;
+
+    const say = box.querySelector("[data-quick-say]");
+    say.addEventListener("click", () => sayAloud(say, phrase.text, language, "Couldn't play that."));
+    box.querySelector("[data-quick-drill]").addEventListener("click", () => {
+      state.quick = null;
+      startDeck(QUICK_DECK, phrase.id);
+    });
+    box.querySelector("[data-quick-drop]").addEventListener("click", async () => {
+      await library.remove(phrase.id);
+      state.quick = null;
+      paintAnswer();
+      paintRecent();
+      toast("Thrown away.");
+    });
+  }
+
+  /* What you have asked for before, newest first. It is the same deck you can
+     open from Decks, printed here because the answer to "what did I need
+     yesterday?" belongs on the page where you needed it. */
+  function paintRecent() {
+    const box = document.getElementById("quick-recent");
+    const recent = library
+      .inDeck(QUICK_DECK, settings.language)
+      .filter((phrase) => phrase.id !== state.quick?.id && phrase.text.trim())
+      .slice(-8)
+      .reverse();
+    if (!recent.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Asked for before</div>
+      <div class="rows rows-spaced">
+        ${recent
+          .map(
+            (phrase) => `
+              <div class="row">
+                <button class="star" data-quick-play="${esc(phrase.id)}"
+                        aria-label="Listen to ${esc(phrase.text)}">▶</button>
+                <button class="row-open" data-quick-open="${esc(phrase.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(phrase.text)}</span>
+                    <span class="row-sub">${esc(phrase.translation)}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-quick-play]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.quickPlay);
+        if (phrase) sayAloud(button, phrase.text, language, "Couldn't play that.");
+      })
+    );
+    box.querySelectorAll("[data-quick-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.quickOpen);
+        if (phrase) showPhrase(phrase);
+      })
+    );
+  }
+
+  async function ask() {
+    const field = document.getElementById("quick-ask");
+    const line = field.value.trim();
+    const button = document.getElementById("quick-go");
+    const errorBox = document.getElementById("quick-error");
+    if (!line) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Asking…`;
+    try {
+      const result = await cardAssistant.complete(
+        {
+          target: "",
+          english: "",
+          situation: "",
+          ask: line,
+          deck: QUICK_DECK,
+          languageCode: settings.language,
+          languageName: language.englishName,
+        },
+        settings
+      );
+      if (state.section !== "quick") return;
+      if (!result.text?.trim()) throw new Error("Nothing came back. Try asking again.");
+      /* Saved as it arrives — see the note above this function. `library.add`
+         hands back what it filed, which is what the Listen button, Practise it
+         and Don't keep it all need. */
+      state.quick = library.add({
+        text: result.text,
+        translation: result.translation || line,
+        deck: QUICK_DECK,
+        situation: result.situation || null,
+        usageNote: result.usageNote || null,
+        focusNote: result.focusNote || null,
+      });
+      field.value = "";
+      autosize(field);
+      paintAnswer();
+      paintRecent();
+    } catch (error) {
+      if (state.section !== "quick") return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.section === "quick") {
+        button.disabled = false;
+        button.textContent = "Get the phrase";
+      }
+    }
+  }
+}
+
 /* A phrase row: the star, then the phrase and what it means. A capture with no
    target-language text yet can't be drilled or compared, so its row opens the
    edit form rather than the detail sheet. */
@@ -1022,6 +1380,12 @@ function queueFor(deck) {
   // is both a family and a deck in it.
   if (deck.startsWith(FAMILY_PREFIX))
     return shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language));
+  // A whole tile: every drillable card behind it, shuffled, whichever of its
+  // families the card lives in.
+  if (deck.startsWith(SECTION_PREFIX)) {
+    const key = deck.slice(SECTION_PREFIX.length);
+    return shuffle(library.drillable(settings.language).filter((p) => sectionOf(p.deck) === key));
+  }
   return library.inDeck(deck, settings.language);
 }
 
@@ -3257,6 +3621,10 @@ function renderAdd() {
          through the rest of the deck instead of ending on arrival. */
       stopEverything();
       state.tab = "practise";
+      // You came here from Add, so Back belongs on the tiles rather than in
+      // whichever section you happened to be in before — which may well not be
+      // the one this card just landed in.
+      state.section = null;
       toast(`Added to ${deck}.`);
       startDeck(deck, saved.id);
       return;
