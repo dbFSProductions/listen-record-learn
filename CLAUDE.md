@@ -706,6 +706,81 @@ Deb-o-lingo has none of this: its decks are course content, so there is nothing
 to make or unmake. The `.new-deck` row and the select styling below would port,
 the rest wouldn't.
 
+### The deck list ticks, folds, and prints
+
+Settings → Decks does three things now, and the third is the reason for the
+first two. Each row carries a **tick box** and a **fold**; the ticked decks
+feed a **Print selected** button that turns them into one sheet of A4 the
+browser prints to paper or to PDF.
+
+- **Several rows tick at once, and Delete is the one thing that still wants
+  exactly one.** Print wants a set — three decks on one sheet is the point of
+  choosing — and a "Delete 3 decks" button takes too much with it in one tap.
+  So with two or more ticked, Delete stays disabled and says *Tick one deck
+  on its own to delete it*; with one, it names the deck as it always did. The
+  rows are the same `data-deck-pick` / `aria-pressed` buttons; the tick is a
+  checkbox drawn by us, and *Select all* / *None* sit above the list because
+  printing the whole library is the commonest ask.
+- **The fold is Practice's fold**, `data-deck-show` rather than
+  `data-deck-fold` because it opens to read-only rows — the cards are there
+  to be checked before you print or delete, not tapped. Its open set is local
+  to `wireDeckManager` and *not* `state.openDecks`: that set is where you are
+  looking on the phrase list, and checking a deck's contents here should not
+  open it over there. An empty deck gets no fold.
+- **The print page is a page of the app, not a new window.** A home-screen
+  PWA on iOS opens `window.open` in Safari proper, which has its *own*
+  localStorage, so a print tab would find an empty library. `renderPrint`
+  draws the sheet into `#view` like every other page — `state.print` is
+  `{ decks, showing }`, and `render()` goes there when `showing` — and
+  `@media print` in app.css hides everything but `.print-sheet`, drops the
+  view's padding and width cap, and sets the sheet in two columns for A4.
+  One markup, two stylesheets; the on-screen preview *is* the sheet at phone
+  sizes. Back returns to Settings with the ticks still on, which is why the
+  decks outlive the page.
+- **What an entry carries is the drill minus the audio.** Phrase, English,
+  the `focusNote` as *Listen for*, the `usageNote` as *Use*, the shape with
+  its term and endings and the card's `aspectNote` where it has one, and the
+  keyword picture — *Sounds like*, *Picture it*, the gender dot on the word,
+  and an 18mm thumbnail of the drawing if one is in IndexedDB. Situation and
+  replies are left off: they are for the moment of saying it, and paper is
+  for the moment of reading it.
+- **The sizes are the floor of comfortable, not the floor of legible.** 9pt
+  phrase, 8pt meaning, 7pt notes, 10mm margins, two columns — about
+  twenty-four cards to a sheet, the whole Catalan library in ten pages. Each
+  `.print-card` is `break-inside: avoid`, so a card is always read whole.
+  The gender dot carries `print-color-adjust: exact`, because a printer that
+  drops backgrounds would otherwise drop the whole cue.
+- **The drawings arrive after the page does.** They are blobs in IndexedDB,
+  so `loadPrintArt` fills the `[data-print-art]` slots afterwards and the
+  Print button awaits it — a print started with the images still decoding
+  prints the slots empty. Object URLs are revoked on Back.
+- **On the phone the PDF is the print dialog's.** iOS: Print, pinch the
+  preview open, Share, Save to Files. What has *not* been checked is
+  `window.print()` from the home-screen (standalone) app rather than from
+  Safari — WebKit has had that inert in the past. If the button does nothing
+  there, the fallback is to open the Pages URL in Safari itself, import the
+  backup, and print from there; a hand-rolled PDF writer would be the real
+  fix and is deliberately not built.
+
+Worth asserting, headless: `#deck-print` and `#deck-delete` both disabled with
+nothing ticked; one tick names the deck on both; a second tick disables
+Delete with *Tick one deck* and reads *Print 2 decks · N cards*; unticking
+disarms; `#deck-select-all` ticks every row and `#deck-select-none` clears;
+`[data-deck-show="Salutacions"]` opens to fifteen `.deck-manage-card` rows
+that are not buttons, and survives a tick; an empty deck has no fold; the
+delete flow still ends at `#deck-delete-yes` and disarms after; `#deck-print`
+puts `.print-sheet` on screen with one `.print-deck` per ticked deck, a
+*Listen for* on every card, *Sounds like* and *Picture it* on the six
+Paraules words, *Shape* on the eight grammar cards naming `-ava · -ia` or
+`vaig`, and `.gender-dot`s; with print media emulated the `.print-chrome` and
+`.page-head` are hidden and the sheet is not; `page.pdf({ format: "A4" })`
+gives two pages for 29 cards and ten for the whole library; a blob planted in
+the `pictures` store under a card's id comes back as one `.print-art img` on
+that card, `#print-go` waits for it before `window.print`, and `#print-back`
+lands on Settings with the ticks on and no art left behind. Neither sister
+fork has any of this; it would port whole, since none of it touches the
+Worker.
+
 ### One deck field, and a card that can be refiled
 
 `deckField` / `wireDeckField` in app.js is the whole of "which deck does this
@@ -2637,8 +2712,11 @@ the parser losing a block to a formatting change.
   `QUICK_DECK` in store.js, and one optional `ask` field on the Worker's
   `/complete-card` that leaves both sister apps' prompt byte-identical.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
-  in them (Settings → Decks: pick a row, then one Delete button, then a confirm
-  sheet). A made deck is a name in `customDecks`
+  in them (Settings → Decks: tick a row on its own, then one Delete button,
+  then a confirm sheet). The same rows fold open to their cards and tick
+  several at once for **Print selected**, which prints them to A4 or PDF —
+  phrase, English, tips, grammar shape and keyword picture — through
+  `renderPrint` and the `@media print` block in app.css. A made deck is a name in `customDecks`
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.
@@ -2709,7 +2787,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v77 / `xerra-v77` — `js/version.js` first, `sw.js` second, as ever.
+- v78 / `xerra-v78` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

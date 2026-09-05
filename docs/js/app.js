@@ -75,6 +75,13 @@ const state = {
      re-renders the page, and the deck has to still be open underneath. */
   openDecks: new Set(),
 
+  /* The print page: `decks` is what was ticked in Settings and `showing` is
+     whether the page is on screen. It is a page of Settings rather than a tab
+     of its own, and Back from it lands on Settings with the choice still
+     ticked — which is why the decks outlive the page. Null until the first
+     print. */
+  print: null,
+
   // Level two. `recall` says this phrase is a memory question; `revealed` says
   // the answer is on screen (always true at level one); `peeked` says you
   // asked to be shown it rather than remembering it.
@@ -1046,6 +1053,7 @@ function render() {
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
   else if (state.tab === "add") state.addKind === "word" ? renderAddWord() : renderAdd();
+  else if (state.print?.showing) renderPrint();
   else renderSettings();
   autosizeAll(view);
 }
@@ -5186,11 +5194,27 @@ function wireEditorAI(phrase, language) {
    It was a Delete on every row, armed by a first tap — which put a dozen live
    delete buttons on a settings page and made you read each one to work out
    what it would take with it. Reported as frightening, which is the right
-   response to it. So the rows only *select* now, one at a time; the single
-   button that can destroy anything sits under the list, greyed out until you
-   have picked something and naming the deck it would delete; and the last
-   step is a question with a Cancel beside it, not another tap on the control
-   that started it. */
+   response to it. So the rows only *select* now; the single button that can
+   destroy anything sits under the list, greyed out until you have picked
+   exactly one deck and naming the deck it would delete; and the last step is
+   a question with a Cancel beside it, not another tap on the control that
+   started it.
+
+   **The rows tick, and more than one can be ticked**, because the list now
+   feeds two buttons that want different things. Print wants a set — three
+   decks on one sheet is the whole point of choosing — and Delete wants one,
+   for the reason above: "Delete 3 decks" is a button that takes a lot with it
+   in one tap, so with several ticked it stays disabled and says why. The tick
+   is a checkbox drawn by us, on the same `data-deck-pick` / `aria-pressed`
+   row it always was.
+
+   **Each row folds open to its cards**, the way a deck row does under All
+   Phrases — same triangle, same `fold` class — so you can see what you are
+   about to print or delete without leaving the page. The open set is local
+   to this wiring rather than `state.openDecks`: that set is where you are
+   looking on the phrase list, and opening a deck here to check its contents
+   should not open it over there. It does outlive `paint()`, which redraws
+   the rows on every tick. */
 function deckManagerPanel() {
   return `
     <div class="section-label">Decks</div>
@@ -5200,14 +5224,23 @@ function deckManagerPanel() {
                enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
         <button class="btn" id="s-new-deck-save" type="button">Create</button>
       </div>
-      <div class="rows deck-rows" id="deck-rows">${deckManagerRows(null)}</div>
-      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:12px" disabled>
+      <div class="deck-tools">
+        <button class="link" id="deck-select-all" type="button">Select all</button>
+        <button class="link" id="deck-select-none" type="button">None</button>
+      </div>
+      <div class="rows deck-rows" id="deck-rows">${deckManagerRows(new Set(), new Set())}</div>
+      <button class="btn btn-primary" id="deck-print" style="width:100%;margin-top:12px" disabled>
+        Print selected
+      </button>
+      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:10px" disabled>
         Delete a deck
       </button>
       <p class="tiny muted" style="margin:10px 0 0">
-        A new deck is a name waiting for cards — pick it on the Add tab and it appears on Practice
-        once something is in it. To delete one, choose it above; you'll be asked to confirm, and its
-        cards, scores and recordings go with it.
+        Tick decks to print them to PDF — the phrase, its English, what to listen for, any grammar
+        point and any picture, as many to a sheet of A4 as will still read. A new deck is a name
+        waiting for cards — pick it on the Add tab and it appears on Practice once something is in
+        it. To delete one, tick it on its own; you'll be asked to confirm, and its cards, scores and
+        recordings go with it.
       </p>
     </div>`;
 }
@@ -5219,7 +5252,17 @@ function deckContents(deck) {
   return { cards: cards.length, recordings };
 }
 
-function deckManagerRows(selected) {
+/* The cards in a deck, in the order the library holds them — the order the
+   deck was written in, which is the order Practice drills it in. A capture
+   with nothing on it at all is left out; one with only its English still
+   prints, since it is the thing you meant to look up. */
+function deckCards(deck) {
+  return library
+    .forLanguage(settings.language)
+    .filter((p) => p.deck === deck && (p.text.trim() || p.translation?.trim()));
+}
+
+function deckManagerRows(selected, open) {
   const decks = library.deckNames(settings.language);
   if (!decks.length)
     return `<div class="row"><span class="row-main"><span class="row-sub">No decks yet.</span></span></div>`;
@@ -5232,15 +5275,41 @@ function deckManagerRows(selected) {
             recordings ? ` · ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
           }`
         : "Empty — nothing filed here yet";
-      const on = deck === selected;
+      const on = selected.has(deck);
+      const shown = open.has(deck);
       return `
-        <button class="row deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
-          <span class="row-main">
-            <span class="row-title">${esc(deck)}</span>
-            <span class="row-sub">${esc(count)}</span>
-          </span>
-          <span class="pick">${on ? "✓" : ""}</span>
-        </button>`;
+        <div class="row deck-row deck-manage${on ? " picked" : ""}">
+          <button class="row-open deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
+            <span class="pick" aria-hidden="true">${on ? "✓" : ""}</span>
+            <span class="row-main">
+              <span class="row-title">${esc(deck)}</span>
+              <span class="row-sub">${esc(count)}</span>
+            </span>
+          </button>
+          ${
+            cards
+              ? `<button class="fold" data-deck-show="${esc(deck)}" aria-expanded="${shown}"
+                         aria-label="${shown ? "Hide" : "Show"} the cards in ${esc(deck)}">
+                   <span class="tri">${shown ? "▼" : "▶"}</span>
+                 </button>`
+              : ""
+          }
+        </div>
+        ${
+          shown
+            ? deckCards(deck)
+                .map(
+                  (phrase) => `
+                    <div class="row nested deck-manage-card">
+                      <span class="row-main">
+                        <span class="row-title">${esc(phrase.text || "—")}</span>
+                        <span class="row-sub">${esc(phrase.translation || "")}</span>
+                      </span>
+                    </div>`
+                )
+                .join("")
+            : ""
+        }`;
     })
     .join("");
 }
@@ -5249,7 +5318,11 @@ function wireDeckManager() {
   const rows = document.getElementById("deck-rows");
   const input = document.getElementById("s-new-deck");
   const deleteButton = document.getElementById("deck-delete");
-  let selected = null;
+  const printButton = document.getElementById("deck-print");
+  /* Coming back from the print page keeps the choice: the commonest next
+     thing after printing three decks is printing them again with one more. */
+  const selected = new Set(state.print?.decks ?? []);
+  const open = new Set();
 
   document.getElementById("s-new-deck-save").addEventListener("click", create);
   input.addEventListener("keydown", (event) => {
@@ -5257,8 +5330,31 @@ function wireDeckManager() {
     event.preventDefault();
     create();
   });
-  deleteButton.addEventListener("click", () => selected && confirmDeleteDeck(selected, paint));
-  wireRows();
+  document.getElementById("deck-select-all").addEventListener("click", () => {
+    library.deckNames(settings.language).forEach((deck) => selected.add(deck));
+    paint();
+  });
+  document.getElementById("deck-select-none").addEventListener("click", () => {
+    selected.clear();
+    paint();
+  });
+  deleteButton.addEventListener("click", () => {
+    if (selected.size !== 1) return;
+    const [deck] = selected;
+    confirmDeleteDeck(deck, () => {
+      selected.delete(deck);
+      paint();
+    });
+  });
+  printButton.addEventListener("click", () => {
+    if (!selected.size) return;
+    state.print = {
+      decks: library.deckNames(settings.language).filter((deck) => selected.has(deck)),
+      showing: true,
+    };
+    render();
+  });
+  paint();
 
   function create() {
     const name = input.value.trim();
@@ -5269,30 +5365,54 @@ function wireDeckManager() {
     }
     customDecks.add(name, settings.language);
     input.value = "";
-    paint(null);
+    paint();
     toast(`Deck "${name}" created. Choose it on the Add tab.`);
   }
 
-  /* One repaint for both halves: the tick in the list and the button under it
-     are two views of one choice, and letting them be set separately is how a
-     button ends up offering to delete a deck nothing is pointing at. The name
-     is re-checked against the list each time, so a deck that has just been
-     deleted can't leave the button armed. */
-  function paint(next = null) {
-    selected = next && library.deckNames(settings.language).includes(next) ? next : null;
-    rows.innerHTML = deckManagerRows(selected);
+  /* One repaint for all three: the ticks in the list and the two buttons
+     under it are views of one choice, and letting them be set separately is
+     how a button ends up offering to delete a deck nothing is pointing at.
+     The set is re-checked against the list each time, so a deck that has
+     just been deleted can't leave either button armed. */
+  function paint() {
+    const names = library.deckNames(settings.language);
+    for (const deck of [...selected]) if (!names.includes(deck)) selected.delete(deck);
+    rows.innerHTML = deckManagerRows(selected, open);
     wireRows();
-    deleteButton.disabled = !selected;
-    deleteButton.textContent = selected ? `Delete "${selected}"` : "Delete a deck";
+
+    const cards = [...selected].reduce((total, deck) => total + deckCards(deck).length, 0);
+    printButton.disabled = !selected.size;
+    printButton.textContent = selected.size
+      ? `Print ${selected.size === 1 ? `"${[...selected][0]}"` : `${selected.size} decks`} · ${cards} card${cards === 1 ? "" : "s"}`
+      : "Print selected";
+
+    deleteButton.disabled = selected.size !== 1;
+    deleteButton.textContent =
+      selected.size === 1
+        ? `Delete "${[...selected][0]}"`
+        : selected.size
+        ? "Tick one deck on its own to delete it"
+        : "Delete a deck";
   }
 
   function wireRows() {
     rows.querySelectorAll("[data-deck-pick]").forEach((button) =>
-      // Tapping the deck you already picked puts the choice down again, so
-      // there is always a way to disarm the button without deleting anything.
-      button.addEventListener("click", () =>
-        paint(button.dataset.deckPick === selected ? null : button.dataset.deckPick)
-      )
+      // Tapping a ticked deck unticks it, so there is always a way to disarm
+      // both buttons without deleting or printing anything.
+      button.addEventListener("click", () => {
+        const deck = button.dataset.deckPick;
+        if (selected.has(deck)) selected.delete(deck);
+        else selected.add(deck);
+        paint();
+      })
+    );
+    rows.querySelectorAll("[data-deck-show]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const deck = button.dataset.deckShow;
+        if (open.has(deck)) open.delete(deck);
+        else open.add(deck);
+        paint();
+      })
     );
   }
 }
@@ -5342,8 +5462,153 @@ function confirmDeleteDeck(deck, onDone) {
         ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
         : `Deleted "${deck}".`
     );
-    onDone(null);
+    onDone();
   };
+}
+
+
+/* Print: the chosen decks on paper.
+
+   The app is built for a phone, and there are still times a sheet of paper
+   wins — a page of café phrases in a pocket, the Paraules words stuck on the
+   fridge, a grammar deck to read on a train with no battery. So the ticked
+   decks become one printable page, and the browser's own print engine turns
+   it into a PDF (on an iPhone: Print, then pinch the preview open and share
+   it to Files).
+
+   **It is a page of the app, not a new window.** A home-screen PWA on iOS
+   opens `window.open` in Safari proper, which has its *own* localStorage —
+   the new tab would find an empty library. So the sheet is rendered into
+   `#view` like every other page, previewed on screen as a plain white card,
+   and `@media print` in app.css strips the chrome, lays it out in two columns
+   and sizes it for A4. One markup, two stylesheets.
+
+   **What an entry carries is everything the drill would show you, minus the
+   audio.** The phrase and its English; the focusNote as *Listen for*, because
+   it is the pedagogical point of the app; the usage note; the shape with its
+   term and endings and the card's own aspectNote, where the card has one; and
+   the keyword picture — the sound bridge, the scene, the gender cue, and a
+   thumbnail of the drawing if one has been made. Situation and replies are
+   left off: they are context for the moment of saying it, and the page is
+   for the moment of reading it. Type sizes are the floor of comfortable —
+   a 9pt phrase and 7pt notes — because the point is as many cards to a sheet
+   as will still read, not as many as will fit.
+
+   **The drawings arrive after the page does.** They live in IndexedDB, so the
+   entries render with an empty slot and `loadPrintArt` fills the slots in
+   afterwards; the Print button waits for that, since a print started with the
+   images still decoding prints the slots empty. Object URLs are revoked when
+   the page is left. */
+function renderPrint() {
+  const language = LANGUAGES[settings.language];
+  const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
+  const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
+  const total = sections.reduce((count, section) => count + section.cards.length, 0);
+  const artIDs = [];
+
+  view.innerHTML = `
+    ${pageHead(
+      "settings",
+      "Print",
+      `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${total} card${total === 1 ? "" : "s"}`,
+      `<button class="link" id="print-back">‹ Settings</button>`
+    )}
+    <div class="print-chrome">
+      <button class="btn btn-primary" id="print-go" style="width:100%">Print / save as PDF</button>
+      <p class="tiny muted" style="margin:10px 0 0">
+        Sized for A4, two columns to the sheet. On an iPhone, choose Print, then pinch the preview
+        open and use Share to save it to Files as a PDF.
+      </p>
+    </div>
+    <article class="print-sheet" lang="${esc(settings.language)}">
+      <header class="print-head">
+        <strong>fin·o·lingo</strong> · ${esc(language.name)} ·
+        ${decks.length} deck${decks.length === 1 ? "" : "s"} · ${total} card${total === 1 ? "" : "s"}
+      </header>
+      ${sections
+        .map(
+          ({ deck, cards }) => `
+            <section class="print-deck">
+              <h2 class="print-deck-name">${esc(deck)} <span>${cards.length}</span></h2>
+              ${cards.map((phrase) => printEntry(phrase, artIDs)).join("")}
+            </section>`
+        )
+        .join("")}
+    </article>`;
+
+  const ready = loadPrintArt(artIDs);
+
+  document.getElementById("print-back").onclick = () => {
+    revokePrintArt();
+    state.print.showing = false;
+    render();
+  };
+  document.getElementById("print-go").onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    await ready;
+    button.disabled = false;
+    window.print();
+  };
+}
+
+/* One card on the page. Every line but the first two is conditional, so a
+   plain café phrase is two lines and a Paraules word with a drawn picture is
+   the tallest thing on the sheet; `break-inside: avoid` on the entry keeps
+   each one whole across a column or page break. */
+function printEntry(phrase, artIDs) {
+  const shape = aspectOf(phrase);
+  const gender = genderOf(phrase);
+  const hasPicture = !!phrase.picture?.trim();
+  if (hasPicture) artIDs.push(phrase.id);
+  const notes = [
+    phrase.focusNote ? ["Listen for", phrase.focusNote] : null,
+    phrase.usageNote ? ["Use", phrase.usageNote] : null,
+    shape ? ["Shape", `${shape.mark} ${shape.label} — ${shape.endings ? `${shape.term} · ${shape.endings}` : shape.term}${shape.note ? `. ${shape.note}` : ""}`] : null,
+    hasPicture && phrase.sounds?.trim() ? ["Sounds like", `“${phrase.sounds.trim()}”`] : null,
+    hasPicture ? ["Picture it", phrase.picture.trim()] : null,
+  ].filter(Boolean);
+
+  return `
+    <div class="print-card${hasPicture ? " has-picture" : ""}">
+      ${hasPicture ? `<span class="print-art" data-print-art="${esc(phrase.id)}"></span>` : ""}
+      <span class="print-text">${
+        gender ? `<i class="gender-dot gender-${gender}" title="${esc(GENDERS[gender].label)}"></i>` : ""
+      }${esc(phrase.text || "—")}</span>
+      ${phrase.translation ? `<span class="print-translation">${esc(phrase.translation)}</span>` : ""}
+      ${notes
+        .map(([label, body]) => `<span class="print-note"><b>${esc(label)}</b> ${esc(body)}</span>`)
+        .join("")}
+    </div>`;
+}
+
+let printArtURLs = [];
+
+async function loadPrintArt(ids) {
+  await Promise.all(
+    ids.map(async (id) => {
+      let blob = null;
+      try {
+        blob = await audioStore.getPicture(id);
+      } catch {
+        blob = null;
+      }
+      const slot = view.querySelector(`[data-print-art="${CSS.escape(id)}"]`);
+      if (!blob || !slot?.isConnected) return;
+      const url = URL.createObjectURL(blob);
+      printArtURLs.push(url);
+      const img = new Image();
+      img.alt = "";
+      img.src = url;
+      slot.appendChild(img);
+      await img.decode().catch(() => {});
+    })
+  );
+}
+
+function revokePrintArt() {
+  printArtURLs.forEach((url) => URL.revokeObjectURL(url));
+  printArtURLs = [];
 }
 
 
