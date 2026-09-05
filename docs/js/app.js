@@ -3923,8 +3923,9 @@ function renderAddWord() {
 
   view.innerHTML = `
     ${pageHead("vocab", "Add a word", `One word, and something ridiculous to hang it on`, homeLink())}
-    <p class="muted add-intro">A word sticks when it is hooked to something absurd. Put the word and its English in,
-      and the assistant will find an English sound hiding in it and build a scene out of that sound and the meaning.</p>
+    <p class="muted add-intro">Put in the word <em>or</em> the English — whichever you have — and the rest can be
+      filled in for you: the other side, the gender, the sound it hides, and a scene to hang it on. Write your own
+      picture if you have a better one.</p>
 
     ${
       settings.hasAssistant
@@ -3939,8 +3940,7 @@ function renderAddWord() {
         <div class="field-head">
           <label for="f-text">The word</label>
         </div>
-        <textarea id="f-text" rows="1" lang="${settings.language}" autocapitalize="none"
-                  placeholder="With its article — el tenedor, not tenedor"></textarea>
+        <textarea id="f-text" rows="1" lang="${settings.language}" autocapitalize="none"></textarea>
       </div>
 
       <div class="field">
@@ -3954,7 +3954,7 @@ function renderAddWord() {
 
       ${
         settings.hasAssistant
-          ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">Invent a picture for me</button>`
+          ? `<button class="btn btn-primary" id="word-fill" style="width:100%;margin-bottom:10px">Fill in the rest for me</button>`
           : ""
       }
       <div id="f-picture-note" class="notice" hidden></div>
@@ -3963,6 +3963,8 @@ function renderAddWord() {
         <textarea id="f-sounds" rows="2"></textarea></label>
       <label class="field"><span>Picture</span>
         <textarea id="f-picture" rows="3"></textarea></label>
+      <p class="tiny muted" style="margin:-6px 0 12px">Describe your own scene here and it will be kept — a picture
+        you invented outlasts one you were handed. Leave it empty and one will be made for you.</p>
 
       ${deckField("word-deck", defaultDeck)}
 
@@ -3980,7 +3982,101 @@ function renderAddWord() {
   });
 
   wireDeckField("word-deck");
-  wirePictureAI();
+  wireWordFill();
+
+  /* "Fill in the rest for me" — one press for the whole card.
+
+     It replaced a picture-only button, which could not run until both language
+     boxes were filled and so made you do the app's job before it would help.
+     Two calls, in order, because they answer different questions and the second
+     needs the first's answer:
+
+     1. `/complete-card` for the missing side. Whichever box you left empty is
+        what it fills — the word from the English, or the English from the word.
+        Skipped entirely when both are already there, so a card you typed out in
+        full costs one call rather than two.
+     2. `/chat` for the sound bridge and the scene, exactly as the editor asks
+        for them, using the *completed* word rather than what was in the box —
+        a bridge built from a blank is nothing.
+
+     **A picture you wrote yourself is never overwritten.** Only `sounds` is
+     taken in that case, which is the one thing you cannot reasonably work out
+     and the reason the whole call still runs. The gender needs no call at all:
+     it is read off the article once the word is in the box. */
+  function wireWordFill() {
+    const button = document.getElementById("word-fill");
+    if (!button) return;
+    const noteBox = document.getElementById("f-picture-note");
+    const soundsField = document.getElementById("f-sounds");
+    const pictureField = document.getElementById("f-picture");
+    const englishField = document.getElementById("f-translation");
+
+    button.onclick = async () => {
+      const had = { text: textField.value.trim(), english: englishField.value.trim() };
+      if (!had.text && !had.english) {
+        noteBox.className = "notice bad";
+        noteBox.textContent = `Put in the ${language.englishName} word or its English first — either will do.`;
+        noteBox.hidden = false;
+        return;
+      }
+      const mine = pictureField.value.trim();
+      button.disabled = true;
+      button.innerHTML = `<span class="spinner"></span> Working on it…`;
+      noteBox.hidden = true;
+      try {
+        let word = had.text;
+        let english = had.english;
+        if (!word || !english) {
+          const result = await cardAssistant.complete(
+            {
+              target: had.text,
+              english: had.english,
+              situation: "",
+              deck: document.getElementById("word-deck").value,
+              languageCode: settings.language,
+              languageName: language.englishName,
+            },
+            settings
+          );
+          // The page can be gone by now — you left while it was thinking.
+          if (!document.getElementById("f-text")) return;
+          word = result.text?.trim() || word;
+          english = result.translation?.trim() || english;
+          textField.value = word;
+          englishField.value = english;
+          textField.dispatchEvent(new Event("input"));
+        }
+
+        const { reply } = await cardAssistant.chat(
+          {
+            ...chatContext({ text: word, translation: english, replies: [] }),
+            history: [{ role: "user", text: mine ? reimagineRequest({ sounds: "", picture: mine }) : PICTURE_REQUEST }],
+          },
+          settings
+        );
+        if (!document.getElementById("f-picture")) return;
+        const made = parsePicture(reply);
+        if (made.sounds) soundsField.value = made.sounds;
+        // Yours stays yours; only an empty box gets filled.
+        if (!mine && made.picture) pictureField.value = made.picture;
+        autosize(soundsField);
+        autosize(pictureField);
+        autosizeAll(view);
+        noteBox.className = "notice";
+        noteBox.textContent = mine
+          ? "Have a look — your picture was kept, and it only counts once you Save."
+          : "Have a look — change anything that isn't yours, and it only counts once you Save.";
+        noteBox.hidden = false;
+      } catch (error) {
+        noteBox.className = "notice bad";
+        noteBox.textContent = error.message;
+        noteBox.hidden = false;
+      } finally {
+        button.disabled = false;
+        button.textContent = "Fill in the rest for me";
+      }
+    };
+  }
 
   /* The gender select's first option reads the article off the word, so it has
      to follow the box rather than being decided once at render — you have not
@@ -4010,11 +4106,12 @@ function renderAddWord() {
     };
     errorBox.hidden = true;
 
-    /* Both sides, for the reason the editor gives: the scene has to hold the
-       sound of the word and its English meaning at once. A picture is optional
-       — you can file the word now and hang something on it later. */
-    if (!text || !translation) {
-      return fail(`The ${language.englishName} word and its English are both needed before saving.`);
+    /* One side is enough. The scene needs both, but *filling in* the missing
+       one is what the assistant is for — insisting on both up front made you do
+       the app's job before it would take the card. A picture is optional too:
+       file the word now, hang something on it later. */
+    if (!text && !translation) {
+      return fail(`Put in the ${language.englishName} word or its English — either will do.`);
     }
     const duplicate = library
       .forLanguage(settings.language)
