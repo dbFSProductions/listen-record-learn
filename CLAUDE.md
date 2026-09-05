@@ -1213,7 +1213,14 @@ below said what that was costing. What is true of them now:
   (no fallback — nothing else in the chain can draw), sends **no
   `generation_config`** (an image model has no `thinking_level` and rejects the
   field, which is why `callModel` now takes one and `null` omits the key), and
-  gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card. Nothing
+  gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card. On the
+  Replicate path the deadline that matters is `REPLICATE_ABORT_MS`, and it has
+  to sit *past* `REPLICATE_WAIT_S`: it shipped underneath it (45s wait, 40s
+  abort), so a render that cold-started slowly never reached Replicate's own
+  "processing" answer — the fetch aborted first, an abort is not a
+  `PublicError`, and the phone said "The card assistant couldn't answer that",
+  which reads as the button being broken. Both slow paths are the one 504 now,
+  and `picture-test.mjs` holds the abort to it. Nothing
   the other endpoints send changed shape, so this was additive for all three
   apps — but `worker/**` is on the deploy trigger, so merging it shipped it.
 - **`outputImageOf` accepts more than one response shape on purpose.** No repo

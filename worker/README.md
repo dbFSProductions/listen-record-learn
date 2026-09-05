@@ -29,9 +29,13 @@ endpoint under **Settings → Card assistant speed**.
 
 `/picture` is the odd one out and worth knowing about before you touch it.
 **It does not go to Gemini's API at all — it goes to Replicate**, which is where
-the image bill lives now. It gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s
-sized for a card, on the same reasoning as `/about-cards`: a big output squeezed
-into a small window reports "busy" for something that was merely still working.
+the image bill lives now. The request asks Replicate to hold the connection
+(`Prefer: wait=45`) and the Worker's own abort on that request,
+`REPLICATE_ABORT_MS`, sits a few seconds *past* the wait — it shipped the other
+way round, a 45s wait under a 40s abort, so a slow render never reached
+Replicate's "still processing" answer and the phone got the generic "couldn't
+answer that" instead of "taking too long". Both slow paths now say the same
+thing. `IMAGE_TIMEOUT_MS` (40s) is the Gemini path's window and the file fetch's.
 
 Replicate answers with a *URL*, not with bytes, so the Worker fetches the file
 and base64s it before replying. That keeps the client contract exactly as it

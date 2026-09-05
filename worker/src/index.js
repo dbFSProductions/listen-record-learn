@@ -211,11 +211,23 @@ const DEFAULT_REPLICATE_INPUT = { aspect_ratio: "1:1", resolution: "1K", output_
 
 /* Replicate holds the HTTP request open and hands back the finished prediction
    when `Prefer: wait` is set — no polling, no second round trip, which is what
-   lets an image fit inside one Worker invocation at all. It caps at 60s and we
-   ask for less, so the wait is over before IMAGE_TIMEOUT_MS can fire and the
-   error says "still drawing" rather than a bare abort. Nine seconds is typical;
-   forty-five means something is wrong, not something is slow. */
+   lets an image fit inside one Worker invocation at all. It caps at 60s. Nine
+   seconds is typical; forty-five means something is wrong, not something is
+   slow — and at forty-five Replicate answers 200 with status "processing",
+   which is reported below as "taking too long".
+
+   REPLICATE_ABORT_MS is this Worker's own deadline on that same request, and it
+   has to sit *past* the wait. It shipped the other way round — the wait at 45s
+   under a 40s abort (IMAGE_TIMEOUT_MS, sized for the Gemini path) — so a slow
+   render never reached Replicate's own "still processing" answer: the fetch
+   aborted first, the abort was not a PublicError, and the phone was told "The
+   card assistant couldn't answer that", which reads as the feature being broken
+   rather than the model being slow. The margin is the time Replicate takes to
+   write the response once the wait is up; the abort is
+   mapped to the same 504 as "processing" so both slow paths say the same thing.
+   Both stay inside the app's own 70s deadline, with the file fetch after. */
 const REPLICATE_WAIT_S = 45;
+const REPLICATE_ABORT_MS = REPLICATE_WAIT_S * 1000 + 8_000;
 
 /* How long a drawing may take. Longer than a card and shorter than the whole
    budget, on the same reasoning as BATCH_TIMEOUT_MS: an image is a big output,
@@ -863,16 +875,29 @@ async function drawWithReplicate(request, env, trace) {
     }
   }
 
-  const response = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.REPLICATE_API_TOKEN.trim()}`,
-      "Content-Type": "application/json",
-      Prefer: `wait=${REPLICATE_WAIT_S}`,
-    },
-    body: JSON.stringify({ input: { ...extraInput, prompt: buildPicturePrompt(request) } }),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-  });
+  let response;
+  try {
+    response = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.REPLICATE_API_TOKEN.trim()}`,
+        "Content-Type": "application/json",
+        Prefer: `wait=${REPLICATE_WAIT_S}`,
+      },
+      body: JSON.stringify({ input: { ...extraInput, prompt: buildPicturePrompt(request) } }),
+      signal: AbortSignal.timeout(REPLICATE_ABORT_MS),
+    });
+  } catch (error) {
+    /* Our own deadline going first is the same story as Replicate's
+       "processing" below — the drawing is still being made — and it has to say
+       so. Left unmapped it fell through to the generic 500, which is what made
+       a slow model look like a broken feature. Anything else is a network
+       failure between here and Replicate, named as such. */
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("The drawing is taking too long. Try again.", 504);
+    }
+    throw new PublicError("Couldn't reach Replicate to draw it. Try again.", 502);
+  }
 
   const payload = await response.json().catch(() => ({}));
 
@@ -915,8 +940,8 @@ async function drawWithReplicate(request, env, trace) {
     throw new PublicError("The model drew nothing. Try again.", 502);
   }
 
-  const file = await fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
-  if (!file.ok) throw new PublicError("The drawing could not be fetched back.", 502);
+  const file = await fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) }).catch(() => null);
+  if (!file?.ok) throw new PublicError("The drawing could not be fetched back.", 502);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   // Checked on the bytes, before base64 inflates them by a third — the cap is
