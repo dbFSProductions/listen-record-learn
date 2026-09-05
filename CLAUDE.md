@@ -1454,6 +1454,22 @@ each with its English and a Listen button.
   while a level-two question is standing, out while the meaning is hidden.
   Pressing it puts three answers and their English on the screen, so it can't
   be on the near side of a line the replies are on the far side of.
+- **Every reply offers *Keep as a card*.** A reply is a phrase somebody
+  actually says, and the one you keep hearing is the one you will want to be
+  able to say — so the way from "I like this one" to a card of its own is one
+  tap, on the reply, rather than retyping it into Add. `keepReply` in app.js
+  is the whole of it: the reply's text and English become the card, the phrase
+  it answers is written into the situation (that is exactly what a situation
+  is for), no focusNote because nobody has written one — the editor's AI
+  rebuild is there for that. `replyDeck` decides where it lands: it follows its
+  card into an everyday deck, and lands in `My phrases` otherwise, because the
+  past decks are a designed curriculum a reply would dilute, a Paraules deck
+  holds single words, About me is about you and Quick is what you asked for.
+  *Kept as a card ✓* is read off the library at render (`replyKept`), so it
+  survives a re-render, a second visit and a reload, and a duplicate is refused
+  on the button rather than in a toast. `wireReplies` takes a `source` read at
+  the tap, not at wiring, because on the Add review the deck select and the
+  phrase box are still being edited. In all three apps.
 - Replies play through `speech.modelAudio`, which keys its cache on the text,
   so a reply you've heard once is available offline like any phrase.
 - **They are held back harder than the usage note in the drill.** A situation is
@@ -2624,7 +2640,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v74 / `xerra-v74` — `js/version.js` first, `sw.js` second, as ever.
+- v75 / `xerra-v75` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

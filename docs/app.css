@@ -1100,6 +1100,11 @@ canvas { width: 100%; display: block; }
 .reply-main { flex: 1; min-width: 0; }
 .reply-text { display: block; font-weight: 700; overflow-wrap: anywhere; }
 .reply-translation { display: block; margin-top: 2px; font-size: 0.82rem; color: var(--text-2); overflow-wrap: anywhere; }
+/* The way from a reply you like to a card of its own, under its English. A
+   plain link rather than a button: the play button is the point of the row and
+   two buttons on one line would fight it. Kept, it goes quiet. */
+.reply-keep { display: inline-block; padding: 5px 0 0; font-size: 0.78rem; font-weight: 800; }
+.reply-keep:disabled { color: var(--text-3); cursor: default; }
 
 /* The card you're about to save, said out loud. Same shape as a reply — play
    button, the line, its English — because it does the same job one step up, so
