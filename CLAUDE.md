@@ -31,6 +31,39 @@ truth for content (below) and the reference for the audio algorithms.
 
 ---
 
+## Xerra is upstream; the forks follow
+
+There are three apps in this family, in three repos, all cloned side by side
+under `~/dev/`:
+
+| repo | app | language |
+|---|---|---|
+| `listen-record-learn` | **Xerra** — this one | Catalan, Spanish, Italian |
+| `deb-o-lingo` | Deb-o-lingo | Spanish |
+| `mum-o-lingo` | Mum-o-lingo | Spanish |
+
+**Changes are made here first and rolled out to the other two afterwards.**
+Where this file says a feature "came from Deb-o-lingo" or that Deb-o-lingo
+"now has this too", that is the history of one particular feature, not the
+direction of travel — read those as notes on what already happened, and assume
+new work starts in Xerra.
+
+Two consequences worth keeping in mind:
+
+- **The forks can be behind, and being behind is invisible from in here.** The
+  way to tell is to diff the shared files (`docs/js/app.js`, `speech.js`,
+  `audio.js`, `store.js`, `card-assistant.js`) against the fork's copy, or to
+  read the fork's own working notes, which record what it has taken.
+- **The Worker is shared and is on a deploy trigger**, so a `worker/**` change
+  merged here is live for all three within the minute — the forks' *clients*
+  can lag their Worker, but never the other way round.
+
+Each app is its own GitHub Pages deployment, so a rollout is not done until
+each one has been merged, reloaded on the phone, and checked against its own
+version pair in Settings.
+
+---
+
 ## Layout
 
 ```
@@ -1203,10 +1236,11 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
-- **`/picture` is the sixth endpoint, and Xerra does not call it.** The two
-  Spanish forks teach vocabulary by the keyword method — the word sounds like
-  something in English, and one absurd scene holds that sound and the meaning
-  together — and this draws that scene. It is the only call here that returns
+- **`/picture` is the sixth endpoint, and all three apps call it now.** Xerra
+  did not when this was written; it does, since #46. All three teach vocabulary
+  by the keyword method — the word sounds like something in English, and one
+  absurd scene holds that sound and the meaning together — and this draws that
+  scene. It is the only call here that returns
   bytes rather than words, so it earns its own endpoint on exactly the argument
   `/replies` won: an image is the biggest, slowest output this Worker makes and
   card generation must stay small and fast. It runs `GEMINI_IMAGE_MODEL` alone
@@ -1221,8 +1255,8 @@ below said what that was costing. What is true of them now:
   could not be tried before it was deployed. It reads the bytes from
   `output_image` or from a `model_output` step, under either spelling of `data`
   and `mime_type`. If Google moves them, that function is the fix — and the
-  phone's error, *"the model drew nothing"*, is what points at it. **If Xerra
-  ever grows keyword pictures of its own, this endpoint is already there.**
+  phone's error, *"the model drew nothing"*, is what points at it. **Xerra draws
+  through it too now**, so a change here reaches all three apps at once.
 
 **`aiLog` is Xerra-only, so `card-assistant.js` is no longer the verbatim copy
 Deb-o-lingo took.** The timing lives in `request()`, which is the one place
