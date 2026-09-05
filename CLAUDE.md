@@ -330,6 +330,29 @@ it — the same place Deb-o-lingo and Mum-o-lingo put theirs. At the bottom of a
 section holding two hundred phrases it was a screen and a half of scrolling
 away, which is not where you are standing when you decide to add one.
 
+#### The field asks "el or la?", and a regenerated picture is ours to replace
+
+Two things reported together, both about Add a word.
+
+**The gender field said "From the article".** That names the *mechanism*; the
+question in your head when you file a word is **el or la**, and the answer is
+also which colour the picture gets painted. So `GENDERS` carries an `article`
+now and the field reads *El — colour it blue* / *La — colour it pink*, with
+*El or La — colour it blue or pink* while it cannot tell. The override options
+are *Always el* / *Always la*, which is what distinguishes them from the
+automatic one when it has worked the answer out.
+
+**And the picture stopped following the card.** *Never overwrite yours* was
+measured by "is the box empty" — so the moment we filled it, the next press
+treated our own sentence as the user's and kept it. Change the English, press
+again, and every field refilled except the picture, which went on describing the
+old word. Reported exactly that way.
+
+`lastMade.picture` is the fix: we remember what we put there. Untouched since,
+it is ours to replace; edited at all, it is yours and it stays. **The general
+shape is worth keeping** — "did the user write this?" cannot be answered by
+"is it non-empty" on any field the app also writes to.
+
 ### One side is enough, and the rest is filled in
 
 The first cut demanded the word **and** its English before it would save, and

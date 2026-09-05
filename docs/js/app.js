@@ -101,6 +101,9 @@ const state = {
 
 // ------------------------------------------------------------------ helpers
 
+/** First letter up. Used where an article starts a sentence-like label. */
+const cap = (word) => String(word ?? "").replace(/^./, (c) => c.toUpperCase());
+
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
@@ -429,19 +432,22 @@ function genderCue(phrase) {
 function genderField(phrase, id = "f-gender") {
   const chosen = phrase?.gender ?? "";
   const derived = genderOf({ text: phrase?.text ?? "" });
+  /* "El or La" rather than "From the article": the article *is* the question
+     you are answering, and naming the colour here is what ties the field to the
+     blue or pink the picture will be painted. */
   const auto = derived
-    ? `From the article — ${GENDERS[derived].label}`
-    : "From the article — it doesn't say";
+    ? `${cap(GENDERS[derived].article)} — colour it ${GENDERS[derived].colour}`
+    : "El or La — colour it blue or pink";
   return `
     <label class="field"><span>Gender (optional)</span>
       <select id="${id}" data-gender-auto>
         <option value=""${chosen ? "" : " selected"}>${auto}</option>
         ${Object.entries(GENDERS)
           .map(
-            ([key, { label, colour }]) =>
-              `<option value="${key}"${chosen === key ? " selected" : ""}>${
-                label[0].toUpperCase() + label.slice(1)
-              } — ${colour}</option>`
+            ([key, { colour, article }]) =>
+              `<option value="${key}"${chosen === key ? " selected" : ""}>Always ${esc(
+                article
+              )} — colour it ${esc(colour)}</option>`
           )
           .join("")}
       </select></label>`;
@@ -4010,6 +4016,9 @@ function renderAddWord() {
     const soundsField = document.getElementById("f-sounds");
     const pictureField = document.getElementById("f-picture");
     const englishField = document.getElementById("f-translation");
+    /* What we last put in the picture box, so a second press can tell its own
+       handiwork from yours. Per screen — a fresh Add a word starts empty. */
+    const lastMade = { picture: "" };
 
     button.onclick = async () => {
       const had = { text: textField.value.trim(), english: englishField.value.trim() };
@@ -4019,7 +4028,18 @@ function renderAddWord() {
         noteBox.hidden = false;
         return;
       }
-      const mine = pictureField.value.trim();
+      /* Whether the scene in the box is one you wrote or one we last wrote.
+
+         "Never overwrite yours" was measured by "is the box empty", so the
+         moment we filled it, the next press treated our own sentence as
+         yours and kept it — change the English, press again, and every field
+         refilled except the picture, which went on describing the old word.
+         Reported exactly that way.
+
+         So we remember what we put there. Untouched since, it is ours to
+         replace; edited at all, it is yours and it stays. */
+      const inBox = pictureField.value.trim();
+      const mine = inBox && inBox !== lastMade.picture ? inBox : "";
       button.disabled = true;
       button.innerHTML = `<span class="spinner"></span> Working on it…`;
       noteBox.hidden = true;
@@ -4057,8 +4077,11 @@ function renderAddWord() {
         if (!document.getElementById("f-picture")) return;
         const made = parsePicture(reply);
         if (made.sounds) soundsField.value = made.sounds;
-        // Yours stays yours; only an empty box gets filled.
-        if (!mine && made.picture) pictureField.value = made.picture;
+        // Yours stays yours; ours is replaced, and an empty box is filled.
+        if (!mine && made.picture) {
+          pictureField.value = made.picture;
+          lastMade.picture = made.picture;
+        }
         autosize(soundsField);
         autosize(pictureField);
         autosizeAll(view);
@@ -4086,8 +4109,8 @@ function renderAddWord() {
   textField.addEventListener("input", () => {
     const derived = genderOf({ text: textField.value });
     genderSelect.options[0].textContent = derived
-      ? `From the article — ${GENDERS[derived].label}`
-      : "From the article — it doesn't say";
+      ? `${cap(GENDERS[derived].article)} — colour it ${GENDERS[derived].colour}`
+      : "El or La — colour it blue or pink";
   });
 
   document.getElementById("word-save").onclick = () => saveWord({ practise: false });
