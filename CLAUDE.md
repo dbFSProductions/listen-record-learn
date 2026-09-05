@@ -680,6 +680,46 @@ teaches single words.
   A failed redraw repaints the drawing you had rather than the offer — the blob
   is still in the store, so showing *Draw this for me* would be a fright and a
   lie at once.
+
+- **Imagine it again is the same offer one level up, and it is the one that
+  matters.** A redraw is for a picture that came out wrong; this is for a scene
+  that was never right — a bridge you don't hear in the word, or a scene that
+  simply doesn't stick. That is the failure that actually costs you the word,
+  and until now the only way out of it was Edit → *Invent a picture for me* →
+  Save: four taps and a screenful of small print away from the moment you
+  notice, which is mid-drill with the card in front of you. So it sits at the
+  foot of the picture block, in both the places a picture is shown, and writes
+  through `library.setPicture` — **mutated in place**, like `setReplies` and
+  `keepNote`, because the drill is holding this phrase in `state.queue`.
+  - **Nothing is confirmed first and the old scene is offered back**, which is
+    the deck field's bargain: what returns is one roll of a model and may well
+    be worse than what you had, and a seed scene was written for one mouth and
+    one life — exactly the thing this file says not to lose by accident. One
+    step back, not a history: roll twice and a second undo would be restoring a
+    scene you had already rejected.
+  - **The drawing is left alone and said to be stale.** Deleting it destroys
+    something you may still want; keeping quiet about it leaves a drawing of a
+    scene that no longer exists. So it stays, the note says so, and *Draw it
+    again* is already sitting in the row above as the way to catch it up.
+  - **It goes through `/chat`**, like the editor's *Invent a picture for me*
+    and on the same argument: `/picture` draws a scene, it doesn't write one,
+    and a new endpoint means a Worker deploy that serves all three apps.
+    `reimagineRequest` is the same brief with the rejected scene named **in the
+    middle of it** — an instruction after *"nothing before or after them"* is an
+    instruction inviting a third line — and it asks for a new bridge only
+    *where the word honestly offers one*. Insisting on a different bridge for
+    *la clau* is insisting on a wrong one, and a mnemonic that teaches the
+    wrong mouth is worse than none.
+  - **The editor's button learned the same thing.** On a card that already has
+    a scene it reads *Imagine another one* and sends the rejected one, so
+    pressing it can no longer hand back the scene you were pressing it to
+    escape. It reads the boxes rather than the phrase, because the boxes are
+    what the card is about to become.
+  - **The whole block is rebuilt on the way back, not just the sentence.** A new
+    bridge can arrive where there was none, and `pictureBlock` is the one place
+    that knows how those are laid out. Re-wiring the drawing with it costs one
+    read of IndexedDB and is what keeps its buttons alive — `wirePicture` is
+    the pair, and both call sites take it rather than `wirePictureArt`.
 - **Third IndexedDB store, so `DB_VERSION` went to 2.** The upgrade handler
   creates whatever is missing, so an existing install keeps its recordings and
   its cached model audio and gains the box. Worth knowing when testing: with no
@@ -708,6 +748,10 @@ of its spelling.
 Deb-o-lingo has the same machinery with deliberately different scenes — hers
 are dollars and her own week. **Port the machinery, never the pictures**: a
 picture is aimed at one mouth and one life, the same way a focusNote is. The
+re-imagine ports whole — the store mutator, the two wiring functions, the
+prompt and the CSS are all client-side, and `/chat` is untouched — and it is
+worth taking over, since a scene that doesn't click is the same failure in
+Spanish. The
 one real divergence is where the cards live, which is the deck-versus-path
 difference the rest of this file already has.
 
@@ -1900,7 +1944,21 @@ alone, and is a no-op the second time. On the Worker,
 unknown gender is dropped rather than refused. For the redraw: `[data-redraw]`
 is in the drill as well as the sheet and `[data-undraw]` only in the sheet, a
 503 on a redraw leaves `.picture-image` on screen with the error beside it and
-the button still offered, and the next good one clears it. Two more that are easy to lose: an install still on
+the button still offered, and the next good one clears it. For the re-imagine:
+`[data-reimagine]` is offered in the drill and on the sheet and absent with no
+assistant configured, nothing is fetched until it is pressed, one press repaints
+`.picture-scene-text` *and* `.picture-sounds` and writes both to
+`xerra.phrases`, the request carries the rejected scene and still ends on the
+two-line format, `[data-unimagine]` puts the old pair back without a second
+call, a 503 leaves the card saying what it always said with the offer still
+there, a 503 *after* a good roll still offers `[data-unimagine]` — it lives in
+the row, not inside the sentence announcing the new scene — a card with a
+drawing keeps it (with its `[data-redraw]` and
+`[data-undraw]`) and is told the drawing is of the old scene, and the new scene
+survives a reload — searchable by it, since the bridge it came in on is gone.
+In the editor, `#f-picture-ai` reads *Imagine another one* on a card that has a
+scene and sends that scene, reads *Invent a picture for me* on one that hasn't
+and sends the old prompt exactly, and neither writes anything until Save. Two more that are easy to lose: an install still on
 `DB_VERSION` 1 upgrades in place and keeps its recordings — drill a card *with
 a picture* to trigger it, since with no Azure key nothing else opens the
 database — and deleting a card takes its drawing out of the store with it.
@@ -2074,6 +2132,11 @@ the parser losing a block to a formatting change.
   phrase, `pictureBlock` / `wirePictureArt` / `drillPicture` in app.js, a third
   IndexedDB store for the drawings. Ported from Deb-o-lingo's Palabras with its
   own scenes, and it needed no Worker change.
+- **Imagine it again** re-writes the scene itself, wherever a picture is shown,
+  with the old one offered back in one tap — the redraw's counterpart for a
+  mnemonic that never clicked. `library.setPicture` in store.js,
+  `wirePicture` / `wirePictureScene` / `reimagineRequest` in app.js. No Worker
+  change: it is one turn of `/chat`.
 - **Gender is blue or pink on the thing the word names**, in the scene and in
   the drawing. Read off the card's own article by `genderOf` in store.js, with
   `phrase.gender` overriding it for the words whose article elides to `l'`.

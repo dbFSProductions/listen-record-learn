@@ -382,9 +382,10 @@ function pictureBlock(phrase, style = "") {
     <div class="picture-note"${style ? ` style="${style}"` : ""}>
       <strong>Picture it</strong>
       ${sounds ? `<span class="picture-sounds">Sounds like &ldquo;${esc(sounds)}&rdquo;</span>` : ""}
-      <span>${esc(phrase.picture)}</span>
+      <span class="picture-scene-text">${esc(phrase.picture)}</span>
       ${genderCue(phrase)}
       <div class="picture-art" data-art="${esc(phrase.id)}"></div>
+      <div class="picture-scene" data-scene="${esc(phrase.id)}"></div>
     </div>`;
 }
 
@@ -558,6 +559,112 @@ async function wirePictureArt(root, phrase, { controls = false } = {}) {
   const existing = await audioStore.getPicture(phrase.id);
   if (existing) paint(existing);
   else offer();
+}
+
+/* "Imagine it again" — the scene's answer to the drawing's "Draw it again".
+
+   A redraw is for a picture that came out wrong; this is for one that was
+   never right. The scene is the mnemonic — the drawing is only a rendering of
+   it — so a bridge that doesn't click, or one built on a sound you don't hear
+   in the word, is the failure that actually costs you the word, and until now
+   the only way out of it was Edit, "Invent a picture for me", Save. That is
+   four taps and a screenful of small print away from the moment you notice,
+   which is mid-drill with the card in front of you.
+
+   So it sits where a picture is shown — the drill and the phrase sheet, the
+   same two places the drawing's controls sit — and writes through
+   `library.setPicture`, which mutates in place because the drill is holding
+   this phrase in `state.queue`. Nothing is confirmed first: a scene you didn't
+   ask for is undone in one tap, which is the argument the sheet's deck field
+   already makes.
+
+   The old scene is offered back rather than kept quietly, because what comes
+   back is one roll of a model and the one you had may well have been better —
+   and a seed scene was written for one mouth and one life, which is exactly
+   what this repo says not to lose by accident. One step back, not a history:
+   roll twice and the second undo would be putting back a scene you had already
+   rejected once.
+
+   The drawing is left alone and said to be stale. Deleting it would be
+   destroying something the user might still want, and silently keeping a
+   drawing of a scene that no longer exists is a lie — so it stays, with "Draw
+   it again" already sitting above this row as the way to catch it up.
+
+   It goes through `/chat`, like the editor's "Invent a picture for me" and for
+   the same reason: `/picture` draws a scene, it doesn't write one, and a new
+   endpoint means a Worker deploy that serves all three apps. */
+function wirePicture(root, phrase, options = {}) {
+  wirePictureArt(root, phrase, options);
+  wirePictureScene(root, phrase, options);
+}
+
+function wirePictureScene(root, phrase, options = {}) {
+  const { changedFrom = null } = options;
+  const slot = root?.querySelector?.(`[data-scene="${CSS.escape(phrase.id)}"]`);
+  if (!slot) return;
+  const note = slot.closest(".picture-note");
+
+  /* Both sides or nothing, on the editor's argument: the scene has to hold the
+     sound of the phrase and the English meaning at once, so half a card can't
+     make one. The offer is simply absent rather than refusing on tap. */
+  if (!settings.hasAssistant || !phrase.text?.trim() || !phrase.translation?.trim()) return;
+
+  /* The whole block is rebuilt, not just the sentence: a new bridge may arrive
+     where there was none, or none where there was one, and `pictureBlock` is
+     the one place that knows how those are laid out. Re-wiring the art with it
+     costs one read of IndexedDB and keeps the drawing's buttons alive. */
+  const repaint = (changed) => {
+    if (!note?.isConnected) return;
+    const holder = document.createElement("div");
+    holder.innerHTML = pictureBlock(phrase, note.getAttribute("style") ?? "");
+    note.innerHTML = holder.querySelector(".picture-note").innerHTML;
+    wirePicture(note, phrase, { ...options, changedFrom: changed });
+  };
+
+  /* The way back sits in the row rather than inside the sentence that announces
+     it, so that a second roll failing doesn't take it off the screen with the
+     message it was written into — the old scene is still there to go back to. */
+  const paint = (notice = "") => {
+    if (!slot.isConnected) return;
+    slot.innerHTML = `${notice}
+      <div class="picture-scene-row">
+        <button class="link" data-reimagine>Imagine it again</button>
+        ${changedFrom ? `<button class="link" data-unimagine>Put the old one back</button>` : ""}
+      </div>`;
+    slot.querySelector("[data-reimagine]")?.addEventListener("click", reimagine);
+    slot.querySelector("[data-unimagine]")?.addEventListener("click", () => {
+      library.setPicture(phrase.id, changedFrom);
+      repaint(null);
+    });
+  };
+
+  async function reimagine() {
+    const before = { sounds: phrase.sounds ?? "", picture: phrase.picture ?? "" };
+    // Read before the repaint, which empties the art slot and refills it async.
+    const hadDrawing = !!note?.querySelector(".picture-image");
+    slot.innerHTML = `<p class="small muted picture-drawing"><span class="spinner"></span> Imagining another one…</p>`;
+    try {
+      const { reply } = await cardAssistant.chat(
+        { ...chatContext(phrase), history: [{ role: "user", text: reimagineRequest(phrase) }] },
+        settings
+      );
+      const made = parsePicture(reply);
+      if (!made.picture) throw new Error("Nothing came back. Try again.");
+      library.setPicture(phrase.id, made);
+      repaint({ ...before, hadDrawing });
+    } catch (error) {
+      // The card still says what it always said — only the offer failed.
+      paint(`<div class="notice bad picture-scene-note">${esc(error.message)}</div>`);
+    }
+  }
+
+  paint(
+    changedFrom
+      ? `<div class="notice picture-scene-note">A new scene.${
+          changedFrom.hadDrawing ? " The drawing is still of the old one — draw it again to catch it up." : ""
+        }</div>`
+      : ""
+  );
 }
 
 function base64ToBlob(data, mimeType) {
@@ -2320,7 +2427,7 @@ function renderDrill() {
     });
   });
 
-  wirePictureArt(view, phrase);
+  wirePicture(view, phrase);
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
 
@@ -3210,7 +3317,7 @@ function showPhrase(phrase) {
      <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
   );
 
-  wirePictureArt(sheetBody, phrase, { controls: true });
+  wirePicture(sheetBody, phrase, { controls: true });
 
   /* Moving a card is a property of the card, so it is here rather than behind
      Edit: this is also the only place that says which deck the card is in, and
@@ -3850,7 +3957,9 @@ function editPhrase(phrase, onSaved = null) {
      ${genderField(phrase)}
      ${
        settings.hasAssistant
-         ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">Invent a picture for me</button>`
+         ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">${
+             phrase?.picture?.trim() ? "Imagine another one" : "Invent a picture for me"
+           }</button>`
          : ""
      }
      <div id="f-picture-note" class="notice" hidden></div>
@@ -3920,13 +4029,39 @@ function editPhrase(phrase, onSaved = null) {
    boxes, but a model that ignores the format costs only the split: the whole
    reply lands in Picture and can be cut about by hand. Nothing is saved until
    Save, as everywhere else in this editor. */
-const PICTURE_REQUEST = `Invent a keyword mnemonic for this card, for an English speaker learning it.
+const PICTURE_BRIEF = `Invent a keyword mnemonic for this card, for an English speaker learning it.
 
-Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.
+Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.`;
 
-Answer in exactly two lines, with nothing before or after them:
+const PICTURE_FORMAT = `Answer in exactly two lines, with nothing before or after them:
 SOUNDS LIKE: <the English sound bridge, a few words>
 PICTURE: <one sentence>`;
+
+const PICTURE_REQUEST = `${PICTURE_BRIEF}
+
+${PICTURE_FORMAT}`;
+
+/* The same brief with the rejected scene named in the middle of it, rather than
+   appended after the format lines — an instruction that arrives after "nothing
+   before or after them" is an instruction inviting a third line.
+
+   It is told what didn't work and asked for a different bridge *where the word
+   offers one*: on a word with only one honest English sound in it, insisting on
+   a new bridge is insisting on a wrong one, and this repo's rule is that a
+   mnemonic teaching the wrong mouth is worse than no mnemonic at all. */
+function reimagineRequest(phrase) {
+  return `${PICTURE_BRIEF}
+
+This card already has a mnemonic, and it did not stick for this learner:
+SOUNDS LIKE: ${phrase.sounds?.trim() || "(none)"}
+PICTURE: ${phrase.picture?.trim() || "(none)"}
+
+Write a different one. Build a different scene — do not restate the one above in
+other words. Use a different sound bridge if the word honestly offers one; if it
+does not, keep the bridge and hang a completely new scene off it.
+
+${PICTURE_FORMAT}`;
+}
 
 function parsePicture(reply) {
   const text = String(reply ?? "").trim();
@@ -3940,9 +4075,18 @@ function wirePictureAI() {
   if (!button) return;
   const noteBox = document.getElementById("f-picture-note");
 
+  let label = button.textContent;
+
   button.onclick = async () => {
     const text = document.getElementById("f-text").value.trim();
     const translation = document.getElementById("f-translation").value.trim();
+    /* Read out of the boxes rather than off the phrase, because the boxes are
+       what the card is about to become — a scene edited by hand and then sent
+       back is the one you want it not to hand you again. */
+    const scene = {
+      sounds: document.getElementById("f-sounds").value.trim(),
+      picture: document.getElementById("f-picture").value.trim(),
+    };
     /* Both sides, and not for tidiness: the scene has to hold the sound of the
        phrase and the English meaning at once, so half a card can't make one. */
     if (!text || !translation) {
@@ -3966,7 +4110,7 @@ function wirePictureAI() {
             focusNote: document.getElementById("f-note").value.trim(),
             replies: [],
           }),
-          history: [{ role: "user", text: PICTURE_REQUEST }],
+          history: [{ role: "user", text: scene.picture ? reimagineRequest(scene) : PICTURE_REQUEST }],
         },
         settings
       );
@@ -3980,6 +4124,8 @@ function wirePictureAI() {
       pictureField.value = made.picture;
       autosize(soundsField);
       autosize(pictureField);
+      // There is a scene in the box now, so the next press is another one.
+      label = "Imagine another one";
       noteBox.className = "notice";
       noteBox.textContent = "Have a look — change anything that isn't yours, and it only counts once you Save.";
       noteBox.hidden = false;
@@ -3989,7 +4135,7 @@ function wirePictureAI() {
       noteBox.hidden = false;
     } finally {
       button.disabled = false;
-      button.textContent = "Invent a picture for me";
+      button.textContent = label;
     }
   };
 }

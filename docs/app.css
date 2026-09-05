@@ -682,6 +682,20 @@ button { font: inherit; }
 .picture-draw { width: 100%; }
 .picture-drawing { margin: 0; }
 
+/* "Imagine it again" — the scene's own control, at the foot of the block
+   rather than in the row under the drawing. The two are about different
+   things: that row acts on the picture you are looking at, this acts on the
+   sentence the whole block is. Same quiet lettering all the same — neither is
+   the thing to do on this card, both are there when the card is wrong. */
+.picture-scene-row { display: flex; gap: 14px; margin-top: 8px; }
+.picture-scene-row .link { padding: 0; font-size: 0.78rem; }
+.picture-scene-note {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.picture-scene-note .link { font-size: inherit; padding: 0; }
+
 /* The hint button while a question is standing, tinted rather than plain —
    because the two buttons it stands next to are not equals. Reaching for the
    picture is the method working; Show me hands over the answer. So the picture
