@@ -103,12 +103,110 @@ and `/chat` payloads breaks the other app too. Both share the one rate limit.
 
 ---
 
+### Four squares, and the tab opens on them
+
+The Practice tab used to open on one long column holding everything: the
+everyday decks, the six past-tense decks and the six Paraules decks, folded but
+competing for the same list. Those are three different kinds of practice —
+sentences you say, a shape you name before you say it, single words with a
+picture — and the list gave you no way to say which you were in the mood for.
+So the tab opens on **four tiles**: Decks, Grammar, Vocab and Quick.
+
+- **`SECTION_FAMILIES` in store.js is the whole of it, and `sectionOf` is the
+  one reader.** A tile owns *deck families*, not a field on the phrase — the
+  same argument `deckFamily` itself makes, that the naming is the grouping. A
+  new grammar unit joins Grammar by being called `Passat · Whatever`, or by
+  adding one family name to that table. **Anything unclaimed is Decks**, which
+  is what keeps the default right: a deck typed into the Add tab lands with the
+  everyday phrases without being told to, and no seed content had to learn
+  about any of this.
+- **The tiles are not a fourth tab.** The tab bar has three buttons and adding
+  a fourth would shrink every target on it; the tiles are a face of Practice,
+  held in `state.section`, with `null` meaning the tiles themselves. Tapping
+  the Practice tab always comes home, which is why the handler clears
+  `state.section` and the search box.
+- **`state.section` is deliberately not touched by starting a drill.** Back
+  from the drill puts you where you were: in Grammar if you opened a card
+  there, on the tiles if you got to it by searching from them. Setting it in
+  `startDeck` would land you in a section you never opened.
+- **Search still reaches everything, from every page.** It reads the whole
+  library rather than the section's share — the same invariant that says a
+  phrase you searched for must never be hiding inside a fold, one level up. It
+  sits *under* the tiles on the home page (the four squares are what the tab is
+  for) and back on top inside a section, where it is the filter for the list.
+- **A family opens by default behind a tile.** `familyOpen`'s third argument is
+  what turns the big-family fold off: Grammar holds one family, so folding it
+  would put everything that page has behind a second tap and show a single row.
+  Behind a tile the section *is* the fold. A fold the user has actually set
+  still wins, in both directions.
+- **`section:` is the fourth string in deck-key space**, after `*`, `★` and
+  `family:`. `section:grammar` drills all forty-eight past cards whatever
+  family they are in, which is what *Shuffle all of Grammar* starts, so
+  `deckNameProblem` has to refuse it like the other three.
+- **About me, ★ Favourites and Shuffle all belong to Decks and show nowhere
+  else.** None of them is a past-tense unit or a keyword word, and a Favourites
+  row inside Grammar would drill Catalan you starred in a café. About me is
+  therefore one tap deeper than it was; it is still the top row where it lives.
+- **Each tile's page wears that tile's colour**, so Grammar's banner is the gold
+  square you tapped. Inside the view `--sec` paints the page head and nothing
+  else — the tab bar carries its own `sec-` class and the primary buttons are on
+  `--accent` — so this is a header colour rather than a theme. **Not while
+  drilling**: the drill has its own colour language, and a gold page head over a
+  gold road-mode pill would say two things with one colour. Gold takes dark ink;
+  white on it is illegible, which no other accent here is.
+
+Deb-o-lingo and Mum-o-lingo have no deck list at all — their content is a path
+of lessons — so none of this ports.
+
+### Quick: the phrase you need in the next thirty seconds
+
+Everything else in the app is practice arranged in advance: a deck you picked, a
+card somebody wrote. Quick is the other direction. You are outside a pharmacy,
+you do not know how to ask for your medicine, and you have about as long as it
+takes to open the door. One box, one button, the phrase, and a Listen you can
+hit twice on the way in.
+
+- **It writes an ordinary card into an ordinary deck.** `QUICK_DECK` is a deck
+  name and nothing more, so what Quick collects drills, stars, scores, levels
+  up, edits, exports and shows in Decks with everything else. That is the point
+  of the feature rather than a detail of it — **the phrases you needed in real
+  life are the best deck in the app**, and they only become one if asking for
+  them files them. Resist giving these cards a flag, for the reason About me's
+  cards don't have one.
+- **It saves without being asked, and undoes in one tap.** The Add tab is
+  deliberate about Save because you are composing there. Here you are standing
+  in a doorway, and a card you have to remember to keep is a card you lose.
+  *Don't keep it* is the way back, and it is one tap because the mistake is
+  cheap.
+- **It goes through `/complete-card` with one extra field, not an endpoint of
+  its own.** What it wants *is* a card, and card generation is already the small
+  fast call — see what replies did to the Add tab. The field is `ask`: your line
+  as you typed it, which the Worker is told to read as a request and never as
+  text to translate, because "how do I ask if they have my medicine" is a
+  question to us and not a sentence to translate.
+- **`ask` is set on the draft only when it is there**, so `JSON.stringify(draft)`
+  at the end of the prompt is byte-identical for a caller that doesn't send one
+  — which is both sister apps. `worker/tools/card-test.mjs` asserts that against
+  the previous committed version of the file rather than against a copy of the
+  string, so it cannot quietly stop being true.
+- **The answer paints itself in place**, like the drill's star and its kept
+  notes, and for the same reason: a `render()` would throw away what you are
+  looking at. It re-reads the phrase from the library rather than trusting
+  `state.quick`, since the card can be deleted from its own sheet meanwhile.
+- **What you asked for before is printed under the box**, newest first, each
+  with a play button. It is the same deck you can open from Decks; it is here
+  because "what did I need yesterday?" is a question you ask on the page where
+  you needed it.
+
+Neither sister fork has this. It would port whole — the page is one call and one
+`library.add`, and the Worker already has the field.
+
 ### There is one browsing surface, not two
 
 Practice and Phrases were two tabs listing the same decks, so Phrases is gone
 and Practice absorbed it. `renderPractice` is the whole of it: a search box over
-a list that is the deck list while the box is empty and the matching phrases
-once it isn't. Three things had to come with it, and they are the reason not to
+a list that is the four tiles (or, behind one, that section's decks) while the
+box is empty and the matching phrases once it isn't. Three things had to come with it, and they are the reason not to
 "simplify" the page back into a plain deck list:
 
 - **The star.** Favourites were always a flag on the phrase, drillable as `★
@@ -1884,6 +1982,29 @@ About me path too whenever `renderDrill`'s topbar is touched — the two
 functions both open with `view.innerHTML = \`<div class="topbar">`, so a
 careless replacement lands in the wrong one.
 
+For the four tiles: the home page has exactly four `.tile`s titled Decks,
+Grammar, Vocab and Quick and no `[data-deck]` at all; their counts come from the
+library (48 behind Grammar, 36 behind Vocab); typing into `#search` from the
+tiles still finds *la clau*, and clearing it brings the tiles back;
+`[data-section="grammar"]` lists only `Passat` deck keys with its family already
+open, has no `[data-about]`, and offers `[data-deck="section:grammar"]` which
+queues `1/48`; `#back` from that drill lands on Grammar rather than on the
+tiles, and `[data-home]` returns to them; `[data-section="decks"]` has no
+`Passat` or `Paraules` key but does have `Salutacions`; and a deck actually
+named `section:grammar` is refused like `family:` is. For Quick, with
+`/complete-card` stubbed: `#quick-ask` carries `lang="en-GB"`, what you type
+goes as `ask` with `english` empty and `deck` `"Quick"`, the phrase lands in
+`.quick-phrase` with a `.quick-listen` beside it, `xerra.phrases` gains one card
+in the `Quick` deck **without a Save being pressed**, the box empties, a second
+ask puts the first under *Asked for before* with a working play button,
+`[data-quick-drop]` removes that card and only that card, and the Quick tile
+then reads *1 asked for* while `Quick` shows as an ordinary row in Decks. The
+Worker's half is `node worker/tools/card-test.mjs`, and the assertion that
+matters is the first one — run it as
+`git show HEAD:worker/src/index.js > /tmp/before.js && BEFORE=/tmp/before.js node worker/tools/card-test.mjs`
+so the prompt a caller without an `ask` gets is compared against the previous
+committed version, character for character.
+
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
 either a diff you meant or no diff at all. A silent drop in the phrase count is
 the parser losing a block to a formatting change.
@@ -1898,9 +2019,17 @@ the parser losing a block to a formatting change.
 - GitHub Pages publishes from the default branch, so once Pages is enabled
   (main → `/docs`) the PWA is reachable at a URL the phone can install from.
   Check whether that's actually switched on before telling the user it's live.
-- Three tabs: Practice (deck list, library search and the drill), Add,
-  Settings. Phrases was merged into Practice. Deck rows accordion open to the
-  cards inside them and carry no score of their own.
+- Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
+  rows accordion open to the cards inside them and carry no score of their own.
+- **Practice opens on four tiles** — Decks, Grammar, Vocab, Quick — rather than
+  on one long list of every deck. `SECTION_FAMILIES` / `sectionOf` in store.js
+  say which tile a deck is behind and everything unclaimed is Decks;
+  `state.section` is which one you are in, `null` being the tiles.
+- **Quick** is a box you ask for a phrase from — *I'm about to walk into a
+  pharmacy, how do I ask if they have my medicine* — which answers, plays it,
+  and files it as an ordinary card in the `Quick` deck. `renderQuick` in app.js,
+  `QUICK_DECK` in store.js, and one optional `ask` field on the Worker's
+  `/complete-card` that leaves both sister apps' prompt byte-identical.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks: pick a row, then one Delete button, then a confirm
   sheet). A made deck is a name in `customDecks`
@@ -1969,7 +2098,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v59 / `xerra-v59` — `js/version.js` first, `sw.js` second, as ever.
+- v60 / `xerra-v60` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

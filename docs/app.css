@@ -150,6 +150,16 @@ body {
 .sec-practise { --sec: var(--practise-accent); --sec-dark: var(--practise-dark); --sec-on: var(--practise-on); --sec-ink: var(--practise-ink); --sec-soft: var(--practise-soft); }
 .sec-add      { --sec: var(--add-accent);      --sec-dark: var(--add-dark);      --sec-on: var(--add-on);      --sec-ink: var(--add-ink);      --sec-soft: var(--add-soft); }
 .sec-settings { --sec: var(--settings-accent); --sec-dark: var(--settings-dark); --sec-on: var(--settings-on); --sec-ink: var(--settings-ink); --sec-soft: var(--settings-soft); }
+/* The four tiles' pages wear the colour of the tile you tapped, so the banner
+   at the top of Grammar is the gold square you came from. Inside the view
+   `--sec` paints the page head and nothing else (the tab bar carries its own
+   `sec-` class, and the primary buttons are on `--accent`), so this is a
+   header colour rather than a theme. Gold takes dark ink: white on it is
+   illegible, which no other accent here is. */
+.sec-decks   { --sec: var(--blue);   --sec-dark: var(--blue-dark);   --sec-on: #ffffff; --sec-ink: var(--phrases-ink);  --sec-soft: color-mix(in srgb, var(--blue) 16%, transparent); }
+.sec-grammar { --sec: var(--gold);   --sec-dark: var(--gold-dark);   --sec-on: #4b4b4b; --sec-ink: var(--amber);        --sec-soft: color-mix(in srgb, var(--gold) 20%, transparent); }
+.sec-vocab   { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
+.sec-quick   { --sec: var(--orange); --sec-dark: var(--orange-dark); --sec-on: #ffffff; --sec-ink: var(--add-ink);      --sec-soft: color-mix(in srgb, var(--orange) 16%, transparent); }
 
 h1 { font-size: 1.6rem; font-weight: 800; margin: 6px 0 16px; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; font-weight: 800; margin: 0; }
@@ -169,6 +179,77 @@ p { margin: 0 0 10px; }
   margin-bottom: 12px;
   border: 2px solid var(--line);
 }
+
+/* The four ways in. A 2×2 grid of chunky tiles wearing the same solid-slab
+   press as every other button here — the underside is the colour's `-dark`
+   twin, and the tile loses it and drops 3px on :active, so it presses like the
+   record button and the tabs do.
+
+   Square-ish rather than square: `aspect-ratio: 1` at 390px makes each tile
+   180px tall and pushes the search box under the fold, and the box is the
+   other way in. A minimum height gets the same feel and leaves the page
+   whole.
+
+   Text is white on the fill and does not clear 4.5:1, which is the accepted
+   trade-off of this palette — the same one the buttons and the tab pills make.
+   The blurb and the count are held at 0.95 and 0.85 opacity rather than in a
+   lighter colour, so they stay as legible as the title relative to the ground
+   they sit on. */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 132px;
+  padding: 14px 14px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+.tile:active { transform: translateY(3px); box-shadow: none !important; }
+.tile-mark { display: block; margin-bottom: auto; }
+.tile-mark svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.tile-title { font-size: 1.15rem; font-weight: 900; letter-spacing: -0.01em; }
+.tile-blurb { font-size: 0.78rem; font-weight: 700; opacity: 0.95; line-height: 1.25; }
+.tile-count { font-size: 0.72rem; font-weight: 800; opacity: 0.85; margin-top: 4px; }
+.tile-blue { background: var(--blue); box-shadow: 0 4px 0 var(--blue-dark); }
+.tile-gold { background: var(--gold); box-shadow: 0 4px 0 var(--gold-dark); color: #4b4b4b; }
+.tile-purple { background: var(--purple); box-shadow: 0 4px 0 var(--purple-dark); }
+.tile-orange { background: var(--orange); box-shadow: 0 4px 0 var(--orange-dark); }
+
+/* Quick's answer. The phrase is the biggest thing on the page because it is
+   the only thing you came for, and Listen is full width under it — this is a
+   screen read at arm's length on the way through a door. */
+.quick-phrase {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.quick-english { margin: 0 0 14px; color: var(--text-2); font-weight: 700; }
+.quick-listen { width: 100%; }
+.quick-kept { margin: 12px 0 0; }
+.quick-card .btn-row { margin-top: 12px; }
 
 .rows { background: var(--surface); border-radius: var(--radius); border: 2px solid var(--line); overflow: hidden; }
 .row {

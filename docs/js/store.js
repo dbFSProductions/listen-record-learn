@@ -359,6 +359,44 @@ export function deckFamily(deck) {
   return at === -1 ? deck : deck.slice(0, at);
 }
 
+/* The four ways in, and what each one owns.
+
+   The Practice tab used to open on one long list of every deck: the everyday
+   phrases, the six past-tense decks and the six Paraules decks all in one
+   column, folded but competing. They are three different kinds of practice —
+   sentences you say, a shape you name before you say it, and single words with
+   a picture — and the list gave you no way to say which you were in the mood
+   for. So the tab opens on four tiles instead, and this is the table that says
+   which tile a deck belongs behind.
+
+   A family name, not a field on the phrase — same argument as `deckFamily`
+   itself: the naming *is* the grouping, so a new grammar unit joins Grammar by
+   being called `Passat · Whatever` or by adding its family here, and nothing
+   downstream has to learn a new kind of deck. Anything unclaimed is Decks,
+   which is what keeps the default right: a deck typed into the Add tab lands
+   where the everyday phrases are without being told to.
+
+   Keyed by family across all three languages, because a library is one
+   language at a time but this table is not. */
+const SECTION_FAMILIES = {
+  grammar: ["Passat", "Pasado"],
+  vocab: ["Paraules", "Palabras"],
+};
+
+/** "grammar", "vocab", or "decks" for everything else. */
+export function sectionOf(deck) {
+  const family = deckFamily(deck ?? "");
+  for (const [section, families] of Object.entries(SECTION_FAMILIES)) {
+    if (families.includes(family)) return section;
+  }
+  return "decks";
+}
+
+/* Where a phrase asked for in the moment is filed. An ordinary deck name like
+   MY_PHRASES and ABOUT_DECK — the cards in it drill, star, score and export
+   like any others, and it shows in Decks with the rest. */
+export const QUICK_DECK = "Quick";
+
 /** The part after the prefix — what a row says once its family is open. */
 export function deckLeaf(deck) {
   const at = deck.indexOf(SUBDECK);
@@ -1108,9 +1146,17 @@ export const settings = {
   },
 };
 
-/** Is this deck family showing its decks? A big one starts folded. */
-export function familyOpen(name, deckCount) {
-  return settings.openFamilies?.[name] ?? deckCount < FOLD_FROM;
+/* Is this deck family showing its decks? A big one starts folded — on a page
+   listing every family, five castells decks would push the everyday ones off
+   the screen.
+
+   `foldBig` is what a section page turns off. Behind a tile the section *is*
+   the fold: Grammar holds one family, so folding it by default puts everything
+   that page has behind a second tap and shows a single row. What the user has
+   actually folded still wins either way — the remembered choice is a lasting
+   opinion, and this is only what to do in the absence of one. */
+export function familyOpen(name, deckCount, foldBig = true) {
+  return settings.openFamilies?.[name] ?? (!foldBig || deckCount < FOLD_FROM);
 }
 
 export function setFamilyOpen(name, open) {
