@@ -335,8 +335,8 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.") 
   try {
     const blob = await speech.modelAudio({ text, language }, settings);
     if (blob) await player.play(blob);
-    else if (browserSpeech.available(language)) browserSpeech.speak(text, language);
-    else toast("No voice available for this language on this device.");
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
+    else noVoice();
   } catch {
     toast(failed);
   } finally {
@@ -2031,7 +2031,15 @@ async function loadPhrase() {
   state.loadingModel = settings.hasAzure && !(await speech.isCached(phrase, settings));
   render();
 
-  const blob = await speech.modelAudio(phrase, settings);
+  /* Guarded even though modelAudio now swallows its own failures: this is the
+     one await between showing the spinner and taking it away, and a throw here
+     leaves "Generating audio…" on the screen for as long as the card is. */
+  let blob = null;
+  try {
+    blob = await speech.modelAudio(phrase, settings);
+  } catch {
+    blob = null;
+  }
   state.loadingModel = false;
   if (currentPhrase()?.id !== phrase.id) return; // moved on while we waited
   state.modelBlob = blob;
@@ -2740,16 +2748,32 @@ function typedVerdict() {
     </div>`;
 }
 
+/* Listen. Azure's clip if we have it, the browser's voice if we don't — and a
+   word either way when nothing comes out, which is the part that was missing.
+   A button that plays no sound and says nothing is indistinguishable from a
+   broken one, and on iOS the browser voice fails exactly that way. */
 function playModel(rate) {
   const phrase = currentPhrase();
   if (!phrase) return;
   if (state.modelBlob) {
     player.play(state.modelBlob, { rate }).catch(() => toast("Couldn't play that clip."));
   } else if (browserSpeech.available(phrase.language)) {
-    browserSpeech.speak(phrase.text, phrase.language, { rate });
+    browserSpeech.speak(phrase.text, phrase.language, { rate, onSilent: noVoice });
   } else {
-    toast("No voice available for Catalan on this device.");
+    noVoice();
   }
+}
+
+/* Said when the device has no voice it will actually use. It names the fix,
+   because the fix is nearly always the same one: with an Azure key this never
+   reaches the browser voice at all. */
+function noVoice() {
+  toast(
+    settings.hasAzure
+      ? "No sound came out. Check the ringer switch and the volume."
+      : "The browser voice didn't play. Add an Azure key in Settings for the real voices.",
+    4000
+  );
 }
 
 async function toggleRecording() {

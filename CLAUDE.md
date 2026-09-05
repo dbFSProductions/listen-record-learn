@@ -1740,6 +1740,35 @@ it's intentional.
 
 ---
 
+### Listen has to say when nothing came out
+
+Reported as *"we broke the listen button everywhere"*, and the audio path
+turned out to be untouched — what was missing was any way for the app to say
+so. Three silent failures, all of which look identical to a dead button:
+
+- **The browser voice takes an utterance and never says it.** iOS offers a
+  Catalan voice, accepts `speak()`, returns nothing and throws nothing. So
+  `browserSpeech.speak` now takes an `onSilent` callback and fires it when the
+  utterance has neither started nor queued after 800ms, and both callers say
+  so out loud. With an Azure key this path is never reached, which is why the
+  message names that as the fix.
+- **A database that will not open took the whole card off the screen.**
+  `speech.isCached` is the first await in `loadPhrase` — before the drill has
+  rendered anything — and it read IndexedDB unguarded, so a blocked version
+  upgrade or evicted storage threw there and left an empty view. A question
+  about whether to show a spinner must never be able to do that; unknown is
+  now "no". `modelAudio`'s cache read was outside its try for the same reason
+  and is now inside it: a cache you cannot read is a reason to synthesise, not
+  to give up. Failing to *keep* the result costs the offline copy and nothing
+  else.
+- **Assigning a stale voice can throw**, which came out of the click handler as
+  nothing at all. The default voice for the utterance's `lang` beats silence.
+
+The drill has always printed *Using the browser voice…* when there is no Azure
+key, and `speech.lastError` when Azure refuses. **Those two lines are the first
+thing to read when playback is reported dead** — between them and the new toast,
+every silent path now names itself.
+
 ## Storage
 
 Plain JSON, not a database — `phrases.json` and `attempts.json` alongside
@@ -2161,7 +2190,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v60 / `xerra-v60` — `js/version.js` first, `sw.js` second, as ever.
+- v62 / `xerra-v62` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
