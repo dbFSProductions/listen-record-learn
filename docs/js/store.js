@@ -18,6 +18,7 @@ const KEYS = {
   aboutMe: "xerra.aboutMe",
   aiLog: "xerra.aiLog",
   decks: "xerra.decks",
+  progress: "xerra.progress",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -1008,6 +1009,7 @@ export const library = {
         attempts: this.attempts,
         aboutMe: aboutMe.turns,
         decks: customDecks.byLanguage,
+        progress: progress.lessons,
       },
       null,
       2
@@ -1027,6 +1029,7 @@ export const library = {
     // phrases, so there is nothing extra to put back.
     aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
     customDecks.replace(parsed.decks);
+    progress.replace(parsed.progress);
   },
 };
 
@@ -1138,6 +1141,57 @@ export const aboutMe = {
   /** Has the learner actually said anything, as opposed to just been asked? */
   get answered() {
     return this.turns.some((turn) => turn.role === "learner");
+  },
+};
+
+// ----------------------------------------------------------------- progress
+
+/* Which lessons on the Practice path have been finished, and the best average
+   each has scored. Ported from Deb-o-lingo, minus the streak: this app has no
+   6:30 coffee to keep, and a flame nobody asked for is a nag.
+
+   A lesson is five cards of a deck in order, and its id is the deck's name
+   with the lesson's number on it (`Salutacions#2`), so the ticks follow the
+   deck through everything the deck can do — a card added to it grows a new
+   lesson at the end rather than renumbering the ones you have done, and a deck
+   deleted takes its ticks into irrelevance rather than onto another deck.
+   `best` is the mean over the cards of the best *weakest-word* score each got
+   during that run, so it is not a number this file has already argued against
+   trusting; an unscored run (no Azure key) ticks with no number. Nothing is
+   ever locked by any of this: the ticks record what you did, not what you may
+   do. Rides in export/import with the phrases. */
+export const progress = {
+  lessons: {},
+
+  load() {
+    this.lessons = readJSON(KEYS.progress, {}) ?? {};
+  },
+
+  save() {
+    writeJSON(KEYS.progress, this.lessons);
+  },
+
+  replace(lessons) {
+    this.lessons = lessons && typeof lessons === "object" && !Array.isArray(lessons) ? lessons : {};
+    this.save();
+  },
+
+  isDone(lessonId) {
+    return Boolean(this.lessons[lessonId]);
+  },
+
+  bestFor(lessonId) {
+    return this.lessons[lessonId]?.best ?? null;
+  },
+
+  completeLesson(lessonId, average) {
+    const entry = this.lessons[lessonId] ?? { completedAt: null, best: null, times: 0 };
+    entry.completedAt = new Date().toISOString();
+    entry.times += 1;
+    if (average != null && (entry.best == null || average > entry.best)) entry.best = Math.round(average);
+    this.lessons[lessonId] = entry;
+    this.save();
+    return entry;
   },
 };
 

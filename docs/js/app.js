@@ -3,7 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
-  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -39,6 +39,17 @@ const state = {
      the About me workshop. `about` wins over `deck` in render() so that
      leaving the workshop to drill and coming back lands where you expect. */
   about: false,
+
+  /* The lesson being drilled, when the drill was started from a node on the
+     Practice path: its id, its title, and when it began. Null for every other
+     way into the drill — a deck row, a search result, the phrase sheet — so
+     Done at the end of a lesson ticks the node and Done at the end of a deck
+     just goes back. `startLesson` sets it and everything else clears it. */
+  lesson: null,
+
+  /* What the completion screen shows, once a lesson has been ticked; null
+     otherwise. It wins over everything else in render() while it stands. */
+  celebration: null,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
      "quick", or null for the tiles themselves. It is deliberately *not*
@@ -1029,7 +1040,8 @@ function render() {
       ? "vocab"
       : state.tab;
   view.className = `view page page-${state.tab} sec-${accent}`;
-  if (state.tab === "practise" && state.about) renderAbout();
+  if (state.tab === "practise" && state.celebration) renderComplete();
+  else if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
@@ -1039,6 +1051,146 @@ function render() {
 }
 
 // ---------------------------------------------------------------- practice
+
+/* The Practice path — the winding journey the sister apps have, built out of
+   the everyday decks. Each deck is a unit with a banner, and its cards are
+   chunked five to a lesson, in the deck's own order, so a deck of fifteen is
+   three nodes. Units come in the order the decks first appear in the library,
+   which for the seed content is the order the course was written in — Sounds,
+   then Salutacions, then the café — and for your own decks is the order you
+   made them; alphabetical, which is what the deck list uses, would put Cafès
+   before Sounds. Only the Practice section's decks are on it: Grammar and
+   Vocab keep their lists, About me and Quick have their own tiles, and the
+   deck list itself is still one tap away under All Phrases.
+
+   Nothing is locked. The ticks and the START callout say where you have got
+   to; every node is open from the first launch, as in the forks. */
+const LESSON_SIZE = 5;
+const UNIT_COLOURS = ["green", "blue", "purple", "orange"];
+
+function chunkLessons(phrases, deck, name, unit) {
+  const lessons = [];
+  for (let at = 0; at < phrases.length; at += LESSON_SIZE) {
+    const number = lessons.length + 1;
+    lessons.push({
+      id: `${deck}#${number}`,
+      title: phrases.length <= LESSON_SIZE ? name : `${name} ${number}`,
+      deck,
+      unit,
+      phrases: phrases.slice(at, at + LESSON_SIZE),
+    });
+  }
+  return lessons;
+}
+
+function practiceUnits() {
+  const language = settings.language;
+  const units = [];
+  const seen = new Set();
+  for (const phrase of library.drillable(language)) {
+    const deck = phrase.deck;
+    if (seen.has(deck) || sectionOf(deck) !== "decks" || deck === QUICK_DECK) continue;
+    seen.add(deck);
+    const phrases = library.inDeck(deck, language);
+    const family = deckFamily(deck);
+    // "Castells · Pinya" reads as the unit; its nodes are "Pinya 1", "Pinya 2".
+    const leaf = family === deck ? deck : deckLeaf(deck);
+    const colour = UNIT_COLOURS[units.length % UNIT_COLOURS.length];
+    const unit = { id: deck, deck, title: deck, colour, lessons: [] };
+    unit.lessons = chunkLessons(phrases, deck, leaf, unit);
+    unit.subtitle = `${phrases.length} phrase${phrases.length === 1 ? "" : "s"} · ${
+      unit.lessons.length
+    } lesson${unit.lessons.length === 1 ? "" : "s"}`;
+    units.push(unit);
+  }
+  return units;
+}
+
+function findLesson(id) {
+  for (const unit of practiceUnits()) {
+    const lesson = unit.lessons.find((l) => l.id === id);
+    if (lesson) return lesson;
+  }
+  return null;
+}
+
+/* A lesson into the drill: its five cards, in order, with the deck as the
+   drill's key so Back and Edit behave as they do for the deck. `state.lesson`
+   is what makes Done at the end tick the node rather than just leave. */
+function startLesson(lesson) {
+  stopEverything();
+  state.about = false;
+  state.lesson = { id: lesson.id, title: lesson.title, startedAt: Date.now() };
+  state.deck = lesson.deck;
+  state.queue = lesson.phrases;
+  state.index = 0;
+  loadPhrase();
+}
+
+/* The end of a lesson. The score it records is the mean, over the lesson's
+   cards, of the best weakest-word score each earned during this run — the
+   same number the drill shows, not one of Azure's aggregates — and null when
+   nothing was scored, which still ticks the node. Then the celebration, which
+   is the one screen in the app that exists purely to say well done. */
+function finishLesson() {
+  const lesson = state.lesson;
+  const scores = state.queue
+    .map((phrase) => {
+      const run = library
+        .attemptsFor(phrase.id)
+        .filter((a) => new Date(a.recordedAt).getTime() >= lesson.startedAt)
+        .map(attemptScore)
+        .filter((score) => typeof score === "number");
+      return run.length ? Math.max(...run) : null;
+    })
+    .filter((score) => score != null);
+  const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  progress.completeLesson(lesson.id, average);
+  state.celebration = { title: lesson.title, phrases: state.queue.length, average };
+  state.lesson = null;
+  state.deck = null;
+  render();
+}
+
+const LESSON_DONE = { "ca-ES": "Lliçó completada!", "es-ES": "¡Lección completada!", "it-IT": "Lezione completata!" };
+
+function renderComplete() {
+  const c = state.celebration;
+  const confetti = Array.from({ length: 36 }, (_, i) => {
+    const colours = ["var(--green)", "var(--blue)", "var(--gold)", "var(--orange)", "var(--purple)"];
+    return `<span class="confetto" style="left:${Math.random() * 100}%;width:${6 + Math.random() * 7}px;height:${
+      3 + Math.random() * 4
+    }px;background:${colours[i % colours.length]};animation-delay:${Math.random() * 0.9}s;animation-duration:${
+      2 + Math.random() * 1.6
+    }s"></span>`;
+  }).join("");
+  view.innerHTML = `
+    <div class="confetti">${confetti}</div>
+    <div class="complete">
+      <img class="crest crest-big" src="icons/crest.png" alt="" width="120" height="120">
+      <h1 class="complete-title">${esc(LESSON_DONE[settings.language] ?? "Lesson complete!")}</h1>
+      <p class="muted" style="margin:-8px 0 18px">${esc(c.title)}</p>
+      <div class="stat-row">
+        <div class="stat" style="--stat:var(--blue)">
+          <div class="stat-label">Phrases</div>
+          <div class="stat-value">${c.phrases}</div>
+        </div>
+        ${
+          c.average != null
+            ? `<div class="stat" style="--stat:${scoreColour(c.average)}">
+                 <div class="stat-label">Average</div>
+                 <div class="stat-value">${c.average}</div>
+               </div>`
+            : ""
+        }
+      </div>
+      <button class="btn btn-primary" id="complete-continue" style="width:100%;max-width:320px">Continue</button>
+    </div>`;
+  document.getElementById("complete-continue").onclick = () => {
+    state.celebration = null;
+    render();
+  };
+}
 
 /* One page for browsing and one for drilling was one page too many: both were
    the same list of the same decks. So the deck list is also the phrase list —
@@ -1131,8 +1283,101 @@ function renderPractice(section = null) {
   function paint() {
     const query = state.search.trim().toLowerCase();
     const list = document.getElementById("practice-list");
-    list.innerHTML = query ? searchResults(query) : section ? deckList() : tiles();
+    list.innerHTML = query
+      ? searchResults(query)
+      : section === "decks"
+      ? pathList()
+      : section
+      ? deckList()
+      : tiles();
     wire(list);
+  }
+
+  /* The winding path. Units with a banner each, nodes offset left-centre-right
+     like a certain owl's, a START callout on the first lesson you haven't
+     done, and at the end the things that are the whole library: Shuffle all
+     and ★ Favourites as nodes of their own, then anything jotted down. */
+  function pathList() {
+    const units = practiceUnits();
+    if (!units.length) {
+      return `<div class="empty">
+        <p>Nothing here yet.</p>
+        <p class="small">Add a phrase and it becomes the first lesson on the path.</p>
+      </div>`;
+    }
+    const offsets = [0, -1, 1];
+    let nodeIndex = 0;
+    const current = units.flatMap((u) => u.lessons).find((l) => !progress.isDone(l.id))?.id ?? null;
+    const tick = `<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const star = `<svg viewBox="0 0 24 24"><path d="M12 2.6l2.8 5.9 6.4.8-4.7 4.4 1.2 6.3-5.7-3.1-5.7 3.1 1.2-6.3L2.8 9.3l6.4-.8z"/></svg>`;
+    const unitsHtml = units
+      .map((unit) => {
+        const nodes = unit.lessons
+          .map((lesson) => {
+            const done = progress.isDone(lesson.id);
+            const isCurrent = lesson.id === current;
+            const best = progress.bestFor(lesson.id);
+            const offset = offsets[nodeIndex++ % offsets.length];
+            return `
+              <div class="node-slot" style="--offset:${offset}">
+                ${isCurrent ? `<div class="node-callout">START</div>` : ""}
+                <button class="node ${done ? "done" : "open"} ${isCurrent ? "current" : ""}"
+                        data-lesson="${esc(lesson.id)}"
+                        style="--node:${done ? "var(--gold)" : `var(--${unit.colour})`};--node-dark:${
+                          done ? "var(--gold-dark)" : `var(--${unit.colour}-dark)`
+                        }"
+                        aria-label="${esc(lesson.title)}">
+                  ${done ? tick : star}
+                </button>
+                <div class="node-title">${esc(lesson.title)}${best != null ? ` · <strong>${best}</strong>` : ""}</div>
+              </div>`;
+          })
+          .join("");
+        return `
+          <section class="unit">
+            <div class="unit-banner" style="--unit:var(--${unit.colour});--unit-dark:var(--${unit.colour}-dark)">
+              <div class="unit-name">${esc(unit.title)}</div>
+              <div class="unit-sub">${esc(unit.subtitle)}</div>
+            </div>
+            <div class="path">${nodes}</div>
+          </section>`;
+      })
+      .join("");
+    const favourites = starred();
+    const mix = `
+      <section class="unit">
+        <div class="unit-banner" style="--unit:var(--blue);--unit-dark:var(--blue-dark)">
+          <div class="unit-name">Everything</div>
+          <div class="unit-sub">Practise across all your decks</div>
+        </div>
+        <div class="path">
+          <div class="node-slot" style="--offset:${favourites.length ? -1 : 0}">
+            <button class="node open" data-deck="*" style="--node:var(--blue);--node-dark:var(--blue-dark)" aria-label="Shuffle all decks">
+              <svg viewBox="0 0 24 24"><path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+            </button>
+            <div class="node-title">Shuffle all · <strong>${drillable.length}</strong></div>
+          </div>
+          ${
+            favourites.length
+              ? `<div class="node-slot" style="--offset:1">
+                   <button class="node open" data-deck="${FAVOURITES_DECK}" style="--node:var(--gold);--node-dark:var(--gold-dark)" aria-label="Favourites">
+                     ${star}
+                   </button>
+                   <div class="node-title">Favourites · <strong>${favourites.length}</strong></div>
+                 </div>`
+              : ""
+          }
+        </div>
+      </section>`;
+    return `
+      ${unitsHtml}
+      ${mix}
+      ${
+        captures.length
+          ? `<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
+             <div class="rows rows-spaced">${captures.map(phraseRow).join("")}</div>`
+          : ""
+      }`;
   }
 
   /* The four ways in. It replaced one long column that put the everyday decks,
@@ -1385,6 +1630,14 @@ function renderPractice(section = null) {
 
     list.querySelectorAll("[data-deck]").forEach((button) =>
       button.addEventListener("click", () => startDeck(button.dataset.deck))
+    );
+
+    // A node on the path: five cards of its deck, in order, and a tick at the end.
+    list.querySelectorAll("[data-lesson]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const lesson = findLesson(button.dataset.lesson);
+        if (lesson) startLesson(lesson);
+      })
     );
 
     // A card from an opened deck: the deck's own queue, started at that card.
@@ -1704,6 +1957,7 @@ function startDeck(deck, phraseID = null) {
   const queue = queueFor(deck);
   const at = phraseID ? queue.findIndex((p) => p.id === phraseID) : 0;
   state.about = false;
+  state.lesson = null;
   state.deck = deck;
   state.queue = queue;
   state.index = Math.max(0, at);
@@ -2532,6 +2786,8 @@ function renderDrill() {
 
   document.getElementById("back").onclick = () => {
     stopEverything();
+    // Leaving a lesson early leaves it unticked; the node is where you left it.
+    state.lesson = null;
     state.deck = null;
     render();
   };
@@ -2562,6 +2818,8 @@ function renderDrill() {
   });
   document.getElementById("done")?.addEventListener("click", () => {
     stopEverything();
+    // The end of a lesson ticks its node; the end of anything else just leaves.
+    if (state.lesson) return finishLesson();
     state.deck = null;
     render();
   });
@@ -3681,6 +3939,7 @@ function showPhrase(phrase) {
     closeSheet();
     stopEverything();
     state.tab = "practise";
+    state.lesson = null;
     state.deck = phrase.deck;
     const deck = library.inDeck(phrase.deck, phrase.language);
     const at = deck.findIndex((p) => p.id === phrase.id);
@@ -5461,6 +5720,7 @@ settings.load();
 library.load();
 aboutMe.load();
 aiLog.load();
+progress.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

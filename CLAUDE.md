@@ -228,6 +228,41 @@ squares now, with About me the fifth and the sixth blank; see below.
   the `--phrases-*` variables are still in the palette. The home search box
   stays under the grid even so — a phrase you searched for must never be
   hiding behind a tile, and that invariant is cheaper than the redundancy.
+- **Practice is the winding path, not the deck list.** Behind the Practice tile
+  is the journey the sister apps have: a banner per unit, nodes offset
+  left-centre-right, a gold tick once a lesson is done and a bobbing START on
+  the first one that isn't. `practiceUnits` builds it from the everyday decks —
+  each deck a unit, its cards chunked five to a lesson in the deck's own order
+  by `chunkLessons`, so a deck of fifteen is three nodes. Units come in the
+  order the decks first appear in the library, which for the seed content is
+  the order the course was written in (Sounds, then Salutacions, then the café)
+  and for your own decks is the order you made them; the alphabetical order the
+  deck list uses would put Cafès before Sounds. Only Practice's decks are on
+  it: Grammar and Vocab keep their lists, About me and Quick have their own
+  tiles, and the deck list itself — rows, accordion, cards — is one tap away
+  under All Phrases. The path ends with an *Everything* unit carrying Shuffle
+  all and ★ Favourites as nodes, then anything jotted down, and the search box
+  stays on top: typing replaces the path with results, as it did the list.
+  - **A lesson id is the deck's name with the lesson's number on it**
+    (`Salutacions#2`), so ticks follow the deck: a card added grows a new node
+    at the end rather than renumbering the done ones, and a deleted deck takes
+    its ticks into irrelevance rather than onto another deck. `progress` in
+    store.js is the store (`xerra.progress`), ported from Deb-o-lingo minus the
+    streak — this app has no 6:30 coffee to keep — and it rides in
+    export/import with the phrases.
+  - **`state.lesson` is what makes Done tick.** `startLesson` sets it;
+    `startDeck`, the sheet's Practise now and the drill's Back all clear it, so
+    Done at the end of a deck opened from All Phrases just goes back, and
+    leaving a lesson early leaves it unticked. `finishLesson` records the mean,
+    over the lesson's cards, of the best weakest-word score each earned during
+    this run — the drill's own number, not one of Azure's aggregates — and null
+    when nothing was scored, which still ticks. Then `renderComplete`: confetti,
+    the crest hopping where the parrot hops over there, *Lliçó completada!* in
+    the library's language, the card count and the average when there is one.
+    `state.celebration` wins over everything else in `render()` while it
+    stands, and Continue puts you back on the path with the tick on.
+  - **Nothing is locked**, as in the forks. Every node is open from the first
+    launch; the ticks record what you did, not what you may do.
 - **The drill's back link names where it goes.** It said *‹ Practice*
   whatever you came from, which was wrong from Grammar before and would have
   been actively misleading once Practice was a tile. It reads the section's
@@ -241,7 +276,8 @@ squares now, with About me the fifth and the sixth blank; see below.
   white on it is illegible, which no other accent here is.
 
 Deb-o-lingo and Mum-o-lingo have no deck list at all — their content is a path
-of lessons — so none of this ports.
+of lessons — so none of this ports. Xerra's own Practice tile now opens a path
+built from its decks (above); the deck list lives on under All Phrases.
 
 ### Quick: the phrase you need in the next thirty seconds
 
@@ -2525,7 +2561,21 @@ open, has no `[data-about]`, and offers `[data-deck="section:grammar"]` which
 queues `1/48`; `#back` from that drill lands on Grammar rather than on the
 tiles, and `[data-home]` returns to them; `[data-section="decks"]` has no
 `Passat` or `Paraules` key but does have `Salutacions`; and a deck actually
-named `section:grammar` is refused like `family:` is. For Quick, with
+named `section:grammar` is refused like `family:` is. For the path, behind `[data-section="decks"]`: `.unit-name`s run Sounds,
+Salutacions, Cafès i sortir … Castells · Ordres and end on *Everything*, with
+no `Passat` or `Paraules` unit; there is one `[data-lesson]` per five cards of
+each deck (35 for the 159 seed phrases), no `[data-deck="Salutacions"]` row and
+a `[data-deck="*"]` node; exactly one `.node-callout` sits on the first node,
+which is `.current`; typing into `#search` replaces the `.unit`s with results;
+the first node drills `1/5` with `#back` reading *‹ Practice*, and Back leaves
+nothing `.done`; Next four times then `#done` shows `.complete` with
+`.complete-title` *Lliçó completada!*, a *Phrases 5* stat and no Average
+without Azure, and `#complete-continue` returns to the path with that node
+`.done`, START on the second, and `xerra.progress` carrying `Sounds#1` with
+`times: 1` and `best: null` — surviving a reload; a deck drilled from All
+Phrases to its Done shows no `.complete` and ticks nothing; and an export
+carries `progress`, which an import puts back. On the header, `.crest` is wider
+than `.head-gear`. For Quick, with
 `/complete-card` stubbed: `#quick-ask` carries `lang="en-GB"`, what you type
 goes as `ask` with `english` empty and `deck` `"Quick"`, the phrase lands in
 `.quick-phrase` with a `.quick-listen` beside it, `xerra.phrases` gains one card
@@ -2557,7 +2607,11 @@ the parser losing a block to a formatting change.
   rows accordion open to the cards inside them and carry no score of their own.
 - **Home is the brand header — the colla's crest and *fin·o·lingo* — over six
   squares in the sister apps' order**: Practice, Vocab, About me, Quick,
-  Grammar, All Phrases. `SECTION_FAMILIES` / `sectionOf` in store.js say which
+  Grammar, All Phrases. **Practice is the forks' winding path**, built from the
+  everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
+  completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
+  `renderComplete` in app.js; `progress` in store.js); the deck list is behind
+  All Phrases. `SECTION_FAMILIES` / `sectionOf` in store.js say which
   tile a deck is behind and everything unclaimed is Practice (key `decks`);
   `state.section` is which one you are in, `null` being the tiles, `"phrases"`
   the whole library as one list. About me's tile opens the interview page
@@ -2640,7 +2694,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v75 / `xerra-v75` — `js/version.js` first, `sw.js` second, as ever.
+- v76 / `xerra-v76` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
