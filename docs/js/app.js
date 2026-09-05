@@ -4036,9 +4036,15 @@ function renderAddWord() {
     const soundsField = document.getElementById("f-sounds");
     const pictureField = document.getElementById("f-picture");
     const englishField = document.getElementById("f-translation");
-    /* What we last put in the picture box, so a second press can tell its own
-       handiwork from yours. Per screen — a fresh Add a word starts empty. */
-    const lastMade = { picture: "" };
+    /* What we last put in each box, so a second press can tell its own
+       handiwork from yours. Per screen — a fresh Add a word starts empty.
+
+       The picture was the first field to need this, and the word was the next:
+       skipping the completion "because both boxes are full" meant that once we
+       had filled the word in, changing the English never changed it back. Every
+       box the app writes to needs the same question asked of it, and **the
+       answer is never "is it non-empty"**. */
+    const lastMade = { word: "", english: "", sounds: "", picture: "" };
 
     button.onclick = async () => {
       const had = { text: textField.value.trim(), english: englishField.value.trim() };
@@ -4066,11 +4072,24 @@ function renderAddWord() {
       try {
         let word = had.text;
         let english = had.english;
-        if (!word || !english) {
+
+        /* Which side is *yours*: typed or edited by you, rather than left as we
+           last wrote it. Whichever side is yours is the brief; the other is
+           dropped so the completion writes it again from what you changed.
+
+           Same judgement the editor's AI rebuild makes about which side to
+           send — change the phrase but not the English and sending both would
+           ask the assistant to reconcile a contradiction. */
+        const yoursWord = word && word !== lastMade.word ? word : "";
+        const yoursEnglish = english && english !== lastMade.english ? english : "";
+        // Nothing of ours left to refresh, and nothing missing: no call needed.
+        const settled = yoursWord && yoursEnglish;
+
+        if (!settled) {
           const result = await cardAssistant.complete(
             {
-              target: had.text,
-              english: had.english,
+              target: yoursWord || (yoursEnglish ? "" : word),
+              english: yoursEnglish || (yoursWord ? "" : english),
               /* It is a vocabulary card, not a phrase, and /complete-card
                  writes phrases by default — it came back with "Un gos." for
                  "dog", full stop and all. That matters beyond looking odd:
@@ -4090,6 +4109,8 @@ function renderAddWord() {
           english = stripTrailingStop(result.translation) || english;
           textField.value = word;
           englishField.value = english;
+          lastMade.word = word;
+          lastMade.english = english;
           textField.dispatchEvent(new Event("input"));
         }
 
@@ -4113,7 +4134,13 @@ function renderAddWord() {
         );
         if (!document.getElementById("f-picture")) return;
         const made = parsePicture(reply);
-        if (made.sounds) soundsField.value = made.sounds;
+        // Same question of the sounds box: ours to replace, yours to leave.
+        const inSounds = soundsField.value.trim();
+        const yoursSounds = inSounds && inSounds !== lastMade.sounds;
+        if (made.sounds && !yoursSounds) {
+          soundsField.value = made.sounds;
+          lastMade.sounds = made.sounds;
+        }
         // Yours stays yours; ours is replaced, and an empty box is filled.
         if (!mine && made.picture) {
           pictureField.value = made.picture;
@@ -4448,7 +4475,9 @@ function editPhrase(phrase, onSaved = null) {
    Save, as everywhere else in this editor. */
 const PICTURE_BRIEF = `Invent a keyword mnemonic for this card, for an English speaker learning it.
 
-Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.`;
+Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.
+
+If the card is a noun, its gender is already carried by the colour the object is painted in the drawing — blue for masculine, pink for feminine. So keep the article (el, la, un, una, il, lo) out of both lines entirely: bridge from the noun itself, and build the scene around the noun itself. Do not spend the mnemonic on something the colour already says.`;
 
 const PICTURE_FORMAT = `Answer in exactly two lines, with nothing before or after them:
 SOUNDS LIKE: <the English sound bridge, a few words>
