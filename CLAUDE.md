@@ -320,12 +320,11 @@ like we have in practice. Not the journey but just add colour"*.
 - **The print sheet gets colour on the type only.** Paper has no fills — a
   printer drops them, and a block of green behind 7pt notes would drown
   them — so each deck's heading and each phrase are lettered in the deck's
-  colour, the rule under the heading is drawn in it, and each kind of note
-  is in the colour it wears in the app: *Listen for* in the link blue, *Use*
-  in Practice's green, *Shape* in Grammar's amber, *Sounds like* and
-  *Picture it* in the keyword picture's purple. `.print-sheet` pins the inks
-  to their light-theme values and is white whatever the phone's theme, since
-  the dark-theme inks are built for a dark ground and vanish on paper.
+  colour, the rule under the heading is drawn in it, and *Listen for* — the
+  one note the sheet carries now — is in the link blue it wears in the app.
+  `.print-sheet` pins the inks to their light-theme values and is white
+  whatever the phone's theme, since the dark-theme inks are built for a dark
+  ground and vanish on paper.
 
 ### Settings → Decks folds shut
 
@@ -796,23 +795,23 @@ browser prints to paper or to PDF.
   One markup, two stylesheets; the on-screen preview *is* the sheet at phone
   sizes. Back returns to Settings with the ticks still on, which is why the
   decks outlive the page.
-- **What an entry carries is the drill minus the audio.** Phrase, English,
-  the `focusNote` as *Listen for*, the `usageNote` as *Use*, the shape with
-  its term and endings and the card's `aspectNote` where it has one, and the
-  keyword picture — *Sounds like*, *Picture it*, the gender dot on the word,
-  and an 18mm thumbnail of the drawing if one is in IndexedDB. Situation and
-  replies are left off: they are for the moment of saying it, and paper is
-  for the moment of reading it.
+- **What an entry carries is three lines: phrase, English, and the
+  `focusNote` as *Listen for*.** For one release it was the drill minus the
+  audio — the usage note, the grammar shape with its endings and
+  `aspectNote`, *Sounds like*, *Picture it* and an 18mm thumbnail of the
+  drawing — and it was asked back down: *"the PDF just needs both languages
+  and the listen for bit. We don't need to print the Use info."* The sheet
+  is a crib for saying the phrases, and the one note that helps with that is
+  the one naming what to listen for. The gender dot stays on the word, being
+  part of the word. Bringing any of the rest back is a line in `printEntry`;
+  the drawings would also need `loadPrintArt` back from git, since a print
+  has to wait for blobs it draws from IndexedDB.
 - **The sizes are the floor of comfortable, not the floor of legible.** 9pt
   phrase, 8pt meaning, 7pt notes, 10mm margins, two columns — about
   twenty-four cards to a sheet, the whole Catalan library in ten pages. Each
   `.print-card` is `break-inside: avoid`, so a card is always read whole.
   The gender dot carries `print-color-adjust: exact`, because a printer that
   drops backgrounds would otherwise drop the whole cue.
-- **The drawings arrive after the page does.** They are blobs in IndexedDB,
-  so `loadPrintArt` fills the `[data-print-art]` slots afterwards and the
-  Print button awaits it — a print started with the images still decoding
-  prints the slots empty. Object URLs are revoked on Back.
 - **On the phone the PDF is the print dialog's.** iOS: Print, pinch the
   preview open, Share, Save to Files. What has *not* been checked is
   `window.print()` from the home-screen (standalone) app rather than from
@@ -829,14 +828,12 @@ disarms; `#deck-select-all` ticks every row and `#deck-select-none` clears;
 that are not buttons, and survives a tick; an empty deck has no fold; the
 delete flow still ends at `#deck-delete-yes` and disarms after; `#deck-print`
 puts `.print-sheet` on screen with one `.print-deck` per ticked deck, a
-*Listen for* on every card, *Sounds like* and *Picture it* on the six
-Paraules words, *Shape* on the eight grammar cards naming `-ava · -ia` or
-`vaig`, and `.gender-dot`s; with print media emulated the `.print-chrome` and
-`.page-head` are hidden and the sheet is not; `page.pdf({ format: "A4" })`
-gives two pages for 29 cards and ten for the whole library; a blob planted in
-the `pictures` store under a card's id comes back as one `.print-art img` on
-that card, `#print-go` waits for it before `window.print`, and `#print-back`
-lands on Settings with the ticks on and no art left behind. Neither sister
+`.print-translation` and a *Listen for* on every card and no other
+`.print-note b` label — no *Use*, *Shape*, *Sounds like* or *Picture it* —
+no `.print-art` at all, and `.gender-dot`s on the six Paraules words; with
+print media emulated the `.print-chrome` and `.page-head` are hidden and the
+sheet is not; `page.pdf({ format: "A4" })` gives two pages for 29 cards; and
+`#print-back` lands on Settings with the ticks on. Neither sister
 fork has any of this; it would port whole, since none of it touches the
 Worker.
 
@@ -2846,7 +2843,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v79 / `xerra-v79` — `js/version.js` first, `sw.js` second, as ever.
+- v80 / `xerra-v80` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

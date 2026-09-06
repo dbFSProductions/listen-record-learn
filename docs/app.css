@@ -1716,10 +1716,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* Colour on paper is colour on the type only — no fills, since a printer
    drops them and a block of green behind 7pt notes would drown them anyway.
    Each deck's heading and each phrase are lettered in the deck's own colour,
-   the rule under the heading is drawn in it, and every kind of note is in
-   the colour it wears in the app: Listen for in the link blue, Use in
-   Practice's green, the shape in Grammar's amber, the mnemonic in the
-   keyword picture's purple. */
+   the rule under the heading is drawn in it, and *Listen for* — the one note
+   on the sheet — is in the link blue it wears in the app. */
 .print-deck .print-deck-name { color: var(--hue-ink); border-bottom-color: var(--hue); }
 .print-deck .print-text { color: var(--hue-ink); }
 .print-card {
@@ -1736,12 +1734,6 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .print-note b { font-weight: 800; color: #222; }
 /* After `.print-note b`, which would otherwise win on source order. */
 .print-listen b { color: var(--phrases-ink); }
-.print-use b { color: var(--practise-ink); }
-.print-shape b { color: var(--amber); }
-.print-sounds b, .print-picture b { color: var(--purple-ink); }
-.print-art { float: right; margin: 0 0 4px 8px; width: 72px; height: 72px; }
-.print-art:empty { display: none; }
-.print-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
 .print-sheet .gender-dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
 @media print {
@@ -1767,8 +1759,6 @@ input[type="checkbox"] { accent-color: var(--accent); }
   .print-text { font-size: 9pt; line-height: 1.25; }
   .print-translation { font-size: 8pt; line-height: 1.25; color: #111; }
   .print-note { font-size: 7pt; line-height: 1.3; color: #222; margin-top: 0.4mm; }
-  .print-art { width: 18mm; height: 18mm; margin: 0 0 1mm 2mm; }
-  .print-art img { border-radius: 1.5mm; }
   a { text-decoration: none; color: inherit; }
 }
 
