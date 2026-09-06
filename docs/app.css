@@ -1669,10 +1669,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
    One markup, two stylesheets. On screen the sheet is previewed as a plain
    white card under a Print button, at the phone's ordinary sizes. On paper
    the chrome goes, the page loses its width cap and its padding, and the
-   sheet is set in two columns of small type sized for A4 — a 9pt phrase, an
-   8pt meaning, 7pt notes, which is the floor of comfortable rather than the
-   floor of legible. Each entry refuses to break across a column or a page,
-   so a card is always read whole.
+   sheet is set in two columns sized for A4 — an 11pt phrase, a 10pt
+   meaning, 9pt notes. It opened two points smaller on every line and was
+   asked up: with the sheet down to three lines a card, the room went to the
+   type rather than to more cards. Each entry refuses to break across a
+   column or a page, so a card is always read whole.
 
    The gender dot and the deck names' tints have to survive a printer's habit
    of dropping backgrounds, hence `print-color-adjust: exact` on the dot: it
@@ -1751,14 +1752,14 @@ input[type="checkbox"] { accent-color: var(--accent); }
     column-gap: 7mm;
     column-fill: auto;
   }
-  .print-head { column-span: all; font-size: 7.5pt; color: #444; border-bottom-color: #999; margin-bottom: 3mm; padding-bottom: 1.5mm; }
+  .print-head { column-span: all; font-size: 9pt; color: #444; border-bottom-color: #999; margin-bottom: 3mm; padding-bottom: 1.5mm; }
   .print-deck { margin-top: 3mm; }
-  .print-deck-name { font-size: 10pt; margin-bottom: 1mm; padding-bottom: 0.5mm; }
+  .print-deck-name { font-size: 12pt; margin-bottom: 1mm; padding-bottom: 0.5mm; }
   .print-deck-name span { color: #444; }
   .print-card { padding: 1.4mm 0; border-bottom-color: #ccc; }
-  .print-text { font-size: 9pt; line-height: 1.25; }
-  .print-translation { font-size: 8pt; line-height: 1.25; color: #111; }
-  .print-note { font-size: 7pt; line-height: 1.3; color: #222; margin-top: 0.4mm; }
+  .print-text { font-size: 11pt; line-height: 1.25; }
+  .print-translation { font-size: 10pt; line-height: 1.25; color: #111; }
+  .print-note { font-size: 9pt; line-height: 1.3; color: #222; margin-top: 0.4mm; }
   a { text-decoration: none; color: inherit; }
 }
 

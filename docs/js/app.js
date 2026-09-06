@@ -5564,9 +5564,9 @@ function confirmDeleteDeck(deck, onDone) {
    to this: *"the PDF just needs both languages and the listen for bit."* The
    sheet is a crib for saying the phrases, and the one note that helps with
    that is the one naming what to listen for. The gender dot stays on the
-   word, since it is part of the word. Type sizes are the floor of
-   comfortable — a 9pt phrase and 7pt notes — because the point is as many
-   cards to a sheet as will still read, not as many as will fit. */
+   word, since it is part of the word. Type is 11pt for the phrase and 9pt
+   for the note — two points up from where it started, once three lines a
+   card left the room for it. */
 function renderPrint() {
   const language = LANGUAGES[settings.language];
   const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));

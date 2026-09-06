@@ -806,9 +806,12 @@ browser prints to paper or to PDF.
   part of the word. Bringing any of the rest back is a line in `printEntry`;
   the drawings would also need `loadPrintArt` back from git, since a print
   has to wait for blobs it draws from IndexedDB.
-- **The sizes are the floor of comfortable, not the floor of legible.** 9pt
-  phrase, 8pt meaning, 7pt notes, 10mm margins, two columns — about
-  twenty-four cards to a sheet, the whole Catalan library in ten pages. Each
+- **The sizes are two points up from where they started.** 11pt phrase,
+  10pt meaning, 9pt notes, 12pt deck heading, 10mm margins, two columns —
+  about twenty-two cards to a sheet, the whole Catalan library in eleven
+  pages. It shipped at 9 / 8 / 7, the floor of comfortable, and was asked
+  up two sizes once the sheet was down to three lines a card: the room the
+  trimmed notes freed went to the type, not to more cards. Each
   `.print-card` is `break-inside: avoid`, so a card is always read whole.
   The gender dot carries `print-color-adjust: exact`, because a printer that
   drops backgrounds would otherwise drop the whole cue.
@@ -832,7 +835,8 @@ puts `.print-sheet` on screen with one `.print-deck` per ticked deck, a
 `.print-note b` label — no *Use*, *Shape*, *Sounds like* or *Picture it* —
 no `.print-art` at all, and `.gender-dot`s on the six Paraules words; with
 print media emulated the `.print-chrome` and `.page-head` are hidden and the
-sheet is not; `page.pdf({ format: "A4" })` gives two pages for 29 cards; and
+sheet is not; `page.pdf({ format: "A4" })` gives two pages for 29 cards and
+eleven for the whole library; and
 `#print-back` lands on Settings with the ticks on. Neither sister
 fork has any of this; it would port whole, since none of it touches the
 Worker.
@@ -2843,7 +2847,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v80 / `xerra-v80` — `js/version.js` first, `sw.js` second, as ever.
+- v81 / `xerra-v81` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
