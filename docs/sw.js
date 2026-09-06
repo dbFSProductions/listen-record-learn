@@ -6,7 +6,7 @@
 
 // Bumped with VERSION in js/version.js — Settings shows the two side by side,
 // so forgetting one of them shows up as two different numbers on screen.
-const VERSION = "xerra-v85";
+const VERSION = "xerra-v86";
 const SHELL = [
   "./",
   "./index.html",

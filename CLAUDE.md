@@ -3031,7 +3031,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v85 / `xerra-v85` — `js/version.js` first, `sw.js` second, as ever.
+- v86 / `xerra-v86` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
