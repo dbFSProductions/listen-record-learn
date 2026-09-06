@@ -1831,3 +1831,72 @@ input[type="checkbox"] { accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Xerrada: the rehearsal chat behind About me. The chat card and its bubbles
+   are the interview's; what is new is the page being the conversation rather
+   than the conversation being a panel on a page — so the log is not capped
+   and the page scrolls — and the two things hung under a bubble: the tools
+   under the partner's line and the fix under yours. */
+.chat-brief { margin: 0 0 12px; line-height: 1.45; }
+/* The form is display:flex, and flex beats the hidden attribute — the same
+   trap as .sheet and .new-deck. Without this an ended chat still offered a
+   box you could type into. */
+.chat-form[hidden], .field[hidden] { display: none; }
+.xat .chat-log { max-height: none; overflow: visible; gap: 12px; }
+.xat-turn { display: flex; flex-direction: column; max-width: 92%; }
+.xat-turn.partner { align-self: flex-start; align-items: flex-start; }
+.xat-turn.learner { align-self: flex-end; align-items: flex-end; }
+.xat-turn .chat-msg { max-width: 100%; font-size: 1rem; }
+.xat-tools { display: flex; flex-wrap: wrap; gap: 0 4px; margin-top: 2px; }
+.xat-tools .link { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 5px; }
+.xat-tools .link[aria-expanded="true"] { color: var(--text); }
+.xat-tools .link:disabled { color: var(--text-3); cursor: default; }
+.xat-english { margin: 2px 0 0 6px; font-size: 0.88rem; font-weight: 600; color: var(--text-2); line-height: 1.4; overflow-wrap: anywhere; }
+.xat-hint {
+  margin: 4px 0 0;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--purple) 10%, transparent);
+  border-left: 4px solid var(--purple);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.xat-hint b { display: block; font-weight: 800; }
+.xat-hint span { color: var(--text-2); font-weight: 600; }
+.xat-fix {
+  margin: 4px 0 0;
+  padding: 8px 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border-right: 4px solid var(--amber);
+  text-align: left;
+  max-width: 100%;
+}
+.xat-fix-label { display: block; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.xat-fixed { margin: 2px 0 0; font-weight: 800; font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
+.xat-fix-english { margin: 1px 0 0; font-size: 0.85rem; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+.xat-fix-note { margin: 5px 0 0; font-size: 0.85rem; font-weight: 600; color: var(--text-2); line-height: 1.4; overflow-wrap: anywhere; }
+.xat-fix .link { padding: 5px 0 0; font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
+.xat-fix .link:disabled { color: var(--text-3); cursor: default; }
+.xat-ok { margin: 3px 6px 0 0; font-size: 0.78rem; font-weight: 700; color: var(--text-3); }
+.xat-note { margin: 8px 0 0; }
+/* Talk or type. The pills are the drill's mode pills; a pressed one is green,
+   the page's own accent being orange and the pair needing to read as one
+   control with one side on. */
+.xat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.xat-head .chat-brief { flex: 1; }
+.xat-modes { display: flex; gap: 6px; flex: none; }
+.xat-toggle[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+  box-shadow: 0 3px 0 var(--green-dark);
+}
+/* Talk: the drill's record button, in the chat card where the box would be. */
+.xat-talk-box { margin: 6px 0 4px; }
+.xat-record svg { width: 34px; height: 34px; fill: currentColor; }
+.xat-record:disabled { opacity: 0.45; cursor: default; }
+.xat-talk-box .xat-note { text-align: center; margin: 0; }
+.quick-chat-card .deck-select { margin-bottom: 0; }
+.xat-summary { margin-top: 14px; }

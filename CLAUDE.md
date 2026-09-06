@@ -217,7 +217,8 @@ squares now, with About me the fifth and the sixth blank; see below.
   assistant* instead and the page it opens now links to Settings. Search still
   finds an About me card from the tiles, since it reads the whole library.
 - **The grid is the sister apps' grid now: Practice, Vocab, About me, Quick,
-  Grammar, All Phrases.** For a while the sixth square was blank; parity won.
+  Grammar, All Phrases** — Quick has since been retitled *Real life*, see
+  *Xerrada* below; its key is unchanged. For a while the sixth square was blank; parity won.
   *Practice* is the tile that was called Decks — its section key is still
   `decks`, because that is what `sectionOf` answers for everything unclaimed
   and nothing downstream reads the tile's title. *All Phrases* is the whole
@@ -496,6 +497,146 @@ All Phrases; export carries `messages` and import puts them back;
 `#msg-error` with the button back and nothing saved. Deb-o-lingo and
 Mum-o-lingo have none of this; it would port whole — the Worker is already
 serving it — with `messagesDeck` collapsing to one name.
+
+### Xerrada: having the conversation before you have it
+
+Asked for as *"I'm meeting people for language chats soon, I'd like to
+prepare. Can we run Catalan chat simulations?"* Everything else in the app is
+a line at a time — you say the phrase, you hear what comes back, and the
+exchange ends there. A real conversation is the thing after that: the
+follow-up question, the answer built on the spot, the moment you find you can
+say where you live but not how long you have lived there. So this is the
+other person, played by the assistant, in a scene you pick, speaking only
+Catalan to you, and every line you say comes back with how a native would
+have said it.
+
+- **It is the third face of the Real life page, and that page was Quick.**
+  It shipped for one commit behind About me, and was moved on request: *"I'm
+  guessing putting this in the quick section would be best, alongside get a
+  phrase to say, and read and answer a message. It's beginning to feel that
+  this section should be renamed."* So the tile is titled **Real life** —
+  *A phrase, a message, a chat* — because all three are the language meeting
+  real people rather than practice arranged in advance, and a rehearsal is
+  for exactly that. **The key is still `quick` and the deck is still
+  `Quick`**, on the Practice/`decks` precedent: the title is what the tile
+  says, and nothing downstream reads it — `TILE_BY_KEY.quick.title` is what
+  the page head and every back link print, so the name lives in one place.
+  The sister apps' fourth tile is still called Quick; that is a divergence in
+  a title, not in a key. `chatStarter` is one card under the message box (a
+  select of scenes and a Start button, not six rows — the ask box has to stay
+  on top and the page already had two boxes), `paintChats` lists the chats
+  you have had under the messages, `quickCount` reads *3 asked for · 2
+  messages · 1 chat*, and `state.chat` is the chat open behind the page —
+  cleared by `goHome`, by `#quick-home` and by *‹ Real life*, exactly as
+  `state.message` is. The facts it follows up on still come from About me:
+  the interview and the cards it wrote are what the hints are built from, so
+  what you rehearse is *your* job and *your* town rather than a textbook's.
+- **`CHAT_SCENES` in app.js is the whole of the scene list.** Each carries a
+  `title`, a `blurb` for the row and the page head, and a `brief` written for
+  the model in the second person — *you are the waiter* — which is why the
+  page prints the blurb and never the brief. *Somewhere else…* opens a box for
+  a scene of your own, whose first line becomes the title. The five that ship
+  are the intercanvi, a café, the market, an assaig and a neighbour, because
+  those are the conversations this learner is actually about to have.
+- **One endpoint, `/converse`, and one call per turn.** Four things come back
+  and each is behind its own tap: the partner's `reply`; its
+  `replyTranslation`, withheld until you press *English* — the level-two
+  argument, one more time — and shown for every line once the chat has
+  ended; a `correction` of your *last* line (`fixed`, its `translation`, and
+  a `note` naming what changed, with `fixed` empty when the line was fine);
+  and a `hint` at what you could say next, behind *Help me answer*. One
+  structured call rather than two because each is a line long and a second
+  round trip on every turn of a conversation is a conversation nobody has. It
+  runs on the quality chain with the card budget, not the interview's fast
+  chain: the correction is what you take to a real person. An empty history
+  is the partner opening, as on `/interview`; a history ending on the partner
+  is refused. `worker/tools/converse-test.mjs` drives it stubbed, and the
+  other six endpoints are untouched — `card-test.mjs` with `BEFORE` set is
+  still byte-identical, so the sister apps are unaffected until they grow a
+  page for it.
+- **The correction arrives with the next reply, and belongs to your turn.**
+  A learner turn is pushed with `correction: null`, and `turn()` writes the
+  correction onto it when the answer comes and pushes the partner's turn after
+  it. A failed call pops your line back out of the transcript and into the
+  box — a retry is one tap, and a turn that never got an answer is never left
+  standing as if it had. A reply that arrives after you have left the page is
+  still saved, for the interview's reason.
+- **Talk or Type, and Talk is the point.** Two pills over the card
+  (`.xat-toggle`, the drill's mode pills in green), one always on. **Talk** is
+  the drill's record button where the box would be: tap, say the line, tap
+  again, and what Azure heard goes straight into the conversation — the bubble
+  shows what was heard and the correction is of that. It used to land in the
+  box for checking first; it sends now, because a mishearing costs one turn
+  and that is what a mishearing costs in a real conversation too.
+  `transcription.transcribe` in speech.js is `scoring.score` with no reference
+  text — a bare `SpeechRecognizer` on the same 16k WAV. **Type** is the box,
+  for quiet mode's reason, with the keyboard's dictation key as the way to
+  speak into it. `settings.chatTalk` is the choice, a setting for road mode's
+  reason (how you are practising today, not a fact about one chat), and it
+  defaults on; `talkNow()` is the one reader and is `chatTalk && hasAzure`,
+  so without a key the page is in Type whatever the setting says, and the
+  Talk pill refuses with the reason rather than flipping. Switching repaints
+  only the composer (`paintComposer`), so the English you had open stays
+  open, and switching mid-recording cancels the recording rather than
+  sending it — the tap was on Type, not on the mic. The partner's line is
+  played as it arrives in both modes, quietly: `autoplay` swallows the
+  refusal iOS may give a play not started by a tap, because a toast on every
+  turn would be worse than the *Listen* under every line.
+- **Lines are kept as cards in the language's `Xerrades` deck** (`chatsDeck`
+  in store.js; *Charlas*, *Chiacchierate*) — the partner's line you want to
+  be able to say, or your own line as it should have been, with the note as
+  its usage note and the scene as its situation. `keepFromChat` is
+  `keepFromMessage`'s shape, `replyKept` reads the kept state off the library
+  at paint, and an ordinary deck for the usual reason.
+- **`chats` in store.js is the record** — the scene and every turn, capped at
+  thirty, newest last, in export/import with the phrases. Persisted because
+  the corrections are the best record there is of what you get wrong, and
+  *what did I say last time?* is a question you ask on the way to the next
+  one. *End the chat* marks it `ended`: the composer and the pills go, the
+  English of every line shows, the hints go, a summary counts the lines and
+  the fixes, and *Have it again* starts a fresh chat in the same scene.
+  *Forget this chat* drops the record and leaves the cards. Two `hidden`
+  attributes on this page were silently beaten by `display` — `.chat-form` is
+  flex and `.field` is block, the `.sheet` trap twice more — so both now have
+  a `[hidden] { display: none }` rule, and the headless run is what caught
+  each.
+
+Worth asserting, with `/converse` stubbed and — for Talk — `js/speech.js`
+and `js/audio.js` routed with `transcription.transcribe` and the `Recorder`
+methods overridden, since headless Chromium here has no microphone even with
+the fake-device flags: the tile reads *Real life* and *Ask for a phrase*, then
+*1 chat*, while About me's tile reads as it did; the page runs `#quick-ask`,
+`#msg-text`, `#chat-scene` in that order, the select has six options with
+`#chat-own` hidden until *Somewhere else…* and an empty own scene refused;
+Start makes one call with an empty history, the brief and the language, heads
+the page with the scene and prints the blurb rather than the brief, backs to
+*‹ Real life*, and paints one `.xat-turn.partner` with no `.xat-english` until
+`[data-english]` and no `.xat-hint` until `[data-hint]`, the one surviving
+the other's repaint; with no Azure key `#xat-type` is pressed, `#xat-input`
+carries the language and `autocorrect="off"`, there is no `#xat-record`, and
+`#xat-talk` toasts and stays put; an empty send makes no call; Enter sends,
+the second call's history is partner-then-learner, the learner's bubble gets
+`.xat-fix` with `.xat-fixed`, `.xat-fix-english` and `.xat-fix-note`, the
+new partner line follows and `xerra.chats` holds three turns with the
+correction on the second; a fine line paints `.xat-ok`; a 503 puts the line
+back in the box, leaves the transcript as it was and re-enables Send;
+`[data-keep]` files the partner's line in `Xerrades` with the scene in its
+situation and flips to *Kept ✓*, `[data-keep-fix]` files the fixed line with
+the note as `usageNote`; back lists the chat as *2 lines · still going* under
+*Your chats* with the ask box still on top, reopening it makes no call, and
+the turns survive a reload; `#xat-end` hides `#xat-composer`, removes the
+pills, shows every `.xat-english`, removes `[data-hint]` and paints
+`.xat-summary`; `#xat-again` makes one call and a second record in the same
+scene; `#xat-forget` removes the record and leaves the cards; export carries
+`chats` and import puts them back; with About me cards and an interview
+answer planted, `facts` goes along cards first. With a key: `#xat-talk` is
+pressed and `#xat-record` stands where the box was; `#xat-type` brings the
+box back, writes `chatTalk: false` and leaves the open English open; tapping
+the button paints `.recording` and *Listening…* at once, the second tap
+transcribes in the chat's language and sends what was heard as the last
+history entry and a learner bubble, then puts the button back; nothing heard
+makes no call and says so; a 503 says *Say it again* and leaves the partner's
+turn last; and Type mid-recording cancels the recorder without a call.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -2953,6 +3094,18 @@ the parser losing a block to a formatting change.
   corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
   (additive; `worker/tools/message-test.mjs`).
+- **Xerrada** is the conversation had before it is had for real, and the
+  third face of **Real life** — the tile that was Quick, renamed because a
+  phrase to say, a message to read and a chat to have are all the language
+  meeting real people; key and deck are still `quick` / `Quick`. Pick a scene
+  — the intercanvi, a café, the market, an assaig, a neighbour, or one of your
+  own — and the assistant plays the other person in Catalan, corrects each
+  line you say, and offers the English and a hint behind a tap. **Talk** (the
+  record button, sent as heard, with an Azure key) or **Type**, on
+  `settings.chatTalk`. Kept lines land in the language's `Xerrades` deck.
+  `renderChat`, `CHAT_SCENES`, `chatStarter`, `talkNow` and `keepFromChat` in
+  app.js, `chats` and `chatsDeck` in store.js, `transcription` in speech.js,
+  `/converse` on the Worker (additive; `worker/tools/converse-test.mjs`).
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks: tick a row on its own, then one Delete button,
   then a confirm sheet). The same rows fold open to their cards and tick
@@ -3031,7 +3184,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v86 / `xerra-v86` — `js/version.js` first, `sw.js` second, as ever.
+- v88 / `xerra-v88` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

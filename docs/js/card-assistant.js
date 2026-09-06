@@ -136,6 +136,17 @@ export const cardAssistant = {
     });
   },
 
+  /* One turn of a rehearsal conversation: the partner's next line, its
+     English, the correction of what you just said, and a hint at what to say
+     back. One call for all four because each is a line long and a second
+     round trip on every turn is a conversation nobody has. */
+  converse(payload, settings) {
+    return request("/converse", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",

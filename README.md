@@ -230,6 +230,26 @@ again** clears it and leaves the cards it already wrote alone.
 
 Needs the card assistant set up (above); without it the deck doesn't appear.
 
+**Real life** — the square for the language meeting real people, three ways.
+**Get the phrase**: one box you describe the moment in — *I'm about to walk
+into a pharmacy, how do I ask if they have my medicine?* — and it answers with
+the phrase, plays it, and files it in the Quick deck. **Read a message**: paste
+a text somebody sent you, read it yourself with a tap on any word you are stuck
+on, write what you think it says, and only then see the English, keep the
+stock phrases as cards and write your reply, which comes back corrected.
+**Rehearse a conversation**: pick a scene — a language exchange, a café, the
+market, castells rehearsal, a neighbour on the stairs, or describe one
+yourself — and the assistant plays the other person, in Catalan, and keeps
+the conversation going. **Talk** or **Type**: in Talk you tap the mic, say
+your line, tap again, and it is sent as it was heard while the answer is read
+out to you (needs an Azure key); in Type you use the keyboard. Every line you
+say comes back with how a native would have said it and a note on what
+changed; the English of each of its lines is one tap away, and so is a hint at
+what you could answer, built from what you told it about yourself. Any line
+worth having — theirs, or yours as it should have been — is one tap from a
+card in the **Xerrades** deck, and the chats are kept so you can read back
+what you got wrong before the next one.
+
 **Settings** — language, Azure credentials and voice, slow-playback speed,
 level-2 recall, road mode, audio prefetch and cache, and a **Version** panel showing what's
 *running* against what's *installed*. Those two differ for exactly as long as it
