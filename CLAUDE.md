@@ -2828,9 +2828,11 @@ the parser losing a block to a formatting change.
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks: tick a row on its own, then one Delete button,
   then a confirm sheet). The same rows fold open to their cards and tick
-  several at once for **Print selected**, which prints them to A4 or PDF —
-  phrase, English, tips, grammar shape and keyword picture — through
-  `renderPrint` and the `@media print` block in app.css. A made deck is a name in `customDecks`
+  several at once for **Print selected**, which writes them to an A4 PDF of the
+  app's own — phrase, English and *Listen for*, in the deck's colour — through
+  `renderPrint` and `print-pdf.js`, handed to the share sheet; iOS prints its
+  footer on anything that goes through the print dialog, so that path is the
+  fallback. A made deck is a name in `customDecks`
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.
