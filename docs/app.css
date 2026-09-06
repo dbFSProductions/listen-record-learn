@@ -1373,12 +1373,37 @@ select {
    to rather than tucked into a corner. */
 .new-deck-toggle { display: block; margin-top: 4px; padding: 4px 2px; font-size: 0.85rem; }
 
-/* Manage decks. Nothing in the list destroys anything — a row picks a deck and
-   nothing else, so it is styled as a choice (a tick and the page's own tint)
-   rather than as a row with a live delete on it. */
+/* Manage decks. Nothing in the list destroys anything — a row ticks a deck and
+   nothing else, so it is styled as a choice (a checkbox drawn by us, and the
+   page's own tint once ticked) rather than as a row with a live delete on it.
+   The fold on the right is Practice's, one page over: it opens the deck to
+   the cards inside, which sit indented and quiet underneath — they are there
+   to be read, not tapped, so they lose the row's pointer and press tint. */
+.deck-tools { display: flex; gap: 4px; margin: 6px 0 -4px; }
+.deck-tools .link { padding: 6px 8px; font-size: 0.82rem; }
 .deck-rows { margin-top: 12px; }
-.deck-pick[aria-pressed="true"] { background: var(--sec-soft); }
-.deck-pick .pick { flex: none; width: 18px; text-align: center; color: var(--sec-ink); font-weight: 800; }
+.deck-manage.picked { background: var(--sec-soft); }
+.deck-manage { cursor: default; }
+.deck-manage:active { background: inherit; }
+.deck-manage.picked:active { background: var(--sec-soft); }
+.deck-pick .pick {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.deck-pick[aria-pressed="true"] .pick { background: var(--sec); border-color: var(--sec); color: var(--sec-on); }
+.deck-rows .row.nested { padding: 8px 14px 8px 48px; cursor: default; background: var(--surface-2); }
+.deck-rows .row.nested:active { background: var(--surface-2); }
+.deck-rows .row.nested .row-title { font-weight: 600; font-size: 0.9rem; }
 /* The deck being deleted, at the top of the question. It is the one word that
    decides whether the answer is yes, so it is not set as body text. */
 .confirm-deck { font-size: 1.15rem; font-weight: 800; margin: 0 0 12px; overflow-wrap: anywhere; }
@@ -1569,6 +1594,90 @@ input[type="checkbox"] { accent-color: var(--accent); }
    the same margin. */
 .drill-notes { margin-top: 18px; }
 .drill-notes .section-label { margin: 0 4px 8px; }
+
+/* Print: the ticked decks as one sheet.
+
+   One markup, two stylesheets. On screen the sheet is previewed as a plain
+   white card under a Print button, at the phone's ordinary sizes. On paper
+   the chrome goes, the page loses its width cap and its padding, and the
+   sheet is set in two columns of small type sized for A4 — a 9pt phrase, an
+   8pt meaning, 7pt notes, which is the floor of comfortable rather than the
+   floor of legible. Each entry refuses to break across a column or a page,
+   so a card is always read whole.
+
+   The gender dot and the deck names' tints have to survive a printer's habit
+   of dropping backgrounds, hence `print-color-adjust: exact` on the dot: it
+   is the whole of the gender cue on paper. */
+.print-chrome { margin-bottom: 14px; }
+.print-sheet {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  color: #222;
+}
+.print-head {
+  font-size: 0.78rem;
+  color: var(--text-2);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.print-deck { margin-top: 10px; }
+.print-deck-name {
+  font-size: 0.95rem;
+  font-weight: 900;
+  margin: 0 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid #222;
+  break-after: avoid;
+}
+.print-deck-name span { font-weight: 600; color: var(--text-2); font-size: 0.8em; }
+.print-card {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  break-inside: avoid;
+  page-break-inside: avoid;
+  overflow: hidden;
+}
+.print-card:last-child { border-bottom: 0; }
+.print-text { display: block; font-weight: 800; font-size: 0.98rem; overflow-wrap: anywhere; }
+.print-translation { display: block; font-size: 0.88rem; color: #333; overflow-wrap: anywhere; }
+.print-note { display: block; font-size: 0.8rem; color: #444; margin-top: 2px; overflow-wrap: anywhere; }
+.print-note b { font-weight: 800; color: #222; }
+.print-art { float: right; margin: 0 0 4px 8px; width: 72px; height: 72px; }
+.print-art:empty { display: none; }
+.print-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+.print-sheet .gender-dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+@media print {
+  @page { size: A4; margin: 10mm 10mm 12mm; }
+  html, body { background: #fff; padding: 0; margin: 0; min-height: 0; }
+  body > :not(#view), .view > :not(.print-sheet), .sheet, .toast { display: none !important; }
+  .view { padding: 0; max-width: none; margin: 0; }
+  .print-sheet {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: #000;
+    font-family: "Nunito", system-ui, sans-serif;
+    column-count: 2;
+    column-gap: 7mm;
+    column-fill: auto;
+  }
+  .print-head { column-span: all; font-size: 7.5pt; color: #444; border-bottom-color: #999; margin-bottom: 3mm; padding-bottom: 1.5mm; }
+  .print-deck { margin-top: 3mm; }
+  .print-deck-name { font-size: 10pt; margin-bottom: 1mm; padding-bottom: 0.5mm; border-bottom-color: #000; }
+  .print-deck-name span { color: #444; }
+  .print-card { padding: 1.4mm 0; border-bottom-color: #ccc; }
+  .print-text { font-size: 9pt; line-height: 1.25; }
+  .print-translation { font-size: 8pt; line-height: 1.25; color: #111; }
+  .print-note { font-size: 7pt; line-height: 1.3; color: #222; margin-top: 0.4mm; }
+  .print-note b { color: #000; }
+  .print-art { width: 18mm; height: 18mm; margin: 0 0 1mm 2mm; }
+  .print-art img { border-radius: 1.5mm; }
+  a { text-decoration: none; color: inherit; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
