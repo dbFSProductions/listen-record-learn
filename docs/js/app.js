@@ -5568,7 +5568,6 @@ function confirmDeleteDeck(deck, onDone) {
    for the note — two points up from where it started, once three lines a
    card left the room for it. */
 function renderPrint() {
-  const language = LANGUAGES[settings.language];
   const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
   const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
   const total = sections.reduce((count, section) => count + section.cards.length, 0);
@@ -5588,10 +5587,6 @@ function renderPrint() {
       </p>
     </div>
     <article class="print-sheet" lang="${esc(settings.language)}">
-      <header class="print-head">
-        <strong>fin·o·lingo</strong> · ${esc(language.name)} ·
-        ${decks.length} deck${decks.length === 1 ? "" : "s"} · ${total} card${total === 1 ? "" : "s"}
-      </header>
       ${sections
         .map(
           ({ deck, cards }) => `
