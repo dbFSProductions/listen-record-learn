@@ -9,6 +9,7 @@ import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.
 import { speech, browserSpeech, scoring } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
 import { VERSION } from "./version.js";
+import { preloadPDF, buildPrintPDF, deliverPDF } from "./print-pdf.js";
 
 const view = document.getElementById("view");
 const sheet = document.getElementById("sheet");
@@ -5579,7 +5580,12 @@ function confirmDeleteDeck(deck, onDone) {
    pages all get, and the cell's own side padding is the left and right.
    On screen the table is invisible: the edge rows are zero-height and the
    cell has no padding. */
+/* The deck colours as ink on paper — the light-theme `-ink` values, since
+   the PDF has no theme. Keyed by what `deckColour` answers. */
+const DECK_INK = { green: "#3d8b02", blue: "#0d7db4", purple: "#8e4ec6", orange: "#a35f00", gold: "#cd9d00" };
+
 function renderPrint() {
+  const language = LANGUAGES[settings.language];
   const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
   const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
   const total = sections.reduce((count, section) => count + section.cards.length, 0);
@@ -5592,10 +5598,12 @@ function renderPrint() {
       `<button class="link" id="print-back">‹ Settings</button>`
     )}
     <div class="print-chrome">
-      <button class="btn btn-primary" id="print-go" style="width:100%">Print / save as PDF</button>
+      <button class="btn btn-primary" id="print-go" style="width:100%">Save as PDF</button>
+      <div class="notice bad" id="print-error" hidden></div>
       <p class="tiny muted" style="margin:10px 0 0">
-        Sized for A4, two columns to the sheet. On an iPhone, choose Print, then pinch the preview
-        open and use Share to save it to Files as a PDF.
+        A4, two columns, the sheet below — with no browser footer on it. On an iPhone the share
+        sheet opens: Save to Files, or Print from there.
+        <button class="link" id="print-browser">Print from the browser instead</button>
       </p>
     </div>
     <table class="print-page">
@@ -5620,7 +5628,39 @@ function renderPrint() {
     state.print.showing = false;
     render();
   };
-  document.getElementById("print-go").onclick = () => window.print();
+  document.getElementById("print-browser").onclick = () => window.print();
+
+  /* The PDF is the app's own — see print-pdf.js for why the print dialog
+     can't be it on the phone. The writer is fetched as the page opens so the
+     press has nothing to wait for: on iOS the share sheet only opens inside
+     the tap, and a script load in between would lose it. */
+  preloadPDF().catch(() => null);
+  document.getElementById("print-go").onclick = async (event) => {
+    const button = event.currentTarget;
+    const error = document.getElementById("print-error");
+    button.disabled = true;
+    error.hidden = true;
+    try {
+      const blob = await buildPrintPDF(
+        sections.map(({ deck, cards }) => ({
+          name: deck,
+          ink: DECK_INK[deckColour(deck)],
+          cards: cards.map((phrase) => ({
+            text: phrase.text,
+            translation: phrase.translation,
+            note: phrase.focusNote,
+            gender: genderOf(phrase),
+          })),
+        })),
+        { title: `fin·o·lingo · ${language.name}` }
+      );
+      await deliverPDF(blob, `fin-o-lingo ${language.name}.pdf`);
+    } catch (problem) {
+      error.textContent = `Couldn't make the PDF: ${problem?.message ?? problem}`;
+      error.hidden = false;
+    }
+    button.disabled = false;
+  };
 }
 
 /* One card on the page: the phrase, its English, and what to listen for.

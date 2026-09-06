@@ -105,9 +105,10 @@ docs/                 The PWA. Served by GitHub Pages, no build step.
   js/speech.js        TTS and scoring; Azure SDK wrangling
   js/card-assistant.js Client for AI-assisted study-card completion
   js/store.js         localStorage (metadata) + IndexedDB (audio blobs)
+  js/print-pdf.js     The print sheet as a PDF the app writes itself
   js/content.js       GENERATED — do not hand-edit, see below
   sw.js               Service worker, offline cache
-  vendor/             Azure Speech JS SDK, vendored deliberately
+  vendor/             Azure Speech JS SDK, jsPDF, and the PDF's fonts — vendored deliberately
 
 tools/gen-content.py  Regenerates docs/js/content.js from SeedContent.swift
 worker/               Cloudflare Worker; keeps the Gemini key out of the PWA
@@ -815,29 +816,59 @@ browser prints to paper or to PDF.
   `.print-card` is `break-inside: avoid`, so a card is always read whole.
   The gender dot carries `print-color-adjust: exact`, because a printer that
   drops backgrounds would otherwise drop the whole cue.
-- **The print engine's footer is gone, and the table round the sheet is
-  what took it.** Safari and Chrome write the URL, the date and the page
-  number into the page margin, and the only way a page can refuse them is
-  to have none: `@page { margin: 0 }`. That leaves the sheet to carry its
-  own margins, and padding on the sheet would only hold at the top of the
-  first page and the foot of the last. So `renderPrint` wraps the sheet in
-  a one-cell `<table class="print-page">` whose empty `thead` and `tfoot`
-  rows are repeated on every printed page — 10mm and 12mm tall on paper,
-  zero on screen — and whose cell carries the side padding. Two things
-  about it are load-bearing: the sheet's `column-fill` must be `balance`,
-  because with `auto` Chromium sizes the row as if the sheet were one tall
-  column and prints nine blank pages after the content; and the `@media
-  print` hide-everything rule names `.print-page`, not `.print-sheet`.
-  Verified in Chromium — a `page.pdf` asked to draw its header and footer
-  draws none — and expected to hold on iOS, whose footer lives in the same
-  margin; if the phone still prints one, that is the thing to look at.
-- **On the phone the PDF is the print dialog's.** iOS: Print, pinch the
-  preview open, Share, Save to Files. What has *not* been checked is
-  `window.print()` from the home-screen (standalone) app rather than from
-  Safari — WebKit has had that inert in the past. If the button does nothing
-  there, the fallback is to open the Pages URL in Safari itself, import the
-  backup, and print from there; a hand-rolled PDF writer would be the real
-  fix and is deliberately not built.
+- **The PDF is the app's own, because iOS will not print without its
+  footer.** The print dialog was the PDF for one release and the phone
+  printed the URL, the date and the page number under every page. Two
+  things were tried against it and the notes on both are worth keeping.
+  `@page { margin: 0 }` takes the footer off in Chrome, which writes it into
+  the margin and has nowhere to put it once there is none; WebKit writes it
+  anyway, and Apple's support answer is that iOS Safari *can no longer turn
+  it off* — the workaround they give is a real PDF, which prints clean. So
+  the sheet is still wrapped in a one-cell `<table class="print-page">`
+  whose empty `thead` and `tfoot` rows repeat on every printed page as the
+  margins (with `column-fill: balance`, since `auto` makes Chromium size the
+  row as one tall column and print nine blank pages), and that is what
+  *Print from the browser instead* prints — footer-free in Chrome, footered
+  on the phone. The button itself, **Save as PDF**, goes through
+  `docs/js/print-pdf.js`: the same sheet laid out by hand on A4 through
+  jsPDF — two columns, a card never split, a heading never orphaned, the
+  deck's ink on its heading and its phrases, *Listen for* in the link blue,
+  the gender dot as a filled circle — and handed to the share sheet
+  (`navigator.share` with the file: Save to Files, Print, Mail) or to a
+  download where there is no share sheet. This is the "hand-rolled PDF
+  writer" this file used to say was deliberately not built; it is built
+  because nothing else works on the phone.
+  - **The writer loads when the print page opens, not when the button is
+    pressed.** iOS opens the share sheet only inside the tap that asked for
+    it, and a 400KB script load in between would lose the activation.
+    `preloadPDF` fetches `vendor/jspdf/jspdf.umd.min.js` as the page
+    renders (a classic script, loaded the way the Azure SDK is); the press
+    then does only the layout, which is a few hundred milliseconds for the
+    whole library. Neither the script nor the fonts are precached — same
+    call as the Azure SDK, to keep the install light — but the service
+    worker keeps them after the first use like everything else same-origin.
+  - **The fonts are generated, and `vendor/fonts/pdf-fonts.js` is not to be
+    hand-edited.** jsPDF's built-in fonts are Latin-1 only and the notes use
+    ə in 257 places, so the sheet embeds Nunito: static Regular (wght 400)
+    and Bold (800) instances of the variable font from
+    `github.com/googlefonts/nunito`, subset with fontTools to Latin,
+    Latin-1, Latin Extended-A, IPA, spacing modifiers, Greek and general
+    punctuation — about 48KB each — and DejaVu Sans, subset to IPA, Greek
+    and geometric shapes, for the four glyphs Nunito hasn't got (ɛ, β, ●,
+    ▬). `fontFor` in print-pdf.js decides per character, and a word with a
+    β in it is measured and drawn in two fonts. Licences sit beside the
+    file. To regenerate: `instancer.instantiateVariableFont` at each
+    weight, `subset.Subsetter` over the ranges named at the top of
+    print-pdf.js with hinting dropped, base64 into the module.
+  - **The preview on screen is still the HTML sheet**, and the two are meant
+    to look the same; the PDF's sizes and colours are the print
+    stylesheet's, copied into `TYPE` and `INK`. Change one and change the
+    other. The PDF runs a page longer than the browser's (eleven for the
+    library against ten) because its wrapping is greedy by word and it never
+    breaks a word.
+  - **Not checked from the home-screen app**, only from Safari, which is
+    where the footer was reported from. `navigator.share` with files needs
+    iOS 15; a standalone PWA gets the same share sheet.
 
 Worth asserting, headless: `#deck-print` and `#deck-delete` both disabled with
 nothing ticked; one tick names the deck on both; a second tick disables
@@ -854,7 +885,12 @@ print media emulated the `.print-chrome` and `.page-head` are hidden and the
 sheet is not; `page.pdf({ preferCSSPageSize: true, displayHeaderFooter: true })`
 gives two pages for 29 cards and ten for the whole library, none of them
 blank, with text starting about 11mm down every page and no URL anywhere
-in the text; and
+in the text; `#print-go` (with `acceptDownloads`, since headless Chromium
+has no share sheet) hands back a download named for the language whose PDF
+has two pages for 29 cards and eleven for the library, none blank, every ə
+and β of the notes in its text, `Nunito` and `DejaVu` among its fonts and
+no URL, with `#print-error` still hidden; `#print-browser` calls
+`window.print`; and
 `#print-back` lands on Settings with the ticks on. Neither sister
 fork has any of this; it would port whole, since none of it touches the
 Worker.
@@ -2865,7 +2901,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v83 / `xerra-v83` — `js/version.js` first, `sw.js` second, as ever.
+- v84 / `xerra-v84` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
