@@ -5557,28 +5557,21 @@ function confirmDeleteDeck(deck, onDone) {
    and `@media print` in app.css strips the chrome, lays it out in two columns
    and sizes it for A4. One markup, two stylesheets.
 
-   **What an entry carries is everything the drill would show you, minus the
-   audio.** The phrase and its English; the focusNote as *Listen for*, because
-   it is the pedagogical point of the app; the usage note; the shape with its
-   term and endings and the card's own aspectNote, where the card has one; and
-   the keyword picture — the sound bridge, the scene, the gender cue, and a
-   thumbnail of the drawing if one has been made. Situation and replies are
-   left off: they are context for the moment of saying it, and the page is
-   for the moment of reading it. Type sizes are the floor of comfortable —
-   a 9pt phrase and 7pt notes — because the point is as many cards to a sheet
-   as will still read, not as many as will fit.
-
-   **The drawings arrive after the page does.** They live in IndexedDB, so the
-   entries render with an empty slot and `loadPrintArt` fills the slots in
-   afterwards; the Print button waits for that, since a print started with the
-   images still decoding prints the slots empty. Object URLs are revoked when
-   the page is left. */
+   **What an entry carries is three lines: the phrase, its English, and the
+   focusNote as *Listen for*.** It carried everything the drill shows minus
+   the audio for one release — the usage note, the grammar shape, the sound
+   bridge, the scene and a thumbnail of the drawing — and was asked back down
+   to this: *"the PDF just needs both languages and the listen for bit."* The
+   sheet is a crib for saying the phrases, and the one note that helps with
+   that is the one naming what to listen for. The gender dot stays on the
+   word, since it is part of the word. Type is 11pt for the phrase and 9pt
+   for the note — two points up from where it started, once three lines a
+   card left the room for it. */
 function renderPrint() {
   const language = LANGUAGES[settings.language];
   const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
   const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
   const total = sections.reduce((count, section) => count + section.cards.length, 0);
-  const artIDs = [];
 
   view.innerHTML = `
     ${pageHead(
@@ -5604,89 +5597,38 @@ function renderPrint() {
           ({ deck, cards }) => `
             <section class="print-deck hue-${deckColour(deck)}">
               <h2 class="print-deck-name">${esc(deck)} <span>${cards.length}</span></h2>
-              ${cards.map((phrase) => printEntry(phrase, artIDs)).join("")}
+              ${cards.map(printEntry).join("")}
             </section>`
         )
         .join("")}
     </article>`;
 
-  const ready = loadPrintArt(artIDs);
-
   document.getElementById("print-back").onclick = () => {
-    revokePrintArt();
     state.print.showing = false;
     render();
   };
-  document.getElementById("print-go").onclick = async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    await ready;
-    button.disabled = false;
-    window.print();
-  };
+  document.getElementById("print-go").onclick = () => window.print();
 }
 
-/* One card on the page. Every line but the first two is conditional, so a
-   plain café phrase is two lines and a Paraules word with a drawn picture is
-   the tallest thing on the sheet; `break-inside: avoid` on the entry keeps
-   each one whole across a column or page break. */
-function printEntry(phrase, artIDs) {
-  const shape = aspectOf(phrase);
+/* One card on the page: the phrase, its English, and what to listen for.
+   `break-inside: avoid` on the entry keeps each one whole across a column or
+   page break. The label is lettered in the link blue, the colour *Listen for*
+   wears in the app; the phrase itself takes its deck's colour from the
+   section it sits in. */
+function printEntry(phrase) {
   const gender = genderOf(phrase);
-  const hasPicture = !!phrase.picture?.trim();
-  if (hasPicture) artIDs.push(phrase.id);
-  /* Each kind of note is lettered in the colour it wears in the app — Listen
-     for in the link blue, Use in Practice's green, the shape in Grammar's
-     amber, the mnemonic in the keyword picture's purple — so a sheet reads
-     the way the drill does. Colour on the type only: paper has no fills. */
-  const notes = [
-    phrase.focusNote ? ["Listen for", phrase.focusNote, "listen"] : null,
-    phrase.usageNote ? ["Use", phrase.usageNote, "use"] : null,
-    shape ? ["Shape", `${shape.mark} ${shape.label} — ${shape.endings ? `${shape.term} · ${shape.endings}` : shape.term}${shape.note ? `. ${shape.note}` : ""}`, "shape"] : null,
-    hasPicture && phrase.sounds?.trim() ? ["Sounds like", `“${phrase.sounds.trim()}”`, "sounds"] : null,
-    hasPicture ? ["Picture it", phrase.picture.trim(), "picture"] : null,
-  ].filter(Boolean);
-
   return `
-    <div class="print-card${hasPicture ? " has-picture" : ""}">
-      ${hasPicture ? `<span class="print-art" data-print-art="${esc(phrase.id)}"></span>` : ""}
+    <div class="print-card">
       <span class="print-text">${
         gender ? `<i class="gender-dot gender-${gender}" title="${esc(GENDERS[gender].label)}"></i>` : ""
       }${esc(phrase.text || "—")}</span>
       ${phrase.translation ? `<span class="print-translation">${esc(phrase.translation)}</span>` : ""}
-      ${notes
-        .map(([label, body, kind]) => `<span class="print-note print-${kind}"><b>${esc(label)}</b> ${esc(body)}</span>`)
-        .join("")}
-    </div>`;
-}
-
-let printArtURLs = [];
-
-async function loadPrintArt(ids) {
-  await Promise.all(
-    ids.map(async (id) => {
-      let blob = null;
-      try {
-        blob = await audioStore.getPicture(id);
-      } catch {
-        blob = null;
+      ${
+        phrase.focusNote
+          ? `<span class="print-note print-listen"><b>Listen for</b> ${esc(phrase.focusNote)}</span>`
+          : ""
       }
-      const slot = view.querySelector(`[data-print-art="${CSS.escape(id)}"]`);
-      if (!blob || !slot?.isConnected) return;
-      const url = URL.createObjectURL(blob);
-      printArtURLs.push(url);
-      const img = new Image();
-      img.alt = "";
-      img.src = url;
-      slot.appendChild(img);
-      await img.decode().catch(() => {});
-    })
-  );
-}
-
-function revokePrintArt() {
-  printArtURLs.forEach((url) => URL.revokeObjectURL(url));
-  printArtURLs = [];
+    </div>`;
 }
 
 
