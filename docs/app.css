@@ -1697,14 +1697,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
   padding: 14px 16px;
   color: #222;
 }
-.print-head {
-  font-size: 0.78rem;
-  color: var(--text-2);
-  padding-bottom: 6px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-}
+/* No header line on the sheet. It said fin·o·lingo, the language and the
+   counts above the first deck, and was asked off: the page-head above the
+   preview already says it, and on paper the deck heading is the title. */
 .print-deck { margin-top: 10px; }
+.print-deck:first-child { margin-top: 0; }
 .print-deck-name {
   font-size: 0.95rem;
   font-weight: 900;
@@ -1752,7 +1749,6 @@ input[type="checkbox"] { accent-color: var(--accent); }
     column-gap: 7mm;
     column-fill: auto;
   }
-  .print-head { column-span: all; font-size: 9pt; color: #444; border-bottom-color: #999; margin-bottom: 3mm; padding-bottom: 1.5mm; }
   .print-deck { margin-top: 3mm; }
   .print-deck-name { font-size: 12pt; margin-bottom: 1mm; padding-bottom: 0.5mm; }
   .print-deck-name span { color: #444; }
