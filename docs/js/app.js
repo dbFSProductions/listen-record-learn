@@ -5566,7 +5566,19 @@ function confirmDeleteDeck(deck, onDone) {
    that is the one naming what to listen for. The gender dot stays on the
    word, since it is part of the word. Type is 11pt for the phrase and 9pt
    for the note — two points up from where it started, once three lines a
-   card left the room for it. */
+   card left the room for it.
+
+   **The sheet sits in a one-cell table, and that is what takes the print
+   engine's footer off.** Safari and Chrome print the URL, the date and the
+   page number into the page margin, and the only way a page can refuse
+   them is to have no margin: `@page { margin: 0 }` in app.css. That leaves
+   the sheet to carry its own margins, and a padding on the sheet would
+   only hold at the top of the first page and the foot of the last — inner
+   pages would run to the paper's edge. A table's `thead` and `tfoot` are
+   repeated on every printed page, so an empty row in each is a margin the
+   pages all get, and the cell's own side padding is the left and right.
+   On screen the table is invisible: the edge rows are zero-height and the
+   cell has no padding. */
 function renderPrint() {
   const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
   const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
@@ -5586,6 +5598,10 @@ function renderPrint() {
         open and use Share to save it to Files as a PDF.
       </p>
     </div>
+    <table class="print-page">
+      <thead><tr><td class="print-edge"></td></tr></thead>
+      <tfoot><tr><td class="print-edge"></td></tr></tfoot>
+      <tbody><tr><td class="print-body">
     <article class="print-sheet" lang="${esc(settings.language)}">
       ${sections
         .map(
@@ -5596,7 +5612,9 @@ function renderPrint() {
             </section>`
         )
         .join("")}
-    </article>`;
+    </article>
+      </td></tr></tbody>
+    </table>`;
 
   document.getElementById("print-back").onclick = () => {
     state.print.showing = false;

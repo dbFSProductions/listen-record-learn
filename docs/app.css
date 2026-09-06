@@ -1679,6 +1679,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
    of dropping backgrounds, hence `print-color-adjust: exact` on the dot: it
    is the whole of the gender cue on paper. */
 .print-chrome { margin-bottom: 14px; }
+/* The table round the sheet is the page margin on paper (see renderPrint)
+   and nothing at all on screen. */
+.print-page { width: 100%; border-collapse: collapse; border-spacing: 0; }
+.print-page td { padding: 0; vertical-align: top; }
+.print-edge { height: 0; }
 /* The sheet is paper: white with dark type whatever the phone's theme, and
    the inks it letters with are pinned to their light-theme values here so a
    dark-mode phone previews — and prints — the same colours a light one does.
@@ -1735,10 +1740,19 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .print-sheet .gender-dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
 @media print {
-  @page { size: A4; margin: 10mm 10mm 12mm; }
+  /* No page margin, so the print engine has nowhere to write the URL, the
+     date and the page number. The margins are the table's: an empty header
+     and footer row repeated on every page, and the cell's side padding. */
+  @page { size: A4; margin: 0; }
   html, body { background: #fff; padding: 0; margin: 0; min-height: 0; }
-  body > :not(#view), .view > :not(.print-sheet), .sheet, .toast { display: none !important; }
+  body > :not(#view), .view > :not(.print-page), .sheet, .toast { display: none !important; }
   .view { padding: 0; max-width: none; margin: 0; }
+  .print-page { table-layout: fixed; }
+  .print-page thead { display: table-header-group; }
+  .print-page tfoot { display: table-footer-group; }
+  .print-page thead .print-edge { height: 10mm; }
+  .print-page tfoot .print-edge { height: 12mm; }
+  .print-body { padding: 0 10mm; }
   .print-sheet {
     border: 0;
     border-radius: 0;
@@ -1747,7 +1761,12 @@ input[type="checkbox"] { accent-color: var(--accent); }
     font-family: "Nunito", system-ui, sans-serif;
     column-count: 2;
     column-gap: 7mm;
-    column-fill: auto;
+    /* Balanced, and it has to be, now that the sheet is inside a table.
+       With `auto` Chromium sizes the table row as if the sheet were one
+       tall column, then prints the surplus as blank pages — nine of them
+       for the whole library. Balanced, the row is the height the columns
+       actually take. */
+    column-fill: balance;
   }
   .print-deck { margin-top: 3mm; }
   .print-deck-name { font-size: 12pt; margin-bottom: 1mm; padding-bottom: 0.5mm; }

@@ -808,13 +808,29 @@ browser prints to paper or to PDF.
   has to wait for blobs it draws from IndexedDB.
 - **The sizes are two points up from where they started.** 11pt phrase,
   10pt meaning, 9pt notes, 12pt deck heading, 10mm margins, two columns —
-  about twenty-two cards to a sheet, the whole Catalan library in eleven
+  about twenty-two cards to a sheet, the whole Catalan library in ten
   pages. It shipped at 9 / 8 / 7, the floor of comfortable, and was asked
   up two sizes once the sheet was down to three lines a card: the room the
   trimmed notes freed went to the type, not to more cards. Each
   `.print-card` is `break-inside: avoid`, so a card is always read whole.
   The gender dot carries `print-color-adjust: exact`, because a printer that
   drops backgrounds would otherwise drop the whole cue.
+- **The print engine's footer is gone, and the table round the sheet is
+  what took it.** Safari and Chrome write the URL, the date and the page
+  number into the page margin, and the only way a page can refuse them is
+  to have none: `@page { margin: 0 }`. That leaves the sheet to carry its
+  own margins, and padding on the sheet would only hold at the top of the
+  first page and the foot of the last. So `renderPrint` wraps the sheet in
+  a one-cell `<table class="print-page">` whose empty `thead` and `tfoot`
+  rows are repeated on every printed page — 10mm and 12mm tall on paper,
+  zero on screen — and whose cell carries the side padding. Two things
+  about it are load-bearing: the sheet's `column-fill` must be `balance`,
+  because with `auto` Chromium sizes the row as if the sheet were one tall
+  column and prints nine blank pages after the content; and the `@media
+  print` hide-everything rule names `.print-page`, not `.print-sheet`.
+  Verified in Chromium — a `page.pdf` asked to draw its header and footer
+  draws none — and expected to hold on iOS, whose footer lives in the same
+  margin; if the phone still prints one, that is the thing to look at.
 - **On the phone the PDF is the print dialog's.** iOS: Print, pinch the
   preview open, Share, Save to Files. What has *not* been checked is
   `window.print()` from the home-screen (standalone) app rather than from
@@ -835,8 +851,10 @@ puts `.print-sheet` on screen with one `.print-deck` per ticked deck, a
 `.print-note b` label — no *Use*, *Shape*, *Sounds like* or *Picture it* —
 no `.print-art` at all, and `.gender-dot`s on the six Paraules words; with
 print media emulated the `.print-chrome` and `.page-head` are hidden and the
-sheet is not; `page.pdf({ format: "A4" })` gives two pages for 29 cards and
-eleven for the whole library; and
+sheet is not; `page.pdf({ preferCSSPageSize: true, displayHeaderFooter: true })`
+gives two pages for 29 cards and ten for the whole library, none of them
+blank, with text starting about 11mm down every page and no URL anywhere
+in the text; and
 `#print-back` lands on Settings with the ticks on. Neither sister
 fork has any of this; it would port whole, since none of it touches the
 Worker.
@@ -2847,7 +2865,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v82 / `xerra-v82` — `js/version.js` first, `sw.js` second, as ever.
+- v83 / `xerra-v83` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
