@@ -34,6 +34,12 @@ const state = {
   scoringNow: false,
   levelTimer: null,
   search: "",
+  /* Whether Settings → Decks is unfolded. Session-only, like `openDecks`, and
+     put away again by goHome(): the panel is the longest thing on that page
+     and is wanted about once a week, so it opens when you ask and is shut
+     again the next time you arrive. Coming back from the print page keeps it
+     open, since that page is inside it. */
+  decksOpen: false,
 
   /* The Practice tab has three faces, not two: the deck list, the drill, and
      the About me workshop. `about` wins over `deck` in render() so that
@@ -861,6 +867,7 @@ function goHome() {
   state.section = null;
   state.addKind = null;
   state.search = "";
+  state.decksOpen = false;
   render();
 }
 
@@ -1074,7 +1081,40 @@ function render() {
    Nothing is locked. The ticks and the START callout say where you have got
    to; every node is open from the first launch, as in the forks. */
 const LESSON_SIZE = 5;
-const UNIT_COLOURS = ["green", "blue", "purple", "orange"];
+
+/* Which colour a deck wears, everywhere a deck is drawn: its banner on the
+   path, its row under Vocab, Grammar and All Phrases, the stripe on the cards
+   inside it, the rows Quick and About me print, and its heading on the print
+   sheet. One rotation over the decks in the order they first appear in the
+   library — the path's own order — so Salutacions is the same blue on every
+   page it is on. A family that isn't itself a deck (Passat, Paraules) takes a
+   colour of its own the moment its first deck is seen, so its row is coloured
+   too and is never the twin of the first deck under it.
+
+   Practice's decks come first in the seed content, so the path's colours are
+   what they were before the rest of the app learned about them: this is the
+   same four-colour rotation that used to be counted over the path's units
+   alone. Only the Everything unit and ★ Favourites sit outside it — blue and
+   gold, as the path has always drawn them. */
+const DECK_COLOURS = ["green", "blue", "purple", "orange"];
+
+function deckPalette(language = settings.language) {
+  const palette = new Map();
+  const assign = (key) => {
+    if (!palette.has(key)) palette.set(key, DECK_COLOURS[palette.size % DECK_COLOURS.length]);
+  };
+  for (const phrase of library.forLanguage(language)) {
+    const family = deckFamily(phrase.deck);
+    if (family !== phrase.deck) assign(family);
+    assign(phrase.deck);
+  }
+  return palette;
+}
+
+function deckColour(deck, language = settings.language) {
+  if (deck === FAVOURITES_DECK) return "gold";
+  return deckPalette(language).get(deck) ?? "blue";
+}
 
 function chunkLessons(phrases, deck, name, unit) {
   const lessons = [];
@@ -1103,7 +1143,7 @@ function practiceUnits() {
     const family = deckFamily(deck);
     // "Castells · Pinya" reads as the unit; its nodes are "Pinya 1", "Pinya 2".
     const leaf = family === deck ? deck : deckLeaf(deck);
-    const colour = UNIT_COLOURS[units.length % UNIT_COLOURS.length];
+    const colour = deckColour(deck, language);
     const unit = { id: deck, deck, title: deck, colour, lessons: [] };
     unit.lessons = chunkLessons(phrases, deck, leaf, unit);
     unit.subtitle = `${phrases.length} phrase${phrases.length === 1 ? "" : "s"} · ${
@@ -1468,8 +1508,9 @@ function renderPractice(section = null) {
      score that matters is per attempt, on the card, where you earned it. */
   function deckRow(title, deckPhrases, key, nested = false) {
     const open = state.openDecks.has(key);
+    const hue = deckColour(key);
     return `
-      <div class="row deck-row${nested ? " nested" : ""}">
+      <div class="row deck-row filled hue-${hue}${nested ? " nested" : ""}">
         <button class="row-open" data-deck="${esc(key)}">
           <span class="row-main">
             <span class="row-title">${esc(title)}</span>
@@ -1481,15 +1522,15 @@ function renderPractice(section = null) {
           <span class="tri">${open ? "▼" : "▶"}</span>
         </button>
       </div>
-      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested)).join("") : ""}`;
+      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested, hue)).join("") : ""}`;
   }
 
   /* A card inside an opened deck. It drills rather than opening the detail
      sheet: this list exists so you can go straight at the one phrase you know
      you're getting wrong. The sheet is still a search away. */
-  function deckCardRow(phrase, key, nested) {
+  function deckCardRow(phrase, key, nested, hue) {
     return `
-      <div class="row nested${nested ? " deep" : ""}">
+      <div class="row striped hue-${hue} nested${nested ? " deep" : ""}">
         ${starButton(phrase)}
         <button class="row-open" data-drill="${esc(phrase.id)}" data-drill-deck="${esc(key)}">
           <span class="row-main">
@@ -1508,7 +1549,7 @@ function renderPractice(section = null) {
     const inFamily = library.inFamily(family.name, settings.language);
     const open = familyOpen(family.name, family.decks.length, !section);
     return `
-      <div class="row family-row">
+      <div class="row family-row filled hue-${deckColour(family.name)}">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
           <span class="row-main">
             <span class="row-title">${esc(family.name)}</span>
@@ -1571,8 +1612,8 @@ function renderPractice(section = null) {
       ${
         drillable.length
           ? `<div class="section-label">Everything</div>
-             <div class="rows">
-               <button class="row" data-deck="${home ? "*" : `${SECTION_PREFIX}${esc(section)}`}">
+             <div class="rows rows-spaced">
+               <button class="row filled hue-blue" data-deck="${home ? "*" : `${SECTION_PREFIX}${esc(section)}`}">
                  <span class="row-main"><span class="row-title">Shuffle ${
                    home ? "all decks" : `all of ${esc(TILE_BY_KEY[section].title)}`
                  }</span>
@@ -1617,7 +1658,7 @@ function renderPractice(section = null) {
     return [...groups]
       .map(
         ([deck, found]) => `
-          <div class="section-label">${esc(deck)}</div>
+          <div class="section-label inked hue-${deckColour(deck)}">${esc(deck)}</div>
           <div class="rows rows-spaced">${found.map(phraseRow).join("")}</div>`
       )
       .join("");
@@ -1793,7 +1834,7 @@ function renderQuick() {
       return;
     }
     box.innerHTML = `
-      <div class="card quick-card">
+      <div class="card quick-card striped hue-orange">
         <p class="quick-phrase" lang="${esc(phrase.language)}">${esc(phrase.text)}</p>
         <p class="quick-english">${esc(phrase.translation)}</p>
         <button class="btn btn-primary quick-listen" data-quick-say>Listen</button>
@@ -1845,7 +1886,7 @@ function renderQuick() {
         ${recent
           .map(
             (phrase) => `
-              <div class="row">
+              <div class="row striped hue-orange">
                 <button class="star" data-quick-play="${esc(phrase.id)}"
                         aria-label="Listen to ${esc(phrase.text)}">▶</button>
                 <button class="row-open" data-quick-open="${esc(phrase.id)}">
@@ -1936,7 +1977,7 @@ function phraseRow(phrase) {
   const capture = !phrase.text.trim();
   const best = library.bestScore(phrase.id);
   return `
-    <div class="row">
+    <div class="row striped hue-${deckColour(phrase.deck)}">
       ${starButton(phrase)}
       <button class="row-open" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
         <span class="row-main">
@@ -2056,17 +2097,19 @@ function renderAbout() {
   let making = false;
   let armed = false;
 
+  /* The way home sits in the banner, where every other page keeps it. It was
+     a topbar above the banner — the drill's shape, on a page that isn't the
+     drill — and read as a different control from the one on Quick or Grammar.
+     Same id, same handler; and the banner carries the tile's own mark now
+     rather than Practice's waveform. */
   view.innerHTML = `
-    <div class="topbar">
-      <button class="link" id="about-back">‹ Home</button>
-    </div>
-
     ${pageHead(
-      "practise",
+      "about",
       ABOUT_DECK,
       cards.length
         ? `${cards.length} card${cards.length === 1 ? "" : "s"} in ${language.name}, written from what you've told it`
-        : `Cards about your own life, in ${language.name}`
+        : `Cards about your own life, in ${language.name}`,
+      `<button class="link" id="about-back">‹ Home</button>`
     )}
 
     ${
@@ -2077,7 +2120,7 @@ function renderAbout() {
              ${cards
                .map(
                  (phrase) => `
-                   <div class="row">
+                   <div class="row striped hue-green">
                      ${starButton(phrase)}
                      <button class="row-open" data-drill="${esc(phrase.id)}">
                        <span class="row-main">
@@ -5216,9 +5259,30 @@ function wireEditorAI(phrase, language) {
    should not open it over there. It does outlive `paint()`, which redraws
    the rows on every tick. */
 function deckManagerPanel() {
+  /* Folded shut by default. The panel lists every deck and is the longest
+     thing on the page, and Version — the one thing you check after every
+     deploy — sits under it; a list you want about once a week was a screen
+     and a half to scroll past every time. The fold is a header inside the
+     card rather than a row in a list, so what opens is visibly the same card.
+     Opening it flips `hidden` in place rather than re-rendering, since the
+     ticks live in `wireDeckManager`'s closure and a render would drop them. */
+  const names = library.deckNames(settings.language);
+  const cards = names.reduce((total, deck) => total + deckContents(deck).cards, 0);
+  const open = !!state.decksOpen;
   return `
     <div class="section-label">Decks</div>
-    <div class="card">
+    <div class="card card-fold">
+      <button class="card-fold-head" id="decks-fold" type="button" aria-expanded="${open}"
+              aria-controls="decks-body">
+        <span class="row-main">
+          <span class="row-title">Manage, print or delete decks</span>
+          <span class="row-sub">${names.length} deck${names.length === 1 ? "" : "s"} · ${cards} card${
+            cards === 1 ? "" : "s"
+          }</span>
+        </span>
+        <span class="tri">${open ? "▼" : "▶"}</span>
+      </button>
+      <div class="card-fold-body" id="decks-body" ${open ? "" : "hidden"}>
       <div class="new-deck">
         <input type="text" id="s-new-deck" placeholder="New deck name" autocomplete="off"
                enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
@@ -5242,6 +5306,7 @@ function deckManagerPanel() {
         it. To delete one, tick it on its own; you'll be asked to confirm, and its cards, scores and
         recordings go with it.
       </p>
+      </div>
     </div>`;
 }
 
@@ -5323,6 +5388,15 @@ function wireDeckManager() {
      thing after printing three decks is printing them again with one more. */
   const selected = new Set(state.print?.decks ?? []);
   const open = new Set();
+
+  const foldHead = document.getElementById("decks-fold");
+  const foldBody = document.getElementById("decks-body");
+  foldHead.addEventListener("click", () => {
+    state.decksOpen = !state.decksOpen;
+    foldHead.setAttribute("aria-expanded", String(state.decksOpen));
+    foldHead.querySelector(".tri").textContent = state.decksOpen ? "▼" : "▶";
+    foldBody.hidden = !state.decksOpen;
+  });
 
   document.getElementById("s-new-deck-save").addEventListener("click", create);
   input.addEventListener("keydown", (event) => {
@@ -5528,7 +5602,7 @@ function renderPrint() {
       ${sections
         .map(
           ({ deck, cards }) => `
-            <section class="print-deck">
+            <section class="print-deck hue-${deckColour(deck)}">
               <h2 class="print-deck-name">${esc(deck)} <span>${cards.length}</span></h2>
               ${cards.map((phrase) => printEntry(phrase, artIDs)).join("")}
             </section>`
@@ -5561,12 +5635,16 @@ function printEntry(phrase, artIDs) {
   const gender = genderOf(phrase);
   const hasPicture = !!phrase.picture?.trim();
   if (hasPicture) artIDs.push(phrase.id);
+  /* Each kind of note is lettered in the colour it wears in the app — Listen
+     for in the link blue, Use in Practice's green, the shape in Grammar's
+     amber, the mnemonic in the keyword picture's purple — so a sheet reads
+     the way the drill does. Colour on the type only: paper has no fills. */
   const notes = [
-    phrase.focusNote ? ["Listen for", phrase.focusNote] : null,
-    phrase.usageNote ? ["Use", phrase.usageNote] : null,
-    shape ? ["Shape", `${shape.mark} ${shape.label} — ${shape.endings ? `${shape.term} · ${shape.endings}` : shape.term}${shape.note ? `. ${shape.note}` : ""}`] : null,
-    hasPicture && phrase.sounds?.trim() ? ["Sounds like", `“${phrase.sounds.trim()}”`] : null,
-    hasPicture ? ["Picture it", phrase.picture.trim()] : null,
+    phrase.focusNote ? ["Listen for", phrase.focusNote, "listen"] : null,
+    phrase.usageNote ? ["Use", phrase.usageNote, "use"] : null,
+    shape ? ["Shape", `${shape.mark} ${shape.label} — ${shape.endings ? `${shape.term} · ${shape.endings}` : shape.term}${shape.note ? `. ${shape.note}` : ""}`, "shape"] : null,
+    hasPicture && phrase.sounds?.trim() ? ["Sounds like", `“${phrase.sounds.trim()}”`, "sounds"] : null,
+    hasPicture ? ["Picture it", phrase.picture.trim(), "picture"] : null,
   ].filter(Boolean);
 
   return `
@@ -5577,7 +5655,7 @@ function printEntry(phrase, artIDs) {
       }${esc(phrase.text || "—")}</span>
       ${phrase.translation ? `<span class="print-translation">${esc(phrase.translation)}</span>` : ""}
       ${notes
-        .map(([label, body]) => `<span class="print-note"><b>${esc(label)}</b> ${esc(body)}</span>`)
+        .map(([label, body, kind]) => `<span class="print-note print-${kind}"><b>${esc(label)}</b> ${esc(body)}</span>`)
         .join("")}
     </div>`;
 }
