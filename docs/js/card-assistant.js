@@ -114,6 +114,28 @@ export const cardAssistant = {
     });
   },
 
+  /* A received message, read for the learner rather than translated at them:
+     a gloss per word so they can read it with a tap where they are stuck, the
+     translation for after they have written what they think it says, and the
+     phrases worth keeping. The biggest structured output after /about-cards,
+     so it is an endpoint of its own with the batch budget — see the Worker. */
+  readMessage(payload, settings) {
+    return request("/message", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /* The learner's own reply to that message, turned into what a native would
+     send, with a note on what changed. Written first, corrected second — the
+     order is the whole of the learning. */
+  messageReply(payload, settings) {
+    return request("/message-reply", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",
