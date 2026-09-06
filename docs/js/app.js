@@ -4,6 +4,7 @@ import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
+  messages, messagesDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring } from "./speech.js";
@@ -57,6 +58,11 @@ const state = {
   /* What the completion screen shows, once a lesson has been ticked; null
      otherwise. It wins over everything else in render() while it stands. */
   celebration: null,
+
+  /* The received message being read, by id, or null. Only meaningful behind
+     the Quick tile — the page it opens is Quick's second face — and cleared by
+     every way out of it, so a message never lies open under another page. */
+  message: null,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
      "quick", or null for the tiles themselves. It is deliberately *not*
@@ -866,6 +872,7 @@ function goHome() {
   state.deck = null;
   state.about = false;
   state.section = null;
+  state.message = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -1058,6 +1065,7 @@ function render() {
   if (state.tab === "practise" && state.celebration) renderComplete();
   else if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
+  else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
   else if (state.tab === "add") state.addKind === "word" ? renderAddWord() : renderAdd();
@@ -1455,6 +1463,17 @@ function renderPractice(section = null) {
      Counted from the library rather than hardcoded, so an empty section says
      so instead of leading somewhere blank, and Quick shows what it has
      collected. */
+  /* Quick's tile counts both things it collects: phrases asked for and
+     messages read. "3 asked for · 2 messages", either half alone when the
+     other is empty, and the invitation when both are. */
+  function quickCount(asked) {
+    const read = messages.forLanguage(settings.language).length;
+    const parts = [];
+    if (asked) parts.push(`${asked} asked for`);
+    if (read) parts.push(`${read} message${read === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(" · ") : "Ask for one";
+  }
+
   function tiles() {
     return `
       <div class="tiles">
@@ -1481,9 +1500,7 @@ function renderPractice(section = null) {
               <span class="tile-blurb">${esc(tile.blurb)}</span>
               <span class="tile-count">${
                 tile.key === "quick"
-                  ? count
-                    ? `${count} asked for`
-                    : "Ask for one"
+                  ? quickCount(count)
                   : tile.key === "about"
                   ? count
                     ? `${count} card${count === 1 ? "" : "s"} about you`
@@ -1811,15 +1828,119 @@ function renderQuick() {
              you can ask for a phrase from.</div>`
     }
     <div id="quick-answer"></div>
-    <div id="quick-recent"></div>`;
+    ${
+      settings.hasAssistant
+        ? `<div class="card quick-message-card">
+             <label class="field"><span>Got a message? Paste it here.</span>
+               <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
+             <p class="small muted" style="margin:0 0 10px">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
+             <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
+             <div class="notice bad" id="msg-error" hidden></div>
+           </div>`
+        : ""
+    }
+    <div id="quick-recent"></div>
+    <div id="quick-messages"></div>`;
 
   document.getElementById("quick-home").onclick = () => {
     state.section = null;
+    state.message = null;
     render();
   };
   document.getElementById("quick-go")?.addEventListener("click", ask);
+  document.getElementById("msg-go")?.addEventListener("click", readMessage);
   paintAnswer();
   paintRecent();
+  paintMessages();
+
+  /* The messages you have read, newest first, under the phrases you asked
+     for. Same argument as the phrases: "what did that notice say?" is a
+     question you ask on the page where you read it. Each opens back onto its
+     own page with the translation, the phrases and the reply still there. */
+  function paintMessages() {
+    const box = document.getElementById("quick-messages");
+    const read = messages.forLanguage(settings.language).slice(-8).reverse();
+    if (!read.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">From your messages</div>
+      <div class="rows rows-spaced">
+        ${read
+          .map(
+            (item) => `
+              <div class="row striped hue-orange">
+                <button class="row-open" data-msg-open="${esc(item.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(firstLine(item.text, 64))}</span>
+                    <span class="row-sub">${esc(
+                      item.gist === null
+                        ? "Not read yet"
+                        : item.reply
+                        ? `Replied: ${firstLine(item.reply.text, 60)}`
+                        : firstLine(item.read?.translation ?? "", 64)
+                    )}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-msg-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.message = button.dataset.msgOpen;
+        render();
+      })
+    );
+  }
+
+  /* The message goes to the assistant and comes back read — glossed, translated,
+     the phrases picked out — and is saved as it arrives, like a Quick phrase
+     is. Then the page for it opens, which is where the translation is withheld
+     until you have written what you think it says. Nothing is shown here. */
+  async function readMessage() {
+    const field = document.getElementById("msg-text");
+    const text = field.value.trim();
+    const button = document.getElementById("msg-go");
+    const errorBox = document.getElementById("msg-error");
+    if (!text) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Reading…`;
+    try {
+      const read = await cardAssistant.readMessage(
+        { message: text, languageCode: settings.language, languageName: language.englishName },
+        settings
+      );
+      if (state.section !== "quick") return;
+      if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+      const item = messages.add({
+        text,
+        read: {
+          translation: read.translation,
+          register: read.register || "",
+          glossary: Array.isArray(read.glossary) ? read.glossary : [],
+          keep: Array.isArray(read.keep) ? read.keep : [],
+        },
+      });
+      state.message = item.id;
+      render();
+    } catch (error) {
+      if (state.section !== "quick") return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.section === "quick" && document.getElementById("msg-go")) {
+        button.disabled = false;
+        button.textContent = "Read it";
+      }
+    }
+  }
 
   /* The answer, and the three things you can do with it. Painted in place
      rather than through render(), for the reason the drill repaints its own
@@ -1968,6 +2089,393 @@ function renderQuick() {
       }
     }
   }
+}
+
+function firstLine(text, max) {
+  const line = String(text ?? "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/* The words of a message, matched to the assistant's glossary. The message on
+   screen is always the text exactly as it was pasted — the model never gets
+   to retype it — so the glossary is matched *onto* it here, longest run
+   first, on accent-folded, punctuation-stripped words. A run the glossary
+   gave as one entry ("a partir del") becomes one tappable piece; a word it
+   forgot is plain text, and costs nothing else. Whitespace is kept as it
+   was, newlines included, so the message keeps its paragraphs. */
+function glossSegments(text, glossary, language) {
+  const key = (word) =>
+    foldAccents(word.toLocaleLowerCase(language))
+      .replace(/[‘’‛]/g, "'")
+      .replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, "");
+  const map = new Map();
+  let longest = 1;
+  for (const entry of glossary ?? []) {
+    const words = String(entry?.text ?? "").split(/\s+/).map(key).filter(Boolean);
+    if (!words.length || !entry.gloss) continue;
+    const k = words.join(" ");
+    if (!map.has(k)) map.set(k, entry.gloss);
+    longest = Math.max(longest, words.length);
+  }
+  const parts = text.split(/(\s+)/);
+  const segments = [];
+  let i = 0;
+  while (i < parts.length) {
+    const part = parts[i];
+    if (!part) {
+      i += 1;
+      continue;
+    }
+    if (/^\s+$/.test(part)) {
+      segments.push({ text: part });
+      i += 1;
+      continue;
+    }
+    let matched = false;
+    for (let n = longest; n >= 1; n -= 1) {
+      const end = i + (n - 1) * 2;
+      if (end >= parts.length) continue;
+      const words = [];
+      for (let j = i; j <= end; j += 2) words.push(key(parts[j]));
+      if (words.some((w) => !w)) continue;
+      const gloss = map.get(words.join(" "));
+      if (gloss === undefined) continue;
+      segments.push({ text: parts.slice(i, end + 1).join(""), gloss });
+      i = end + 1;
+      matched = true;
+      break;
+    }
+    if (!matched) {
+      segments.push({ text: part, plain: true });
+      i += 1;
+    }
+  }
+  return segments;
+}
+
+/* A received message, read rather than translated.
+
+   Everything on this page is arranged around one rule: the English is not
+   shown until you have written what you think the message says. Google
+   Translate gives you the meaning and throws the reading away; this page makes
+   you do the reading, with a tap on any word you are stuck on, and only then
+   shows you how close you got. The same gate as level two, for the same
+   reason — a translation visible above the box is a box nobody fills in.
+
+   Three things follow the gate, in this order: the translation beside your
+   own reading, the phrases from the message worth keeping as cards, and the
+   reply — which you write first, in Catalan if you can and English if you
+   cannot, and which comes back as what a native would send with a note on
+   what changed. Producing it and then seeing the correction is the learning;
+   being handed a reply to copy would be Google Translate again.
+
+   What you keep lands in the language's Missatges deck (`messagesDeck`), an
+   ordinary deck like Quick's, and the message itself stays in `messages` with
+   your reading and your reply on it. */
+function renderMessage() {
+  const item = messages.find(state.message);
+  if (!item) {
+    state.message = null;
+    render();
+    return;
+  }
+  const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
+  const revealed = item.gist !== null;
+  const segments = glossSegments(item.text, item.read?.glossary, item.language);
+  const opened = new Set();
+
+  view.innerHTML = `
+    ${pageHead("quick", "Message", "Read it, keep the good bits, reply", `<button class="link" id="msg-back">‹ Quick</button>`)}
+    <div class="card message-card striped hue-orange">
+      <p class="msg-text" lang="${esc(item.language)}">${segments
+        .map((seg, i) =>
+          seg.gloss !== undefined
+            ? `<button class="msg-word" data-word="${i}"><span class="msg-w">${esc(seg.text)}</span><span class="msg-g" hidden>${esc(
+                seg.gloss
+              )}</span></button>`
+            : esc(seg.text)
+        )
+        .join("")}</p>
+      <p class="small muted msg-hint">${
+        revealed ? "" : "Tap a word you are stuck on. Then say what it is telling you, in the box below."
+      }</p>
+    </div>
+    <div id="msg-gist-card"></div>
+    <div id="msg-reveal"></div>
+    <div id="msg-keep"></div>
+    <div id="msg-reply-card"></div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="link btn-danger" id="msg-forget">Forget this message</button>
+    </div>`;
+
+  document.getElementById("msg-back").onclick = () => {
+    state.message = null;
+    render();
+  };
+  document.getElementById("msg-forget").onclick = () => {
+    messages.remove(item.id);
+    state.message = null;
+    render();
+    toast("Forgotten. Any cards you kept from it are still in the library.");
+  };
+
+  /* Tapping a word shows its gloss in place and counts, while the question
+     is still open, as a word you needed. After the reveal the taps are free —
+     you are checking, not reading. */
+  view.querySelectorAll(".msg-word").forEach((button) =>
+    button.addEventListener("click", () => {
+      const gloss = button.querySelector(".msg-g");
+      gloss.hidden = !gloss.hidden;
+      button.classList.toggle("open", !gloss.hidden);
+      if (!gloss.hidden && item.gist === null && !opened.has(button.dataset.word)) {
+        opened.add(button.dataset.word);
+        messages.update(item.id, { taps: (item.taps ?? 0) + 1 });
+      }
+    })
+  );
+
+  paintGist();
+  paintReveal();
+  paintKeep();
+  paintReply();
+
+  function paintGist() {
+    const box = document.getElementById("msg-gist-card");
+    if (item.gist !== null) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="card">
+        <label class="field"><span>What is it telling you, or asking you to do?</span>
+          <textarea id="msg-gist" lang="en-GB" rows="2"></textarea></label>
+        <button class="btn btn-primary" id="msg-check" style="width:100%">Check</button>
+        <button class="link" id="msg-show" style="width:100%;margin-top:6px">I can't tell — just show me</button>
+      </div>`;
+    const field = document.getElementById("msg-gist");
+    const check = () => {
+      const gist = field.value.trim();
+      if (!gist) {
+        field.focus();
+        return;
+      }
+      reveal(gist);
+    };
+    document.getElementById("msg-check").onclick = check;
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        check();
+      }
+    });
+    document.getElementById("msg-show").onclick = () => reveal("");
+    autosize(field);
+  }
+
+  function reveal(gist) {
+    messages.update(item.id, { gist });
+    document.querySelector(".msg-hint").textContent = "";
+    paintGist();
+    paintReveal();
+    paintKeep();
+    paintReply();
+    document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function paintReveal() {
+    const box = document.getElementById("msg-reveal");
+    if (item.gist === null) {
+      box.innerHTML = "";
+      return;
+    }
+    const taps = item.taps ?? 0;
+    box.innerHTML = `
+      <div class="card">
+        <div class="section-label" style="margin-top:0">In English</div>
+        <p class="msg-translation">${esc(item.read?.translation ?? "")}</p>
+        ${
+          item.gist
+            ? `<div class="section-label">What you made of it</div>
+               <p class="msg-gist">${esc(item.gist)}</p>`
+            : `<p class="small muted">You asked to see it rather than saying what you read.</p>`
+        }
+        ${item.read?.register ? `<p class="small msg-register">${esc(item.read.register)}</p>` : ""}
+        <p class="small muted">${
+          taps === 0
+            ? "You read it without looking anything up."
+            : `You looked up ${taps} word${taps === 1 ? "" : "s"} on the way.`
+        }</p>
+      </div>`;
+  }
+
+  /* The phrases worth owning, each one tap from a card. Same shape as the
+     replies list, because it is the same job: a line somebody actually wrote,
+     with its English and a way to keep it. */
+  function paintKeep() {
+    const box = document.getElementById("msg-keep");
+    const keep = item.read?.keep ?? [];
+    if (item.gist === null || !keep.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Worth keeping</div>
+      <ul class="replies">
+        ${keep
+          .map((entry, i) => {
+            const kept = replyKept(entry);
+            return `
+          <li class="reply">
+            <button class="reply-play" data-say="${i}" aria-label="Listen to this phrase">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <span class="reply-main">
+              <span class="reply-text" lang="${esc(item.language)}">${esc(entry.text)}</span>
+              <span class="reply-translation">${esc(entry.translation)}</span>
+              ${entry.why ? `<span class="reply-why">${esc(entry.why)}</span>` : ""}
+              <button class="link reply-keep" data-keep="${i}" ${kept ? "disabled" : ""}>${
+                kept ? "Kept as a card ✓" : "Keep as a card"
+              }</button>
+            </span>
+          </li>`;
+          })
+          .join("")}
+      </ul>`;
+    box.querySelectorAll("[data-say]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const entry = keep[Number(button.dataset.say)];
+        if (entry) sayAloud(button, entry.text, language, "Couldn't play that.");
+      })
+    );
+    box.querySelectorAll("[data-keep]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const entry = keep[Number(button.dataset.keep)];
+        if (entry) keepFromMessage(entry, item, button);
+      })
+    );
+  }
+
+  /* Your reply. The box is first and the correction second, and the box stays
+     above the result so that a second go is one edit away rather than a
+     screenful. */
+  function paintReply() {
+    const box = document.getElementById("msg-reply-card");
+    if (item.gist === null) {
+      box.innerHTML = "";
+      return;
+    }
+    const reply = item.reply;
+    box.innerHTML = `
+      <div class="section-label">Your reply</div>
+      <div class="card">
+        <label class="field"><span>Write it in ${esc(language.englishName)} if you can, in English if you can't.</span>
+          <textarea id="msg-draft" lang="${esc(item.language)}" rows="2" autocapitalize="sentences">${esc(
+            reply?.draft ?? ""
+          )}</textarea></label>
+        <button class="btn btn-primary" id="msg-reply-go" style="width:100%">${
+          reply ? "Check it again" : "Check my reply"
+        }</button>
+        <div class="notice bad" id="msg-reply-error" hidden></div>
+      </div>
+      ${
+        reply
+          ? `<div class="card quick-card striped hue-orange" id="msg-reply">
+               <p class="quick-phrase" lang="${esc(item.language)}">${esc(reply.text)}</p>
+               <p class="quick-english">${esc(reply.translation)}</p>
+               ${reply.note ? `<p class="msg-note">${esc(reply.note)}</p>` : ""}
+               <div class="btn-row">
+                 <button class="btn btn-primary" id="msg-reply-say">Listen</button>
+                 <button class="btn" id="msg-reply-copy">Copy</button>
+               </div>
+               <button class="link reply-keep" id="msg-reply-keep" ${replyKept(reply) ? "disabled" : ""}>${
+                 replyKept(reply) ? "Kept as a card ✓" : "Keep as a card"
+               }</button>
+             </div>`
+          : ""
+      }`;
+    const field = document.getElementById("msg-draft");
+    autosize(field);
+    document.getElementById("msg-reply-go").onclick = () => sendReply(field.value.trim());
+    const say = document.getElementById("msg-reply-say");
+    say?.addEventListener("click", () => sayAloud(say, reply.text, language, "Couldn't play that."));
+    document.getElementById("msg-reply-copy")?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(reply.text);
+        toast("Copied.");
+      } catch {
+        toast("Couldn't copy. Select the text instead.");
+      }
+    });
+    document.getElementById("msg-reply-keep")?.addEventListener("click", (event) =>
+      keepFromMessage(reply, item, event.currentTarget, "reply")
+    );
+  }
+
+  async function sendReply(draft) {
+    const field = document.getElementById("msg-draft");
+    const button = document.getElementById("msg-reply-go");
+    const errorBox = document.getElementById("msg-reply-error");
+    if (!draft) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    try {
+      const result = await cardAssistant.messageReply(
+        { message: item.text, draft, languageCode: item.language, languageName: language.englishName },
+        settings
+      );
+      if (state.message !== item.id) return;
+      if (!result.text?.trim()) throw new Error("Nothing came back. Try again.");
+      messages.update(item.id, {
+        reply: { draft, text: result.text, translation: result.translation || "", note: result.note || "" },
+      });
+      paintReply();
+      document.getElementById("msg-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      if (state.message !== item.id) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = item.reply ? "Check it again" : "Check my reply";
+    }
+  }
+}
+
+/* One tap from a phrase in a message to a card of its own — `keepReply`'s
+   shape, with the message as the situation, because where you read this is
+   exactly what a situation is for. A phrase goes with its `why` as the usage
+   note; the reply you sent goes with the message it answered. Both land in
+   the language's Missatges deck. */
+function keepFromMessage(entry, item, button, kind = "phrase") {
+  const text = entry.text?.trim();
+  const translation = entry.translation?.trim();
+  if (!text || !translation) return;
+  const flip = () => {
+    button.disabled = true;
+    button.textContent = "Kept as a card ✓";
+  };
+  if (replyKept(entry)) {
+    flip();
+    toast("That one is already in the library.");
+    return;
+  }
+  const deck = messagesDeck(item.language);
+  const about = firstLine(item.gist || item.read?.translation || item.text, 90);
+  library.add({
+    text,
+    translation,
+    deck,
+    language: item.language,
+    situation: kind === "reply" ? `Your reply to a message: “${about}”` : `From a message you received: “${about}”`,
+    usageNote: kind === "phrase" && entry.why ? entry.why : null,
+    focusNote: null,
+    replies: [],
+  });
+  flip();
+  toast(`Added to ${deck}.`);
 }
 
 /* A phrase row: the star, then the phrase and what it means. A capture with no
@@ -6100,6 +6608,7 @@ library.load();
 aboutMe.load();
 aiLog.load();
 progress.load();
+messages.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

@@ -390,6 +390,113 @@ hit twice on the way in.
 Neither sister fork has this. It would port whole — the page is one call and one
 `library.add`, and the Worker already has the field.
 
+### Messages: reading what people send you, before you are told what it says
+
+Quick's second face. The phrases you need are one direction of real life
+reaching into the app; the texts people send you — the library saying the
+book is in, the colla announcing two meals — are the other. Google Translate
+hands over the meaning and throws away everything worth learning: the stock
+written Catalan (*escric per avisar-vos*, *a partir del dimarts*, *us hi
+esperem a tots i totes*), the register, the shape of a notice. So this reads
+the message *for* you rather than *at* you, in a fixed order.
+
+- **It lives on the Quick page, not on a seventh tile.** The grid is two by
+  three and a seventh square leaves a hole — the argument that put About me
+  on a tile and filled the sixth with All Phrases, and that keeps the three
+  apps' home screens identical. Quick is the right square because the two are
+  the same thing in two directions, and neither is practice arranged in
+  advance. The ask box stays first and on top: Quick's whole point is that
+  you can use it in the time it takes to open a door, and nothing may push
+  the box down the screen. The paste box is second because you are not in a
+  hurry when reading a message. The tile's subtitle counts both, *3 asked
+  for · 2 messages*, from `quickCount`.
+- **The English is withheld until you have written what you think it says.**
+  That is the whole feature, and it is the level-two gate for the level-two
+  reason: a translation visible above the box is a box nobody fills in.
+  `renderMessage` paints the message with every glossed word tappable, a
+  gist box underneath, and nothing else; `reveal` writes the gist and only
+  then paints the translation beside your reading, the register, the phrases
+  and the reply. *I can't tell — just show me* reveals with an empty gist,
+  and the page says so rather than printing nothing where your reading goes.
+  A message with `gist === null` is one you have not read yet, and the
+  list on Quick says so.
+- **The message on screen is the text exactly as it was pasted.** The model
+  never gets to retype it — `/message` returns a glossary and
+  `glossSegments` matches it *onto* the message here, longest run first, on
+  accent-folded, punctuation-stripped words, keeping every character of
+  whitespace so the paragraphs and the emoji survive. A run the glossary gave
+  as one entry (*a partir del*, *us hi esperem*) is one tappable piece, which
+  is the point of asking for set phrases rather than words; a word it forgot
+  is plain text and costs nothing else; a URL is never a button. A word that
+  occurs twice is two buttons with the same gloss.
+- **Taps are counted while the question is open, and free afterwards.** A
+  tap is a word you needed, and *You looked up 2 words on the way* is the
+  honest score — there is no number invented here, for quiet mode's reason.
+  Distinct words, not taps: opening and closing the same gloss three times is
+  one lookup. After the reveal you are checking, not reading, so `taps`
+  stops moving.
+- **What is worth keeping is the stock phrase, never the fact.** The Worker
+  is told that *the book is ready* is not reusable and *estarà preparat per
+  recollir-lo* is, and to trim each to the reusable part with one line on
+  why. Each is one tap from a card through `keepFromMessage` — `keepReply`'s
+  shape, with the message written into the situation (that is exactly what a
+  situation is for) and the `why` as the usage note. They land in the
+  language's **Missatges** deck (`messagesDeck` in store.js; *Mensajes*,
+  *Messaggi* for the other two), an ordinary deck like Quick's and for the
+  same reason: the phrases people actually send you are the best deck in the
+  app, and they only become one if reading them files them. *Kept as a
+  card ✓* is `replyKept`, read off the library at render.
+- **You write the reply first, and then see the correction.** In Catalan if
+  you can, in English if you can't; `/message-reply` returns what a native
+  would send in the register of the message, its English, and a note naming
+  what changed — a *tu* where the message used *vosaltres*, a word order
+  carried over from English — or saying the draft was already right. The
+  draft stays in the box above the result so a second go is one edit away.
+  Listen, Copy (the clipboard, since the reply is about to go into another
+  app) and Keep as a card, which files it in Missatges with *Your reply to a
+  message* as the situation.
+- **Two endpoints, additive, and the sister apps are untouched.** `/message`
+  is the biggest structured output after `/about-cards` — a gloss per word —
+  so it gets `BATCH_TIMEOUT_MS` and an endpoint of its own, on the argument
+  replies won; `/message-reply` is a card-sized call on the quality chain,
+  because the reply is going to a real person. Both take the message as data
+  and say so in the prompt. Nothing the other six endpoints send changed
+  shape — `card-test.mjs` with `BEFORE` set is still byte-identical — and
+  `worker/tools/message-test.mjs` drives both with `globalThis.fetch`
+  stubbed. `worker/**` is on the deploy trigger, so merging shipped them.
+- **`messages` in store.js is the record**: the text, what came back
+  (`read`), your `gist`, the `taps`, and the `reply` with the draft it was
+  made from. Persisted for the interview transcript's reason — *what did
+  that notice say?* is a question you ask three days later, and a reply you
+  sent is the best record of how you write — capped at sixty, newest last,
+  and in export/import with the phrases. `update` mutates in place, like
+  `keepNote`, because the page is holding the object. *Forget this message*
+  drops the record and leaves the cards alone, and says so.
+
+Worth asserting, with `/message` and `/message-reply` stubbed: `#msg-text`
+sits below `#quick-ask`; an empty paste is refused with no call; a paste
+makes one `/message` call carrying the text and the language and opens a
+page whose `.msg-text` reads exactly the pasted text, paragraphs and emoji
+included, with one `.msg-word` per glossed run (a multi-word entry is one
+button, the URL is none, a word twice is two), no `.msg-translation`, no
+`#msg-keep` and no `#msg-draft`; a tap shows the word's `.msg-g` and two
+distinct words tapped three times write `taps: 2` to `xerra.messages`; an
+empty Check is refused; Enter in `#msg-gist` checks, removes the box, paints
+`.msg-translation`, `.msg-gist` and `.msg-register` and reports the count,
+and a tap after that leaves `taps` alone; the keep list prints `.reply-why`,
+`[data-keep]` files a card in `Missatges` with the message in its situation
+and the why in its usage note, flips to *Kept ✓* and refuses a duplicate;
+an empty draft is refused, a draft makes one `/message-reply` call with the
+message and the draft, paints `#msg-reply` with `.msg-note`, keeps the draft
+in the box, and `#msg-reply-keep` files it; the tile reads *1 message*, the
+row under *From your messages* reads *Replied: …* and reopens the page with
+everything on it and no second call; `Missatges` is a `[data-deck]` row under
+All Phrases; export carries `messages` and import puts them back;
+`#msg-forget` removes the record and leaves the cards; and a 503 lands in
+`#msg-error` with the button back and nothing saved. Deb-o-lingo and
+Mum-o-lingo have none of this; it would port whole — the Worker is already
+serving it — with `messagesDeck` collapsing to one name.
+
 ### There is no tab bar, and adding belongs to a section
 
 Three tabs — Practice, Add, Settings — for three things that were never peers.
@@ -2839,6 +2946,13 @@ the parser losing a block to a formatting change.
   and files it as an ordinary card in the `Quick` deck. `renderQuick` in app.js,
   `QUICK_DECK` in store.js, and one optional `ask` field on the Worker's
   `/complete-card` that leaves both sister apps' prompt byte-identical.
+- **Messages** is Quick's second face: paste a text somebody sent you, read
+  it yourself with a tap on any word you are stuck on, write what you think it
+  says, and only then see the English — then keep the stock phrases as cards
+  in the language's `Missatges` deck and write your reply, which comes back
+  corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
+  `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
+  (additive; `worker/tools/message-test.mjs`).
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks: tick a row on its own, then one Delete button,
   then a confirm sheet). The same rows fold open to their cards and tick

@@ -280,6 +280,56 @@ p { margin: 0 0 10px; }
 .quick-kept { margin: 12px 0 0; }
 .quick-card .btn-row { margin-top: 12px; }
 
+/* A received message, read on the page. The text is the message exactly as it
+   was pasted, paragraphs and all, so it is pre-wrap; each word the glossary
+   knows is a button drawn as a word — no border, the page's own type — with a
+   dotted underline as the only sign it will answer a tap. Opened, it shows its
+   English right after itself in Quick's ink, on a wash of the same colour, so
+   the gloss reads as part of the line rather than a tooltip floating over it. */
+.msg-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.85;
+}
+.msg-word {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  text-decoration: underline dotted color-mix(in srgb, var(--orange) 70%, var(--text-2));
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.msg-word.open {
+  background: color-mix(in srgb, var(--orange) 16%, var(--surface));
+  text-decoration: none;
+  padding: 0 4px;
+}
+.msg-g {
+  margin-left: 5px;
+  font-size: 0.82em;
+  font-weight: 800;
+  color: var(--add-ink, var(--orange-dark));
+  white-space: normal;
+}
+.msg-g::before { content: "= "; font-weight: 600; }
+.msg-hint { margin: 10px 0 0; }
+.msg-hint:empty { display: none; }
+.msg-translation, .msg-gist { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 600; line-height: 1.5; }
+.msg-gist { color: var(--text-2); }
+.msg-register { margin: 12px 0 4px; font-weight: 700; color: var(--text-2); }
+.reply-why { display: block; margin-top: 3px; font-size: 0.78rem; color: var(--text-3); font-style: italic; overflow-wrap: anywhere; }
+.msg-note { margin: 0 0 12px; font-size: 0.9rem; font-weight: 600; color: var(--text-2); line-height: 1.45; }
+#msg-reply .reply-keep { margin-top: 10px; }
+
 .rows { background: var(--surface); border-radius: var(--radius); border: 2px solid var(--line); overflow: hidden; }
 .row {
   display: flex;

@@ -19,6 +19,7 @@ const KEYS = {
   aiLog: "xerra.aiLog",
   decks: "xerra.decks",
   progress: "xerra.progress",
+  messages: "xerra.messages",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -433,6 +434,18 @@ export function sectionOf(deck) {
    MY_PHRASES — the cards in it drill, star, score and export like any others,
    and it shows in Decks with the rest. */
 export const QUICK_DECK = "Quick";
+
+/* Where a phrase kept from a received message is filed, and where the reply
+   you sent lands. One deck per language, because these are the language's own
+   stock written phrases — a Catalan notice's "us hi esperem a tots i totes" is
+   nothing to a Spanish library. An ordinary deck name like QUICK_DECK, for the
+   same reason: the phrases people actually send you are as good a deck as the
+   ones you asked for, and they only become one if reading them files them. */
+const MESSAGES_DECK = { "ca-ES": "Missatges", "es-ES": "Mensajes", "it-IT": "Messaggi" };
+
+export function messagesDeck(language) {
+  return MESSAGES_DECK[language] ?? "Messages";
+}
 
 /** The part after the prefix — what a row says once its family is open. */
 export function deckLeaf(deck) {
@@ -1010,6 +1023,7 @@ export const library = {
         aboutMe: aboutMe.turns,
         decks: customDecks.byLanguage,
         progress: progress.lessons,
+        messages: messages.items,
       },
       null,
       2
@@ -1030,6 +1044,7 @@ export const library = {
     aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
     customDecks.replace(parsed.decks);
     progress.replace(parsed.progress);
+    messages.replace(parsed.messages);
   },
 };
 
@@ -1141,6 +1156,82 @@ export const aboutMe = {
   /** Has the learner actually said anything, as opposed to just been asked? */
   get answered() {
     return this.turns.some((turn) => turn.role === "learner");
+  },
+};
+
+// ----------------------------------------------------------------- messages
+
+/* Messages people have sent you, and what you made of them. Each is the text
+   exactly as it was pasted, what the assistant supplied for reading it
+   (`read`: the translation, the register, the glossary and the phrases worth
+   keeping), the gist you wrote before you were shown the translation, how many
+   words you had to look up, and the reply you drafted and what it became.
+
+   Persisted, for the About me transcript's reason: it is material, not a
+   study aside. "What did that notice say?" is a question you ask three days
+   later, and a reply you sent is the best record of how you write. Newest
+   last; capped, since a phone's storage is evictable and the phrases worth
+   having are already cards. Rides in export/import with the phrases. */
+const MESSAGES_KEEP = 60;
+
+export const messages = {
+  items: [],
+
+  load() {
+    const stored = readJSON(KEYS.messages, null);
+    this.items = Array.isArray(stored) ? stored.slice(-MESSAGES_KEEP) : [];
+  },
+
+  save() {
+    if (this.items.length > MESSAGES_KEEP) this.items = this.items.slice(-MESSAGES_KEEP);
+    writeJSON(KEYS.messages, this.items);
+  },
+
+  add(entry) {
+    const saved = {
+      id: uid(),
+      language: settings.language,
+      at: new Date().toISOString(),
+      text: "",
+      read: null,
+      gist: null,
+      taps: 0,
+      reply: null,
+      ...entry,
+    };
+    this.items.push(saved);
+    this.save();
+    return saved;
+  },
+
+  find(id) {
+    return this.items.find((item) => item.id === id) ?? null;
+  },
+
+  /* Mutates in place, like `keepNote` on a phrase: the page is holding the
+     object, and replacing it would leave the page repainting a stale one. */
+  update(id, patch) {
+    const item = this.find(id);
+    if (!item) return null;
+    Object.assign(item, patch);
+    this.save();
+    return item;
+  },
+
+  remove(id) {
+    this.items = this.items.filter((item) => item.id !== id);
+    this.save();
+  },
+
+  forLanguage(language) {
+    return this.items.filter((item) => item.language === language);
+  },
+
+  replace(items) {
+    this.items = Array.isArray(items)
+      ? items.filter((item) => item && typeof item === "object" && typeof item.text === "string" && item.id).slice(-MESSAGES_KEEP)
+      : [];
+    this.save();
   },
 };
 

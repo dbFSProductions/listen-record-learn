@@ -4,7 +4,7 @@ This Worker keeps the Gemini API key out of the public web app. It accepts a
 rough Catalan/English card, asks Gemini for structured card details, validates
 the result, and returns it to Xerra.
 
-Six endpoints, each with its own failure so a slow one can't take a fast one
+Eight endpoints, each with its own failure so a slow one can't take a fast one
 down with it:
 
 | | |
@@ -15,6 +15,8 @@ down with it:
 | `/interview` | The next English question in the About me interview. |
 | `/about-cards` | An About me transcript → three to five cards. The only call that writes several cards, so it gets a longer per-attempt budget and a smaller card shape. |
 | `/picture` | A keyword mnemonic → one drawing of it, base64. The only call that returns an image, and the only one that does not go to Gemini's API — it draws through Replicate. |
+| `/message` | A message the learner received → a gloss for every word or set phrase, the translation, the register, and the three or four phrases worth keeping. Xerra only so far. The biggest structured output after `/about-cards`, so it gets the batch budget. |
+| `/message-reply` | That message plus the learner's own draft reply → the reply a native would send, its English, and a note on what changed. |
 | `/health` | Asks the model for one word, so "connected" means a model actually answered. |
 
 Each endpoint picks its own model and patience. `/interview` and `/chat` are
