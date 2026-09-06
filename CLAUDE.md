@@ -288,6 +288,65 @@ Deb-o-lingo and Mum-o-lingo have no deck list at all — their content is a path
 of lessons — so none of this ports. Xerra's own Practice tile now opens a path
 built from its decks (above); the deck list lives on under All Phrases.
 
+### Every deck wears a colour, and the lists wear it too
+
+The path had colour and nothing else did: behind Vocab, Grammar and All
+Phrases a deck was a white card with a triangle on it, and Quick and About me
+printed the same white rows. Asked for as *"add colour to the cards/decks …
+like we have in practice. Not the journey but just add colour"*.
+
+- **`deckColour(deck)` in app.js is the one reader**, and it is the path's
+  rotation — green, blue, purple, orange — counted over the decks in the
+  order they first appear in the library rather than over the path's units
+  alone. That is what makes Salutacions the same blue on the path, under All
+  Phrases, in a search and on paper. Practice's decks come first in the seed
+  content, so the path's colours did not move. A family that isn't itself a
+  deck (Passat, Paraules) takes a colour of its own when its first deck is
+  seen, so its row is coloured too. ★ Favourites is gold and Shuffle all is
+  blue, as the path has always drawn them; there is no sixth colour — teal is
+  quiet mode's and pink is the gender cue, and neither should turn up on a
+  deck row.
+- **A deck row is a one-row unit banner** (`.row.filled` with a `.hue-*`
+  class): the fill, white lettering, the solid slab and the drop on press.
+  Family rows and the Shuffle row wear it as well. The `.hue-*` classes carry
+  `--hue`, `--hue-dark`, `--hue-ink` and `--hue-on`, and gold takes dark ink
+  the way the Grammar tile does.
+- **The cards inside a deck are striped, not filled** (`.row.striped`): the
+  deck's colour down the left edge and a 7% wash of it behind, so a card says
+  whose it is without shouting over the banner. The same stripe is on every
+  phrase row a search turns up (in the phrase's own deck colour, with the
+  deck heading lettered to match), on Quick's answer card and its *Asked for
+  before* rows in Quick's orange, and on About me's cards in its green.
+- **The print sheet gets colour on the type only.** Paper has no fills — a
+  printer drops them, and a block of green behind 7pt notes would drown
+  them — so each deck's heading and each phrase are lettered in the deck's
+  colour, the rule under the heading is drawn in it, and each kind of note
+  is in the colour it wears in the app: *Listen for* in the link blue, *Use*
+  in Practice's green, *Shape* in Grammar's amber, *Sounds like* and
+  *Picture it* in the keyword picture's purple. `.print-sheet` pins the inks
+  to their light-theme values and is white whatever the phone's theme, since
+  the dark-theme inks are built for a dark ground and vanish on paper.
+
+### Settings → Decks folds shut
+
+The deck manager lists every deck and was the longest thing on the Settings
+page, with Version — the one panel you check after every deploy — under it.
+Reported as *"way too long to scroll past"*. It is a `.card-fold` now: the
+header row is the button, the body is `hidden` until you open it, and
+`state.decksOpen` remembers the choice for the session only — `goHome()`
+shuts it again, so it is closed every time you arrive and stays open while
+you are inside it, which includes coming back from the print page with the
+ticks still on. Opening flips `hidden` in place rather than re-rendering,
+because the ticks live in `wireDeckManager`'s closure.
+
+### The way home is in the banner everywhere
+
+About me printed its *‹ Home* in a `.topbar` above the page head — the
+drill's shape, on a page that isn't the drill — while every other page keeps
+the link inside the coloured banner. Reported as the button being different
+there. It is in the banner now, with the tile's own person mark rather than
+Practice's waveform; same `#about-back` id, same handler.
+
 ### Quick: the phrase you need in the next thirty seconds
 
 Everything else in the app is practice arranged in advance: a deck you picked, a
@@ -2787,7 +2846,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v78 / `xerra-v78` — `js/version.js` first, `sw.js` second, as ever.
+- v79 / `xerra-v79` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

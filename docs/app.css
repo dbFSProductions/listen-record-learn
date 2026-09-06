@@ -300,9 +300,53 @@ p { margin: 0 0 10px; }
 
 /* Variant: each row is its own card with a gap, instead of one fused list.
    Used for the deck list and for the phrase rows a search turns it into. */
-.rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 10px; }
+.rows-spaced { background: none; border: 0; border-radius: 0; overflow: visible; display: grid; gap: 12px; }
 .rows-spaced .row { background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); }
 .row-main { flex: 1; min-width: 0; }
+
+/* ------------------------------------------------------------- deck colour */
+
+/* Every deck wears a colour — the path's four in rotation, decided once by
+   `deckColour` in app.js — and these classes are how a row, a card or a
+   heading says which. `--hue` is the fill, `--hue-dark` its pressed underside,
+   `--hue-ink` the same colour as lettering on the page ground, `--hue-on`
+   what sits on the fill. Gold is ★ Favourites' and takes dark ink, as the
+   Grammar tile does; white on the other four is the palette's accepted
+   trade-off, the same one the tiles make. */
+.hue-green  { --hue: var(--green);  --hue-dark: var(--green-dark);  --hue-ink: var(--practise-ink); --hue-on: #ffffff; }
+.hue-blue   { --hue: var(--blue);   --hue-dark: var(--blue-dark);   --hue-ink: var(--phrases-ink);  --hue-on: #ffffff; }
+.hue-purple { --hue: var(--purple); --hue-dark: var(--purple-dark); --hue-ink: var(--purple-ink);   --hue-on: #ffffff; }
+.hue-orange { --hue: var(--orange); --hue-dark: var(--orange-dark); --hue-ink: var(--add-ink);      --hue-on: #ffffff; }
+.hue-gold   { --hue: var(--gold);   --hue-dark: var(--gold-dark);   --hue-ink: var(--amber);        --hue-on: #4b4b4b; }
+
+/* A deck row is a banner now — the path's unit banner, one row tall: the
+   fill, white lettering, the solid slab underneath and the drop on press.
+   Family rows and the Shuffle row wear it too, so a section's list is a
+   stack of colour rather than a stack of white cards. Not the journey: the
+   rows still open to their cards and drill from the top, exactly as before. */
+.row.filled {
+  background: var(--hue);
+  border-color: var(--hue);
+  color: var(--hue-on);
+  box-shadow: 0 4px 0 var(--hue-dark);
+}
+.row.filled:active { background: var(--hue); transform: translateY(3px); box-shadow: 0 1px 0 var(--hue-dark); }
+.row.filled .row-title { font-weight: 900; }
+.row.filled .row-sub { color: var(--hue-on); opacity: 0.9; font-weight: 700; }
+.row.filled .chev, .row.filled .fold { color: var(--hue-on); }
+.row.filled .fold:active { background: color-mix(in srgb, var(--hue-on) 18%, transparent); }
+
+/* The cards inside a deck, and the phrase rows a search, Quick or About me
+   prints: white, with the deck's colour down the left edge and a wash of it
+   behind — enough to say whose they are without shouting over the banner. */
+.row.striped, .card.striped {
+  border-left: 6px solid var(--hue);
+  background: color-mix(in srgb, var(--hue) 7%, var(--surface));
+}
+.row.striped:active { background: color-mix(in srgb, var(--hue) 14%, var(--surface)); }
+/* A section label lettered in a deck's colour — the deck headings a search
+   groups its results under. */
+.section-label.inked { color: var(--hue-ink); }
 
 /* Both of these are blocks that wrap. They used to be inline spans, with the
    subtitle set `nowrap` + `text-overflow: ellipsis` — but ellipsis and
@@ -1379,6 +1423,31 @@ select {
    The fold on the right is Practice's, one page over: it opens the deck to
    the cards inside, which sit indented and quiet underneath — they are there
    to be read, not tapped, so they lose the row's pointer and press tint. */
+/* A card that folds. The header is the button and wears the card's own
+   padding, so shut it is one row of the card and open it is the same card
+   with its body under the header — rather than a separate row that reveals
+   a card beneath it. `hidden` on the body is what shuts it; the body has no
+   display of its own to fight the attribute, unlike `.sheet` and `.new-deck`. */
+.card-fold { padding: 0; }
+.card-fold-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.card-fold-head:active { background: var(--surface-2); }
+.card-fold-head .tri { flex: none; color: var(--text-3); font-size: 0.8rem; }
+.card-fold-body { padding: 2px 14px 14px; }
+.card-fold-body[hidden] { display: none; }
+
 .deck-tools { display: flex; gap: 4px; margin: 6px 0 -4px; }
 .deck-tools .link { padding: 6px 8px; font-size: 0.82rem; }
 .deck-rows { margin-top: 12px; }
@@ -1609,8 +1678,19 @@ input[type="checkbox"] { accent-color: var(--accent); }
    of dropping backgrounds, hence `print-color-adjust: exact` on the dot: it
    is the whole of the gender cue on paper. */
 .print-chrome { margin-bottom: 14px; }
+/* The sheet is paper: white with dark type whatever the phone's theme, and
+   the inks it letters with are pinned to their light-theme values here so a
+   dark-mode phone previews — and prints — the same colours a light one does.
+   The dark-theme inks are built to sit on a dark ground and vanish on white. */
 .print-sheet {
-  background: var(--surface);
+  --practise-ink: #3d8b02;
+  --phrases-ink: #0d7db4;
+  --add-ink: #a35f00;
+  --purple-ink: #8e4ec6;
+  --amber: #cd9d00;
+  --line: #e5e5e5;
+  --text-2: #777777;
+  background: #ffffff;
   border: 2px solid var(--line);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -1633,6 +1713,15 @@ input[type="checkbox"] { accent-color: var(--accent); }
   break-after: avoid;
 }
 .print-deck-name span { font-weight: 600; color: var(--text-2); font-size: 0.8em; }
+/* Colour on paper is colour on the type only — no fills, since a printer
+   drops them and a block of green behind 7pt notes would drown them anyway.
+   Each deck's heading and each phrase are lettered in the deck's own colour,
+   the rule under the heading is drawn in it, and every kind of note is in
+   the colour it wears in the app: Listen for in the link blue, Use in
+   Practice's green, the shape in Grammar's amber, the mnemonic in the
+   keyword picture's purple. */
+.print-deck .print-deck-name { color: var(--hue-ink); border-bottom-color: var(--hue); }
+.print-deck .print-text { color: var(--hue-ink); }
 .print-card {
   padding: 5px 0;
   border-bottom: 1px solid var(--line);
@@ -1645,6 +1734,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .print-translation { display: block; font-size: 0.88rem; color: #333; overflow-wrap: anywhere; }
 .print-note { display: block; font-size: 0.8rem; color: #444; margin-top: 2px; overflow-wrap: anywhere; }
 .print-note b { font-weight: 800; color: #222; }
+/* After `.print-note b`, which would otherwise win on source order. */
+.print-listen b { color: var(--phrases-ink); }
+.print-use b { color: var(--practise-ink); }
+.print-shape b { color: var(--amber); }
+.print-sounds b, .print-picture b { color: var(--purple-ink); }
 .print-art { float: right; margin: 0 0 4px 8px; width: 72px; height: 72px; }
 .print-art:empty { display: none; }
 .print-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
@@ -1667,13 +1761,12 @@ input[type="checkbox"] { accent-color: var(--accent); }
   }
   .print-head { column-span: all; font-size: 7.5pt; color: #444; border-bottom-color: #999; margin-bottom: 3mm; padding-bottom: 1.5mm; }
   .print-deck { margin-top: 3mm; }
-  .print-deck-name { font-size: 10pt; margin-bottom: 1mm; padding-bottom: 0.5mm; border-bottom-color: #000; }
+  .print-deck-name { font-size: 10pt; margin-bottom: 1mm; padding-bottom: 0.5mm; }
   .print-deck-name span { color: #444; }
   .print-card { padding: 1.4mm 0; border-bottom-color: #ccc; }
   .print-text { font-size: 9pt; line-height: 1.25; }
   .print-translation { font-size: 8pt; line-height: 1.25; color: #111; }
   .print-note { font-size: 7pt; line-height: 1.3; color: #222; margin-top: 0.4mm; }
-  .print-note b { color: #000; }
   .print-art { width: 18mm; height: 18mm; margin: 0 0 1mm 2mm; }
   .print-art img { border-radius: 1.5mm; }
   a { text-decoration: none; color: inherit; }
