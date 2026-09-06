@@ -64,9 +64,10 @@ const state = {
      every way out of it, so a message never lies open under another page. */
   message: null,
 
-  /* The rehearsal chat being had, by id, or null. Only meaningful behind
-     About me — the page it opens is that workshop's second room — and cleared
-     by every way out of it. */
+  /* The rehearsal chat being had, by id, or null. Only meaningful behind the
+     Real life tile — the page it opens is that page's third face, after the
+     phrase you asked for and the message you read — and cleared by every way
+     out of it, like `message`. */
   chat: null,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
@@ -1032,7 +1033,7 @@ const TILES = [
   { key: "decks", title: "Practice", blurb: "The everyday decks", colour: "blue" },
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
-  { key: "quick", title: "Quick", blurb: "A phrase you need right now", colour: "orange" },
+  { key: "quick", title: "Real life", blurb: "A phrase, a message, a chat", colour: "orange" },
   { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
   { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
@@ -1069,9 +1070,9 @@ function render() {
       : state.tab;
   view.className = `view page page-${state.tab} sec-${accent}`;
   if (state.tab === "practise" && state.celebration) renderComplete();
-  else if (state.tab === "practise" && state.about && state.chat) renderChat();
   else if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
+  else if (state.tab === "practise" && state.section === "quick" && state.chat) renderChat();
   else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
@@ -1470,29 +1471,26 @@ function renderPractice(section = null) {
      Counted from the library rather than hardcoded, so an empty section says
      so instead of leading somewhere blank, and Quick shows what it has
      collected. */
-  /* Quick's tile counts both things it collects: phrases asked for and
-     messages read. "3 asked for · 2 messages", either half alone when the
-     other is empty, and the invitation when both are. */
+  /* Real life's tile counts the three things it collects: phrases asked for,
+     messages read and chats had. "3 asked for · 2 messages · 1 chat",
+     whichever of them there are, and the invitation when there are none. */
   function quickCount(asked) {
     const read = messages.forLanguage(settings.language).length;
+    const had = chats.forLanguage(settings.language).length;
     const parts = [];
     if (asked) parts.push(`${asked} asked for`);
     if (read) parts.push(`${read} message${read === 1 ? "" : "s"}`);
-    return parts.length ? parts.join(" · ") : "Ask for one";
+    if (had) parts.push(`${had} chat${had === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(" · ") : "Ask for a phrase";
   }
 
   /* About me's tile says what the row used to: the interview is the way in
-     until there are cards, and the count once there are — with the rehearsal
-     chats counted beside them, since the tile opens the page they are on
-     too. With no assistant and nothing made it says so rather than hiding: a
-     tile that comes and goes leaves a hole in a grid, and the page it opens
-     names Settings as the way to fix it. */
+     until there are cards, and the count once there are. With no assistant
+     and no cards it says so rather than hiding — a tile that comes and goes
+     leaves a hole in a grid, and the page it opens names Settings as the way
+     to fix it. */
   function aboutCount(cards) {
-    const had = chats.forLanguage(settings.language).length;
-    const parts = [];
-    if (cards) parts.push(`${cards} card${cards === 1 ? "" : "s"} about you`);
-    if (had) parts.push(`${had} chat${had === 1 ? "" : "s"}`);
-    if (parts.length) return parts.join(" · ");
+    if (cards) return `${cards} card${cards === 1 ? "" : "s"} about you`;
     return settings.hasAssistant ? "Tell it about you" : "Needs the assistant";
   }
 
@@ -1760,7 +1758,6 @@ function renderPractice(section = null) {
     list.querySelectorAll("[data-about]").forEach((button) =>
       button.addEventListener("click", () => {
         state.about = true;
-        state.chat = null;
         render();
       })
     );
@@ -1826,8 +1823,8 @@ function renderQuick() {
   view.innerHTML = `
     ${pageHead(
       "quick",
-      "Quick",
-      "One phrase, right now",
+      TILE_BY_KEY.quick.title,
+      "A phrase, a message, a chat",
       `<button class="link" id="quick-home">‹ Home</button>`
     )}
     ${
@@ -1838,8 +1835,8 @@ function renderQuick() {
              <button class="btn btn-primary" id="quick-go" style="width:100%">Get the phrase</button>
              <div class="notice bad" id="quick-error" hidden></div>
            </div>`
-        : `<div class="notice">Quick needs the card assistant. Set it up in Settings and this becomes one box
-             you can ask for a phrase from.</div>`
+        : `<div class="notice">Real life needs the card assistant. Set it up in Settings and this becomes a box
+             you can ask for a phrase from, a message reader and a conversation partner.</div>`
     }
     <div id="quick-answer"></div>
     ${
@@ -1850,22 +1847,69 @@ function renderQuick() {
              <p class="small muted" style="margin:0 0 10px">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
              <div class="notice bad" id="msg-error" hidden></div>
-           </div>`
+           </div>
+           ${chatStarter()}`
         : ""
     }
     <div id="quick-recent"></div>
-    <div id="quick-messages"></div>`;
+    <div id="quick-messages"></div>
+    <div id="quick-chats"></div>`;
 
   document.getElementById("quick-home").onclick = () => {
     state.section = null;
     state.message = null;
+    state.chat = null;
     render();
   };
   document.getElementById("quick-go")?.addEventListener("click", ask);
   document.getElementById("msg-go")?.addEventListener("click", readMessage);
+  wireChatStarter();
   paintAnswer();
   paintRecent();
   paintMessages();
+  paintChats();
+
+  /* The chats you have had, newest first, under the messages. Each reopens
+     on its page with every turn and every correction still there. */
+  function paintChats() {
+    const box = document.getElementById("quick-chats");
+    const had = chats.forLanguage(settings.language).slice(-8).reverse();
+    if (!had.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Your chats</div>
+      <div class="rows rows-spaced">
+        ${had
+          .map((item) => {
+            const said = item.turns.filter((turn) => turn.role === "learner").length;
+            return `
+              <div class="row striped hue-orange">
+                <button class="row-open" data-chat-open="${esc(item.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
+                    <span class="row-sub">${esc(
+                      item.ended
+                        ? `${said} line${said === 1 ? "" : "s"} · finished`
+                        : said
+                        ? `${said} line${said === 1 ? "" : "s"} · still going`
+                        : "Not started"
+                    )}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`;
+          })
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-chat-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.chat = button.dataset.chatOpen;
+        render();
+      })
+    );
+  }
 
   /* The messages you have read, newest first, under the phrases you asked
      for. Same argument as the phrases: "what did that notice say?" is a
@@ -2199,7 +2243,7 @@ function renderMessage() {
   const opened = new Set();
 
   view.innerHTML = `
-    ${pageHead("quick", "Message", "Read it, keep the good bits, reply", `<button class="link" id="msg-back">‹ Quick</button>`)}
+    ${pageHead("quick", "Message", "Read it, keep the good bits, reply", `<button class="link" id="msg-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`)}
     <div class="card message-card striped hue-orange">
       <p class="msg-text" lang="${esc(item.language)}">${segments
         .map((seg, i) =>
@@ -2505,13 +2549,12 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
    scene you pick, speaking only Catalan to you; and every line you say comes
    back with how a native would have said it.
 
-   It lives behind About me rather than on a tile of its own, and that is
-   deliberate twice over. The grid is the sister apps' grid. And About me is
-   already the page that knows who you are: the interview and the cards it
-   wrote are the facts the partner follows up on and the hints are built
-   from, so that what you rehearse is what you will actually say — your real
-   job, your real town — rather than a textbook's. The cards it wrote are the
-   sentences; this is where you get to use them. */
+   It is the third face of the Real life page, after the phrase you asked for
+   and the message you read, and that is where the user put it: all three are
+   the language meeting real people rather than practice arranged in advance.
+   The facts it follows up on still come from About me — the interview and the
+   cards it wrote are what the hints are built from, so that what you rehearse
+   is your real job and your real town rather than a textbook's. */
 const CHAT_SCENES = [
   {
     key: "exchange",
@@ -2552,101 +2595,50 @@ const CHAT_SCENES = [
 
 const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
-/* The scene picker and the chats you have had, on the About me page. */
-function rehearsalSection() {
-  const had = chats.forLanguage(settings.language).slice(-8).reverse();
+/* The way into a chat, on the Real life page: a scene to pick and a Start
+   button, in one card the size of the two above it. The scenes are a select
+   rather than six rows because the page already has two boxes on it and the
+   phrase box has to stay on top; *Somewhere else…* opens a box for a scene
+   of your own. */
+function chatStarter() {
   return `
-    <div class="section-label">Rehearse a conversation</div>
-    <p class="small muted" style="margin:0 0 10px">Pick a scene and have the chat in ${esc(
-      LANGUAGES[settings.language]?.name ?? settings.language
-    )} before you have it for real. It plays the other person, follows up on what you say, and shows you how a native would have said each line.</p>
-    <div class="rows rows-spaced" id="chat-scenes">
-      ${CHAT_SCENES.map(
-        (scene) => `
-          <div class="row striped hue-green">
-            <button class="row-open" data-scene="${esc(scene.key)}">
-              <span class="row-main">
-                <span class="row-title">${esc(scene.title)}</span>
-                <span class="row-sub">${esc(scene.blurb)}</span>
-              </span>
-              <span class="chev">›</span>
-            </button>
-          </div>`
-      ).join("")}
-      <div class="row striped hue-green">
-        <button class="row-open" data-scene="own" aria-expanded="false">
-          <span class="row-main">
-            <span class="row-title">Somewhere else…</span>
-            <span class="row-sub">Describe the scene yourself</span>
-          </span>
-          <span class="chev">›</span>
-        </button>
-      </div>
-    </div>
-    <div class="card" id="chat-own" hidden>
-      <label class="field"><span>Where are you, and who are you talking to?</span>
+    <div class="card quick-chat-card">
+      <label class="field"><span>Want to rehearse a conversation?</span>
+        <select id="chat-scene" class="deck-select">
+          ${CHAT_SCENES.map((scene) => `<option value="${esc(scene.key)}">${esc(scene.title)}</option>`).join("")}
+          <option value="own">Somewhere else…</option>
+        </select></label>
+      <label class="field" id="chat-own" hidden><span>Where are you, and who are you talking to?</span>
         <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
-      <button class="btn btn-primary" id="chat-own-go" style="width:100%">Start the chat</button>
-    </div>
-    ${
-      had.length
-        ? `<div class="section-label">Your chats</div>
-           <div class="rows rows-spaced">
-             ${had
-               .map((item) => {
-                 const said = item.turns.filter((turn) => turn.role === "learner").length;
-                 return `
-                   <div class="row striped hue-green">
-                     <button class="row-open" data-chat-open="${esc(item.id)}">
-                       <span class="row-main">
-                         <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
-                         <span class="row-sub">${esc(
-                           item.ended
-                             ? `${said} line${said === 1 ? "" : "s"} · finished`
-                             : said
-                             ? `${said} line${said === 1 ? "" : "s"} · still going`
-                             : "Not started"
-                         )}</span>
-                       </span>
-                       <span class="chev">›</span>
-                     </button>
-                   </div>`;
-               })
-               .join("")}
-           </div>`
-        : ""
-    }`;
+      <p class="small muted" style="margin:0 0 10px">It plays the other person in ${esc(
+        LANGUAGES[settings.language]?.name ?? settings.language
+      )}, follows up on what you say, and shows you how a native would have said each line. Talk or type.</p>
+      <button class="btn btn-primary" id="chat-go" style="width:100%">Start the chat</button>
+    </div>`;
 }
 
-function wireRehearsal() {
-  view.querySelectorAll("[data-scene]").forEach((button) =>
-    button.addEventListener("click", () => {
-      if (button.dataset.scene === "own") {
-        const box = document.getElementById("chat-own");
-        box.hidden = !box.hidden;
-        button.setAttribute("aria-expanded", String(!box.hidden));
-        if (!box.hidden) document.getElementById("chat-own-brief").focus();
+function wireChatStarter() {
+  const select = document.getElementById("chat-scene");
+  if (!select) return;
+  const own = document.getElementById("chat-own");
+  select.addEventListener("change", () => {
+    own.hidden = select.value !== "own";
+    if (!own.hidden) document.getElementById("chat-own-brief").focus();
+  });
+  document.getElementById("chat-go").addEventListener("click", () => {
+    if (select.value === "own") {
+      const field = document.getElementById("chat-own-brief");
+      const brief = field.value.trim();
+      if (!brief) {
+        field.focus();
         return;
       }
-      const scene = CHAT_SCENES.find((s) => s.key === button.dataset.scene);
-      if (scene) startChat(scene);
-    })
-  );
-  document.getElementById("chat-own-go")?.addEventListener("click", () => {
-    const field = document.getElementById("chat-own-brief");
-    const brief = field.value.trim();
-    if (!brief) {
-      field.focus();
+      startChat({ key: "own", title: firstLine(brief, 40), blurb: "", brief });
       return;
     }
-    startChat({ key: "own", title: firstLine(brief, 40), brief });
+    const scene = CHAT_SCENES.find((s) => s.key === select.value);
+    if (scene) startChat(scene);
   });
-  view.querySelectorAll("[data-chat-open]").forEach((button) =>
-    button.addEventListener("click", () => {
-      state.chat = button.dataset.chatOpen;
-      render();
-    })
-  );
 }
 
 function startChat(scene) {
@@ -2715,6 +2707,18 @@ function keepFromChat(entry, item, button, kind = "partner") {
   toast(`Added to ${deck}.`);
 }
 
+/* Talk or type. Talk is the record button and nothing to read back before it
+   goes — you say the line, it is transcribed and sent, and the partner
+   answers out loud — which is the conversation the feature is for. Type is
+   the box, for a train or a room with someone asleep in it, on quiet mode's
+   argument. The choice is a setting, like road mode, because it is how you
+   are practising today rather than a fact about one chat; and talk needs
+   Azure to hear you, so without a key the page is in type whatever the
+   setting says, and says why. */
+function talkNow() {
+  return Boolean(settings.chatTalk && settings.hasAzure);
+}
+
 function renderChat() {
   const item = chats.find(state.chat);
   if (!item) {
@@ -2734,29 +2738,25 @@ function renderChat() {
 
   view.innerHTML = `
     ${pageHead(
-      "about",
+      "quick",
       item.scene.title || "Xerrada",
       item.ended ? "How it went" : `Rehearsing it in ${language.name}`,
-      `<button class="link" id="chat-back">‹ ${esc(ABOUT_DECK)}</button>`
+      `<button class="link" id="chat-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`
     )}
-    <p class="small muted chat-brief">${esc(item.scene.blurb || item.scene.brief)}</p>
+    <div class="xat-head">
+      <p class="small muted chat-brief">${esc(item.scene.blurb || item.scene.brief)}</p>
+      ${
+        item.ended
+          ? ""
+          : `<div class="xat-modes" role="group" aria-label="Talk or type">
+               <button class="mode-toggle xat-toggle" id="xat-talk" aria-pressed="${talkNow()}">Talk</button>
+               <button class="mode-toggle xat-toggle" id="xat-type" aria-pressed="${!talkNow()}">Type</button>
+             </div>`
+      }
+    </div>
     <div class="card chat-card xat">
       <div class="chat-log xat-log" id="xat-log"></div>
-      <form class="chat-form" id="xat-form" ${item.ended ? "hidden" : ""}>
-        <textarea rows="1" id="xat-input" lang="${esc(item.language)}" autocapitalize="sentences"
-                  autocorrect="off" spellcheck="false" aria-label="Your line"></textarea>
-        ${
-          settings.hasAzure
-            ? `<button class="btn xat-mic" type="button" id="xat-mic" aria-label="Say your line" aria-pressed="false">${MIC_SVG}</button>`
-            : ""
-        }
-        <button class="btn btn-primary" type="submit" id="xat-send">Send</button>
-      </form>
-      <p class="tiny muted xat-note" id="xat-note" ${item.ended ? "hidden" : ""}>${
-        settings.hasAzure
-          ? "Tap the mic and say your line, or type it. Each line comes back with how a native would have said it."
-          : "Type your line, or use the keyboard's dictation key. Each line comes back with how a native would have said it."
-      }</p>
+      <div id="xat-composer" ${item.ended ? "hidden" : ""}></div>
       <div class="notice bad" id="xat-error" hidden></div>
     </div>
     <div id="xat-summary"></div>
@@ -2770,11 +2770,7 @@ function renderChat() {
     </div>`;
 
   const log = document.getElementById("xat-log");
-  const form = document.getElementById("xat-form");
-  const input = document.getElementById("xat-input");
-  const send = document.getElementById("xat-send");
-  const mic = document.getElementById("xat-mic");
-  const note = document.getElementById("xat-note");
+  const composer = document.getElementById("xat-composer");
   const errorBox = document.getElementById("xat-error");
 
   document.getElementById("chat-back").onclick = () => {
@@ -2797,17 +2793,8 @@ function renderChat() {
   });
   document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene));
 
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    say(input.value.trim());
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      say(input.value.trim());
-    }
-  });
-  mic?.addEventListener("click", toggleMic);
+  document.getElementById("xat-talk")?.addEventListener("click", () => setMode(true));
+  document.getElementById("xat-type")?.addEventListener("click", () => setMode(false));
 
   /* Delegated, because the log is rewritten on every turn. */
   log.addEventListener("click", (event) => {
@@ -2836,12 +2823,84 @@ function renderChat() {
   });
 
   paintLog();
+  paintComposer();
   paintSummary();
-  setBusy();
   // The partner opens. A chat that starts with an empty box and waits is the
   // blank page this exists to avoid — same call as the interview's first
   // question.
   if (!item.turns.length && !item.ended) turn();
+
+  /* Switching stops a recording in progress rather than sending it: the tap
+     was on Type, not on the mic. The setting is the phone's, not the chat's.
+     Talk without a key is refused with the reason, and the pill stays where
+     it was. */
+  function setMode(talk) {
+    if (talk && !settings.hasAzure) {
+      toast("Talk needs an Azure key so it can hear you. Add one in Settings, or type — the keyboard's dictation key works too.", 4500);
+      return;
+    }
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    settings.chatTalk = talk;
+    settings.save();
+    document.getElementById("xat-talk")?.setAttribute("aria-pressed", String(talkNow()));
+    document.getElementById("xat-type")?.setAttribute("aria-pressed", String(!talkNow()));
+    paintComposer();
+  }
+
+  /* The box or the button, repainted in place so the English you have opened
+     above it stays open. */
+  function paintComposer() {
+    if (item.ended) return;
+    if (talkNow()) {
+      composer.innerHTML = `
+        <div class="record-wrap xat-talk-box">
+          <button class="record xat-record" id="xat-record" aria-label="Say your line" aria-pressed="false">${MIC_SVG}</button>
+          <div class="small muted xat-note" id="xat-note">Tap, say your line, tap again. It is sent as you said it.</div>
+        </div>`;
+      document.getElementById("xat-record").addEventListener("click", toggleRecord);
+    } else {
+      composer.innerHTML = `
+        <form class="chat-form" id="xat-form">
+          <textarea rows="1" id="xat-input" lang="${esc(item.language)}" autocapitalize="sentences"
+                    autocorrect="off" spellcheck="false" aria-label="Your line"></textarea>
+          <button class="btn btn-primary" type="submit" id="xat-send">Send</button>
+        </form>
+        <p class="tiny muted xat-note" id="xat-note">${
+          settings.hasAzure
+            ? "Each line comes back with how a native would have said it. Switch to Talk to say it instead."
+            : "Type your line, or use the keyboard's dictation key. Each line comes back with how a native would have said it."
+        }</p>`;
+      const form = document.getElementById("xat-form");
+      const input = document.getElementById("xat-input");
+      const submit = () => {
+        const text = input.value.trim();
+        if (!text) {
+          input.focus();
+          return;
+        }
+        if (busy) return;
+        input.value = "";
+        autosize(input);
+        say(text);
+      };
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submit();
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          submit();
+        }
+      });
+      autosize(input);
+    }
+    setBusy();
+  }
 
   function partnerBubble(turn, at) {
     const showEnglish = item.ended || english.has(at);
@@ -2929,22 +2988,19 @@ function renderChat() {
   }
 
   function setBusy() {
+    const send = document.getElementById("xat-send");
+    const record = document.getElementById("xat-record");
     if (send) send.disabled = busy || hearing;
-    if (mic) mic.disabled = busy;
+    if (record) record.disabled = busy;
   }
 
   /* Your line goes into the transcript before the call, and comes back out
      of it if the call fails — so a retry is one tap rather than a retype, and
      a turn that never got an answer is never left standing as if it had. */
   async function say(text) {
-    if (!text || busy || item.ended) {
-      if (!text) input.focus();
-      return;
-    }
+    if (!text || busy || item.ended) return;
     item.turns.push({ role: "learner", text, correction: null });
     chats.save();
-    input.value = "";
-    autosize(input);
     errorBox.hidden = true;
     await turn(text);
   }
@@ -2986,17 +3042,19 @@ function renderChat() {
       log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
       autoplay(result.reply.trim());
     } catch (error) {
-      // The line comes back out of the transcript and into the box.
+      // The line comes back out of the transcript — and into the box, when
+      // there is a box; in talk mode it is said again.
       if (said && item.turns[item.turns.length - 1]?.role === "learner") item.turns.pop();
       chats.save();
       busy = false;
       if (!log.isConnected) return;
-      if (said) {
+      const input = document.getElementById("xat-input");
+      if (said && input) {
         input.value = said;
         autosize(input);
       }
       errorBox.innerHTML = `${esc(error.message)}${
-        said ? "" : ` <button class="link" id="xat-retry">Try again</button>`
+        said ? (input ? "" : " Say it again.") : ` <button class="link" id="xat-retry">Try again</button>`
       }`;
       errorBox.hidden = false;
       document.getElementById("xat-retry")?.addEventListener("click", () => turn());
@@ -3023,39 +3081,39 @@ function renderChat() {
     }
   }
 
-  /* Saying the line rather than typing it: the same recorder as the drill,
-     then Azure transcribes it with no reference text. What it heard lands in
-     the box rather than being sent — recognition can mishear, and a
-     correction of a line you never said is worse than one more tap. */
-  async function toggleMic() {
+  /* Talk: the drill's recorder, then Azure transcribes it with no reference
+     text, and what it heard goes straight into the conversation — the bubble
+     shows what was heard, and the correction is of that. A mishearing costs
+     one turn, which is what a mishearing costs in a real conversation too. */
+  async function toggleRecord() {
+    const button = document.getElementById("xat-record");
+    const note = document.getElementById("xat-note");
     if (recorder.isRecording) {
       clearInterval(state.levelTimer);
       state.levelTimer = null;
-      mic.classList.remove("recording");
-      mic.setAttribute("aria-pressed", "false");
+      button.classList.remove("recording");
+      button.setAttribute("aria-pressed", "false");
       hearing = true;
-      setBusy();
+      button.disabled = true;
       note.textContent = "Working out what you said…";
       const result = await recorder.stop();
       if (!result) {
         hearing = false;
-        if (!log.isConnected) return;
-        setBusy();
+        if (!note.isConnected) return;
+        button.disabled = false;
         note.textContent = "Too short — try again.";
         return;
       }
       const text = await transcription.transcribe(result.blob, item.language, settings);
       hearing = false;
-      if (!log.isConnected) return;
-      setBusy();
+      if (!note.isConnected) return;
+      button.disabled = false;
       if (!text) {
         note.textContent = transcription.lastError || "Azure heard nothing. Try again.";
         return;
       }
-      input.value = text;
-      autosize(input);
-      note.textContent = "Heard. Send it, or fix it first.";
-      input.focus();
+      note.textContent = "Tap, say your line, tap again. It is sent as you said it.";
+      say(text);
       return;
     }
     if (busy) return;
@@ -3071,12 +3129,14 @@ function renderChat() {
       );
       return;
     }
-    mic.classList.add("recording");
-    mic.setAttribute("aria-pressed", "true");
-    state.levelTimer = setInterval(() => {
+    button.classList.add("recording");
+    button.setAttribute("aria-pressed", "true");
+    const listening = () => {
       if (!note.isConnected) return;
-      note.textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap the mic again when you've said it.`;
-    }, 100);
+      note.textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap again when you've said it.`;
+    };
+    listening();
+    state.levelTimer = setInterval(listening, 100);
   }
 }
 
@@ -3266,8 +3326,7 @@ function renderAbout() {
              ${cards.length ? "Make more cards from this" : "Create cards"}
            </button>
            <p class="tiny muted">Answer a few questions, then let it write the phrases. You can come back and
-           tell it more whenever you like.</p>
-           ${rehearsalSection()}`
+           tell it more whenever you like.</p>`
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
            passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
@@ -3295,8 +3354,6 @@ function renderAbout() {
   );
 
   if (!settings.hasAssistant) return;
-
-  wireRehearsal();
 
   document.getElementById("about-form").addEventListener("submit", (event) => {
     event.preventDefault();

@@ -1841,7 +1841,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* The form is display:flex, and flex beats the hidden attribute — the same
    trap as .sheet and .new-deck. Without this an ended chat still offered a
    box you could type into. */
-.chat-form[hidden] { display: none; }
+.chat-form[hidden], .field[hidden] { display: none; }
 .xat .chat-log { max-height: none; overflow: visible; gap: 12px; }
 .xat-turn { display: flex; flex-direction: column; max-width: 92%; }
 .xat-turn.partner { align-self: flex-start; align-items: flex-start; }
@@ -1881,15 +1881,22 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .xat-fix .link:disabled { color: var(--text-3); cursor: default; }
 .xat-ok { margin: 3px 6px 0 0; font-size: 0.78rem; font-weight: 700; color: var(--text-3); }
 .xat-note { margin: 8px 0 0; }
-.xat-mic {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: grid;
-  place-items: center;
+/* Talk or type. The pills are the drill's mode pills; a pressed one is green,
+   the page's own accent being orange and the pair needing to read as one
+   control with one side on. */
+.xat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.xat-head .chat-brief { flex: 1; }
+.xat-modes { display: flex; gap: 6px; flex: none; }
+.xat-toggle[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+  box-shadow: 0 3px 0 var(--green-dark);
 }
-.xat-mic svg { width: 22px; height: 22px; fill: currentColor; }
-.xat-mic.recording { background: var(--red); color: #fff; box-shadow: 0 4px 0 var(--red-dark); }
-.xat-mic.recording:active { box-shadow: none; }
+/* Talk: the drill's record button, in the chat card where the box would be. */
+.xat-talk-box { margin: 6px 0 4px; }
+.xat-record svg { width: 34px; height: 34px; fill: currentColor; }
+.xat-record:disabled { opacity: 0.45; cursor: default; }
+.xat-talk-box .xat-note { text-align: center; margin: 0; }
+.quick-chat-card .deck-select { margin-bottom: 0; }
 .xat-summary { margin-top: 14px; }

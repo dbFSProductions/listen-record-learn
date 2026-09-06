@@ -1389,6 +1389,12 @@ const DEFAULT_SETTINGS = {
      is a setting rather than a flag on the drill because it is a way you are
      practising for the whole walk, not a decision about one card. */
   roadMode: false,
+  /* The rehearsal chat's Talk/Type switch. Talk — say the line, hear the
+     answer — is what the feature is for, so it is the default; it needs an
+     Azure key to hear you, and without one the page is in Type whatever this
+     says (`talkNow` in app.js). A setting for road mode's reason: how you are
+     practising today, not a fact about one chat. */
+  chatTalk: true,
   /* Quiet mode: road mode's mirror, and the other half of the same question —
      which channels have you got right now? On the road you can speak but not
      look; in a train, an office, or a room with someone asleep in it you can
