@@ -4627,7 +4627,12 @@ function renderAddWord() {
                  "dog", full stop and all. That matters beyond looking odd:
                  `genderOf` refuses any text carrying punctuation, so a trailing
                  full stop silently costs the card its gender. */
-              situation: "A single vocabulary word for a flashcard, given with its article. Not a sentence.",
+              /* The article is asked for on a noun and only on a noun. It was
+                 "given with its article" flat, and the model obeyed: "ahora"
+                 came back as "el ahora", which is not a word anybody says —
+                 and `genderOf` then read the invented article and painted an
+                 adverb blue. */
+              situation: SINGLE_WORD_SITUATION,
               deck: document.getElementById("word-deck").value,
               languageCode: settings.language,
               languageName: language.englishName,
@@ -4992,6 +4997,14 @@ function editPhrase(phrase, onSaved = null) {
      which takes the card out of the queue on the way. */
   document.getElementById("f-delete")?.addEventListener("click", () => deletePhrase(phrase));
 }
+
+/* The situation the Add-a-word screen sends to /complete-card. It is a brief
+   for a single vocabulary word, and the article is conditional on purpose:
+   said flat, "with its article" makes the model bolt one onto anything —
+   "el ahora", "la siempre" — and the word is then wrong on the card and
+   wrongly gendered underneath it. */
+const SINGLE_WORD_SITUATION =
+  "A single vocabulary word for a flashcard, not a sentence. If the word is a noun, give it with its definite article. If it is anything else — an adverb, a verb, an adjective, a question word — give the bare word and never invent an article for it.";
 
 /* "Invent a picture for me" — the one call in the app that asks for something
    the Worker was never taught about, and gets it through /chat rather than
