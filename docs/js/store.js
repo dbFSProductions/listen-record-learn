@@ -20,6 +20,7 @@ const KEYS = {
   decks: "xerra.decks",
   progress: "xerra.progress",
   messages: "xerra.messages",
+  chats: "xerra.chats",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -445,6 +446,15 @@ const MESSAGES_DECK = { "ca-ES": "Missatges", "es-ES": "Mensajes", "it-IT": "Mes
 
 export function messagesDeck(language) {
   return MESSAGES_DECK[language] ?? "Messages";
+}
+
+/* Where a line kept from a rehearsal chat is filed — the partner's line you
+   want to be able to say, or your own line as it should have been. One deck
+   per language like Missatges, and an ordinary deck for the same reason. */
+const CHATS_DECK = { "ca-ES": "Xerrades", "es-ES": "Charlas", "it-IT": "Chiacchierate" };
+
+export function chatsDeck(language) {
+  return CHATS_DECK[language] ?? "Chats";
 }
 
 /** The part after the prefix — what a row says once its family is open. */
@@ -1024,6 +1034,7 @@ export const library = {
         decks: customDecks.byLanguage,
         progress: progress.lessons,
         messages: messages.items,
+        chats: chats.items,
       },
       null,
       2
@@ -1045,6 +1056,7 @@ export const library = {
     customDecks.replace(parsed.decks);
     progress.replace(parsed.progress);
     messages.replace(parsed.messages);
+    chats.replace(parsed.chats);
   },
 };
 
@@ -1230,6 +1242,77 @@ export const messages = {
   replace(items) {
     this.items = Array.isArray(items)
       ? items.filter((item) => item && typeof item === "object" && typeof item.text === "string" && item.id).slice(-MESSAGES_KEEP)
+      : [];
+    this.save();
+  },
+};
+
+// -------------------------------------------------------------------- chats
+
+/* Rehearsal conversations: the scene, and every turn of it. A partner turn
+   carries the line, its English and the hint at what to say back; a learner
+   turn carries what they said and, once the next reply has come, the
+   correction of it. Persisted for the messages' reason — the corrections are
+   the best record there is of what you get wrong, and "what did I say last
+   time?" is a question you ask on the way to the next one. Newest last,
+   capped, in export/import with the phrases. */
+const CHATS_KEEP = 30;
+
+export const chats = {
+  items: [],
+
+  load() {
+    const stored = readJSON(KEYS.chats, null);
+    this.items = Array.isArray(stored) ? stored.slice(-CHATS_KEEP) : [];
+  },
+
+  save() {
+    if (this.items.length > CHATS_KEEP) this.items = this.items.slice(-CHATS_KEEP);
+    writeJSON(KEYS.chats, this.items);
+  },
+
+  add(entry) {
+    const saved = {
+      id: uid(),
+      language: settings.language,
+      at: new Date().toISOString(),
+      scene: { key: "", title: "", brief: "" },
+      turns: [],
+      ended: false,
+      ...entry,
+    };
+    this.items.push(saved);
+    this.save();
+    return saved;
+  },
+
+  find(id) {
+    return this.items.find((item) => item.id === id) ?? null;
+  },
+
+  /* Mutates in place, like `messages.update`: the page is holding the object. */
+  update(id, patch) {
+    const item = this.find(id);
+    if (!item) return null;
+    Object.assign(item, patch);
+    this.save();
+    return item;
+  },
+
+  remove(id) {
+    this.items = this.items.filter((item) => item.id !== id);
+    this.save();
+  },
+
+  forLanguage(language) {
+    return this.items.filter((item) => item.language === language);
+  },
+
+  replace(items) {
+    this.items = Array.isArray(items)
+      ? items
+          .filter((item) => item && typeof item === "object" && item.id && Array.isArray(item.turns))
+          .slice(-CHATS_KEEP)
       : [];
     this.save();
   },

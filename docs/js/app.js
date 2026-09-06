@@ -4,10 +4,10 @@ import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
-  messages, messagesDeck,
+  messages, messagesDeck, chats, chatsDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
-import { speech, browserSpeech, scoring } from "./speech.js";
+import { speech, browserSpeech, scoring, transcription } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
 import { VERSION } from "./version.js";
 import { preloadPDF, buildPrintPDF, deliverPDF } from "./print-pdf.js";
@@ -63,6 +63,11 @@ const state = {
      the Quick tile — the page it opens is Quick's second face — and cleared by
      every way out of it, so a message never lies open under another page. */
   message: null,
+
+  /* The rehearsal chat being had, by id, or null. Only meaningful behind
+     About me — the page it opens is that workshop's second room — and cleared
+     by every way out of it. */
+  chat: null,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
      "quick", or null for the tiles themselves. It is deliberately *not*
@@ -871,6 +876,7 @@ function goHome() {
   state.tab = "practise";
   state.deck = null;
   state.about = false;
+  state.chat = null;
   state.section = null;
   state.message = null;
   state.addKind = null;
@@ -1063,6 +1069,7 @@ function render() {
       : state.tab;
   view.className = `view page page-${state.tab} sec-${accent}`;
   if (state.tab === "practise" && state.celebration) renderComplete();
+  else if (state.tab === "practise" && state.about && state.chat) renderChat();
   else if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
   else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
@@ -1474,6 +1481,21 @@ function renderPractice(section = null) {
     return parts.length ? parts.join(" · ") : "Ask for one";
   }
 
+  /* About me's tile says what the row used to: the interview is the way in
+     until there are cards, and the count once there are — with the rehearsal
+     chats counted beside them, since the tile opens the page they are on
+     too. With no assistant and nothing made it says so rather than hiding: a
+     tile that comes and goes leaves a hole in a grid, and the page it opens
+     names Settings as the way to fix it. */
+  function aboutCount(cards) {
+    const had = chats.forLanguage(settings.language).length;
+    const parts = [];
+    if (cards) parts.push(`${cards} card${cards === 1 ? "" : "s"} about you`);
+    if (had) parts.push(`${had} chat${had === 1 ? "" : "s"}`);
+    if (parts.length) return parts.join(" · ");
+    return settings.hasAssistant ? "Tell it about you" : "Needs the assistant";
+  }
+
   function tiles() {
     return `
       <div class="tiles">
@@ -1486,11 +1508,6 @@ function renderPractice(section = null) {
               : tile.key === "phrases"
               ? library.drillable(settings.language).length
               : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
-          /* About me's tile says what the row used to: the interview is the
-             way in until there are cards, and the count once there are. With
-             no assistant and no cards it says so rather than hiding — a tile
-             that comes and goes leaves a hole in a grid, and the page it opens
-             names Settings as the way to fix it. */
           return `
             <button class="tile tile-${tile.colour}" ${
               tile.key === "about" ? `data-about="1"` : `data-section="${tile.key}"`
@@ -1502,11 +1519,7 @@ function renderPractice(section = null) {
                 tile.key === "quick"
                   ? quickCount(count)
                   : tile.key === "about"
-                  ? count
-                    ? `${count} card${count === 1 ? "" : "s"} about you`
-                    : settings.hasAssistant
-                    ? "Tell it about you"
-                    : "Needs the assistant"
+                  ? aboutCount(count)
                   : count
                   ? `${count} phrase${count === 1 ? "" : "s"}`
                   : "Empty"
@@ -1747,6 +1760,7 @@ function renderPractice(section = null) {
     list.querySelectorAll("[data-about]").forEach((button) =>
       button.addEventListener("click", () => {
         state.about = true;
+        state.chat = null;
         render();
       })
     );
@@ -2478,6 +2492,594 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
   toast(`Added to ${deck}.`);
 }
 
+// ------------------------------------------------------------------ xerrada
+
+/* Rehearsing the conversation before you have it.
+
+   The learner is about to meet people for language chats, and everything else
+   in the app is a line at a time: you say the phrase, you hear what comes
+   back, and the exchange ends there. A real conversation is the thing after
+   that — the follow-up question, the answer you have to build on the spot,
+   the moment you realise you can say where you live but not how long you have
+   lived there. So this is the other person, played by the assistant, in a
+   scene you pick, speaking only Catalan to you; and every line you say comes
+   back with how a native would have said it.
+
+   It lives behind About me rather than on a tile of its own, and that is
+   deliberate twice over. The grid is the sister apps' grid. And About me is
+   already the page that knows who you are: the interview and the cards it
+   wrote are the facts the partner follows up on and the hints are built
+   from, so that what you rehearse is what you will actually say — your real
+   job, your real town — rather than a textbook's. The cards it wrote are the
+   sentences; this is where you get to use them. */
+const CHAT_SCENES = [
+  {
+    key: "exchange",
+    title: "A language exchange",
+    blurb: "Meeting a new partner at an intercanvi",
+    brief:
+      "A language exchange (intercanvi lingüístic) in a bar. The learner has just sat down opposite you, a native speaker they have never met, who wants to practise English later; for now you are speaking your own language. Get to know each other — names, where you are each from, where you live, what you do, why they are learning.",
+  },
+  {
+    key: "cafe",
+    title: "At a café",
+    blurb: "A waiter, a table, an order",
+    brief:
+      "A neighbourhood café. You are the waiter; the learner has just sat down at a table outside. Take their order, ask the usual things — inside or out, anything to eat, sparkling or still — and chat a little if they do. Bring the bill when they ask.",
+  },
+  {
+    key: "market",
+    title: "At the market",
+    blurb: "A stall, a kilo of something",
+    brief:
+      "A stall at the local market. You are the stallholder; the learner has come to buy fruit and vegetables. Ask what they want and how much, say what is good today, tell them the price, and ask if they want anything else.",
+  },
+  {
+    key: "colla",
+    title: "At castells rehearsal",
+    blurb: "A casteller you haven't met yet",
+    brief:
+      "A castells rehearsal (assaig) at the colla's local, before the pinya goes up. You are a casteller who has been in the colla for years; the learner is new. Ask who they are, how they found the colla, where they go in the pinya, and put them at ease.",
+  },
+  {
+    key: "neighbour",
+    title: "A neighbour on the stairs",
+    blurb: "Small talk, then a question",
+    brief:
+      "The stairwell of the learner's building. You are a neighbour they have seen but never spoken to. Say hello, make small talk — the weather, the building, how long they have lived here — and ask them something about themselves.",
+  },
+];
+
+const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+/* The scene picker and the chats you have had, on the About me page. */
+function rehearsalSection() {
+  const had = chats.forLanguage(settings.language).slice(-8).reverse();
+  return `
+    <div class="section-label">Rehearse a conversation</div>
+    <p class="small muted" style="margin:0 0 10px">Pick a scene and have the chat in ${esc(
+      LANGUAGES[settings.language]?.name ?? settings.language
+    )} before you have it for real. It plays the other person, follows up on what you say, and shows you how a native would have said each line.</p>
+    <div class="rows rows-spaced" id="chat-scenes">
+      ${CHAT_SCENES.map(
+        (scene) => `
+          <div class="row striped hue-green">
+            <button class="row-open" data-scene="${esc(scene.key)}">
+              <span class="row-main">
+                <span class="row-title">${esc(scene.title)}</span>
+                <span class="row-sub">${esc(scene.blurb)}</span>
+              </span>
+              <span class="chev">›</span>
+            </button>
+          </div>`
+      ).join("")}
+      <div class="row striped hue-green">
+        <button class="row-open" data-scene="own" aria-expanded="false">
+          <span class="row-main">
+            <span class="row-title">Somewhere else…</span>
+            <span class="row-sub">Describe the scene yourself</span>
+          </span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+    </div>
+    <div class="card" id="chat-own" hidden>
+      <label class="field"><span>Where are you, and who are you talking to?</span>
+        <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
+      <button class="btn btn-primary" id="chat-own-go" style="width:100%">Start the chat</button>
+    </div>
+    ${
+      had.length
+        ? `<div class="section-label">Your chats</div>
+           <div class="rows rows-spaced">
+             ${had
+               .map((item) => {
+                 const said = item.turns.filter((turn) => turn.role === "learner").length;
+                 return `
+                   <div class="row striped hue-green">
+                     <button class="row-open" data-chat-open="${esc(item.id)}">
+                       <span class="row-main">
+                         <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
+                         <span class="row-sub">${esc(
+                           item.ended
+                             ? `${said} line${said === 1 ? "" : "s"} · finished`
+                             : said
+                             ? `${said} line${said === 1 ? "" : "s"} · still going`
+                             : "Not started"
+                         )}</span>
+                       </span>
+                       <span class="chev">›</span>
+                     </button>
+                   </div>`;
+               })
+               .join("")}
+           </div>`
+        : ""
+    }`;
+}
+
+function wireRehearsal() {
+  view.querySelectorAll("[data-scene]").forEach((button) =>
+    button.addEventListener("click", () => {
+      if (button.dataset.scene === "own") {
+        const box = document.getElementById("chat-own");
+        box.hidden = !box.hidden;
+        button.setAttribute("aria-expanded", String(!box.hidden));
+        if (!box.hidden) document.getElementById("chat-own-brief").focus();
+        return;
+      }
+      const scene = CHAT_SCENES.find((s) => s.key === button.dataset.scene);
+      if (scene) startChat(scene);
+    })
+  );
+  document.getElementById("chat-own-go")?.addEventListener("click", () => {
+    const field = document.getElementById("chat-own-brief");
+    const brief = field.value.trim();
+    if (!brief) {
+      field.focus();
+      return;
+    }
+    startChat({ key: "own", title: firstLine(brief, 40), brief });
+  });
+  view.querySelectorAll("[data-chat-open]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.chat = button.dataset.chatOpen;
+      render();
+    })
+  );
+}
+
+function startChat(scene) {
+  const item = chats.add({
+    scene: { key: scene.key, title: scene.title, blurb: scene.blurb ?? "", brief: scene.brief },
+  });
+  state.chat = item.id;
+  render();
+}
+
+/* What one turn sends. The transcript, trimmed to what the Worker will keep
+   anyway, and the facts about the learner: the About me cards' English, which
+   are first-person sentences about their life, then their own interview
+   answers — capped together at the forty the Worker reads, cards first,
+   because a card is a fact already boiled down. Same 24k-body reasoning as
+   interviewPayload. */
+function chatPayload(item) {
+  const facts = [
+    ...library.inDeck(ABOUT_DECK, item.language).map((phrase) => phrase.translation?.slice(0, 120)),
+    ...aboutMe.turns.filter((turn) => turn.role === "learner").slice(-12).map((turn) => turn.text.slice(0, 160)),
+  ]
+    .filter(Boolean)
+    .slice(0, 40);
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    scene: item.scene.brief,
+    history: item.turns.slice(-20).map((turn) => ({ role: turn.role, text: turn.text.slice(0, 500) })),
+    facts,
+  };
+}
+
+/* One tap from a line in the chat to a card of its own — the partner's line
+   you want to be able to say, or your own line as it should have been, with
+   the note on what changed as its usage note. Both land in the language's
+   Xerrades deck, an ordinary deck like Missatges and for the same reason. */
+function keepFromChat(entry, item, button, kind = "partner") {
+  const text = entry.text?.trim();
+  const translation = entry.translation?.trim();
+  if (!text || !translation) {
+    toast("That line has no English to file it with.");
+    return;
+  }
+  const flip = () => {
+    button.disabled = true;
+    button.textContent = "Kept as a card ✓";
+  };
+  if (replyKept(entry)) {
+    flip();
+    toast("That one is already in the library.");
+    return;
+  }
+  const deck = chatsDeck(item.language);
+  const where = item.scene.title || "a rehearsal chat";
+  library.add({
+    text,
+    translation,
+    deck,
+    language: item.language,
+    situation: kind === "fix" ? `Your line, rehearsing: ${where}.` : `Said to you, rehearsing: ${where}.`,
+    usageNote: kind === "fix" && entry.note ? entry.note : null,
+    focusNote: null,
+    replies: [],
+  });
+  flip();
+  toast(`Added to ${deck}.`);
+}
+
+function renderChat() {
+  const item = chats.find(state.chat);
+  if (!item) {
+    state.chat = null;
+    render();
+    return;
+  }
+  const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
+  let busy = false;
+  let hearing = false;
+  /* Which partner lines have their English or their hint open. Local to the
+     page, like the message page's opened glosses: what you have looked at is
+     not a fact about the chat, and it should survive the log being repainted
+     by the next turn. */
+  const english = new Set();
+  const hinted = new Set();
+
+  view.innerHTML = `
+    ${pageHead(
+      "about",
+      item.scene.title || "Xerrada",
+      item.ended ? "How it went" : `Rehearsing it in ${language.name}`,
+      `<button class="link" id="chat-back">‹ ${esc(ABOUT_DECK)}</button>`
+    )}
+    <p class="small muted chat-brief">${esc(item.scene.blurb || item.scene.brief)}</p>
+    <div class="card chat-card xat">
+      <div class="chat-log xat-log" id="xat-log"></div>
+      <form class="chat-form" id="xat-form" ${item.ended ? "hidden" : ""}>
+        <textarea rows="1" id="xat-input" lang="${esc(item.language)}" autocapitalize="sentences"
+                  autocorrect="off" spellcheck="false" aria-label="Your line"></textarea>
+        ${
+          settings.hasAzure
+            ? `<button class="btn xat-mic" type="button" id="xat-mic" aria-label="Say your line" aria-pressed="false">${MIC_SVG}</button>`
+            : ""
+        }
+        <button class="btn btn-primary" type="submit" id="xat-send">Send</button>
+      </form>
+      <p class="tiny muted xat-note" id="xat-note" ${item.ended ? "hidden" : ""}>${
+        settings.hasAzure
+          ? "Tap the mic and say your line, or type it. Each line comes back with how a native would have said it."
+          : "Type your line, or use the keyboard's dictation key. Each line comes back with how a native would have said it."
+      }</p>
+      <div class="notice bad" id="xat-error" hidden></div>
+    </div>
+    <div id="xat-summary"></div>
+    <div class="btn-row" style="margin-top:18px">
+      ${
+        item.ended
+          ? `<button class="btn btn-primary" id="xat-again">Have it again</button>`
+          : `<button class="btn" id="xat-end">End the chat</button>`
+      }
+      <button class="link btn-danger" id="xat-forget">Forget this chat</button>
+    </div>`;
+
+  const log = document.getElementById("xat-log");
+  const form = document.getElementById("xat-form");
+  const input = document.getElementById("xat-input");
+  const send = document.getElementById("xat-send");
+  const mic = document.getElementById("xat-mic");
+  const note = document.getElementById("xat-note");
+  const errorBox = document.getElementById("xat-error");
+
+  document.getElementById("chat-back").onclick = () => {
+    stopEverything();
+    state.chat = null;
+    render();
+  };
+  document.getElementById("xat-forget").onclick = () => {
+    stopEverything();
+    chats.remove(item.id);
+    state.chat = null;
+    render();
+    toast("Forgotten. Any cards you kept from it are still in the library.");
+  };
+  document.getElementById("xat-end")?.addEventListener("click", () => {
+    if (busy) return;
+    stopEverything();
+    chats.update(item.id, { ended: true });
+    render();
+  });
+  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene));
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    say(input.value.trim());
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      say(input.value.trim());
+    }
+  });
+  mic?.addEventListener("click", toggleMic);
+
+  /* Delegated, because the log is rewritten on every turn. */
+  log.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const at = Number(button.dataset.at);
+    const turn = item.turns[at];
+    if (!turn) return;
+    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.");
+    else if (button.hasAttribute("data-english")) {
+      english.has(at) ? english.delete(at) : english.add(at);
+      paintLog();
+    } else if (button.hasAttribute("data-hint")) {
+      hinted.has(at) ? hinted.delete(at) : hinted.add(at);
+      paintLog();
+    } else if (button.hasAttribute("data-keep")) {
+      keepFromChat({ text: turn.text, translation: turn.translation }, item, button, "partner");
+    } else if (button.hasAttribute("data-keep-fix") && turn.correction) {
+      keepFromChat(
+        { text: turn.correction.fixed, translation: turn.correction.translation, note: turn.correction.note },
+        item,
+        button,
+        "fix"
+      );
+    }
+  });
+
+  paintLog();
+  paintSummary();
+  setBusy();
+  // The partner opens. A chat that starts with an empty box and waits is the
+  // blank page this exists to avoid — same call as the interview's first
+  // question.
+  if (!item.turns.length && !item.ended) turn();
+
+  function partnerBubble(turn, at) {
+    const showEnglish = item.ended || english.has(at);
+    const showHint = hinted.has(at);
+    const kept = replyKept({ text: turn.text });
+    return `
+      <div class="xat-turn partner">
+        <div class="chat-msg assistant" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        <div class="xat-tools">
+          <button class="link" data-say data-at="${at}">Listen</button>
+          ${
+            turn.translation
+              ? `<button class="link" data-english data-at="${at}" aria-expanded="${showEnglish}">English</button>`
+              : ""
+          }
+          ${
+            turn.hint?.text && !item.ended
+              ? `<button class="link" data-hint data-at="${at}" aria-expanded="${showHint}">Help me answer</button>`
+              : ""
+          }
+          <button class="link" data-keep data-at="${at}" ${kept ? "disabled" : ""}>${
+            kept ? "Kept as a card ✓" : "Keep as a card"
+          }</button>
+        </div>
+        ${showEnglish && turn.translation ? `<p class="xat-english">${esc(turn.translation)}</p>` : ""}
+        ${
+          showHint && turn.hint?.text
+            ? `<p class="xat-hint"><b lang="${esc(item.language)}">${esc(turn.hint.text)}</b> <span>${esc(
+                turn.hint.translation ?? ""
+              )}</span></p>`
+            : ""
+        }
+      </div>`;
+  }
+
+  function learnerBubble(turn, at) {
+    const fix = turn.correction;
+    const kept = fix?.fixed ? replyKept({ text: fix.fixed }) : false;
+    return `
+      <div class="xat-turn learner">
+        <div class="chat-msg user" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        ${
+          !fix
+            ? ""
+            : fix.fixed
+            ? `<div class="xat-fix">
+                 <span class="xat-fix-label">A native would say</span>
+                 <p class="xat-fixed" lang="${esc(item.language)}">${esc(fix.fixed)}</p>
+                 ${fix.translation ? `<p class="xat-fix-english">${esc(fix.translation)}</p>` : ""}
+                 ${fix.note ? `<p class="xat-fix-note">${esc(fix.note)}</p>` : ""}
+                 <button class="link" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
+                   kept ? "Kept as a card ✓" : "Keep as a card"
+                 }</button>
+               </div>`
+            : `<p class="xat-ok">✓ ${esc(fix.note || "That was fine.")}</p>`
+        }
+      </div>`;
+  }
+
+  function paintLog() {
+    log.hidden = !item.turns.length && !busy;
+    log.innerHTML =
+      item.turns.map((turn, at) => (turn.role === "partner" ? partnerBubble(turn, at) : learnerBubble(turn, at))).join("") +
+      (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
+  }
+
+  function paintSummary() {
+    const box = document.getElementById("xat-summary");
+    if (!item.ended) {
+      box.innerHTML = "";
+      return;
+    }
+    const said = item.turns.filter((turn) => turn.role === "learner");
+    const fixed = said.filter((turn) => turn.correction?.fixed).length;
+    box.innerHTML = `
+      <div class="notice good xat-summary">${
+        said.length
+          ? `You said ${said.length} line${said.length === 1 ? "" : "s"}. ${
+              fixed
+                ? `${fixed} came back with a fix — ${fixed === 1 ? "it is" : "they are"} marked above, and each can be kept as a card.`
+                : "None needed a fix."
+            } The English of every line is showing now.`
+          : "You didn't get to say anything this time."
+      }</div>`;
+  }
+
+  function setBusy() {
+    if (send) send.disabled = busy || hearing;
+    if (mic) mic.disabled = busy;
+  }
+
+  /* Your line goes into the transcript before the call, and comes back out
+     of it if the call fails — so a retry is one tap rather than a retype, and
+     a turn that never got an answer is never left standing as if it had. */
+  async function say(text) {
+    if (!text || busy || item.ended) {
+      if (!text) input.focus();
+      return;
+    }
+    item.turns.push({ role: "learner", text, correction: null });
+    chats.save();
+    input.value = "";
+    autosize(input);
+    errorBox.hidden = true;
+    await turn(text);
+  }
+
+  async function turn(said = null) {
+    if (busy) return;
+    busy = true;
+    errorBox.hidden = true;
+    setBusy();
+    paintLog();
+    log.scrollIntoView({ block: "end" });
+    try {
+      const result = await cardAssistant.converse(chatPayload(item), settings);
+      if (!result.reply?.trim()) throw new Error("Nothing came back. Try again.");
+      /* Saved whether or not the page is still on screen, for the interview's
+         reason: the chat is persistent, and a reply fetched while you had
+         left is waiting for you when you come back. */
+      const last = item.turns[item.turns.length - 1];
+      if (last?.role === "learner") {
+        last.correction = result.correction
+          ? {
+              fixed: result.correction.fixed || "",
+              translation: result.correction.translation || "",
+              note: result.correction.note || "",
+            }
+          : { fixed: "", translation: "", note: "" };
+      }
+      item.turns.push({
+        role: "partner",
+        text: result.reply.trim(),
+        translation: result.replyTranslation || "",
+        hint: result.hint?.text ? { text: result.hint.text, translation: result.hint.translation || "" } : null,
+      });
+      chats.save();
+      busy = false;
+      if (!log.isConnected) return;
+      paintLog();
+      setBusy();
+      log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+      autoplay(result.reply.trim());
+    } catch (error) {
+      // The line comes back out of the transcript and into the box.
+      if (said && item.turns[item.turns.length - 1]?.role === "learner") item.turns.pop();
+      chats.save();
+      busy = false;
+      if (!log.isConnected) return;
+      if (said) {
+        input.value = said;
+        autosize(input);
+      }
+      errorBox.innerHTML = `${esc(error.message)}${
+        said ? "" : ` <button class="link" id="xat-retry">Try again</button>`
+      }`;
+      errorBox.hidden = false;
+      document.getElementById("xat-retry")?.addEventListener("click", () => turn());
+    } finally {
+      busy = false;
+      if (log.isConnected) {
+        paintLog();
+        setBusy();
+      }
+    }
+  }
+
+  /* The partner's line is played as it arrives, since a conversation is
+     heard. Quietly: iOS may refuse a play that was not started by a tap, and
+     a toast on every turn would be worse than the Listen button that is
+     right there under the line. */
+  async function autoplay(text) {
+    try {
+      const blob = await speech.modelAudio({ text, language: item.language }, settings);
+      if (blob) await player.play(blob);
+      else if (browserSpeech.available(item.language)) browserSpeech.speak(text, item.language);
+    } catch {
+      /* The Listen button is the way to hear it. */
+    }
+  }
+
+  /* Saying the line rather than typing it: the same recorder as the drill,
+     then Azure transcribes it with no reference text. What it heard lands in
+     the box rather than being sent — recognition can mishear, and a
+     correction of a line you never said is worse than one more tap. */
+  async function toggleMic() {
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      mic.classList.remove("recording");
+      mic.setAttribute("aria-pressed", "false");
+      hearing = true;
+      setBusy();
+      note.textContent = "Working out what you said…";
+      const result = await recorder.stop();
+      if (!result) {
+        hearing = false;
+        if (!log.isConnected) return;
+        setBusy();
+        note.textContent = "Too short — try again.";
+        return;
+      }
+      const text = await transcription.transcribe(result.blob, item.language, settings);
+      hearing = false;
+      if (!log.isConnected) return;
+      setBusy();
+      if (!text) {
+        note.textContent = transcription.lastError || "Azure heard nothing. Try again.";
+        return;
+      }
+      input.value = text;
+      autosize(input);
+      note.textContent = "Heard. Send it, or fix it first.";
+      input.focus();
+      return;
+    }
+    if (busy) return;
+    stopEverything();
+    recorder = new Recorder();
+    try {
+      await recorder.start();
+    } catch (error) {
+      toast(
+        String(error?.name) === "NotAllowedError"
+          ? "Microphone blocked. Allow it in Safari's site settings."
+          : "Couldn't start recording."
+      );
+      return;
+    }
+    mic.classList.add("recording");
+    mic.setAttribute("aria-pressed", "true");
+    state.levelTimer = setInterval(() => {
+      if (!note.isConnected) return;
+      note.textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap the mic again when you've said it.`;
+    }, 100);
+  }
+}
+
 /* A phrase row: the star, then the phrase and what it means. A capture with no
    target-language text yet can't be drilled or compared, so its row opens the
    edit form rather than the detail sheet. */
@@ -2664,7 +3266,8 @@ function renderAbout() {
              ${cards.length ? "Make more cards from this" : "Create cards"}
            </button>
            <p class="tiny muted">Answer a few questions, then let it write the phrases. You can come back and
-           tell it more whenever you like.</p>`
+           tell it more whenever you like.</p>
+           ${rehearsalSection()}`
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
            passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
@@ -2692,6 +3295,8 @@ function renderAbout() {
   );
 
   if (!settings.hasAssistant) return;
+
+  wireRehearsal();
 
   document.getElementById("about-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -6609,6 +7214,7 @@ aboutMe.load();
 aiLog.load();
 progress.load();
 messages.load();
+chats.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

@@ -282,6 +282,60 @@ export const scoring = {
   },
 };
 
+/* Free recognition, for the rehearsal chat: what did they say, with no
+   reference text to score it against. The same SDK, the same 16k WAV and the
+   same error reading as `score`, minus the assessment — a `SpeechRecognizer`
+   with nothing applied to it transcribes. Resolves with the text, or null with
+   `transcribeError` set, so the chat can say why nothing landed in the box. */
+export const transcription = {
+  lastError: null,
+
+  async transcribe(recordingBlob, language, settings) {
+    this.lastError = null;
+    if (!settings.hasAzure) {
+      this.lastError = "Speaking your line needs an Azure key — add one in Settings, or use the keyboard's dictation key.";
+      return null;
+    }
+    try {
+      const SDK = await loadSDK();
+      const wav = await toWav16k(recordingBlob);
+      const file = new File([wav], "turn.wav", { type: "audio/wav" });
+      const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
+      config.speechRecognitionLanguage = language;
+      const recogniser = new SDK.SpeechRecognizer(config, SDK.AudioConfig.fromWavFileInput(file));
+      const result = await new Promise((resolve, reject) => {
+        recogniser.recognizeOnceAsync(
+          (r) => {
+            recogniser.close();
+            resolve(r);
+          },
+          (error) => {
+            recogniser.close();
+            reject(new Error(error));
+          }
+        );
+      });
+      if (result.reason === SDK.ResultReason.NoMatch) {
+        this.lastError = "Azure couldn't make out any speech — try again, a bit closer to the mic.";
+        return null;
+      }
+      if (result.reason === SDK.ResultReason.Canceled) {
+        const details = SDK.CancellationDetails.fromResult(result);
+        throw new Error(details.errorDetails || "Azure cancelled the request.");
+      }
+      const text = (result.text || "").trim();
+      if (!text) {
+        this.lastError = "Azure heard nothing it could write down. Try again.";
+        return null;
+      }
+      return text;
+    } catch (error) {
+      this.lastError = describeAzureError(error);
+      return null;
+    }
+  },
+};
+
 function describeAzureError(error) {
   const message = String(error?.message ?? error ?? "");
   if (/401|403|Forbidden|Unauthorized/i.test(message)) {

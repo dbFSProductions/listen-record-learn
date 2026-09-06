@@ -230,6 +230,18 @@ again** clears it and leaves the cards it already wrote alone.
 
 Needs the card assistant set up (above); without it the deck doesn't appear.
 
+**Rehearse a conversation** — under the interview on that same page. Pick a
+scene — a language exchange, a café, the market, castells rehearsal, a
+neighbour on the stairs, or describe one yourself — and the assistant plays
+the other person, in Catalan, and keeps the conversation going. Every line you
+say comes back with how a native would have said it and a note on what
+changed; the English of each of its lines is one tap away, and so is a hint
+at what you could answer, built from what you told it about yourself. With an
+Azure key you can say your line into the mic instead of typing it. Any line
+worth having — theirs, or yours as it should have been — is one tap from a
+card in the **Xerrades** deck, and the chats are kept so you can read back
+what you got wrong before the next one.
+
 **Settings** — language, Azure credentials and voice, slow-playback speed,
 level-2 recall, road mode, audio prefetch and cache, and a **Version** panel showing what's
 *running* against what's *installed*. Those two differ for exactly as long as it

@@ -497,6 +497,108 @@ All Phrases; export carries `messages` and import puts them back;
 Mum-o-lingo have none of this; it would port whole — the Worker is already
 serving it — with `messagesDeck` collapsing to one name.
 
+### Xerrada: having the conversation before you have it
+
+Asked for as *"I'm meeting people for language chats soon, I'd like to
+prepare. Can we run Catalan chat simulations?"* Everything else in the app is
+a line at a time — you say the phrase, you hear what comes back, and the
+exchange ends there. A real conversation is the thing after that: the
+follow-up question, the answer built on the spot, the moment you find you can
+say where you live but not how long you have lived there. So this is the
+other person, played by the assistant, in a scene you pick, speaking only
+Catalan to you, and every line you say comes back with how a native would
+have said it.
+
+- **It lives behind About me, not on a seventh tile.** The grid is the sister
+  apps' grid, which is the argument that put Messages on Quick. And About me
+  is already the page that knows who you are: the interview and the cards it
+  wrote are the facts the partner follows up on and the hints are built from,
+  so what you rehearse is *your* job and *your* town rather than a textbook's.
+  The cards it wrote are the sentences; this is where you use them.
+  `rehearsalSection` prints the scene picker and the chats you have had under
+  the interview, the tile's count reads *3 cards about you · 2 chats*
+  (`aboutCount`), and `state.chat` is the chat open behind the workshop —
+  cleared by `goHome`, by the About tile (a tile is a way home to that page,
+  not to whatever was open under it) and by *‹ About me*.
+- **`CHAT_SCENES` in app.js is the whole of the scene list.** Each carries a
+  `title`, a `blurb` for the row and the page head, and a `brief` written for
+  the model in the second person — *you are the waiter* — which is why the
+  page prints the blurb and never the brief. *Somewhere else…* opens a box for
+  a scene of your own, whose first line becomes the title. The five that ship
+  are the intercanvi, a café, the market, an assaig and a neighbour, because
+  those are the conversations this learner is actually about to have.
+- **One endpoint, `/converse`, and one call per turn.** Four things come back
+  and each is behind its own tap: the partner's `reply`; its
+  `replyTranslation`, withheld until you press *English* — the level-two
+  argument, one more time — and shown for every line once the chat has
+  ended; a `correction` of your *last* line (`fixed`, its `translation`, and
+  a `note` naming what changed, with `fixed` empty when the line was fine);
+  and a `hint` at what you could say next, behind *Help me answer*. One
+  structured call rather than two because each is a line long and a second
+  round trip on every turn of a conversation is a conversation nobody has. It
+  runs on the quality chain with the card budget, not the interview's fast
+  chain: the correction is what you take to a real person. An empty history
+  is the partner opening, as on `/interview`; a history ending on the partner
+  is refused. `worker/tools/converse-test.mjs` drives it stubbed, and the
+  other six endpoints are untouched — `card-test.mjs` with `BEFORE` set is
+  still byte-identical, so the sister apps are unaffected until they grow a
+  page for it.
+- **The correction arrives with the next reply, and belongs to your turn.**
+  A learner turn is pushed with `correction: null`, and `turn()` writes the
+  correction onto it when the answer comes and pushes the partner's turn after
+  it. A failed call pops your line back out of the transcript and into the
+  box — a retry is one tap, and a turn that never got an answer is never left
+  standing as if it had. A reply that arrives after you have left the page is
+  still saved, for the interview's reason.
+- **You can say your line rather than type it, with an Azure key.**
+  `transcription.transcribe` in speech.js is `scoring.score` with no reference
+  text — a bare `SpeechRecognizer` on the same 16k WAV — and the mic button is
+  the drill's recorder. What it heard lands in the box rather than being sent:
+  recognition can mishear, and a correction of a line you never said is worse
+  than one more tap. Without a key there is no mic and the note names the
+  keyboard's dictation key, which is the path this file already says works.
+  The partner's line is played as it arrives, quietly — `autoplay` swallows
+  the refusal iOS may give a play not started by a tap, because a toast on
+  every turn would be worse than the *Listen* under every line.
+- **Lines are kept as cards in the language's `Xerrades` deck** (`chatsDeck`
+  in store.js; *Charlas*, *Chiacchierate*) — the partner's line you want to
+  be able to say, or your own line as it should have been, with the note as
+  its usage note and the scene as its situation. `keepFromChat` is
+  `keepFromMessage`'s shape, `replyKept` reads the kept state off the library
+  at paint, and an ordinary deck for the usual reason.
+- **`chats` in store.js is the record** — the scene and every turn, capped at
+  thirty, newest last, in export/import with the phrases. Persisted because
+  the corrections are the best record there is of what you get wrong, and
+  *what did I say last time?* is a question you ask on the way to the next
+  one. *End the chat* marks it `ended`: the form goes (`.chat-form[hidden]` —
+  flex beats `hidden`, the `.sheet` trap again), the English of every line
+  shows, the hints go, a summary counts the lines and the fixes, and *Have it
+  again* starts a fresh chat in the same scene. *Forget this chat* drops the
+  record and leaves the cards.
+
+Worth asserting, with `/converse` and `/interview` stubbed and no Azure key:
+the About tile reads *Tell it about you* and then *1 chat*; About me lists six
+`[data-scene]` rows with `#chat-own` hidden until *Somewhere else…*; a scene
+makes one call with an empty history, the brief and the language, heads the
+page with the scene, and paints one `.xat-turn.partner` with no
+`.xat-english` until `[data-english]` and no `.xat-hint` until `[data-hint]`,
+the one surviving the other's repaint; `#xat-input` carries the language and
+`autocorrect="off"`, and there is no `#xat-mic`; an empty send makes no call;
+Enter sends, the second call's history is partner-then-learner, the learner's
+bubble gets `.xat-fix` with `.xat-fixed`, `.xat-fix-english` and
+`.xat-fix-note`, the new partner line follows and `xerra.chats` holds three
+turns with the correction on the second; a fine line paints `.xat-ok`; a 503
+puts the line back in the box, leaves the transcript as it was and re-enables
+Send; `[data-keep]` files the partner's line in `Xerrades` with the scene in
+its situation and flips to *Kept ✓*, `[data-keep-fix]` files the fixed line
+with the note as `usageNote`; back lists the chat as *2 lines · still going*,
+reopening it makes no call, and the turns survive a reload; `#xat-end` hides
+`#xat-form`, shows every `.xat-english`, removes `[data-hint]` and paints
+`.xat-summary`; `#xat-again` makes one call and a second record in the same
+scene; `#xat-forget` removes the record and leaves the cards; export carries
+`chats` and import puts them back; and with About me cards and an interview
+answer planted, `facts` goes along cards first.
+
 ### There is no tab bar, and adding belongs to a section
 
 Three tabs — Practice, Add, Settings — for three things that were never peers.
@@ -2953,6 +3055,15 @@ the parser losing a block to a formatting change.
   corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
   (additive; `worker/tools/message-test.mjs`).
+- **Xerrada** is the conversation had before it is had for real: behind About
+  me, pick a scene — the intercanvi, a café, the market, an assaig, a
+  neighbour, or one of your own — and the assistant plays the other person in
+  Catalan, corrects each line you say, offers the English and a hint behind a
+  tap, and lets you say your line into the mic with an Azure key. Kept lines
+  land in the language's `Xerrades` deck. `renderChat`, `CHAT_SCENES` and
+  `keepFromChat` in app.js, `chats` and `chatsDeck` in store.js,
+  `transcription` in speech.js, `/converse` on the Worker (additive;
+  `worker/tools/converse-test.mjs`).
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
   in them (Settings → Decks: tick a row on its own, then one Delete button,
   then a confirm sheet). The same rows fold open to their cards and tick
@@ -3031,7 +3142,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v86 / `xerra-v86` — `js/version.js` first, `sw.js` second, as ever.
+- v87 / `xerra-v87` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
