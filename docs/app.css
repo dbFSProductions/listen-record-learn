@@ -1927,3 +1927,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .xat-editing { width: 100%; max-width: 100%; }
 .xat-editing textarea { width: 100%; }
 .xat-editing .xat-tools { justify-content: flex-end; }
+/* Say it back on a partner line: the same card, under the bubble, in the
+   partner's grey rather than the fix's amber — nothing was wrong. */
+.xat-practice-line { margin-top: 6px; background: var(--surface-2); border-color: var(--line); }
+#xat-ask { margin-top: 14px; }

@@ -541,8 +541,9 @@ have said it.
 - **Who you are talking to is yours to write.** Asked for as *"Can I set a
   character, eg old man that has lived in Horta all his life, or person that
   was a casteller with Vilafranca."* `#chat-who` on the starter is optional
-  free text, carried as `scene.character` so *Have it again* keeps them, sent
-  as `character` and printed in the page head as *With …*. The Worker's
+  free text with no example line under it (there was one; *"not needed"*),
+  carried as `scene.character` so *Have it again* keeps them, sent as
+  `character` and printed in the page head as *With …*. The Worker's
   prompt names the person and tells the model to let it show in what they
   say rather than announce it; without one the prompt is byte-identical to
   what it was, and `converse-test.mjs` asserts that.
@@ -583,6 +584,24 @@ have said it.
   hold stands (`say` refuses too, since Enter in a hidden box is still
   Enter), and *Move on* clears the hold, repaints, and plays the reply. A
   line that was fine goes straight on as before.
+- **Say it is on the partner's lines too, so both sides get practised.**
+  Asked for once the fix's card had been seen: *"let's put it on the other
+  person too."* `[data-practise]` under a partner bubble opens the same card
+  (`practiceCard` with `holding` false: *Say it back*, Listen, the record
+  button, and *Done* where the fix's has *Move on*), in the bubble's grey
+  rather than the fix's amber since nothing was wrong. `saying` is the open
+  one, one at a time; it is not offered while a hold stands, and the
+  conversation never waits on it. `practiceText` is the one reader of what
+  the open card is scoring against, so the recorder, the scorer and the
+  result are shared between the two.
+- **Ask about it, at the foot of the page.** *"So I can ask questions if
+  there are words I don't understand or phrases I'd like to know more
+  about."* It is `cardChatPanel`, the drill's and the sheet's, with the
+  conversation shaped as the card by `chatAskContext`: the last thousand
+  characters of the transcript as `text` with the lines marked *They:* and
+  *You:*, and the scene and character as the situation. One turn of `/chat`,
+  which the sister apps share, so no Worker change; history dies with the
+  page, as it does everywhere else the panel is.
 - **Your last line can be edited and sent again.** *Edit* sits under the
   most recent learner bubble only — a change further back would orphan
   everything after it — and turns the bubble into a box. *Send it again*
@@ -654,7 +673,13 @@ and empty; `[data-edit]` is on the last learner bubble only, opens
 `#xat-edit-input` with the line in it, `#xat-edit-cancel` puts the bubble
 back, and `#xat-edit-send` makes one call whose history is cut back to the
 new line and leaves the record at three turns; `#chat-who` goes along as
-`character` and heads the page *With …*; a fine line paints `.xat-ok`; a 503 puts the line
+`character` and heads the page *With …*; `[data-practise]` is under every
+partner line and absent while a hold stands, opens `.xat-practice-line`
+under that bubble with `#xat-practice-done` and no `#xat-move-on`, moves
+when another is opened, and Done closes it; `#xat-ask` carries the chat
+panel, and a question makes one `/chat` call whose `card.text` has *They:*
+and *You:* lines and whose situation names the scene and the character; a
+fine line paints `.xat-ok`; a 503 puts the line
 back in the box, leaves the transcript as it was and re-enables Send;
 `[data-keep]` files the partner's line in `Xerrades` with the scene in its
 situation and flips to *Kept ✓*, `[data-keep-fix]` files the fixed line with
@@ -674,7 +699,8 @@ history entry and a learner bubble; with `scoring.score` stubbed too, the
 held reply shows `#xat-practice-say`, `#xat-move-on` is disabled while it
 records, the go is scored against the fixed line, `.xat-result` shows the
 dial and the weakest word and *Heard:*, `xerra.attempts` is untouched, and
-Move on puts `#xat-record` back; nothing heard makes no call and says so; a 503 says *Say it again* and leaves the partner's
+Move on puts `#xat-record` back; Say it on a partner line scores against
+that line and Done leaves the record button standing; nothing heard makes no call and says so; a 503 says *Say it again* and leaves the partner's
 turn last; and Type mid-recording cancels the recorder without a call.
 
 ### There is no tab bar, and adding belongs to a section
@@ -3140,8 +3166,10 @@ the parser losing a block to a formatting change.
   — the intercanvi, a café, the market, an assaig, a neighbour, or one of your
   own, and say who the other person is — and the assistant plays them in
   Catalan, corrects each line you say and holds its reply until you have said
-  the fix back (scored, with a key), and offers the English and a hint behind
-  a tap. Your last line can be edited and sent again. **Talk** (the record
+  the fix back (scored, with a key), offers the English and a hint behind a
+  tap, and lets you say its own lines back the same way. Your last line can
+  be edited and sent again, and an Ask panel at the foot takes questions
+  about any word or phrase in it. **Talk** (the record
   button, sent as heard, with an Azure key) or **Type**, on
   `settings.chatTalk`. Kept lines land in the language's `Xerrades` deck.
   `renderChat`, `CHAT_SCENES`, `chatStarter`, `talkNow` and `keepFromChat` in
@@ -3225,7 +3253,7 @@ the parser losing a block to a formatting change.
   `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
   newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
   de casa, six words each.
-- v89 / `xerra-v89` — `js/version.js` first, `sw.js` second, as ever.
+- v90 / `xerra-v90` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

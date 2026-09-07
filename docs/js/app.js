@@ -2612,7 +2612,6 @@ function chatStarter() {
         <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
       <label class="field"><span>Who are you talking to? <span class="muted">(optional)</span></span>
         <textarea id="chat-who" lang="en-GB" rows="1"></textarea></label>
-      <p class="tiny muted" style="margin:-6px 0 10px">An old man who has lived in Horta all his life. Someone who was a casteller with Vilafranca. A waiter who is in a hurry.</p>
       <p class="small muted" style="margin:0 0 10px">It plays that person in ${esc(
         LANGUAGES[settings.language]?.name ?? settings.language
       )}, follows up on what you say, and shows you how a native would have said each line — then you say it back before it moves on. Talk or type.</p>
@@ -2733,6 +2732,37 @@ function talkNow() {
   return Boolean(settings.chatTalk && settings.hasAzure);
 }
 
+/* The conversation, shaped as the card the tutor expects. `text` is the last
+   few lines of the transcript — the Worker caps it at a thousand characters,
+   which is the last handful of turns — with the partner's lines marked so
+   "what did they mean by…" has something to point at, and the scene as the
+   situation. No Worker change: /chat is the sister apps' too. */
+function chatAskContext(item) {
+  const lines = [];
+  let length = 0;
+  for (let i = item.turns.length - 1; i >= 0; i -= 1) {
+    const turn = item.turns[i];
+    const line = `${turn.role === "partner" ? "They" : "You"}: ${turn.text}`;
+    if (length + line.length + 1 > 1000) break;
+    lines.unshift(line);
+    length += line.length + 1;
+  }
+  const scene = item.scene.title || "a rehearsal chat";
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    deck: chatsDeck(item.language),
+    card: {
+      text: lines.join("\n") || "(nothing said yet)",
+      translation: "",
+      situation: `A rehearsal conversation in the app — ${scene}${item.scene.character ? `, with ${item.scene.character}` : ""}. "They" is the partner the app is playing; "You" is the learner.`,
+      usageNote: "",
+      focusNote: "",
+      replies: [],
+    },
+  };
+}
+
 function renderChat() {
   const item = chats.find(state.chat);
   if (!item) {
@@ -2757,6 +2787,11 @@ function renderChat() {
      the last scored go at the fix. */
   let hold = null;
   let practice = null;
+  /* A partner line being said back, by index, or null — the same card as the
+     fix's, opened under the bubble by *Say it*, so both sides of the
+     conversation can be practised. One at a time, and never while a hold
+     stands: the hold's card is the one that matters then. */
+  let saying = null;
   /* The learner line being edited in place, by index, or null. Only the last
      one is offered — a change further back would orphan everything after it. */
   let editing = null;
@@ -2785,6 +2820,7 @@ function renderChat() {
       <div class="notice bad" id="xat-error" hidden></div>
     </div>
     <div id="xat-summary"></div>
+    <div id="xat-ask" hidden></div>
     <div class="btn-row" style="margin-top:18px">
       ${
         item.ended
@@ -2828,8 +2864,12 @@ function renderChat() {
     if (button.id === "xat-move-on") return moveOn();
     if (button.id === "xat-practice-say") return togglePractice();
     if (button.id === "xat-practice-listen") {
-      const fixed = item.turns[hold - 1]?.correction?.fixed;
-      if (fixed) sayAloud(button, fixed, language, "Couldn't play that.");
+      const text = practiceText();
+      if (text) sayAloud(button, text, language, "Couldn't play that.");
+      return;
+    }
+    if (button.id === "xat-practice-done") {
+      closeSaying();
       return;
     }
     if (button.id === "xat-edit-cancel") {
@@ -2850,7 +2890,17 @@ function renderChat() {
       return;
     }
     if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.");
-    else if (button.hasAttribute("data-english")) {
+    else if (button.hasAttribute("data-practise")) {
+      if (hold !== null || hearing) return;
+      if (recorder.isRecording) {
+        clearInterval(state.levelTimer);
+        state.levelTimer = null;
+        recorder.cancel();
+      }
+      saying = saying === at ? null : at;
+      practice = null;
+      paintLog();
+    } else if (button.hasAttribute("data-english")) {
       english.has(at) ? english.delete(at) : english.add(at);
       paintLog();
     } else if (button.hasAttribute("data-hint")) {
@@ -2871,6 +2921,13 @@ function renderChat() {
   paintLog();
   paintComposer();
   paintSummary();
+  /* Asking about it: the card chat, with the conversation as the card. A
+     word you did not catch, a phrase you would like to know more about — the
+     same panel the drill and the phrase sheet carry, one turn of /chat, and
+     the context is rebuilt per question so it always holds the latest lines.
+     History dies with the page, as it does everywhere else the panel is: a
+     study aside, not a transcript. */
+  cardChatPanel(document.getElementById("xat-ask"), "Ask about a word or a phrase", () => chatAskContext(item));
   // The partner opens. A chat that starts with an empty box and waits is the
   // blank page this exists to avoid — same call as the interview's first
   // question.
@@ -2971,8 +3028,10 @@ function renderChat() {
           <button class="link" data-keep data-at="${at}" ${kept ? "disabled" : ""}>${
             kept ? "Kept as a card ✓" : "Keep as a card"
           }</button>
+          ${hold === null ? `<button class="link" data-practise data-at="${at}" aria-expanded="${saying === at}">Say it</button>` : ""}
         </div>
         ${showEnglish && turn.translation ? `<p class="xat-english">${esc(turn.translation)}</p>` : ""}
+        ${saying === at ? practiceCard(turn.text, false) : ""}
         ${
           showHint && turn.hint?.text
             ? `<p class="xat-hint"><b lang="${esc(item.language)}">${esc(turn.hint.text)}</b> <span>${esc(
@@ -3030,7 +3089,7 @@ function renderChat() {
     const shown = hold === null ? item.turns : item.turns.slice(0, hold);
     log.innerHTML =
       shown.map((turn, at) => (turn.role === "partner" ? partnerBubble(turn, at) : learnerBubble(turn, at))).join("") +
-      (hold !== null ? practiceCard() : "") +
+      (hold !== null ? practiceCard(item.turns[hold - 1]?.correction?.fixed ?? "", true) : "") +
       (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
   }
 
@@ -3040,13 +3099,34 @@ function renderChat() {
      this app trusts — and Move on. Nothing here is filed as an attempt: the
      fix is not a card, and a go at it is practice for the next line rather
      than a record. */
-  function practiceCard() {
-    const fixed = item.turns[hold - 1]?.correction?.fixed ?? "";
+  /* What the open practice card is scoring against: the fix while a hold
+     stands, otherwise the partner line opened with Say it. */
+  function practiceText() {
+    if (hold !== null) return item.turns[hold - 1]?.correction?.fixed ?? "";
+    if (saying !== null) return item.turns[saying]?.text ?? "";
+    return "";
+  }
+
+  function closeSaying() {
+    if (hearing) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    saying = null;
+    practice = null;
+    paintLog();
+  }
+
+  /* `holding` is the fix's card, which ends in Move on; the partner's ends in
+     Done and the conversation was never waiting on it. */
+  function practiceCard(text, holding) {
     const recording = recorder.isRecording;
     return `
-      <div class="xat-practice" id="xat-practice">
-        <span class="xat-fix-label">Now you say it</span>
-        <p class="xat-fixed" lang="${esc(item.language)}">${esc(fixed)}</p>
+      <div class="xat-practice ${holding ? "" : "xat-practice-line"}" id="xat-practice">
+        <span class="xat-fix-label">${holding ? "Now you say it" : "Say it back"}</span>
+        <p class="xat-fixed" lang="${esc(item.language)}">${esc(text)}</p>
         <div class="xat-practice-row">
           <button class="link" id="xat-practice-listen">Listen</button>
           ${
@@ -3055,7 +3135,11 @@ function renderChat() {
                          aria-label="Say it" aria-pressed="${recording}" ${hearing ? "disabled" : ""}>${MIC_SVG}</button>`
               : ""
           }
-          <button class="btn btn-primary" id="xat-move-on" ${hearing || recording ? "disabled" : ""}>Move on</button>
+          ${
+            holding
+              ? `<button class="btn btn-primary" id="xat-move-on" ${hearing || recording ? "disabled" : ""}>Move on</button>`
+              : `<button class="btn" id="xat-practice-done" ${hearing || recording ? "disabled" : ""}>Done</button>`
+          }
         </div>
         <p class="tiny muted xat-practice-note" id="xat-practice-note">${
           settings.hasAzure ? "Tap the mic, say it, tap again. As many goes as you like." : "Say it out loud a couple of times, then move on."
@@ -3112,7 +3196,7 @@ function renderChat() {
   /* One go at the fixed line: the drill's recorder, the drill's scorer, the
      drill's number. */
   async function togglePractice() {
-    const fixed = item.turns[hold - 1]?.correction?.fixed;
+    const fixed = practiceText();
     const note = () => document.getElementById("xat-practice-note");
     if (!fixed) return;
     if (recorder.isRecording) {
@@ -3131,7 +3215,7 @@ function renderChat() {
       paintLog();
       const scored = await scoring.score(result.blob, { text: fixed, language: item.language }, settings);
       hearing = false;
-      if (!log.isConnected || hold === null) return;
+      if (!log.isConnected || practiceText() !== fixed) return;
       practice = scored;
       paintLog();
       if (!scored && note()) note().textContent = scoring.lastError || "Couldn't score that. Try again.";
@@ -3221,6 +3305,8 @@ function renderChat() {
   async function turn(said = null) {
     if (busy) return;
     busy = true;
+    saying = null;
+    practice = null;
     errorBox.hidden = true;
     setBusy();
     paintLog();
