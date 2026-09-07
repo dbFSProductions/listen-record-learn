@@ -2385,6 +2385,17 @@ v2 list.
   rendering it conditionally meant the way out didn't appear until you left the
   page and came back, which is when you are least likely to look for it.
 
+- **The interview sits above the cards, the way Quick's ask box sits above
+  what it made.** Asked for as *"put the about me chat above the about me
+  cards … a similar layout to quick"*. The page opened on the practise
+  button and every card, with the box you talk to underneath — so on a deck
+  of thirty the thing the page is *for* was a screen and a half down. Now
+  it reads: the chat card and Create, then *Your cards* with its Practise
+  button and the rows. Nothing else moved — same ids, same handlers, same
+  `paintLog` — so the assertions below hold as they were, plus one on the
+  order: `#about-form` above `#about-make` above `#about-practise` above
+  the first `.row`. In all three apps.
+
 Deb-o-lingo has this as **Sobre mí** — same two endpoints, same persisted
 transcript, same guards, no Worker change needed. The one divergence is
 deliberate: its cards ride the path as a generated *unit* rather than sitting
@@ -3398,7 +3409,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v91 / `xerra-v91` — `js/version.js` first, `sw.js` second, as ever.
+- v92 / `xerra-v92` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
