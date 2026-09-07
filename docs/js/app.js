@@ -3596,30 +3596,12 @@ function renderAbout() {
     )}
 
     ${
-      cards.length
-        ? `<button class="btn btn-primary" id="about-practise" style="width:100%">Practise these ${cards.length}</button>
-           <div class="section-label">Your cards</div>
-           <div class="rows rows-spaced">
-             ${cards
-               .map(
-                 (phrase) => `
-                   <div class="row striped hue-green">
-                     ${starButton(phrase)}
-                     <button class="row-open" data-drill="${esc(phrase.id)}">
-                       <span class="row-main">
-                         <span class="row-title">${esc(phrase.text)}</span>
-                         <span class="row-sub">${esc(phrase.translation)}</span>
-                       </span>
-                       <span class="chev">›</span>
-                     </button>
-                   </div>`
-               )
-               .join("")}
-           </div>`
-        : ""
-    }
-
-    ${
+      /* The interview goes first and the cards it wrote go under it, the way
+         Quick keeps its ask box on top and lists what it made underneath. The
+         page is the workshop, and the box you talk to is what it is for; the
+         cards are the record of what it has made so far. With thirty cards
+         the box was a screen and a half down, which is the wrong place for
+         the thing you came to do. */
       settings.hasAssistant
         ? `<div class="section-label">${cards.length ? "Tell it more" : "Tell it about you"}</div>
            <div class="card chat-card">
@@ -3642,6 +3624,30 @@ function renderAbout() {
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
            passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
+    }
+
+    ${
+      cards.length
+        ? `<div class="section-label">Your cards</div>
+           <button class="btn btn-primary" id="about-practise" style="width:100%;margin-bottom:12px">Practise these ${cards.length}</button>
+           <div class="rows rows-spaced">
+             ${cards
+               .map(
+                 (phrase) => `
+                   <div class="row striped hue-green">
+                     ${starButton(phrase)}
+                     <button class="row-open" data-drill="${esc(phrase.id)}">
+                       <span class="row-main">
+                         <span class="row-title">${esc(phrase.text)}</span>
+                         <span class="row-sub">${esc(phrase.translation)}</span>
+                       </span>
+                       <span class="chev">›</span>
+                     </button>
+                   </div>`
+               )
+               .join("")}
+           </div>`
+        : ""
     }`;
 
   const log = document.getElementById("about-log");
