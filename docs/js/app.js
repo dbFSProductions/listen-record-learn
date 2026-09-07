@@ -2844,7 +2844,8 @@ function renderReader() {
       <div class="section-label">${esc(source.name)}</div>
       <p class="small muted reader-blurb">${esc(source.blurb)}</p>
       <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
-    ).join("")}`;
+    ).join("")}
+    ${wikiSection()}`;
 
   document.getElementById("reader-back").onclick = () => {
     stopEverything();
@@ -2861,6 +2862,7 @@ function renderReader() {
   );
   document.getElementById("story-go").addEventListener("click", writeStory);
   wireBookCard();
+  wireWiki();
 
   paintBooks();
   paintRead();
@@ -3128,6 +3130,233 @@ function renderReader() {
         button.textContent = "Write me a story";
       }
     }
+  }
+}
+
+// -------------------------------------------------------------- viquipèdia
+
+/* Viquipèdia, for the Romans, the counts, the battles and the empire.
+
+   The feeds give you what was published this week; a learner who wants
+   Tàrraco, the Crown of Aragon or the almogàvers wants an encyclopaedia, and
+   the Catalan Wikipedia is the biggest body of Catalan prose there is on
+   exactly that ground. Its REST API is open, keyless and answers cross-origin,
+   so this is client-side and needs no Worker change: the page summary — the
+   article's introduction, one to three paragraphs — is the reading, glossed
+   through /message like a pasted text and opened as an article with a link
+   to the whole entry. Four shelves of titles that are the learner's own
+   interests, and a search box for everything else. The summary endpoint
+   follows redirects; a title it still cannot find is searched for and the
+   top hit taken, so a shelf entry spelled a little differently from the
+   article's own title still lands. Per language, since the Spanish and
+   Italian Wikipedias answer the same calls. */
+const WIKI = {
+  "ca-ES": { host: "ca.wikipedia.org", name: "Viquipèdia" },
+  "es-ES": { host: "es.wikipedia.org", name: "Wikipedia" },
+  "it-IT": { host: "it.wikipedia.org", name: "Wikipedia" },
+};
+const WIKI_SHELVES = {
+  "ca-ES": [
+    { title: "Roma", items: ["Tàrraco", "Empúries", "Bàrcino", "Via Augusta", "Aqüeducte de les Ferreres", "Hispània Citerior"] },
+    {
+      title: "Comtats i Corona",
+      items: ["Guifré el Pilós", "Comtat de Barcelona", "Corona d'Aragó", "Jaume el Conqueridor", "Pere el Gran", "Usatges de Barcelona", "Compromís de Casp"],
+    },
+    {
+      title: "Batalles",
+      items: ["Batalla de Muret", "Batalla de les Navas de Tolosa", "Guerra dels Segadors", "Corpus de Sang", "Batalla d'Almansa", "Setge de Barcelona (1713-1714)", "Onze de Setembre de 1714"],
+    },
+    {
+      title: "L'imperi mediterrani",
+      items: ["Almogàvers", "Roger de Flor", "Companyia Catalana d'Orient", "Ducat d'Atenes", "Conquesta de Mallorca", "Regne de Sicília", "Consolat de Mar", "Ramon Llull"],
+    },
+  ],
+};
+const WIKI_CHARS = 2500;
+const WIKI_MIN_INTRO = 300;
+
+function wikiSection() {
+  const wiki = WIKI[settings.language];
+  if (!wiki) return "";
+  const shelves = WIKI_SHELVES[settings.language] ?? [];
+  return `
+    <div class="section-label">${esc(wiki.name)}</div>
+    <p class="small muted reader-blurb">The introduction to any article, read like a message. The Romans, the counts, the battles, the empire — or look anything up.</p>
+    <div class="card" id="wiki-card">
+      <label class="field"><span>Look something up</span>
+        <input type="text" id="wiki-query" lang="${esc(settings.language)}" autocapitalize="sentences" autocomplete="off"></label>
+      <button class="btn btn-primary" id="wiki-go" style="width:100%">Search ${esc(wiki.name)}</button>
+      <div id="wiki-results"></div>
+      <div class="notice bad" id="wiki-error" hidden></div>
+    </div>
+    ${shelves
+      .map(
+        (shelf) => `
+      <p class="small wiki-shelf-title">${esc(shelf.title)}</p>
+      <div class="ideas wiki-shelf">${shelf.items.map((title) => `<button class="idea" data-wiki="${esc(title)}">${esc(title)}</button>`).join("")}</div>`
+      )
+      .join("")}`;
+}
+
+function wireWiki() {
+  const wiki = WIKI[settings.language];
+  if (!wiki || !document.getElementById("wiki-card")) return;
+  const query = document.getElementById("wiki-query");
+  const go = document.getElementById("wiki-go");
+  const results = document.getElementById("wiki-results");
+  const errorBox = document.getElementById("wiki-error");
+  document.querySelectorAll("[data-wiki]").forEach((button) =>
+    button.addEventListener("click", () => openWiki(button.dataset.wiki, button))
+  );
+  const search = async () => {
+    const q = query.value.trim();
+    if (!q) {
+      query.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    go.disabled = true;
+    go.innerHTML = `<span class="spinner"></span> Searching…`;
+    try {
+      const hits = await wikiSearch(q);
+      results.innerHTML = hits.length
+        ? `<div class="rows rows-spaced" style="margin-top:12px">${hits
+            .map(
+              (hit) => `
+          <div class="row striped hue-purple">
+            <button class="row-open" data-wiki-hit="${esc(hit.title)}">
+              <span class="row-main"><span class="row-title">${esc(hit.title)}</span><span class="row-sub">${esc(hit.snippet)}</span></span>
+              <span class="chev">›</span>
+            </button>
+          </div>`
+            )
+            .join("")}</div>`
+        : `<p class="small muted" style="margin:10px 0 0">Nothing on ${esc(wiki.name)} by that name.</p>`;
+      results.querySelectorAll("[data-wiki-hit]").forEach((button) =>
+        button.addEventListener("click", () => openWiki(button.dataset.wikiHit, button))
+      );
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (document.getElementById("wiki-go")) {
+        go.disabled = false;
+        go.textContent = `Search ${wiki.name}`;
+      }
+    }
+  };
+  go.addEventListener("click", search);
+  query.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      search();
+    }
+  });
+}
+
+async function wikiFetch(url) {
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout?.(15_000) });
+  } catch {
+    throw new Error(`Couldn't reach ${WIKI[settings.language]?.name ?? "Wikipedia"}. Check your connection.`);
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`${WIKI[settings.language]?.name ?? "Wikipedia"} answered ${response.status}.`);
+  return response.json();
+}
+
+/* The article's introduction: title, extract and the page's own URL, or null
+   when there is no such page. */
+async function wikiSummary(title) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(`https://${wiki.host}/api/rest_v1/page/summary/${encodeURIComponent(title.trim().replace(/ /g, "_"))}`);
+  if (!data || data.type === "disambiguation" || !data.extract) return null;
+  return { title: data.title, extract: data.extract, link: data.content_urls?.desktop?.page ?? `https://${wiki.host}/wiki/${encodeURIComponent(title)}` };
+}
+
+/* The whole article as plain text, for an introduction too short to read —
+   a stub, or a page that is all sections. Capped to what /message takes,
+   at a paragraph break where there is one. */
+async function wikiFullText(title) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(
+    `https://${wiki.host}/w/api.php?action=query&prop=extracts&explaintext=1&exsectionformat=plain&redirects=1&format=json&origin=*&titles=${encodeURIComponent(title)}`
+  );
+  const page = Object.values(data?.query?.pages ?? {})[0];
+  return page?.extract ?? "";
+}
+
+async function wikiSearch(query) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(
+    `https://${wiki.host}/w/api.php?action=query&list=search&srlimit=6&format=json&origin=*&srsearch=${encodeURIComponent(query)}`
+  );
+  return (data?.query?.search ?? []).map((hit) => ({
+    title: hit.title,
+    snippet: String(hit.snippet ?? "").replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&"),
+  }));
+}
+
+function capAtParagraph(text, max) {
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf("\n", max);
+  return (cut > max / 2 ? text.slice(0, cut) : text.slice(0, max)).trim();
+}
+
+/* A shelf title or a search hit into the reader: the summary (or the top
+   search hit's, when the title is not quite the article's), glossed and
+   opened as an article from Viquipèdia. An article opened before reopens
+   without a second call, by its link. */
+async function openWiki(title, button) {
+  const wiki = WIKI[settings.language];
+  const language = LANGUAGES[settings.language];
+  const errorBox = document.getElementById("wiki-error");
+  if (button) button.disabled = true;
+  try {
+    let page = await wikiSummary(title);
+    if (!page) {
+      const hit = (await wikiSearch(title))[0];
+      if (hit) page = await wikiSummary(hit.title);
+    }
+    if (!page) throw new Error(`Nothing on ${wiki.name} called «${title}».`);
+    const already = messages.items.find((m) => m.source?.link && m.source.link === page.link);
+    if (already) {
+      state.message = already.id;
+      render();
+      return;
+    }
+    let body = page.extract;
+    if (body.length < WIKI_MIN_INTRO) body = (await wikiFullText(page.title)) || body;
+    const text = capAtParagraph(`${page.title}\n\n${body}`, WIKI_CHARS);
+    const read = await cardAssistant.readMessage(
+      { message: text, languageCode: settings.language, languageName: language.englishName },
+      settings
+    );
+    if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+    const saved = messages.add({
+      kind: "article",
+      title: page.title,
+      text,
+      source: { name: wiki.name, link: page.link, audio: "", duration: "" },
+      read: {
+        translation: read.translation,
+        register: read.register || "",
+        glossary: Array.isArray(read.glossary) ? read.glossary : [],
+        keep: Array.isArray(read.keep) ? read.keep : [],
+      },
+    });
+    if (!state.reader) return;
+    state.message = saved.id;
+    render();
+  } catch (error) {
+    if (!state.reader) return;
+    if (errorBox) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } else toast(error.message);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
   }
 }
 

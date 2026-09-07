@@ -2116,3 +2116,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .book-keep { flex: none; font-size: 0.8rem; }
 .book-keep:disabled { color: var(--text-3); cursor: default; }
 .msg-listen-row { margin-top: 12px; }
+
+/* Viquipèdia's shelves: a small title over a run of chips. */
+.wiki-shelf-title { margin: 0 0 6px; font-weight: 800; color: var(--text-2); }
+.wiki-shelf { margin-bottom: 12px; }
+.idea:disabled { opacity: 0.5; cursor: default; }

@@ -888,6 +888,26 @@ on whatever you ask, with three questions to check you followed it.
     reading, which no seed deck can supply. The page's keep list goes to
     Llibres too, with the page number. *Your books* on the reader lists each
     book with its pages and lookups; book pages stay out of *Read before*.
+- **Viquipèdia, for the Romans, the counts, the battles and the empire.**
+  Asked for as *"there might be other sources of Catalan history.
+  Particularly Roman and principalities and battles and empires."* The
+  feeds give you this week; an encyclopaedia gives you Tàrraco. The Catalan
+  Wikipedia's REST API is open, keyless and answers cross-origin, so
+  `wikiSummary` / `wikiSearch` / `wikiFullText` are client-side fetches
+  and **no Worker change**: the article's introduction (the summary
+  endpoint's `extract`, or the whole article capped at a paragraph break
+  when the intro is under 300 characters) is the reading, glossed through
+  `/message` and opened as a `kind: "article"` with *From Viquipèdia* and a
+  link to the entry. `WIKI_SHELVES` are four shelves of titles — Roma,
+  Comtats i Corona, Batalles, L'imperi mediterrani — as chips under a
+  search box (`#wiki-query`, `#wiki-go`). The summary endpoint follows
+  redirects, and a title it still cannot find is searched for and the top
+  hit taken, so a shelf title spelled a little differently from the
+  article's own still lands; a disambiguation page is treated as not
+  found. `WIKI` is keyed by language, so the Spanish and Italian libraries
+  get their Wikipedias' search box and no shelves. **The shelf titles were
+  written from memory, not checked against the wiki** — the sandbox could
+  not reach it — which is what the search fallback is for.
 - **Nothing the sister apps call changed shape.** `/feed` and `/story` are
   new routes, `kind` on `/message` is optional and off by default; `card-test.mjs` with `BEFORE` set is still byte-identical.
   `worker/**` is on the deploy trigger, so merging ships them. The reader
@@ -922,7 +942,13 @@ word listed and no `#book-title`; a second page is *Page 2*, the same word
 tapped again reads *2 pages*, pages list newest first, and
 `[data-keep-word]` files *el comte* in `Llibres` and flips to *Kept ✓*;
 *Your books* reads *2 pages · 2 words looked up*, *Read before* leaves the
-pages out, the datalist offers the title, and the tile counts *5 read*.
+pages out, the datalist offers the title, and the tile counts *5 read*. For Viquipèdia, with `ca.wikipedia.org` routed: four `.wiki-shelf-title`s
+under the feeds; a chip fetches `/api/rest_v1/page/summary/<title>` and
+makes one `/message` call whose text starts with the title and the extract,
+heads the page with the title and *From Viquipèdia*, carries a `.msg-source`
+link to the entry, and reopens without a second call; a 404 title is
+searched for and the top hit opened; Enter in `#wiki-query` lists
+`[data-wiki-hit]` rows with markup-stripped snippets, and a hit opens.
 
 ### There is no tab bar, and adding belongs to a section
 
