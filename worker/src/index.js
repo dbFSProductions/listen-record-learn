@@ -272,6 +272,7 @@ const CHAT_TURNS = 20;
 const CHAT_TURN_CHARS = 500;
 const CHAT_FACTS = 40;
 const SCENE_CHARS = 600;
+const CHARACTER_CHARS = 300;
 const DEFAULT_SCENE =
   "A language exchange in a bar. The learner has just sat down opposite you, a native speaker they have never met, to practise for half an hour.";
 const CONVERSE_LIMITS = { reply: 400, replyTranslation: 500 };
@@ -1093,7 +1094,13 @@ function buildConversePrompt(request) {
   return `You are playing the other person in a spoken conversation with an English-speaking learner of ${request.languageName} (${request.languageCode}), so that they can rehearse it before having it for real. They are a beginner.
 
 The scene: ${request.scene}
-
+${
+    request.character
+      ? `
+The person you are playing: ${request.character}. Be that person throughout — their age, their history, their way of talking, what they would and would not ask — and let it show in what you say rather than by announcing it.
+`
+      : ""
+  }
 Stay in character as that person, and speak only ${request.languageName} to them.
 
 Rules:
@@ -1492,6 +1499,10 @@ function validateConverse(value) {
   }
   if (!request.languageCode || !request.languageName) throw new PublicError("Choose a language first.", 400);
   request.scene = (typeof value.scene === "string" ? value.scene.trim().slice(0, SCENE_CHARS) : "") || DEFAULT_SCENE;
+  /* Who the partner is — "an old man who has lived in Horta all his life",
+     "someone who was a casteller with Vilafranca" — written by the learner.
+     Optional, and the prompt is unchanged without it. */
+  request.character = typeof value.character === "string" ? value.character.trim().slice(0, CHARACTER_CHARS) : "";
   request.history = (Array.isArray(value.history) ? value.history : [])
     .slice(-CHAT_TURNS)
     .filter((turn) => turn && typeof turn === "object" && typeof turn.text === "string")
