@@ -2608,11 +2608,14 @@ function chatStarter() {
           ${CHAT_SCENES.map((scene) => `<option value="${esc(scene.key)}">${esc(scene.title)}</option>`).join("")}
           <option value="own">Somewhere else…</option>
         </select></label>
-      <label class="field" id="chat-own" hidden><span>Where are you, and who are you talking to?</span>
+      <label class="field" id="chat-own" hidden><span>Where are you?</span>
         <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
-      <p class="small muted" style="margin:0 0 10px">It plays the other person in ${esc(
+      <label class="field"><span>Who are you talking to? <span class="muted">(optional)</span></span>
+        <textarea id="chat-who" lang="en-GB" rows="1"></textarea></label>
+      <p class="tiny muted" style="margin:-6px 0 10px">An old man who has lived in Horta all his life. Someone who was a casteller with Vilafranca. A waiter who is in a hurry.</p>
+      <p class="small muted" style="margin:0 0 10px">It plays that person in ${esc(
         LANGUAGES[settings.language]?.name ?? settings.language
-      )}, follows up on what you say, and shows you how a native would have said each line. Talk or type.</p>
+      )}, follows up on what you say, and shows you how a native would have said each line — then you say it back before it moves on. Talk or type.</p>
       <button class="btn btn-primary" id="chat-go" style="width:100%">Start the chat</button>
     </div>`;
 }
@@ -2626,6 +2629,7 @@ function wireChatStarter() {
     if (!own.hidden) document.getElementById("chat-own-brief").focus();
   });
   document.getElementById("chat-go").addEventListener("click", () => {
+    const character = document.getElementById("chat-who").value.trim();
     if (select.value === "own") {
       const field = document.getElementById("chat-own-brief");
       const brief = field.value.trim();
@@ -2633,17 +2637,26 @@ function wireChatStarter() {
         field.focus();
         return;
       }
-      startChat({ key: "own", title: firstLine(brief, 40), blurb: "", brief });
+      startChat({ key: "own", title: firstLine(brief, 40), blurb: "", brief, character });
       return;
     }
     const scene = CHAT_SCENES.find((s) => s.key === select.value);
-    if (scene) startChat(scene);
+    if (scene) startChat({ ...scene, character });
   });
 }
 
+/* `character` is who the partner is — an old man who has lived in Horta all
+   his life, someone who was a casteller with Vilafranca — written by the
+   learner and carried on the scene, so *Have it again* keeps them. */
 function startChat(scene) {
   const item = chats.add({
-    scene: { key: scene.key, title: scene.title, blurb: scene.blurb ?? "", brief: scene.brief },
+    scene: {
+      key: scene.key,
+      title: scene.title,
+      blurb: scene.blurb ?? "",
+      brief: scene.brief,
+      character: scene.character ?? "",
+    },
   });
   state.chat = item.id;
   render();
@@ -2666,6 +2679,7 @@ function chatPayload(item) {
     languageCode: item.language,
     languageName: LANGUAGES[item.language]?.englishName ?? item.language,
     scene: item.scene.brief,
+    character: item.scene.character || "",
     history: item.turns.slice(-20).map((turn) => ({ role: turn.role, text: turn.text.slice(0, 500) })),
     facts,
   };
@@ -2735,12 +2749,23 @@ function renderChat() {
      by the next turn. */
   const english = new Set();
   const hinted = new Set();
+  /* The partner's reply being held back while you say the fix. When your
+     line came back corrected, the conversation waits: the fixed line is read
+     out, you say it back (scored against it, with a key), and *Move on* lets
+     the reply through. `hold` is the index of the withheld partner turn, or
+     null; local, so a chat reopened later shows everything. `practice` is
+     the last scored go at the fix. */
+  let hold = null;
+  let practice = null;
+  /* The learner line being edited in place, by index, or null. Only the last
+     one is offered — a change further back would orphan everything after it. */
+  let editing = null;
 
   view.innerHTML = `
     ${pageHead(
       "quick",
       item.scene.title || "Xerrada",
-      item.ended ? "How it went" : `Rehearsing it in ${language.name}`,
+      item.ended ? "How it went" : item.scene.character ? `With ${item.scene.character}` : `Rehearsing it in ${language.name}`,
       `<button class="link" id="chat-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`
     )}
     <div class="xat-head">
@@ -2800,9 +2825,30 @@ function renderChat() {
   log.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.id === "xat-move-on") return moveOn();
+    if (button.id === "xat-practice-say") return togglePractice();
+    if (button.id === "xat-practice-listen") {
+      const fixed = item.turns[hold - 1]?.correction?.fixed;
+      if (fixed) sayAloud(button, fixed, language, "Couldn't play that.");
+      return;
+    }
+    if (button.id === "xat-edit-cancel") {
+      editing = null;
+      paintLog();
+      return;
+    }
+    if (button.id === "xat-edit-send") return resend();
     const at = Number(button.dataset.at);
     const turn = item.turns[at];
     if (!turn) return;
+    if (button.hasAttribute("data-edit")) {
+      if (busy) return;
+      editing = at;
+      paintLog();
+      const box = document.getElementById("xat-edit-input");
+      box?.focus();
+      return;
+    }
     if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.");
     else if (button.hasAttribute("data-english")) {
       english.has(at) ? english.delete(at) : english.add(at);
@@ -2849,6 +2895,7 @@ function renderChat() {
     document.getElementById("xat-talk")?.setAttribute("aria-pressed", String(talkNow()));
     document.getElementById("xat-type")?.setAttribute("aria-pressed", String(!talkNow()));
     paintComposer();
+    composer.hidden = hold !== null;
   }
 
   /* The box or the button, repainted in place so the English you have opened
@@ -2936,12 +2983,30 @@ function renderChat() {
       </div>`;
   }
 
+  function lastLearnerAt() {
+    for (let i = item.turns.length - 1; i >= 0; i -= 1) if (item.turns[i].role === "learner") return i;
+    return -1;
+  }
+
   function learnerBubble(turn, at) {
     const fix = turn.correction;
     const kept = fix?.fixed ? replyKept({ text: fix.fixed }) : false;
+    if (editing === at) {
+      return `
+        <div class="xat-turn learner xat-editing">
+          <textarea id="xat-edit-input" lang="${esc(item.language)}" rows="2" autocapitalize="sentences"
+                    autocorrect="off" spellcheck="false" aria-label="Your line">${esc(turn.text)}</textarea>
+          <div class="xat-tools">
+            <button class="link" id="xat-edit-cancel">Cancel</button>
+            <button class="link" id="xat-edit-send">Send it again</button>
+          </div>
+        </div>`;
+    }
+    const editable = !item.ended && !busy && at === lastLearnerAt();
     return `
       <div class="xat-turn learner">
         <div class="chat-msg user" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        ${editable ? `<div class="xat-tools"><button class="link" data-edit data-at="${at}">Edit</button></div>` : ""}
         ${
           !fix
             ? ""
@@ -2962,9 +3027,157 @@ function renderChat() {
 
   function paintLog() {
     log.hidden = !item.turns.length && !busy;
+    const shown = hold === null ? item.turns : item.turns.slice(0, hold);
     log.innerHTML =
-      item.turns.map((turn, at) => (turn.role === "partner" ? partnerBubble(turn, at) : learnerBubble(turn, at))).join("") +
+      shown.map((turn, at) => (turn.role === "partner" ? partnerBubble(turn, at) : learnerBubble(turn, at))).join("") +
+      (hold !== null ? practiceCard() : "") +
       (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
+  }
+
+  /* Say the fix back before the conversation moves on. The fixed line, a
+     Listen, the record button when there is a key to score it — the drill's
+     weakest-word verdict against the fixed line, since that is the number
+     this app trusts — and Move on. Nothing here is filed as an attempt: the
+     fix is not a card, and a go at it is practice for the next line rather
+     than a record. */
+  function practiceCard() {
+    const fixed = item.turns[hold - 1]?.correction?.fixed ?? "";
+    const recording = recorder.isRecording;
+    return `
+      <div class="xat-practice" id="xat-practice">
+        <span class="xat-fix-label">Now you say it</span>
+        <p class="xat-fixed" lang="${esc(item.language)}">${esc(fixed)}</p>
+        <div class="xat-practice-row">
+          <button class="link" id="xat-practice-listen">Listen</button>
+          ${
+            settings.hasAzure
+              ? `<button class="record xat-practice-record ${recording ? "recording" : ""}" id="xat-practice-say"
+                         aria-label="Say it" aria-pressed="${recording}" ${hearing ? "disabled" : ""}>${MIC_SVG}</button>`
+              : ""
+          }
+          <button class="btn btn-primary" id="xat-move-on" ${hearing || recording ? "disabled" : ""}>Move on</button>
+        </div>
+        <p class="tiny muted xat-practice-note" id="xat-practice-note">${
+          settings.hasAzure ? "Tap the mic, say it, tap again. As many goes as you like." : "Say it out loud a couple of times, then move on."
+        }</p>
+        <div id="xat-practice-result">${practiceResult()}</div>
+      </div>`;
+  }
+
+  function practiceResult() {
+    if (!practice) return "";
+    const score = attemptScore(practice);
+    const weakest = (practice.words ?? [])
+      .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+      .filter((word) => typeof word.score === "number")
+      .sort((a, b) => a.score - b.score)[0];
+    return `
+      <div class="xat-result ${scoreClass(score)}">
+        ${score != null ? scoreDial(score) : ""}
+        <div class="xat-result-text">
+          ${
+            score == null
+              ? `<b>Heard, not scored.</b>`
+              : score >= GOOD
+              ? `<b>Every word cleared ${GOOD}.</b>`
+              : weakest
+              ? `<b>Weakest word: «${esc(weakest.word)}»</b> at ${Math.round(weakest.score)}.`
+              : `<b>${Math.round(score)}</b>`
+          }
+          ${practice.transcript ? `<span class="muted">Heard: ${esc(practice.transcript)}</span>` : ""}
+        </div>
+      </div>`;
+  }
+
+  /* Let the held reply through, and read it out. */
+  function moveOn() {
+    if (hold === null || hearing) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    const at = hold;
+    hold = null;
+    practice = null;
+    paintLog();
+    paintComposer();
+    composer.hidden = false;
+    setBusy();
+    log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+    const reply = item.turns[at]?.text;
+    if (reply) autoplay(reply);
+  }
+
+  /* One go at the fixed line: the drill's recorder, the drill's scorer, the
+     drill's number. */
+  async function togglePractice() {
+    const fixed = item.turns[hold - 1]?.correction?.fixed;
+    const note = () => document.getElementById("xat-practice-note");
+    if (!fixed) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      hearing = true;
+      const result = await recorder.stop();
+      if (!result) {
+        hearing = false;
+        if (!log.isConnected) return;
+        paintLog();
+        if (note()) note().textContent = "Too short — try again.";
+        return;
+      }
+      if (note()) note().textContent = "Scoring…";
+      paintLog();
+      const scored = await scoring.score(result.blob, { text: fixed, language: item.language }, settings);
+      hearing = false;
+      if (!log.isConnected || hold === null) return;
+      practice = scored;
+      paintLog();
+      if (!scored && note()) note().textContent = scoring.lastError || "Couldn't score that. Try again.";
+      return;
+    }
+    stopEverything();
+    recorder = new Recorder();
+    try {
+      await recorder.start();
+    } catch (error) {
+      toast(
+        String(error?.name) === "NotAllowedError"
+          ? "Microphone blocked. Allow it in Safari's site settings."
+          : "Couldn't start recording."
+      );
+      return;
+    }
+    paintLog();
+    const listening = () => {
+      if (note()) note().textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap again when you've said it.`;
+    };
+    listening();
+    state.levelTimer = setInterval(listening, 100);
+  }
+
+  /* Your last line, said differently. Everything after it goes — the
+     correction was of the old line and the reply answered it — and the new
+     line is sent as if it had been the first go. */
+  function resend() {
+    const box = document.getElementById("xat-edit-input");
+    const text = box?.value.trim();
+    if (!text) {
+      box?.focus();
+      return;
+    }
+    if (busy || editing === null) return;
+    const at = editing;
+    editing = null;
+    hold = null;
+    practice = null;
+    item.turns.length = at;
+    item.turns.push({ role: "learner", text, correction: null });
+    chats.save();
+    composer.hidden = false;
+    errorBox.hidden = true;
+    turn(text);
   }
 
   function paintSummary() {
@@ -2998,7 +3211,7 @@ function renderChat() {
      of it if the call fails — so a retry is one tap rather than a retype, and
      a turn that never got an answer is never left standing as if it had. */
   async function say(text) {
-    if (!text || busy || item.ended) return;
+    if (!text || busy || item.ended || hold !== null) return;
     item.turns.push({ role: "learner", text, correction: null });
     chats.save();
     errorBox.hidden = true;
@@ -3037,6 +3250,19 @@ function renderChat() {
       chats.save();
       busy = false;
       if (!log.isConnected) return;
+      /* A corrected line stops the conversation until you have said the fix:
+         the reply is held, the fix is read out, and Move on lets it through.
+         A line that was fine goes straight on. */
+      if (last?.role === "learner" && last.correction?.fixed) {
+        hold = item.turns.length - 1;
+        practice = null;
+        composer.hidden = true;
+        paintLog();
+        setBusy();
+        log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+        autoplay(last.correction.fixed);
+        return;
+      }
       paintLog();
       setBusy();
       log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });

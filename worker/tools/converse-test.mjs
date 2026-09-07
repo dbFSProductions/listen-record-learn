@@ -91,6 +91,22 @@ console.log("\nAn empty history opens the conversation");
   ok("timing fields ride along", typeof body.ms === "number" && typeof body.models === "number");
 }
 
+console.log("\nA character");
+{
+  const plain = stub(OPENING);
+  await post({ ...BASE, scene: SCENE, history: [] });
+  const without = promptOf(plain);
+  const sent = stub(OPENING);
+  await post({ ...BASE, scene: SCENE, character: "an old man who has lived in Horta all his life", history: [] });
+  const prompt = promptOf(sent);
+  ok("the character reaches the model", prompt.includes("The person you are playing: an old man who has lived in Horta all his life."));
+  ok("and is to be shown, not announced", prompt.includes("rather than by announcing it"));
+  ok("without one the prompt is unchanged", !without.includes("The person you are playing"));
+  const long = stub(OPENING);
+  await post({ ...BASE, scene: SCENE, character: "y".repeat(500), history: [] });
+  ok("it is capped at three hundred characters", promptOf(long).includes("y".repeat(300)) && !promptOf(long).includes("y".repeat(301)));
+}
+
 console.log("\nA turn is corrected and answered");
 {
   const sent = stub(TURN);
