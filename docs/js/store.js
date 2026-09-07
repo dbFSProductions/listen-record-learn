@@ -168,12 +168,15 @@ export const ABOUT_DECK = "About me";
    label, the gloss and the term all still work, so a new language costs
    nothing until someone writes the line for it.
 
-   Adding a fourth shape (the perfect and the pluperfect are next) is an entry
-   here and cards that name it. The gate draws one button per entry, in this
-   order, so nothing else has to learn about it — but note that every gated
-   card then offers every button, which is the thing to think about before
-   adding one: a shape only worth offering on some cards wants a different
-   design, not a fifth key. */
+   Every shape belongs to a `group`, and the group is the question the gate
+   asks. The past decks ask about the shape of time — dot or line — and the
+   three `base` shapes there are always on offer. The future and conditional
+   decks ask *when*: will it, would it, or is it as good as now. The
+   subjunctive decks ask *how you hold the sentence*: a fact, a wish, a doubt,
+   or a moment that hasn't come. A card is asked its own group's question and
+   offered its own group's shapes, so a queue mixing the three (Shuffle all of
+   Grammar) still asks one clean question per card rather than ten buttons.
+   Adding a shape is an entry here, in a group, and cards that name it. */
 export const ASPECTS = {
   dot: {
     /* The box is in the picture on purpose: what makes a dot a dot is the box
@@ -182,6 +185,7 @@ export const ASPECTS = {
        time still open into now. A drawn-border version (a `.mark-box` span —
        marks render unescaped, so markup works) was tried and put back: the
        bracket glyphs sit better in the mark column. */
+    group: "past",
     mark: "[●]",
     label: "A dot in a box",
     gloss: "an event in a time-boxed past",
@@ -197,6 +201,7 @@ export const ASPECTS = {
     base: true,
   },
   line: {
+    group: "past",
     mark: "▬▬",
     label: "A line",
     gloss: "a habit, a state, a background",
@@ -213,6 +218,7 @@ export const ASPECTS = {
      "past continuous + preterite" is one instance of this shape, and the one
      the cards lean on hardest, but it isn't the whole of it. */
   both: {
+    group: "past",
     mark: "▬●▬",
     label: "Both",
     gloss: "a line with a dot cutting across it",
@@ -232,6 +238,7 @@ export const ASPECTS = {
      always a specific moment in this table, and the anchor here is whatever
      past moment you happen to have landed on. */
   pastPerfect: {
+    group: "past",
     mark: "●···|",
     label: "An event before the event",
     gloss: "already over before that past moment",
@@ -247,6 +254,7 @@ export const ASPECTS = {
      it. That bracket is exactly what chooses it over the preterite in Spain,
      which is the decision the `Hoy o ayer` deck exists to drill. */
   presentPerfect: {
+    group: "past",
     mark: "(▬···●)",
     label: "A line reaching now",
     gloss: "in a stretch of time that includes today",
@@ -256,24 +264,181 @@ export const ASPECTS = {
       "ca-ES": "he · has · ha + -at / -ut / -it — the 'I have gone / eaten' one",
     },
   },
+
+  /* ---- Ahead of now: the future and conditional decks.
+
+     Three shapes, and the third is the one that catches people. English says
+     "I'm going to Girona tomorrow" and a learner reaches for a future; both
+     these languages say a plan already in the diary in the plain present
+     (*demà vaig a Girona*, *mañana voy a Girona*), and Catalan in particular
+     has no *vaig a* future at all — *vaig a* means you are physically on your
+     way somewhere. So the gate offers the present beside the future and the
+     conditional, and the odd cards in the future decks are exactly these.
+
+     The conditional's ending is worth saying out loud on every verdict: it is
+     the line's ending (-ia / -ía) put on the whole infinitive, in both
+     languages, which is why *would* looks like *used to* moved ahead. */
+  will: {
+    group: "ahead",
+    mark: "|→●",
+    label: "It will",
+    gloss: "ahead of now, and you're saying it'll come — a promise, a forecast",
+    term: "future",
+    endings: {
+      "ca-ES": "-ré · -ràs · -rà · -rem · -reu · -ran, on the whole infinitive",
+      "es-ES": "-é · -ás · -á · -emos · -éis · -án, on the whole infinitive",
+    },
+    base: true,
+  },
+  would: {
+    group: "ahead",
+    mark: "|⇢○",
+    label: "It would",
+    gloss: "in a world that isn't this one — or a softer, politer ask",
+    term: "conditional",
+    endings: {
+      "ca-ES": "-ria · -ries · -ria · -ríem · -ríeu · -rien — the line's ending, on the whole infinitive",
+      "es-ES": "-ía · -ías · -ía · -íamos · -íais · -ían — the line's ending, on the whole infinitive",
+    },
+    base: true,
+  },
+  now: {
+    group: "ahead",
+    mark: "|●",
+    label: "Already fixed",
+    gloss: "in the diary already, or how things stand — so it's said in the present",
+    term: "present",
+    endings: {
+      "ca-ES": "the ordinary present — demà tinc, la setmana que ve anem",
+      "es-ES": "the ordinary present — mañana tengo, la semana que viene vamos",
+    },
+    base: true,
+  },
+
+  /* ---- The mood: the subjunctive decks.
+
+     The question here is not when but how you hold the sentence. A fact is
+     stated straight, in the tenses above. Everything else is the subjunctive,
+     and it comes in three kinds a learner can actually feel: you *want* it and
+     it is someone else's to do (vull que vinguis), you *doubt* it or you are
+     *reacting* to it (no crec que sigui, m'alegro que hagis vingut), or the
+     moment simply *hasn't come* (quan arribi, abans que marxis, perquè ho
+     sàpigues). The three subjunctive shapes carry `sub` so the verdict can say
+     "subjunctive, yes — but a doubt, not a wish": getting the mood right and
+     the reason wrong is worth more than a plain red.
+
+     One trap the trigger lines are careful about: Catalan's *potser* takes
+     the indicative — potser està — where Spanish's quizá goes subjunctive, so
+     quizá is on the Spanish line and potser is on neither.
+
+     All four are `base`: every subjunctive deck offers every one, because the
+     odd cards in each deck are the indicative counterparts — *crec que té
+     raó* beside *no crec que tingui raó* — and a deck whose name answered its
+     own question would be no test at all.
+
+     The endings line is the trigger words and the form together, since the
+     trigger is what you hear first and the form is what it makes you say:
+     Catalan swaps in -i (parli, vinguis, sigui), Spanish swaps the vowel
+     (hable, vengas, sea). */
+  fact: {
+    group: "mood",
+    mark: "●",
+    label: "A fact",
+    gloss: "stated as so — how things are, or what you yourself will do or want to do",
+    term: "indicative — no subjunctive",
+    endings: {
+      "ca-ES": "the plain tenses — és · té · vindrà · va venir",
+      "es-ES": "the plain tenses — es · tiene · vendrá · vino",
+    },
+    base: true,
+  },
+  wish: {
+    group: "mood",
+    mark: "→○",
+    label: "A wish or a push",
+    gloss: "you want it to happen, and it's someone else's to do",
+    term: "subjunctive — wanting",
+    endings: {
+      "ca-ES": "vull que · cal que · espero que · tant de bo + the -i forms: vinguis · sigui · faci",
+      "es-ES": "quiero que · hace falta que · espero que · ojalá + the swapped vowel: vengas · sea · haga",
+    },
+    base: true,
+    sub: true,
+  },
+  doubt: {
+    group: "mood",
+    mark: "?○",
+    label: "A doubt or a feeling",
+    gloss: "you're not sure it's so, or you're reacting to it",
+    term: "subjunctive — doubting, feeling",
+    endings: {
+      "ca-ES": "no crec que · dubto que · m'alegro que · és normal que + the -i forms: sigui · tingui · hagi",
+      "es-ES": "no creo que · quizá · me alegro de que · es normal que + the swapped vowel: sea · tenga · haya",
+    },
+    base: true,
+    sub: true,
+  },
+  notYet: {
+    group: "mood",
+    mark: "···○",
+    label: "Not yet",
+    gloss: "a moment that hasn't come — when, before, so that, unless",
+    term: "subjunctive — waiting",
+    endings: {
+      "ca-ES": "quan · abans que · perquè · fins que + the -i forms: arribi · marxis · tingui",
+      "es-ES": "cuando · antes de que · para que · hasta que + the swapped vowel: llegue · te vayas · tenga",
+    },
+    base: true,
+    sub: true,
+  },
 };
 
-/* Which shapes the gate offers for the deck you are in.
+/* The question each group asks, in the words the gate prints. `question` is
+   what stands over the card; `wide` replaces it once a deck has put a shape
+   on the table that the question doesn't name — the past group's perfects, so
+   far — and `prompt` is the one line under the English saying what to decide.
+   The past group's `question` is the whole idea asked as a question, and it
+   is the right one right up until a perfect is on offer, at which point it is
+   literally the wrong question: neither answer is a button. */
+export const ASPECT_GROUPS = {
+  past: {
+    question: "Dot in a box, or line?",
+    wide: "Which shape?",
+    prompt: "Decide the shape first. The sentence comes after.",
+  },
+  ahead: {
+    question: "Will, would, or already fixed?",
+    prompt: "Decide when first. The sentence comes after.",
+  },
+  mood: {
+    question: "Fact, wish, doubt — or not yet?",
+    prompt: "Decide how you hold it first. The sentence comes after.",
+  },
+};
 
-   Five buttons on every card would be wrong: a sentence from the imperfect
-   deck has no business offering a pluperfect, and a choice that is never the
-   answer anywhere in the deck is noise you have to read past every time. So
-   the offer is the shapes the queue actually contains — the deck you picked is
+/* Which shapes the gate offers for the card you are on, in the deck you are
+   in.
+
+   Every shape of every group on every card would be wrong: a sentence from
+   the imperfect deck has no business offering a subjunctive, and a choice
+   that is never the answer anywhere in the deck is noise you have to read
+   past every time. So the offer is the card's own group, and within that
+   group the shapes the queue actually contains — the deck you picked is
    context, the same way its name already is.
 
-   The three `base` shapes are always on offer under that. Dot-or-line is the
-   question every past sentence poses, and it stays live even in a deck that
-   happens to answer it the same way every time; the perfects are extra shapes
-   that only turn up where a deck has put them. That floor is also what stops a
-   single-shape deck from offering exactly one button and answering itself. */
-export function aspectChoices(queue) {
+   The group's `base` shapes are always on offer under that. Dot-or-line is
+   the question every past sentence poses, and it stays live even in a deck
+   that happens to answer it the same way every time; the perfects are extra
+   shapes that only turn up where a deck has put them. That floor is also what
+   stops a single-shape deck from offering exactly one button and answering
+   itself. The other two groups are all base, so their decks always ask the
+   whole question. */
+export function aspectChoices(queue, phrase) {
+  const group = ASPECTS[phrase?.aspect]?.group ?? "past";
   const inPlay = new Set((queue ?? []).map((p) => p?.aspect).filter((key) => ASPECTS[key]));
-  return Object.keys(ASPECTS).filter((key) => ASPECTS[key].base || inPlay.has(key));
+  return Object.keys(ASPECTS).filter(
+    (key) => ASPECTS[key].group === group && (ASPECTS[key].base || inPlay.has(key))
+  );
 }
 
 /* The shape this card asks about — the entry from the table above, plus the
@@ -417,7 +582,7 @@ export function myWordsDeck(language) {
    deck shown behind two tiles is a card in two places. Claiming the family here
    is what takes it out of the Decks count and the Decks list at once. */
 const SECTION_FAMILIES = {
-  grammar: ["Passat", "Pasado"],
+  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo"],
   vocab: Object.values(VOCAB_FAMILY),
   about: [ABOUT_DECK],
 };
@@ -1395,6 +1560,13 @@ const DEFAULT_SETTINGS = {
      says (`talkNow` in app.js). A setting for road mode's reason: how you are
      practising today, not a fact about one chat. */
   chatTalk: true,
+  /* The voice the rehearsal chat's partner speaks in, once you have chosen
+     one. Empty means "the other one": `partnerVoice` picks the first voice of
+     the language whose gender is not your drill voice's, so the two sides of
+     a chat are never the one man talking to himself. Validated against the
+     language's voices on load like `azureVoice`, and back to empty when it
+     isn't one of them. */
+  chatVoice: "",
   /* Quiet mode: road mode's mirror, and the other half of the same question —
      which channels have you got right now? On the road you can speak but not
      look; in a train, an office, or a room with someone asleep in it you can
@@ -1433,6 +1605,7 @@ export const settings = {
        default is a default, not a preference imposed on a choice already made. */
     const voices = LANGUAGES[this.language]?.voices ?? [];
     if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
+    if (this.chatVoice && !voices.some((v) => v.id === this.chatVoice)) this.chatVoice = "";
   },
 
   save() {
@@ -1477,6 +1650,20 @@ export function setFamilyOpen(name, open) {
 export function defaultVoice(language) {
   const voices = LANGUAGES[language]?.voices ?? [];
   return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
+}
+
+/* The voice the other person in a rehearsal chat speaks in. Your choice if
+   you have made one and it is one of this language's voices; otherwise the
+   first voice whose gender is not `mine`'s — so with Enric as the drill voice
+   the partner is Joana, and with Joana it is Enric — and, in a language with
+   one voice, that voice. `mine` is the drill voice, and it is the voice your
+   own corrected lines are read back in, which is what makes the two sides of
+   the chat two people. */
+export function partnerVoice(language, mine = settings.azureVoice, chosen = settings.chatVoice) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  if (chosen && voices.some((v) => v.id === chosen)) return chosen;
+  const myGender = voices.find((v) => v.id === mine)?.gender;
+  return (voices.find((v) => v.gender !== myGender) ?? voices.find((v) => v.id !== mine) ?? voices[0])?.id ?? "";
 }
 
 export const LANGUAGES = {

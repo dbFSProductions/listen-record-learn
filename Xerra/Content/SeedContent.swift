@@ -30,8 +30,29 @@ enum SeedContent {
             + pastPerfectDeck + presentPerfectDeck + pastMixedAll
     }
 
+    /// The rest of the grammar: ahead of now (the future and the conditional,
+    /// which the gate asks about together — will, would, or already fixed) and
+    /// the mood (the subjunctive, asked as fact, wish, doubt, or not yet).
+    /// Same design as the past decks: the two languages say the same sixty-four
+    /// sentences, the shape is what each card is *about*, and every deck
+    /// carries an odd card or two so its name never answers the question.
+    static var catalanGrammarDecks: [Phrase] {
+        catalanFutureTomorrow + catalanFutureFixed
+            + catalanConditionalSoft + catalanConditionalIf
+            + catalanSubjunctiveWish + catalanSubjunctiveDoubt
+            + catalanSubjunctiveNotYet + catalanSubjunctiveAll
+    }
+
+    static var spanishGrammarDecks: [Phrase] {
+        futureTomorrow + futureFixed
+            + conditionalSoft + conditionalIf
+            + subjunctiveWish + subjunctiveDoubt
+            + subjunctiveNotYet + subjunctiveAll
+    }
+
     static var allStarterDecks: [Phrase] {
-        catalanStarterDecks + catalanPastDecks + spanishPastDecks
+        catalanStarterDecks + catalanPastDecks + catalanGrammarDecks
+            + spanishPastDecks + spanishGrammarDecks
     }
 
     // MARK: - Sounds
@@ -1523,6 +1544,584 @@ enum SeedContent {
         ),
     ]
 
+    // MARK: - Catalan · ahead of now
+
+    /// The plain future: -ré on the whole infinitive, and a deck of promises
+    /// and forecasts. Two odd cards — a plan in the diary, which is said in the
+    /// present, and a wish, which is the conditional — so the deck's name never
+    /// answers its own question.
+    static let catalanFutureTomorrow: [Phrase] = [
+        Phrase(
+            text: "Demà et trucaré.",
+            translation: "I'll call you tomorrow.",
+            deck: "Futur · Demà",
+            focusNote: "tru-kə-RÉ: the stress runs to the last syllable, which is the future's home. 'Demà' is də-MÀ, schwa first.",
+            aspect: .will,
+            aspectNote: "A promise about a moment ahead of now. The Catalan future is the whole infinitive with the ending on the end: trucar + é."
+        ),
+        Phrase(
+            text: "Aquesta tarda plourà.",
+            translation: "It'll rain this afternoon.",
+            deck: "Futur · Demà",
+            focusNote: "plow-RÀ: one syllable, then the stressed -RÀ. 'Aquesta' is ə-KÉS-tə and 'tarda' is TAR-də.",
+            aspect: .will,
+            aspectNote: "A forecast is the future at its plainest: ahead, and you're saying it'll come. Ploure + à."
+        ),
+        Phrase(
+            text: "Tindrem temps.",
+            translation: "We'll have time.",
+            deck: "Futur · Demà",
+            focusNote: "tin-DRÉM: tenir shortens to tindr- before the ending. 'Temps' says its s and swallows the p — TÉMS.",
+            aspect: .will,
+            aspectNote: "Tenir is one of the handful that shorten before the ending — tindré, tindràs, tindrà — but the ending is the same -rem."
+        ),
+        Phrase(
+            text: "Seré a l'assaig a les vuit.",
+            translation: "I'll be at the rehearsal at eight.",
+            deck: "Futur · Demà",
+            focusNote: "sə-RÉ, then ə lə-SATX — the ig of assaig is the tx sound. 'Vuit' is one syllable, BUIT, with the v said as b.",
+            aspect: .will,
+            aspectNote: "Catalan says where you'll be with ser, not estar: seré a l'assaig. The future ending on ser is the same -ré."
+        ),
+        Phrase(
+            text: "Demà vaig al mercat.",
+            translation: "Tomorrow I'm going to the market.",
+            deck: "Futur · Demà",
+            focusNote: "'Vaig' is BATCH — the ig is the hard tx. mər-KAT ends on the hard t.",
+            aspect: .now,
+            aspectNote: "The odd one out. A plan already in the diary is said in the present — and 'vaig a anar' is Spanish wearing a Catalan hat: in Catalan, vaig a only ever means you are on your way somewhere."
+        ),
+        Phrase(
+            text: "Tot anirà bé, no pateixis.",
+            translation: "It'll be fine, don't worry.",
+            deck: "Futur · Demà",
+            focusNote: "ə-ni-RÀ: anar keeps its whole shape in the future. pə-TÉ-shis — the x is the sh of 'shoe'.",
+            aspect: .will,
+            aspectNote: "Anirà is the future — ahead, and promised. (No pateixis is a subjunctive doing the negative command; the Subjuntiu decks come back to it.)"
+        ),
+        Phrase(
+            text: "M'encantaria venir, però no puc.",
+            translation: "I'd love to come, but I can't.",
+            deck: "Futur · Demà",
+            focusNote: "mən-kən-tə-RI-ə: four soft syllables round the stressed RI. 'Puc' ends on a hard c.",
+            aspect: .would,
+            aspectNote: "The odd one out: -ria is the conditional — a wish in a world where you could. The 'but' is the giveaway."
+        ),
+        Phrase(
+            text: "Deuen ser les deu.",
+            translation: "It must be about ten o'clock.",
+            deck: "Futur · Demà",
+            focusNote: "DÉ-wən, then SÉ with the r silent. 'Deu' is DÉW, one syllable.",
+            aspect: .now,
+            aspectNote: "A guess about now, and Catalan makes it with deure + the plain verb — deuen ser. 'Seran les deu' is Spanish showing through."
+        ),
+    ]
+
+    /// Present or future, in pairs: a thing in the diary is said in the
+    /// present, a guess or a hope about what's ahead is the future. Four pairs
+    /// and nothing else, because the sentences are otherwise near-identical and
+    /// the diary is the whole of what decides it.
+    static let catalanFutureFixed: [Phrase] = [
+        Phrase(
+            text: "Demà tinc assaig.",
+            translation: "I have rehearsal tomorrow.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "də-MÀ TINK ə-SATX: tinc ends on a hard k, assaig on the tx.",
+            aspect: .now,
+            aspectNote: "In the diary already, so it's the present. English says 'I have', and so does Catalan."
+        ),
+        Phrase(
+            text: "La setmana que ve tindré més temps.",
+            translation: "I'll have more time next week.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "sət-MA-nə kə BÉ: 've' is said as be. tin-DRÉ, then TÉMS with its p swallowed.",
+            aspect: .will,
+            aspectNote: "Not in the diary — a guess about how things will stand. Tindré, the future."
+        ),
+        Phrase(
+            text: "El tren surt a les set.",
+            translation: "The train leaves at seven.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "SURT keeps both the r and the t. 'Set' is SÈT, the e open.",
+            aspect: .now,
+            aspectNote: "A timetable is as fixed as a thing gets, so the present: surt, not sortirà."
+        ),
+        Phrase(
+            text: "El tren arribarà tard.",
+            translation: "The train will be late.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "ə-rri-bə-RÀ: a rolled rr, then the stress on the end. 'Tard' ends on a t sound — TART.",
+            aspect: .will,
+            aspectNote: "Nobody's diary says late. A guess about what's ahead, so the future."
+        ),
+        Phrase(
+            text: "A l'estiu anem a Sicília.",
+            translation: "We're going to Sicily in the summer.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "ə ləs-TIW ə-NÉM ə si-SI-li-ə: estiu ends on a w-glide, and Sicília is stressed on the SI.",
+            aspect: .now,
+            aspectNote: "Booked, so present. 'Anem a' here is going *to* a place — the only thing anem a ever means in Catalan."
+        ),
+        Phrase(
+            text: "Un dia parlaré bé el català.",
+            translation: "One day I'll speak Catalan properly.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "pər-lə-RÉ BÉ: two schwas and then the stressed é. kə-tə-LÀ, the final n gone.",
+            aspect: .will,
+            aspectNote: "A hope about a day with no date on it, so the future: parlar + é."
+        ),
+        Phrase(
+            text: "El concert comença a les nou.",
+            translation: "The concert starts at nine.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "kun-SÈRT: the o rises to u, the final t is said. ku-MÉN-sə. 'Nou' is NÒW.",
+            aspect: .now,
+            aspectNote: "On the poster, so the present: comença. Its guess-twin would be començarà."
+        ),
+        Phrase(
+            text: "Si plou, no sortirem.",
+            translation: "If it rains, we won't go out.",
+            deck: "Futur · Ja està decidit",
+            focusNote: "si PLÒW, nu sur-ti-RÉM: the o of no rises to u, and sortirem lands on the -RÉM.",
+            aspect: .will,
+            aspectNote: "A real 'if' — it may well rain — takes the present after si and the future after it. Its unreal twin, si plogués … no sortiríem, is in the Condicional decks."
+        ),
+    ]
+
+    // MARK: - Catalan · would
+
+    /// The conditional as a softener: the -ria that turns an order into a
+    /// request and a fact into advice. One promise in among them, because a
+    /// promise is the future and the deck should not answer itself.
+    static let catalanConditionalSoft: [Phrase] = [
+        Phrase(
+            text: "Voldria un cafè, si us plau.",
+            translation: "I'd like a coffee, please.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "bul-DRI-ə: voler shortens to voldr-, the o rises to u, and the v is a b. 'Si us plau' runs together as one word.",
+            aspect: .would,
+            aspectNote: "Would, as a softener: the conditional makes an order into a request. Voler shortens to voldr- and takes the line's ending, -ia."
+        ),
+        Phrase(
+            text: "Podries parlar més a poc a poc?",
+            translation: "Could you speak more slowly?",
+            deck: "Condicional · M'agradaria",
+            focusNote: "pu-DRI-əs: poder shortens to podr-, the o rises to u. 'A poc a poc' is ə-POK-ə-POK, both o's open and full.",
+            aspect: .would,
+            aspectNote: "A polite 'could you' is the conditional of poder — podries. It asks about a world where you might, which is why it's softer than pots."
+        ),
+        Phrase(
+            text: "Hi aniria, però tinc assaig.",
+            translation: "I would go, but I have rehearsal.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "'Hi aniria' is i-ə-ni-RI-ə — the hi hooks on in front, and anar keeps its whole shape. 'Assaig' ends on the tx.",
+            aspect: .would,
+            aspectNote: "The 'but' says which world you're in: the going is the one that isn't happening. Anar + ia."
+        ),
+        Phrase(
+            text: "Hauries de descansar.",
+            translation: "You should rest.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "əw-RI-əs də dəs-kən-SÀ: haver shortens to haur-, and descansar drops its final r.",
+            aspect: .would,
+            aspectNote: "'Should' is the conditional of haver de — the softened form of 'you have to'. Hauries de, then the plain verb."
+        ),
+        Phrase(
+            text: "Seria millor anar-hi d'hora.",
+            translation: "It'd be better to go early.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "sə-RI-ə mi-LLÓ: millor lands on the end with the palatal ll and a silent r. 'Anar-hi' is ə-NAR-i — the r comes back when a pronoun hangs off it.",
+            aspect: .would,
+            aspectNote: "Advice framed as a would: seria, the conditional of ser. Softer than és millor."
+        ),
+        Phrase(
+            text: "Ho faré demà, t'ho prometo.",
+            translation: "I'll do it tomorrow, I promise.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "'Ho faré' is u-fə-RÉ — ho is a bare u. 'T'ho prometo' is tu-pru-MÈ-tu, both o's rising to u.",
+            aspect: .will,
+            aspectNote: "The odd one out: a promise is the future, not the conditional. Faré — ahead, and meant."
+        ),
+        Phrase(
+            text: "Et faria res tancar la finestra?",
+            translation: "Would you mind closing the window?",
+            deck: "Condicional · M'agradaria",
+            focusNote: "ət fə-RI-ə RRÈS: res opens on a rolled r. tən-KÀ drops its r; fi-NÉS-trə is stressed on the NÉS.",
+            usageNote: "'Et fa res…?' is the everyday 'do you mind…?' — literally 'does it do you anything'.",
+            aspect: .would,
+            aspectNote: "Fer in the conditional — faria — because you're asking about a world where they might mind."
+        ),
+        Phrase(
+            text: "M'estimaria més quedar-me a casa.",
+            translation: "I'd rather stay at home.",
+            deck: "Condicional · M'agradaria",
+            focusNote: "məs-ti-mə-RI-ə MÉS: the stress lands on -RI-, then a full més. 'Quedar-me' keeps its r — kə-DAR-mə — because -me hangs off it.",
+            usageNote: "'M'estimo més' is the idiomatic Catalan for 'I prefer' — estimar-se més, to hold something dearer.",
+            aspect: .would,
+            aspectNote: "Preference put as a would — estimaria — because you're picking between worlds."
+        ),
+    ]
+
+    /// The unreal if: si + the past subjunctive, and the conditional after it.
+    /// The pairing is the whole deck, and the one real if in it — present after
+    /// si, future after — is the odd card that keeps the question honest.
+    static let catalanConditionalIf: [Phrase] = [
+        Phrase(
+            text: "Si tingués temps, aprendria a tocar el piano.",
+            translation: "If I had time, I'd learn the piano.",
+            deck: "Condicional · Si tingués",
+            focusNote: "tin-GUÉS with a hard g and the stress on the end. ə-prən-DRI-ə — aprendre shortens to aprendr-.",
+            aspect: .would,
+            aspectNote: "An unreal if: the si-clause takes the past subjunctive (tingués) and the answer takes the conditional. That pairing is the whole deck."
+        ),
+        Phrase(
+            text: "Si plogués, no sortiríem.",
+            translation: "If it rained, we wouldn't go out.",
+            deck: "Condicional · Si tingués",
+            focusNote: "plu-GUÉS: the o rises to u, the g is hard. sur-ti-RI-əm, stressed on the RI.",
+            aspect: .would,
+            aspectNote: "The unreal twin of si plou, no sortirem. Plogués in the if, sortiríem in the answer: two endings that always travel together."
+        ),
+        Phrase(
+            text: "Si vens d'hora, farem un cafè.",
+            translation: "If you come early, we'll have a coffee.",
+            deck: "Condicional · Si tingués",
+            focusNote: "si BÉNS DÒ-rə: vens is said with a b, and d'hora is one word with the h silent. fə-RÉM.",
+            aspect: .will,
+            aspectNote: "The odd one out: a real if — you may well come — so the present after si and the future after it. Vens, farem."
+        ),
+        Phrase(
+            text: "El compraria si fos més barat.",
+            translation: "I'd buy it if it were cheaper.",
+            deck: "Condicional · Si tingués",
+            focusNote: "kum-prə-RI-ə: the o rises to u. 'Fos' is one short syllable, FOS. bə-RAT ends on a hard t.",
+            aspect: .would,
+            aspectNote: "Fos is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows."
+        ),
+        Phrase(
+            text: "Què faries al meu lloc?",
+            translation: "What would you do in my place?",
+            deck: "Condicional · Si tingués",
+            focusNote: "KÈ fə-RI-əs: the question word has an open e. 'Lloc' opens on the palatal ll and shuts on a hard c.",
+            aspect: .would,
+            aspectNote: "A hypothetical with the if left unsaid — 'if you were me'. Faries, the conditional of fer."
+        ),
+        Phrase(
+            text: "Si fos tu, hi aniria.",
+            translation: "If I were you, I'd go.",
+            deck: "Condicional · Si tingués",
+            focusNote: "si FOS TU, i ə-ni-RI-ə: the hi is a bare i in front of aniria.",
+            aspect: .would,
+            aspectNote: "The if that can never be true, so the past subjunctive — fos — and the conditional after it."
+        ),
+        Phrase(
+            text: "Podríem anar a la platja si fa sol.",
+            translation: "We could go to the beach if it's sunny.",
+            deck: "Condicional · Si tingués",
+            focusNote: "pu-DRI-əm, stressed on the DRI. 'Platja' is PLAD-jə — the tj is the j of 'judge'. 'Sol' has an open o, SÒL.",
+            aspect: .would,
+            aspectNote: "A suggestion, so the conditional — podríem — even though the if is a real one (fa sol, present). The would is softening here, not supposing."
+        ),
+        Phrase(
+            text: "M'hauria agradat anar-hi.",
+            translation: "I'd have liked to go.",
+            deck: "Condicional · Si tingués",
+            focusNote: "məw-RI-ə ə-grə-DAT: hauria is the conditional of haver, and agradat ends on a hard t. ə-NAR-i.",
+            aspect: .would,
+            aspectNote: "The would, one step back in time: hauria + agradat is 'would have'. Same -ria, on haver."
+        ),
+    ]
+
+    // MARK: - Catalan · the mood
+
+    /// A wish or a push: you want it, and it's someone else's to do. Vull que,
+    /// cal que, espero que, tant de bo — and then the -i forms. The odd cards
+    /// are the infinitive (vull venir: same person, no que, no subjunctive) and
+    /// one doubt, so the deck's name is not the answer.
+    static let catalanSubjunctiveWish: [Phrase] = [
+        Phrase(
+            text: "Vull que vinguis a l'assaig.",
+            translation: "I want you to come to the rehearsal.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "BULL kə BIN-guis: vull ends on the palatal ll, vinguis has a hard g and is front-stressed. Both v's are b.",
+            aspect: .wish,
+            aspectNote: "You want it and it's someone else's to do: vull que, then the subjunctive. Venir → vingui, vinguis."
+        ),
+        Phrase(
+            text: "Vull venir a l'assaig.",
+            translation: "I want to come to the rehearsal.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "BULL bə-NI: venir drops its final r, and the v is a b.",
+            aspect: .fact,
+            aspectNote: "The odd one out. The wanting and the coming are the same person, so there's no que and no subjunctive — just the infinitive. Vull venir, never vull que vingui."
+        ),
+        Phrase(
+            text: "Espero que et recuperis aviat.",
+            translation: "I hope you get better soon.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "əs-PÈ-ru kət rə-ku-PÉ-ris: stressed on the PÉ, with the unstressed vowels softened. 'Aviat' is ə-vi-AT, ending on a hard t.",
+            aspect: .wish,
+            aspectNote: "A hope is a wish about someone else's body: espero que + subjunctive. Recuperar-se → et recuperis."
+        ),
+        Phrase(
+            text: "Cal que siguis aquí a les vuit.",
+            translation: "We need you to be here at eight.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "KAL kə SI-guis: sigui is ser's subjunctive and takes a hard g. ə-KÍ lands on the í, and vuit is BUIT.",
+            aspect: .wish,
+            aspectNote: "Cal que is a push — 'it's necessary that' — and pushes take the subjunctive. Ser → sigui, siguis."
+        ),
+        Phrase(
+            text: "M'agradaria que sopéssim junts.",
+            translation: "I'd like us to have dinner together.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "su-PÉ-sim: the past subjunctive's -éssim, stressed on the É. 'Junts' loses its t between the n and the s — JUNS, with the j of 'measure'.",
+            aspect: .wish,
+            aspectNote: "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (m'agradaria), the subjunctive steps back a tense with it: sopéssim, not sopem."
+        ),
+        Phrase(
+            text: "Tant de bo plogui.",
+            translation: "Let's hope it rains.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "TAN də BÒ: the t of tant is swallowed before de. PLÒ-gui with a hard g.",
+            usageNote: "'Tant de bo' is the Catalan for ojalá — literally 'so much of good'.",
+            aspect: .wish,
+            aspectNote: "A wish flung at the weather: tant de bo takes the subjunctive on its own, no que needed. Ploure → plogui."
+        ),
+        Phrase(
+            text: "Digues-li que em truqui.",
+            translation: "Tell him to call me.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "DI-gəz-li: digues is the imperative of dir. Then kəm TRU-ki, where the qu keeps the hard k in front of the i.",
+            aspect: .wish,
+            aspectNote: "A message you push through someone: 'tell him to' is dir + que + subjunctive. Trucar → truqui, spelled with qu to keep the k."
+        ),
+        Phrase(
+            text: "No crec que sigui bona idea.",
+            translation: "I don't think it's a good idea.",
+            deck: "Subjuntiu · Vull que",
+            focusNote: "nu KRÈK kə SI-gui: the o of no rises to u, crec ends on a hard c. BÒ-nə i-DÈ-ə.",
+            aspect: .doubt,
+            aspectNote: "The odd one out here — a doubt, not a wish. No crec que pulls the subjunctive as hard as vull que does, but for the other reason: you're not sure it's so."
+        ),
+    ]
+
+    /// A doubt or a feeling: you're not sure it's so, or you're reacting to it.
+    /// Built as pairs where it can be — crec que té raó beside no crec que
+    /// vingui, estic segur beside dubto — because the no is the whole of what
+    /// decides it. One card where the twins part company: potser takes the
+    /// indicative in Catalan and the subjunctive in Spanish.
+    static let catalanSubjunctiveDoubt: [Phrase] = [
+        Phrase(
+            text: "No crec que vingui.",
+            translation: "I don't think he'll come.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "nu KRÈK kə BIN-gui: the o of no rises to u before the stressed word, and crec ends on a hard c.",
+            aspect: .doubt,
+            aspectNote: "Denied belief is a doubt, so the subjunctive: no crec que vingui. The sentence is about the future and the subjunctive is still the present one."
+        ),
+        Phrase(
+            text: "Crec que té raó.",
+            translation: "I think he's right.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "KRÈK kə TÉ rrə-Ó: raó opens on a rolled r and lands on the ó.",
+            aspect: .fact,
+            aspectNote: "The odd one out. Crec que without the no is a fact as far as you're concerned, so the indicative: té. Take the no off and the subjunctive goes with it."
+        ),
+        Phrase(
+            text: "M'alegro que hagis vingut.",
+            translation: "I'm glad you've come.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "mə-LÉ-gru kə A-jis bin-GUT: the h is silent, the g of hagis before i is the soft j of 'measure', and vingut ends on a hard t.",
+            aspect: .doubt,
+            aspectNote: "A feeling about something that has happened: the subjunctive, one step back — hagis vingut, the perfect subjunctive. The fact isn't in doubt; you're reacting to it."
+        ),
+        Phrase(
+            text: "És una llàstima que no puguis quedar-te.",
+            translation: "It's a shame you can't stay.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "LLÀS-ti-mə opens on the palatal ll; PU-guis has a hard g. 'Quedar-te' keeps its r — kə-DAR-tə — because -te hangs off it.",
+            aspect: .doubt,
+            aspectNote: "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pugui, puguis."
+        ),
+        Phrase(
+            text: "Potser està tancat.",
+            translation: "Maybe it's closed.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "put-SÉ: the o rises to u and the r is silent. əs-TÀ, then tən-KAT on a hard t.",
+            aspect: .fact,
+            aspectNote: "The second odd one, and a trap for anyone coming from Spanish: Catalan's potser takes the plain indicative — potser està. Its Spanish twin, quizá esté, goes subjunctive."
+        ),
+        Phrase(
+            text: "És normal que estiguis nerviós abans d'un concert.",
+            translation: "It's normal to be nervous before a concert.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "nur-MAL kəs-TI-guis: estar's subjunctive has a hard g in it. nər-vi-ÓS lands on the ó; kun-SÈRT says its final t.",
+            aspect: .doubt,
+            aspectNote: "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: estigui, estiguis."
+        ),
+        Phrase(
+            text: "Dubto que els quedin taules.",
+            translation: "I doubt they have any tables left.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "DUP-tu: the b is unvoiced to a p before the t, and the o rises to u. KÉ-din is front-stressed; TÀW-ləs.",
+            aspect: .doubt,
+            aspectNote: "Dubtar is doubt by name: dubto que + subjunctive. Quedar → quedi, quedin."
+        ),
+        Phrase(
+            text: "Estic segur que anirà bé.",
+            translation: "I'm sure it'll go well.",
+            deck: "Subjuntiu · No crec que",
+            focusNote: "əs-TIK sə-GUR: estic ends on a hard k, segur keeps its r. ə-ni-RÀ BÉ.",
+            aspect: .fact,
+            aspectNote: "The third odd one: certainty is a fact, so the indicative — and a future one, anirà. Being sure is the opposite of doubting, and the mood says so."
+        ),
+    ]
+
+    /// Not yet: a moment that hasn't come — quan, abans que, perquè, fins que,
+    /// tret que — and English hides every one of them in a plain present. The
+    /// minimal pair is the first two cards: quan arribi (tonight) against quan
+    /// arribo (every night).
+    static let catalanSubjunctiveNotYet: [Phrase] = [
+        Phrase(
+            text: "Quan arribi a casa, et trucaré.",
+            translation: "When I get home, I'll call you.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "kwən ə-RRI-bi: arribi is stressed on the RRI, with a rolled rr. 'Casa' is KA-zə. Then tru-kə-RÉ.",
+            aspect: .notYet,
+            aspectNote: "The getting home hasn't happened yet, so quan takes the subjunctive: arribi. The calling is a plain future. English hides all of this in 'when I get'."
+        ),
+        Phrase(
+            text: "Quan arribo a casa, sopo.",
+            translation: "When I get home, I have dinner.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "kwən ə-RRI-bu: the final o rises to u. SÓ-pu, the same.",
+            aspect: .fact,
+            aspectNote: "The odd one out, and the pair of the card above. This is a habit — it happens every night — so quan takes the ordinary present: arribo. Not-yet is what made the other one subjunctive; this one is every night."
+        ),
+        Phrase(
+            text: "Truca'm abans que marxis.",
+            translation: "Call me before you leave.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "TRU-kəm, then ə-BANS kə MAR-shis — the x is the sh of 'shoe'.",
+            aspect: .notYet,
+            aspectNote: "The leaving is still ahead, so abans que takes the subjunctive: marxar → marxis. Abans que always does; there's no fact version of it."
+        ),
+        Phrase(
+            text: "Et deixaré una nota perquè ho sàpigues.",
+            translation: "I'll leave you a note so you know.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "də-shə-RÉ: the x is the sh of 'shoe'. 'Ho sàpigues' is u SÀ-pi-gəs — a bare u, then saber's subjunctive stressed on the SÀ.",
+            usageNote: "Perquè with the subjunctive means 'so that'; with the indicative it means 'because'. Same word, two moods, two meanings.",
+            aspect: .notYet,
+            aspectNote: "Purpose is always not-yet — the knowing is what the note is for — so perquè takes the subjunctive: sàpigues. Perquè + indicative would mean 'because'."
+        ),
+        Phrase(
+            text: "No surto fins que no pari de ploure.",
+            translation: "I'm not going out until it stops raining.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "nu SUR-tu, then FINS kə nu PA-ri — the second no is said, quietly. PLÒW-rə.",
+            usageNote: "The second no is Catalan's expletive no after fins que — it isn't a negative, and people say it.",
+            aspect: .notYet,
+            aspectNote: "The stopping hasn't come, so fins que takes the subjunctive: parar → pari."
+        ),
+        Phrase(
+            text: "Hi anirem així que acabi l'assaig.",
+            translation: "We'll go as soon as the rehearsal finishes.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "i ə-ni-RÉM ə-SHÍ kə ə-KA-bi: així has the sh sound and lands on the í; acabi is stressed on the KA.",
+            aspect: .notYet,
+            aspectNote: "As soon as points at a moment that hasn't arrived, so acabar → acabi. The going is the future."
+        ),
+        Phrase(
+            text: "Vindré tret que plogui.",
+            translation: "I'll come unless it rains.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "bin-DRÉ: venir shortens to vindr-, and the v is a b. 'Tret que' is TRÈT kə, both t's crisp. PLÒ-gui.",
+            usageNote: "'Tret que' and 'llevat que' are both 'unless'; 'si no plou' is the everyday way round it.",
+            aspect: .notYet,
+            aspectNote: "Unless is a door that hasn't shut yet — tret que takes the subjunctive: ploure → plogui."
+        ),
+        Phrase(
+            text: "Ho faré quan tingui temps.",
+            translation: "I'll do it when I have time.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "u fə-RÉ kwən TIN-gui TÉMS: tingui is front-stressed with a hard g, and temps swallows its p.",
+            aspect: .notYet,
+            aspectNote: "Having time is a moment that hasn't come, so quan takes tingui. Tenir → tingui, with the same -ngu- as vingui."
+        ),
+    ]
+
+    /// All four at once, two of each, in no order the name gives away. The deck
+    /// that matters most, for the reason Tot junt does in the past.
+    static let catalanSubjunctiveAll: [Phrase] = [
+        Phrase(
+            text: "Vull que ho sàpiga.",
+            translation: "I want him to know.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "BULL kə u SÀ-pi-gə: ho is a bare u, and sàpiga is stressed on the SÀ.",
+            aspect: .wish,
+            aspectNote: "A push: you want the knowing, and it's his to do. Saber → sàpiga."
+        ),
+        Phrase(
+            text: "Sé que vindrà.",
+            translation: "I know he'll come.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "SÉ kə bin-DRÀ: the v is a b, and the future lands on the à.",
+            aspect: .fact,
+            aspectNote: "Knowing is a fact, so the indicative — the future, vindrà. Compare espero que vingui: hoping is a wish, knowing isn't."
+        ),
+        Phrase(
+            text: "Em sap greu que no puguis venir.",
+            translation: "I'm sorry you can't come.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "əm SAP GRÈW: sap ends on a hard p, greu is one syllable with an open e. PU-guis, then bə-NI with the r gone.",
+            usageNote: "'Em sap greu' is the everyday Catalan 'I'm sorry' — literally 'it tastes bad to me'.",
+            aspect: .doubt,
+            aspectNote: "A feeling about a fact: em sap greu que + subjunctive. Poder → puguis."
+        ),
+        Phrase(
+            text: "En parlarem quan arribis.",
+            translation: "We'll talk when you arrive.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "əm pər-lə-RÉM: the en is a bare schwa-m before the p. kwən ə-RRI-bis with a rolled rr.",
+            aspect: .notYet,
+            aspectNote: "Arriving hasn't happened yet, so quan takes arribis. The talking is the future."
+        ),
+        Phrase(
+            text: "És evident que és el millor.",
+            translation: "It's clear he's the best.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "əz ə-vi-DÉN: evident loses its final t after the n. mi-LLÓ, the r silent and the ll palatal.",
+            aspect: .fact,
+            aspectNote: "Evidence is a fact: és evident que takes the indicative. Its shadow, no és evident que sigui, would flip it."
+        ),
+        Phrase(
+            text: "Necessito que m'ajudis.",
+            translation: "I need you to help me.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "nə-sə-SI-tu kə mə-JU-dis: the j is the voiced sound of 'measure', and ajudis is stressed on the JU.",
+            aspect: .wish,
+            aspectNote: "A push: the helping is someone else's to do. Ajudar → ajudi, ajudis."
+        ),
+        Phrase(
+            text: "No crec que sigui tan lluny.",
+            translation: "I don't think it's that far.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "SI-gui with a hard g; LLUNY opens on the palatal ll and shuts on the ny of 'canyon'.",
+            aspect: .doubt,
+            aspectNote: "A doubt: no crec que, and ser → sigui. Take the no off and it's crec que és."
+        ),
+        Phrase(
+            text: "Avisa'm abans que decideixis.",
+            translation: "Let me know before you decide.",
+            deck: "Subjuntiu · Tot junt",
+            focusNote: "ə-VI-zəm: the s between vowels is a z. də-si-DÉ-shis, with the sh of 'shoe' at the end.",
+            aspect: .notYet,
+            aspectNote: "Deciding is still ahead, so abans que takes the subjunctive: decidir → decideixis."
+        ),
+    ]
+
     // MARK: - Spanish · the shape of the past
 
     /// The imperfect, drilled as *the line*. Every card here is a stretch of
@@ -2016,6 +2615,629 @@ enum SeedContent {
             focusNote: "a-BÍ-an in-vi-TA-do — silent h, and both v's are the soft b.",
             aspect: .pastPerfect,
             aspectNote: "Not being invited came before not going. The reason sits one step further back."
+        ),
+    ]
+
+    // MARK: - Spanish · ahead of now
+
+    /// The plain future, -é on the whole infinitive: promises and forecasts,
+    /// with a present and a conditional in among them so the name of the deck
+    /// never answers the question.
+    static let futureTomorrow: [Phrase] = [
+        Phrase(
+            text: "Mañana te llamaré.",
+            translation: "I'll call you tomorrow.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "lla-ma-RÉ: the stress runs to the end, which is the future's home. The ll is the y-ish sound of Spain.",
+            aspect: .will,
+            aspectNote: "A promise about a moment ahead of now. The Spanish future is the whole infinitive with the ending on the end: llamar + é."
+        ),
+        Phrase(
+            text: "Esta tarde lloverá.",
+            translation: "It'll rain this afternoon.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "llo-ve-RÁ, three syllables landing on the last. The v is the soft b.",
+            aspect: .will,
+            aspectNote: "A forecast is the future at its plainest: ahead, and you're saying it'll come. Llover + á."
+        ),
+        Phrase(
+            text: "Tendremos tiempo.",
+            translation: "We'll have time.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "ten-DRE-mos: tener shortens to tendr- before the ending. 'Tiempo' is TIEM-po, the ie one glide.",
+            aspect: .will,
+            aspectNote: "Tener is one of the handful that shorten before the ending — tendré, tendrás, tendrá — but the ending is the same -emos."
+        ),
+        Phrase(
+            text: "Estaré en el ensayo a las ocho.",
+            translation: "I'll be at the rehearsal at eight.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "es-ta-RÉ, en-SA-yo: the y is a light j. 'Ocho' has the ch of church.",
+            aspect: .will,
+            aspectNote: "Where you'll be is estar, and its future is estaré. Catalan says this with ser — seré a l'assaig."
+        ),
+        Phrase(
+            text: "Mañana voy al mercado.",
+            translation: "Tomorrow I'm going to the market.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "VOY is one syllable with a soft b. mer-CA-do, the d between vowels a soft th.",
+            aspect: .now,
+            aspectNote: "The odd one out: a plan already in the diary is said in the present. 'Voy a ir' would work too, but the plain present is what people say."
+        ),
+        Phrase(
+            text: "Todo irá bien, no te preocupes.",
+            translation: "It'll be fine, don't worry.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "i-RÁ is two syllables landing on the á. pre-o-CU-pes, four of them, the c a hard k.",
+            aspect: .will,
+            aspectNote: "Irá is the future — ahead, and promised. (No te preocupes is a subjunctive doing the negative command; the Subjuntivo decks come back to it.)"
+        ),
+        Phrase(
+            text: "Me encantaría ir, pero no puedo.",
+            translation: "I'd love to come, but I can't.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "en-can-ta-RÍ-a, the stress on the í. 'Puedo' is PUE-do, the ue one glide.",
+            aspect: .would,
+            aspectNote: "The odd one out: -ía is the conditional — a wish in a world where you could. The 'but' is the giveaway."
+        ),
+        Phrase(
+            text: "Serán las diez.",
+            translation: "It must be about ten o'clock.",
+            deck: "Futuro · Mañana",
+            language: .spanish,
+            focusNote: "se-RÁN lands on the án. 'Diez' ends on the th of 'thin'.",
+            aspect: .will,
+            aspectNote: "A guess about now, said in the future: Spanish reaches for -án to mean 'must be'. Catalan does this with deuen ser instead — one of the few places the twins part company."
+        ),
+    ]
+
+    /// Present or future, in pairs: the diary says present, a guess says
+    /// future. Four pairs and nothing else.
+    static let futureFixed: [Phrase] = [
+        Phrase(
+            text: "Mañana tengo ensayo.",
+            translation: "I have rehearsal tomorrow.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "TEN-go en-SA-yo — the g of tengo is hard, the y a light j.",
+            aspect: .now,
+            aspectNote: "In the diary already, so it's the present. English says 'I have', and so does Spanish."
+        ),
+        Phrase(
+            text: "La semana que viene tendré más tiempo.",
+            translation: "I'll have more time next week.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "VIE-ne, then ten-DRÉ on the é. 'Más' keeps a clean s.",
+            aspect: .will,
+            aspectNote: "Not in the diary — a guess about how things will stand. Tendré, the future."
+        ),
+        Phrase(
+            text: "El tren sale a las siete.",
+            translation: "The train leaves at seven.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "SA-le, and the r of tren is the single tap. 'Siete' is SIE-te.",
+            aspect: .now,
+            aspectNote: "A timetable is as fixed as a thing gets, so the present: sale, not saldrá."
+        ),
+        Phrase(
+            text: "El tren llegará tarde.",
+            translation: "The train will be late.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "lle-ga-RÁ lands on the á; the g is hard. 'Tarde' has the soft d.",
+            aspect: .will,
+            aspectNote: "Nobody's diary says late. A guess about what's ahead, so the future."
+        ),
+        Phrase(
+            text: "En verano vamos a Sicilia.",
+            translation: "We're going to Sicily in the summer.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "ve-RA-no with a soft b; VA-mos; si-CI-lia with the th of 'thin'.",
+            aspect: .now,
+            aspectNote: "Booked, so present. Vamos a Sicilia is going *to* a place; vamos a ir would be the near future, and Spanish has both."
+        ),
+        Phrase(
+            text: "Un día hablaré bien el catalán.",
+            translation: "One day I'll speak Catalan properly.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "ha-bla-RÉ, the h silent and the stress on the é. ca-ta-LÁN keeps its n.",
+            aspect: .will,
+            aspectNote: "A hope about a day with no date on it, so the future: hablar + é."
+        ),
+        Phrase(
+            text: "El concierto empieza a las nueve.",
+            translation: "The concert starts at nine.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "con-CIER-to and em-PIE-za, both with the th of 'thin'. 'Nueve' is NUE-ve.",
+            aspect: .now,
+            aspectNote: "On the poster, so the present: empieza. Its guess-twin would be empezará."
+        ),
+        Phrase(
+            text: "Si llueve, no saldremos.",
+            translation: "If it rains, we won't go out.",
+            deck: "Futuro · Ya está decidido",
+            language: .spanish,
+            focusNote: "LLUE-ve, one glide; sal-DRE-mos with the stress on DRE — salir shortens to saldr-.",
+            aspect: .will,
+            aspectNote: "A real 'if' — it may well rain — takes the present after si and the future after it. Its unreal twin, si lloviera … no saldríamos, is in the Condicional decks."
+        ),
+    ]
+
+    // MARK: - Spanish · would
+
+    /// The conditional as a softener — the -ía that turns an order into a
+    /// request — with one promise in it that is the future.
+    static let conditionalSoft: [Phrase] = [
+        Phrase(
+            text: "Querría un café, por favor.",
+            translation: "I'd like a coffee, please.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "que-RRÍ-a with a rolled rr and the stress on the í. 'Café' lands on the é.",
+            usageNote: "You'll hear quería (the imperfect) and quisiera just as often for this — all three are the same softening.",
+            aspect: .would,
+            aspectNote: "Would, as a softener: the conditional makes an order into a request. Querer shortens to querr- and takes the line's ending, -ía."
+        ),
+        Phrase(
+            text: "¿Podrías hablar más despacio?",
+            translation: "Could you speak more slowly?",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "po-DRÍ-as: poder shortens to podr-. des-PA-cio has the th of 'thin'.",
+            aspect: .would,
+            aspectNote: "A polite 'could you' is the conditional of poder — podrías. It asks about a world where you might, which is why it's softer than puedes."
+        ),
+        Phrase(
+            text: "Iría, pero tengo ensayo.",
+            translation: "I would go, but I have rehearsal.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "i-RÍ-a, three syllables on the í. 'Pero' is front-stressed, PE-ro, a single tap.",
+            aspect: .would,
+            aspectNote: "The 'but' says which world you're in: the going is the one that isn't happening. Ir + ía."
+        ),
+        Phrase(
+            text: "Deberías descansar.",
+            translation: "You should rest.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "de-be-RÍ-as: the b is soft and the stress is on the í. des-can-SAR rolls its final r.",
+            aspect: .would,
+            aspectNote: "'Should' is deber in the conditional: deberías. Debes would be an order."
+        ),
+        Phrase(
+            text: "Sería mejor ir temprano.",
+            translation: "It'd be better to go early.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "se-RÍ-a on the í. me-JOR has the throaty j; tem-PRA-no is front-heavy.",
+            aspect: .would,
+            aspectNote: "Advice framed as a would: sería, the conditional of ser. Softer than es mejor."
+        ),
+        Phrase(
+            text: "Lo haré mañana, te lo prometo.",
+            translation: "I'll do it tomorrow, I promise.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "ha-RÉ, the h silent and the stress on the é. pro-ME-to is front-stressed.",
+            aspect: .will,
+            aspectNote: "The odd one out: a promise is the future, not the conditional. Haré — ahead, and meant."
+        ),
+        Phrase(
+            text: "¿Te importaría cerrar la ventana?",
+            translation: "Would you mind closing the window?",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "im-por-ta-RÍ-a on the í. ce-RRAR has the th of 'thin' and a rolled rr.",
+            aspect: .would,
+            aspectNote: "Importar in the conditional — importaría — because you're asking about a world where they might mind."
+        ),
+        Phrase(
+            text: "Preferiría quedarme en casa.",
+            translation: "I'd rather stay at home.",
+            deck: "Condicional · Me gustaría",
+            language: .spanish,
+            focusNote: "pre-fe-ri-RÍ-a, five syllables landing on the í. que-DAR-me rolls the r.",
+            aspect: .would,
+            aspectNote: "Preference put as a would — preferiría — because you're picking between worlds."
+        ),
+    ]
+
+    /// The unreal if: si + the past subjunctive, and the conditional after it,
+    /// with one real if in among them.
+    static let conditionalIf: [Phrase] = [
+        Phrase(
+            text: "Si tuviera tiempo, aprendería a tocar el piano.",
+            translation: "If I had time, I'd learn the piano.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "tu-VIE-ra with a soft b; a-pren-de-RÍ-a lands on the í. 'Piano' is PIA-no.",
+            aspect: .would,
+            aspectNote: "An unreal if: the si-clause takes the past subjunctive (tuviera) and the answer takes the conditional. That pairing is the whole deck."
+        ),
+        Phrase(
+            text: "Si lloviera, no saldríamos.",
+            translation: "If it rained, we wouldn't go out.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "llo-VIE-ra; sal-DRÍ-a-mos with the stress on DRÍ.",
+            aspect: .would,
+            aspectNote: "The unreal twin of si llueve, no saldremos. Lloviera in the if, saldríamos in the answer: two endings that always travel together."
+        ),
+        Phrase(
+            text: "Si vienes temprano, tomaremos un café.",
+            translation: "If you come early, we'll have a coffee.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "VIE-nes; to-ma-RE-mos with the stress on RE. 'Café' lands on the é.",
+            aspect: .will,
+            aspectNote: "The odd one out: a real if — you may well come — so the present after si and the future after it. Vienes, tomaremos."
+        ),
+        Phrase(
+            text: "Lo compraría si fuera más barato.",
+            translation: "I'd buy it if it were cheaper.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "com-pra-RÍ-a on the í. FUE-ra, one glide; ba-RA-to with a soft b.",
+            aspect: .would,
+            aspectNote: "Fuera is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows."
+        ),
+        Phrase(
+            text: "¿Qué harías en mi lugar?",
+            translation: "What would you do in my place?",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "ha-RÍ-as, the h silent. lu-GAR rolls its final r.",
+            aspect: .would,
+            aspectNote: "A hypothetical with the if left unsaid — 'if you were me'. Harías, the conditional of hacer."
+        ),
+        Phrase(
+            text: "Si fuera tú, iría.",
+            translation: "If I were you, I'd go.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "FUE-ra TÚ, then i-RÍ-a on the í.",
+            aspect: .would,
+            aspectNote: "The if that can never be true, so the past subjunctive — fuera — and the conditional after it."
+        ),
+        Phrase(
+            text: "Podríamos ir a la playa si hace sol.",
+            translation: "We could go to the beach if it's sunny.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "po-DRÍ-a-mos on the DRÍ. PLA-ya with a light j; 'hace' has the th of 'thin'.",
+            aspect: .would,
+            aspectNote: "A suggestion, so the conditional — podríamos — even though the if is a real one (hace sol, present). The would is softening here, not supposing."
+        ),
+        Phrase(
+            text: "Me habría gustado ir.",
+            translation: "I'd have liked to go.",
+            deck: "Condicional · Si tuviera",
+            language: .spanish,
+            focusNote: "ha-BRÍ-a with a silent h and the stress on the í; gus-TA-do with a soft d.",
+            aspect: .would,
+            aspectNote: "The would, one step back in time: habría + gustado is 'would have'. Same -ía, on haber."
+        ),
+    ]
+
+    // MARK: - Spanish · the mood
+
+    /// A wish or a push — quiero que, hace falta que, espero que, ojalá — with
+    /// an infinitive and a doubt in among them.
+    static let subjunctiveWish: [Phrase] = [
+        Phrase(
+            text: "Quiero que vengas al ensayo.",
+            translation: "I want you to come to the rehearsal.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "QUIE-ro, then VEN-gas with a hard g. en-SA-yo.",
+            aspect: .wish,
+            aspectNote: "You want it and it's someone else's to do: quiero que, then the subjunctive. Venir → venga, vengas."
+        ),
+        Phrase(
+            text: "Quiero venir al ensayo.",
+            translation: "I want to come to the rehearsal.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "QUIE-ro ve-NIR: the final r is rolled, the v a soft b.",
+            aspect: .fact,
+            aspectNote: "The odd one out. The wanting and the coming are the same person, so there's no que and no subjunctive — just the infinitive. Quiero venir, never quiero que venga."
+        ),
+        Phrase(
+            text: "Espero que te recuperes pronto.",
+            translation: "I hope you get better soon.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "es-PE-ro; re-cu-PE-res is stressed on the PE. PRON-to.",
+            aspect: .wish,
+            aspectNote: "A hope is a wish about someone else's body: espero que + subjunctive. Recuperarse → te recuperes."
+        ),
+        Phrase(
+            text: "Hace falta que estés aquí a las ocho.",
+            translation: "We need you to be here at eight.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "A-ce FAL-ta with the th of 'thin'; es-TÉS lands on the é.",
+            aspect: .wish,
+            aspectNote: "Hace falta que is a push — 'it's necessary that' — and pushes take the subjunctive. Estar → esté, estés."
+        ),
+        Phrase(
+            text: "Me gustaría que cenáramos juntos.",
+            translation: "I'd like us to have dinner together.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "gus-ta-RÍ-a; ce-NÁ-ra-mos with the th of 'thin' and the stress on NÁ.",
+            aspect: .wish,
+            aspectNote: "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (me gustaría), the subjunctive steps back a tense with it: cenáramos, not cenemos."
+        ),
+        Phrase(
+            text: "Ojalá llueva.",
+            translation: "Let's hope it rains.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "o-ja-LÁ with the throaty j and the stress on the end. LLUE-va, one glide.",
+            aspect: .wish,
+            aspectNote: "A wish flung at the weather: ojalá takes the subjunctive on its own, no que needed. Llover → llueva."
+        ),
+        Phrase(
+            text: "Dile que me llame.",
+            translation: "Tell him to call me.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "DI-le, then me LLA-me — the ll is a light j.",
+            aspect: .wish,
+            aspectNote: "A message you push through someone: 'tell him to' is decir + que + subjunctive. Llamar → llame."
+        ),
+        Phrase(
+            text: "No creo que sea buena idea.",
+            translation: "I don't think it's a good idea.",
+            deck: "Subjuntivo · Quiero que",
+            language: .spanish,
+            focusNote: "no CRE-o que SE-a: two clean vowels each. BUE-na i-DE-a.",
+            aspect: .doubt,
+            aspectNote: "The odd one out here — a doubt, not a wish. No creo que pulls the subjunctive as hard as quiero que does, but for the other reason: you're not sure it's so."
+        ),
+    ]
+
+    /// A doubt or a feeling, with its facts beside it: creo que tiene beside no
+    /// creo que venga. Quizá goes subjunctive here and never does in Catalan.
+    static let subjunctiveDoubt: [Phrase] = [
+        Phrase(
+            text: "No creo que venga.",
+            translation: "I don't think he'll come.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "no CRE-o que VEN-ga: the g is hard.",
+            aspect: .doubt,
+            aspectNote: "Denied belief is a doubt, so the subjunctive: no creo que venga. The sentence is about the future and the subjunctive is still the present one."
+        ),
+        Phrase(
+            text: "Creo que tiene razón.",
+            translation: "I think he's right.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "CRE-o que TIE-ne ra-ZÓN: the z is the th of 'thin', and the stress lands on the ón.",
+            aspect: .fact,
+            aspectNote: "The odd one out. Creo que without the no is a fact as far as you're concerned, so the indicative: tiene. Take the no off and the subjunctive goes with it."
+        ),
+        Phrase(
+            text: "Me alegro de que hayas venido.",
+            translation: "I'm glad you've come.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "me a-LE-gro de que A-yas ve-NI-do: hayas has a silent h and a light j.",
+            aspect: .doubt,
+            aspectNote: "A feeling about something that has happened: the subjunctive, one step back — hayas venido, the perfect subjunctive. The fact isn't in doubt; you're reacting to it."
+        ),
+        Phrase(
+            text: "Es una pena que no puedas quedarte.",
+            translation: "It's a shame you can't stay.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "PE-na; PUE-das, one glide and a soft d. que-DAR-te rolls the r.",
+            aspect: .doubt,
+            aspectNote: "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pueda, puedas."
+        ),
+        Phrase(
+            text: "Quizá esté cerrado.",
+            translation: "Maybe it's closed.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "qui-ZÁ with the th of 'thin', landing on the á. es-TÉ on the é; ce-RRA-do with a rolled rr.",
+            aspect: .doubt,
+            aspectNote: "Quizá can go either way in Spanish, and the subjunctive says you really aren't sure: esté. Catalan's potser never does this — potser està."
+        ),
+        Phrase(
+            text: "Es normal que estés nervioso antes de un concierto.",
+            translation: "It's normal to be nervous before a concert.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "es-TÉS on the é; ner-VIO-so with a soft b; con-CIER-to with the th of 'thin'.",
+            aspect: .doubt,
+            aspectNote: "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: esté, estés."
+        ),
+        Phrase(
+            text: "Dudo que les queden mesas.",
+            translation: "I doubt they have any tables left.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "DU-do with a soft d; QUE-den is front-stressed. ME-sas.",
+            aspect: .doubt,
+            aspectNote: "Dudar is doubt by name: dudo que + subjunctive. Quedar → quede, queden."
+        ),
+        Phrase(
+            text: "Estoy seguro de que irá bien.",
+            translation: "I'm sure it'll go well.",
+            deck: "Subjuntivo · No creo que",
+            language: .spanish,
+            focusNote: "es-TOY se-GU-ro; i-RÁ BIEN, the á stressed.",
+            aspect: .fact,
+            aspectNote: "The third odd one: certainty is a fact, so the indicative — and a future one, irá. Being sure is the opposite of doubting, and the mood says so."
+        ),
+    ]
+
+    /// Not yet: cuando, antes de que, para que, hasta que, a menos que. The
+    /// pair at the top — cuando llegue against cuando llego — is the point.
+    static let subjunctiveNotYet: [Phrase] = [
+        Phrase(
+            text: "Cuando llegue a casa, te llamaré.",
+            translation: "When I get home, I'll call you.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "CUAN-do LLE-gue: the gu is a hard g, the u silent. lla-ma-RÉ.",
+            aspect: .notYet,
+            aspectNote: "The getting home hasn't happened yet, so cuando takes the subjunctive: llegue. The calling is a plain future. English hides all of this in 'when I get'."
+        ),
+        Phrase(
+            text: "Cuando llego a casa, ceno.",
+            translation: "When I get home, I have dinner.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "LLE-go with a hard g; CE-no with the th of 'thin'.",
+            aspect: .fact,
+            aspectNote: "The odd one out, and the pair of the card above. This is a habit — it happens every night — so cuando takes the ordinary present: llego. Not-yet is what made the other one subjunctive; this one is every night."
+        ),
+        Phrase(
+            text: "Llámame antes de que te vayas.",
+            translation: "Call me before you leave.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "LLÁ-ma-me is stressed on the first; AN-tes; te VA-yas with a soft b.",
+            aspect: .notYet,
+            aspectNote: "The leaving is still ahead, so antes de que takes the subjunctive: irse → te vayas. Antes de que always does; there's no fact version of it."
+        ),
+        Phrase(
+            text: "Te dejaré una nota para que lo sepas.",
+            translation: "I'll leave you a note so you know.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "de-ja-RÉ with the throaty j. SE-pas is front-stressed.",
+            aspect: .notYet,
+            aspectNote: "Purpose is always not-yet — the knowing is what the note is for — so para que takes the subjunctive: sepas."
+        ),
+        Phrase(
+            text: "No salgo hasta que deje de llover.",
+            translation: "I'm not going out until it stops raining.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "SAL-go with a hard g; AS-ta, the h silent; DE-je with the throaty j.",
+            aspect: .notYet,
+            aspectNote: "The stopping hasn't come, so hasta que takes the subjunctive: dejar → deje."
+        ),
+        Phrase(
+            text: "Iremos en cuanto acabe el ensayo.",
+            translation: "We'll go as soon as the rehearsal finishes.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "i-RE-mos on the RE; en CUAN-to a-CA-be, both front-stressed.",
+            aspect: .notYet,
+            aspectNote: "As soon as points at a moment that hasn't arrived, so acabar → acabe. The going is the future."
+        ),
+        Phrase(
+            text: "Vendré a menos que llueva.",
+            translation: "I'll come unless it rains.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "ven-DRÉ on the é; a ME-nos; LLUE-va, one glide.",
+            aspect: .notYet,
+            aspectNote: "Unless is a door that hasn't shut yet — a menos que takes the subjunctive: llover → llueva."
+        ),
+        Phrase(
+            text: "Lo haré cuando tenga tiempo.",
+            translation: "I'll do it when I have time.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "ha-RÉ with a silent h; TEN-ga with a hard g.",
+            aspect: .notYet,
+            aspectNote: "Having time is a moment that hasn't come, so cuando takes tenga. Tener → tenga, with the same -ng- as venga."
+        ),
+    ]
+
+    /// All four at once, two of each, and the deck that matters most.
+    static let subjunctiveAll: [Phrase] = [
+        Phrase(
+            text: "Quiero que lo sepa.",
+            translation: "I want him to know.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "QUIE-ro que lo SE-pa, all front-stressed.",
+            aspect: .wish,
+            aspectNote: "A push: you want the knowing, and it's his to do. Saber → sepa."
+        ),
+        Phrase(
+            text: "Sé que vendrá.",
+            translation: "I know he'll come.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "SÉ que ven-DRÁ, the stress on the á.",
+            aspect: .fact,
+            aspectNote: "Knowing is a fact, so the indicative — the future, vendrá. Compare espero que venga: hoping is a wish, knowing isn't."
+        ),
+        Phrase(
+            text: "Siento que no puedas venir.",
+            translation: "I'm sorry you can't come.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "SIEN-to, one glide; PUE-das with a soft d; ve-NIR rolls its r.",
+            aspect: .doubt,
+            aspectNote: "A feeling about a fact: siento que + subjunctive. Poder → puedas."
+        ),
+        Phrase(
+            text: "Hablaremos cuando llegues.",
+            translation: "We'll talk when you arrive.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "a-bla-RE-mos with the h silent; LLE-gues with a hard g and a silent u.",
+            aspect: .notYet,
+            aspectNote: "Arriving hasn't happened yet, so cuando takes llegues. The talking is the future."
+        ),
+        Phrase(
+            text: "Está claro que es el mejor.",
+            translation: "It's clear he's the best.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "es-TÁ CLA-ro; me-JOR with the throaty j and the final r rolled.",
+            aspect: .fact,
+            aspectNote: "Evidence is a fact: está claro que takes the indicative. Its shadow, no está claro que sea, would flip it."
+        ),
+        Phrase(
+            text: "Necesito que me ayudes.",
+            translation: "I need you to help me.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "ne-ce-SI-to with the th of 'thin'; a-YU-des with a light j.",
+            aspect: .wish,
+            aspectNote: "A push: the helping is someone else's to do. Ayudar → ayude, ayudes."
+        ),
+        Phrase(
+            text: "No creo que esté tan lejos.",
+            translation: "I don't think it's that far.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "es-TÉ on the é; LE-jos with the throaty j.",
+            aspect: .doubt,
+            aspectNote: "A doubt: no creo que, and estar → esté. Take the no off and it's creo que está."
+        ),
+        Phrase(
+            text: "Avísame antes de que decidas.",
+            translation: "Let me know before you decide.",
+            deck: "Subjuntivo · Todo junto",
+            language: .spanish,
+            focusNote: "a-VÍ-sa-me is stressed on the VÍ, with a soft b; de-CI-das with the th of 'thin'.",
+            aspect: .notYet,
+            aspectNote: "Deciding is still ahead, so antes de que takes the subjunctive: decidir → decidas."
         ),
     ]
 
