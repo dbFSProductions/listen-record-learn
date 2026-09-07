@@ -1988,3 +1988,121 @@ input[type="checkbox"] { accent-color: var(--accent); }
    partner's grey rather than the fix's amber — nothing was wrong. */
 .xat-practice-line { margin-top: 6px; background: var(--surface-2); border-color: var(--line); }
 #xat-ask { margin-top: 14px; }
+
+/* ------------------------------------------------------------------ review */
+
+/* The due strip on the home page: what spaced repetition has brought round
+   today, and a way to start on it. Purple, because purple is what memory looks
+   like in this app — the level-two badge — and a filled row with the solid
+   slab, so it presses like the deck rows do. Absent when nothing is due. */
+.due-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: -4px 0 14px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--purple);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--purple-dark);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.due-strip:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--purple-dark); }
+.due-mark svg { width: 26px; height: 26px; display: block; }
+.due-main { flex: 1; min-width: 0; display: grid; }
+.due-title { font-weight: 900; font-size: 1.02rem; }
+.due-sub { font-size: 0.8rem; font-weight: 700; opacity: 0.92; }
+.due-go { font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
+.node svg { width: 28px; height: 28px; }
+
+/* ------------------------------------------------------------ xerrada tools */
+
+/* Under a partner line: a round play button, an English pill and a ··· that
+   opens the rest on a second row. Five uppercase links under every bubble
+   was reported as too many small options; the tap-a-word gloss on the line
+   is what lets English be the second resort. The pills are the page's own
+   grey rather than the link blue, so the line stays the loudest thing. */
+.xat-tools { gap: 6px; margin-top: 5px; align-items: center; }
+.xat-tools-more { margin-top: 4px; }
+.xat-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 3px 11px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.xat-tool[aria-expanded="true"] { background: var(--surface-2); color: var(--text); border-color: var(--text-3); }
+.xat-tool:disabled { color: var(--text-3); cursor: default; }
+.xat-tool.xat-play, .xat-tool.xat-more { width: 30px; height: 30px; min-height: 30px; padding: 0; }
+.xat-tool.xat-play svg { width: 14px; height: 14px; fill: currentColor; margin-left: 1px; }
+.xat-tool.xat-more { font-size: 1rem; letter-spacing: 0.02em; line-height: 1; }
+.xat-tool.xat-play.busy { color: var(--green); border-color: var(--green); }
+.xat-turn.learner .xat-tools { justify-content: flex-end; }
+.xat-fix .xat-tools { margin-top: 7px; }
+
+/* A glossed partner line: the message page's tappable words, in a bubble.
+   The underline is the bubble's grey rather than Quick's orange, so a whole
+   line of dotted words does not shout; an opened gloss takes the orange wash. */
+.chat-msg .msg-word { text-decoration-color: color-mix(in srgb, var(--text-3) 70%, transparent); text-underline-offset: 3px; }
+.chat-msg .msg-word.open { background: color-mix(in srgb, var(--orange) 18%, var(--surface)); }
+.chat-msg .msg-g { font-size: 0.8em; }
+
+/* ------------------------------------------------------------------ reader */
+
+.reader-blurb { margin: -4px 0 10px; line-height: 1.45; }
+.reader-feed { margin-bottom: 16px; }
+.reader-feed .empty { padding: 10px 0; }
+.reader-more { display: block; margin: 8px auto 0; }
+.reader-item .reader-play { font-size: 0.95rem; }
+.reader-player { border-left: 4px solid var(--purple); }
+.reader-now { margin: 0 0 8px; font-weight: 800; overflow-wrap: anywhere; }
+.reader-player audio, .msg-audio audio { width: 100%; display: block; }
+.msg-audio { border-left: 4px solid var(--purple); }
+.msg-source { margin: 10px 0 0; }
+.msg-source .link { padding: 0; }
+.quick-reader-row { margin-bottom: 12px; }
+.ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.idea {
+  padding: 5px 11px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.idea:active { background: var(--surface-2); }
+
+/* A story's questions: the question in the language, its English small under
+   it, and the answer behind a tap. */
+.msg-q { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.msg-q:last-child { border-bottom: 0; padding-bottom: 0; }
+.msg-q:first-child { padding-top: 0; }
+.msg-q-text { margin: 0; font-weight: 800; }
+.msg-q-en { margin: 2px 0 0; }
+.msg-q-show { padding: 4px 0; font-size: 0.8rem; }
+.msg-a { margin: 4px 0 0; font-weight: 700; color: var(--purple-ink); }
+
+/* A word looked up in a book: the word with its gloss beside it, how many
+   pages it was looked up on, and a Keep at the end of the row. */
+.book-word { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.book-word .row-main { flex: 1; }
+.book-word-gloss { font-weight: 600; color: var(--text-2); }
+.book-word-gloss::before { content: "· "; }
+.book-keep { flex: none; font-size: 0.8rem; }
+.book-keep:disabled { color: var(--text-3); cursor: default; }
+#book-card input[list] { width: 100%; }

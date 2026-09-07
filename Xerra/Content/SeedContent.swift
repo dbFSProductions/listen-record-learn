@@ -13,7 +13,7 @@ enum SeedContent {
     static var catalanStarterDecks: [Phrase] {
         sounds + greetings + cafe + tapes + market + work
             + castells + segon + pinya + arribada + ordres
-            + catalanWords
+            + catalanWords + intercanvi
     }
 
     /// Spanish, and the only seed content that isn't Catalan. Six decks that
@@ -41,6 +41,7 @@ enum SeedContent {
             + catalanConditionalSoft + catalanConditionalIf
             + catalanSubjunctiveWish + catalanSubjunctiveDoubt
             + catalanSubjunctiveNotYet + catalanSubjunctiveAll
+            + pronounsHiEn + pronounsHoEl + pronounsLiEl + pronounsAll
     }
 
     static var spanishGrammarDecks: [Phrase] {
@@ -2165,6 +2166,332 @@ enum SeedContent {
         ),
     ]
 
+
+    // MARK: - Catalan · the little words
+
+    /// The weak pronouns, drilled as *which little word*. Catalan conversation
+    /// is hard to parse for one reason above all others: hi, en, ho, el/la and
+    /// li stand in for a place, an amount, an idea, a thing or a person, and
+    /// jump in front of the verb. English has "there" and "it" and puts them
+    /// after; two of these (hi, en) have no English at all. So the gate asks
+    /// which one before it shows the sentence — the English says what is
+    /// being stood in for, `standsFor` names it on the verdict, and the
+    /// `focusNote`s do double duty as ever: *ho* is said "u" in Barcelona,
+    /// which is the loudest single tell that someone is reading rather than
+    /// speaking. Catalan-only, with no Spanish twin: Spanish has lo/la/le and
+    /// neither hi nor en, so the sentences could not be twins.
+    ///
+    /// Three paired decks and a mixed one, eight cards each, every one a
+    /// sentence from this learner's week — the assaig, the colla, the band —
+    /// and each paired deck carrying one odd card so its name never answers
+    /// the question.
+    static let pronounsHiEn: [Phrase] = [
+        Phrase(
+            text: "Hi vaig cada dijous.",
+            translation: "I go there every Thursday.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "i BATCH KA-də di-JÒUS: hi is a bare 'ee', vaig ends on the ch of 'church', and dijous has the soft j of 'measure'.",
+            situation: "Someone asks whether you ever go to the assaig.",
+            aspect: .hi,
+            aspectNote: "A place you go to — a l'assaig — becomes hi, and hi jumps in front of the verb. English says 'there' afterwards; Catalan says hi before.",
+            standsFor: "a l'assaig"
+        ),
+        Phrase(
+            text: "No hi penso gaire.",
+            translation: "I don't think about it much.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "no i PÈN-su GAI-rə: penso ends in u, gaire on a schwa. Three unstressed vowels, all of them softened.",
+            aspect: .hi,
+            aspectNote: "Pensar takes en — pensar en això — and a phrase with en in front becomes hi, not en. The odd pair to hold onto: en-phrases go to hi, de-phrases go to en.",
+            standsFor: "en això"
+        ),
+        Phrase(
+            text: "En vull dos, si us plau.",
+            translation: "I'd like two, please.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "ən BULL DOS: en is a schwa, and the ll of vull is the lli of 'million', never a plain l.",
+            situation: "At the stall, pointing.",
+            aspect: .en,
+            aspectNote: "An amount of something already named — two of them — is en. Say dos on its own and the stallholder waits for the noun; en vull dos is complete.",
+            standsFor: "dos (d'aquests)"
+        ),
+        Phrase(
+            text: "No en tinc.",
+            translation: "I haven't got any.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "no ən TINK: tinc ends on a hard k, and there is no vowel after it.",
+            aspect: .en,
+            aspectNote: "'Any' with nothing after it — no change, no time, no cash — is en. English drops the noun and says 'any'; Catalan drops it and says en.",
+            standsFor: "de canvi / de diners"
+        ),
+        Phrase(
+            text: "N'hi ha molts.",
+            translation: "There are lots of them.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "NI A MOLS: n'hi runs together as 'ni', ha is a bare a, and the t of molts vanishes — MOLS.",
+            situation: "How many castellers turn up on a Thursday.",
+            aspect: .en,
+            aspectNote: "Hi ha is 'there is', and the hi is nailed on. The moving part is the n' — 'of them' — so this is an en card wearing a hi. Before a vowel en becomes n'.",
+            standsFor: "de castellers"
+        ),
+        Phrase(
+            text: "Hi serem a les set.",
+            translation: "We'll be there at seven.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "i sə-RÈM ə ləs SET: serem is stressed on the end, and the vowel before it is a schwa.",
+            aspect: .hi,
+            aspectNote: "The square, the bar, the local — a place you will be at is hi. Note the order: hi, then the verb, then the time.",
+            standsFor: "a la plaça"
+        ),
+        Phrase(
+            text: "En parlem demà.",
+            translation: "We'll talk about it tomorrow.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "ən pər-LÈM də-MÀ: two schwas before two stressed syllables, and demà lands on the à.",
+            aspect: .en,
+            aspectNote: "Parlar takes de — parlar d'això — and a phrase with de in front becomes en. Compare pensar en → hi: the preposition the verb takes decides the pronoun.",
+            standsFor: "d'això"
+        ),
+        Phrase(
+            text: "Ho sé.",
+            translation: "I know.",
+            deck: "Pronoms · Hi o en",
+            focusNote: "u SÉ: ho is said 'u' in Central Catalan — not 'ho', not 'o'. Two syllables, the second with a closed é.",
+            aspect: .ho,
+            aspectNote: "The odd one out. Not a place, not an amount, not a de-phrase: a whole idea — the thing you know — and a whole idea is ho.",
+            standsFor: "això / que…"
+        ),
+    ]
+
+    static let pronounsHoEl: [Phrase] = [
+        Phrase(
+            text: "Ho entenc.",
+            translation: "I understand.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "u ən-TENG: ho is 'u', and entenc ends on ng with a k after it — like 'tank' without the vowel.",
+            aspect: .ho,
+            aspectNote: "What you understand is everything that was just said — an idea, not a thing — so it is ho. Catalan says the object out; English leaves 'I understand' bare.",
+            standsFor: "això que dius"
+        ),
+        Phrase(
+            text: "El conec de la colla.",
+            translation: "I know him from the colla.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "əl ku-NÈK də lə KO-ʎə: conec ends on a hard k, and colla has the lli of 'million'.",
+            aspect: .el,
+            aspectNote: "A particular person — en Pere — is el. Him, her, it, them: a thing you could point at takes el, la, els or les.",
+            standsFor: "en Pere"
+        ),
+        Phrase(
+            text: "La veig cada dia.",
+            translation: "I see her every day.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "lə BETCH KA-də DI-ə: the v of veig is a b, and it ends on the ch of 'church'.",
+            aspect: .el,
+            aspectNote: "Her — la Marta — is la, the feminine of el. Same job as el conec: a particular person stood in for.",
+            standsFor: "la Marta"
+        ),
+        Phrase(
+            text: "No ho sabia.",
+            translation: "I didn't know that.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "no u sə-BI-ə: ho is 'u' again, and sabia is stressed on the i with a schwa either side.",
+            aspect: .ho,
+            aspectNote: "'That' meaning the fact you have just been told is a whole idea, so ho. Compare la sabia — that would be knowing a particular song or answer.",
+            standsFor: "que…"
+        ),
+        Phrase(
+            text: "Els porto jo.",
+            translation: "I'll bring them.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "əls PÒR-tu JÒ: porto ends in u, and jo has the soft j of 'measure' — never a Spanish h.",
+            situation: "Who brings the sandwiches to the assaig.",
+            aspect: .el,
+            aspectNote: "Them — els entrepans — is els, the plural of el. Jo at the end is the stress: I'll bring them, not someone else.",
+            standsFor: "els entrepans"
+        ),
+        Phrase(
+            text: "Ja ho faré.",
+            translation: "I'll do it.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "ja u fə-RÉ: ja has the soft j, ho is 'u', and faré is stressed on the end.",
+            aspect: .ho,
+            aspectNote: "'It' here is a task somebody has described — an idea, not an object — so ho. Ja in front softens it: I'll get to it.",
+            standsFor: "això que em demanes"
+        ),
+        Phrase(
+            text: "Les tinc a casa.",
+            translation: "I've got them at home.",
+            deck: "Pronoms · Ho o el",
+            focusNote: "ləs TINK ə KA-zə: the s between vowels in casa is a z.",
+            aspect: .el,
+            aspectNote: "Them — les claus — is les, the feminine plural. Four forms for one job: el, la, els, les follow the noun's gender and number.",
+            standsFor: "les claus"
+        ),
+        Phrase(
+            text: "Hi anem junts?",
+            translation: "Shall we go together?",
+            deck: "Pronoms · Ho o el",
+            focusNote: "i ə-NÈM JUNS: the t of junts drops, and junts has the soft j.",
+            aspect: .hi,
+            aspectNote: "The odd one out. The English has no 'there' in it, and the Catalan needs one: you are going to a place, and a place is hi.",
+            standsFor: "a l'assaig"
+        ),
+    ]
+
+    static let pronounsLiEl: [Phrase] = [
+        Phrase(
+            text: "Li dic que sí.",
+            translation: "I'll tell him yes.",
+            deck: "Pronoms · Li o el",
+            focusNote: "li DIK kə SI: four short syllables, dic ending on a hard k.",
+            aspect: .li,
+            aspectNote: "You tell something *to* someone: dir a algú. The person it is said to is li, whatever you say. Never el dic.",
+            standsFor: "a en Joan"
+        ),
+        Phrase(
+            text: "L'ajudo amb la pinya.",
+            translation: "I help him with the pinya.",
+            deck: "Pronoms · Li o el",
+            focusNote: "lə-JU-du əm lə PI-nyə: l'ajudo runs into one word with the soft j, and the b of amb is silent.",
+            aspect: .el,
+            aspectNote: "Ajudar takes the person straight, like English 'help him' — so el, elided to l' before the vowel. A trap the other way from trucar.",
+            standsFor: "en Joan"
+        ),
+        Phrase(
+            text: "Li truco després.",
+            translation: "I'll ring her later.",
+            deck: "Pronoms · Li o el",
+            focusNote: "li TRU-ku dəs-PRÉS: truco ends in u, després is stressed on the end and keeps its s.",
+            aspect: .li,
+            aspectNote: "The trap in the other direction. English rings *her*; Catalan rings *to her* — trucar a algú — so it is li, never la truco.",
+            standsFor: "a la Marta"
+        ),
+        Phrase(
+            text: "El veig a l'assaig.",
+            translation: "I'll see him at the assaig.",
+            deck: "Pronoms · Li o el",
+            focusNote: "əl BETCH ə lə-SATCH: two ch endings, and a l'assaig runs together as one word.",
+            aspect: .el,
+            aspectNote: "Veure takes the person straight: you see him, not to him. A particular person, seen — el.",
+            standsFor: "en Pere"
+        ),
+        Phrase(
+            text: "Els porto el cafè.",
+            translation: "I'll bring them the coffee.",
+            deck: "Pronoms · Li o el",
+            focusNote: "əls PÒR-tu əl kə-FÈ: cafè is stressed on the è, open like 'fair'.",
+            situation: "The band, after the soundcheck.",
+            aspect: .li,
+            aspectNote: "Els here is *to them* — the plural of li — and the coffee is what gets brought. The one place the two sets share a form: els is both 'them' and 'to them', and only the sentence tells you which.",
+            standsFor: "als músics"
+        ),
+        Phrase(
+            text: "Li agrada molt.",
+            translation: "She likes it a lot.",
+            deck: "Pronoms · Li o el",
+            focusNote: "li ə-GRA-də MOL: the t of molt drops.",
+            aspect: .li,
+            aspectNote: "Agradar works backwards: the thing pleases *to* the person, so the person is li and the thing is the subject. She is never la here.",
+            standsFor: "a la Marta"
+        ),
+        Phrase(
+            text: "No els conec.",
+            translation: "I don't know them.",
+            deck: "Pronoms · Li o el",
+            focusNote: "no əls ku-NÈK: conec ends on a hard k.",
+            aspect: .el,
+            aspectNote: "Els again, but the other job: these are the people you know, straight — them, not to them. Compare els porto el cafè, where els is to them.",
+            standsFor: "els castellers nous"
+        ),
+        Phrase(
+            text: "En tinc prou.",
+            translation: "I've got enough.",
+            deck: "Pronoms · Li o el",
+            focusNote: "ən TINK PRÒU: prou is one gliding syllable, ò then u.",
+            aspect: .en,
+            aspectNote: "The odd one out. Not a person at all: an amount — enough of it — and an amount is en.",
+            standsFor: "de temps"
+        ),
+    ]
+
+    static let pronounsAll: [Phrase] = [
+        Phrase(
+            text: "Hi vaig amb bici.",
+            translation: "I go there by bike.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "i BATCH əm BI-si: the b of amb is silent before the b of bici.",
+            aspect: .hi,
+            aspectNote: "A place you go to — a la feina — is hi.",
+            standsFor: "a la feina"
+        ),
+        Phrase(
+            text: "En tinc dues.",
+            translation: "I've got two.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "ən TINK DU-əs: dues is two syllables, the second a schwa.",
+            situation: "How many guitars you own.",
+            aspect: .en,
+            aspectNote: "An amount of something already named — two of them — is en. Dues, because guitarra is feminine.",
+            standsFor: "de guitarres"
+        ),
+        Phrase(
+            text: "Ho tinc clar.",
+            translation: "I'm clear about it.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "u TINK KLA: ho is 'u', and clar drops its final r.",
+            aspect: .ho,
+            aspectNote: "The thing you are clear about is a whole idea — a decision, a plan — so ho.",
+            standsFor: "això"
+        ),
+        Phrase(
+            text: "La conec.",
+            translation: "I know her.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "lə ku-NÈK: conec ends on a hard k.",
+            aspect: .el,
+            aspectNote: "A particular person, known straight: la for her.",
+            standsFor: "l'Anna"
+        ),
+        Phrase(
+            text: "Li he dit que vindré.",
+            translation: "I've told him I'll come.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "li É DIT kə bin-DRÉ: he is a bare é, and vindré has a b and lands on the end.",
+            aspect: .li,
+            aspectNote: "Told *to* him: dir a algú, so li. What you told him is the que-clause after.",
+            standsFor: "a en Marc"
+        ),
+        Phrase(
+            text: "Els he vist a la plaça.",
+            translation: "I saw them in the square.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "əls É BIST ə lə PLA-sə: vist has a b, and plaça ends on a schwa.",
+            aspect: .el,
+            aspectNote: "Them — the castellers — seen straight, so els is the direct one here. Today, so he vist rather than vaig veure.",
+            standsFor: "els castellers"
+        ),
+        Phrase(
+            text: "N'hi ha per a tots.",
+            translation: "There's enough for everyone.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "NI A pə-rə TOTS: n'hi ha runs as 'nia', and per a runs together.",
+            situation: "The food at the sopar.",
+            aspect: .en,
+            aspectNote: "Hi ha with an n' on the front: the hi is fixed, the en is 'of it' — of the food. An en card, as in Hi o en.",
+            standsFor: "de menjar"
+        ),
+        Phrase(
+            text: "Hi serem.",
+            translation: "We'll be there.",
+            deck: "Pronoms · Tot junt",
+            focusNote: "i sə-RÈM: stressed on the end, with an open è.",
+            aspect: .hi,
+            aspectNote: "A place you will be at is hi. The whole sentence is two words, and the first of them is the pronoun.",
+            standsFor: "a la plaça"
+        ),
+    ]
+
     // MARK: - Spanish · the shape of the past
 
     /// The imperfect, drilled as *the line*. Every card here is a stretch of
@@ -3671,6 +3998,120 @@ enum SeedContent {
             focusNote: "One syllable: 'clow', rhyming with 'cow'. The au is never the 'aw' of English 'claw'.",
             sounds: "CLOW ('clown', no n)",
             picture: "A clown holds your front-door key between his teeth and says 'clow!' every time you reach for it."
+        ),
+    ]
+
+    // MARK: - Intercanvi
+
+    /// The survival kit for a conversation that is running faster than you
+    /// can follow. Chatting successfully is mostly a matter of keeping the
+    /// chat alive when you are lost: asking for a word, asking what one meant,
+    /// buying three seconds, asking to be corrected — and, in Barcelona above
+    /// all, asking the other person to stay in Catalan when they hear your
+    /// accent and switch to Spanish to be kind. Fourteen phrases, said at
+    /// every intercanvi, and the deck the app most wants you to open before
+    /// the first one. An everyday deck, so it sits on the Practice path.
+    static let intercanvi: [Phrase] = [
+        Phrase(
+            text: "Parla'm en català, si us plau. L'estic aprenent.",
+            translation: "Speak to me in Catalan, please. I'm learning it.",
+            deck: "Intercanvi",
+            focusNote: "PAR-ləm ən kə-tə-LÀ … ləs-TIK ə-prə-NÉN: parla'm is one word, català lands hard on the last syllable, and aprenent loses its final t.",
+            situation: "The moment someone hears your accent and switches to Spanish — in Horta that will be most first conversations.",
+            usageNote: "Say it early and with a smile. People switch to be helpful, and nearly everyone is pleased to be asked to stay in Catalan."
+        ),
+        Phrase(
+            text: "No cal que canviïs. T'entenc.",
+            translation: "No need to switch. I understand you.",
+            deck: "Intercanvi",
+            focusNote: "no KAL kə kən-BI-is tən-TENG: canviïs is three syllables with the ï said on its own, and t'entenc ends on ng plus k.",
+            situation: "When they have already switched to Spanish.",
+            usageNote: "Cal que + subjunctive, from Grammar, as a set phrase. Canviar → canviïs."
+        ),
+        Phrase(
+            text: "Com es diu això en català?",
+            translation: "How do you say this in Catalan?",
+            deck: "Intercanvi",
+            focusNote: "kom əz DIU ə-SHÒ ən kə-tə-LÀ: es before a vowel is a z, and això has the sh of 'shoe' with the stress on the ò.",
+            usageNote: "Point at the thing, or say the English word in place of això."
+        ),
+        Phrase(
+            text: "Què vol dir «pinya»?",
+            translation: "What does 'pinya' mean?",
+            deck: "Intercanvi",
+            focusNote: "kè BOL DI PI-nyə: què has an open è, the v of vol is a b, and dir keeps its r.",
+            usageNote: "Swap in any word you didn't catch. The stress sits on vol."
+        ),
+        Phrase(
+            text: "No ho he entès.",
+            translation: "I didn't catch that.",
+            deck: "Intercanvi",
+            focusNote: "no u É ən-TÈS: ho is 'u' and he is a bare é, so it runs no-u-é. Entès ends on an open è and a hard s.",
+            usageNote: "Softer than 'repeat that': it says the fault was yours, and it usually gets a slower second go."
+        ),
+        Phrase(
+            text: "Ho pots dir d'una altra manera?",
+            translation: "Can you say it another way?",
+            deck: "Intercanvi",
+            focusNote: "u POTS DI DU-nal-trə mə-NÉ-rə: d'una altra runs together as one word — dunaltra.",
+            usageNote: "Better than asking for a repeat, which hands you the same words you missed."
+        ),
+        Phrase(
+            text: "Espera, que ho busco.",
+            translation: "Hang on, I'll look it up.",
+            deck: "Intercanvi",
+            focusNote: "əs-PÉ-rə kə u BUS-ku: two u sounds in a row — the ho and the end of busco.",
+            usageNote: "Reaching for the phone is fine at an intercanvi; saying so first keeps the turn yours."
+        ),
+        Phrase(
+            text: "Com s'escriu?",
+            translation: "How do you spell it?",
+            deck: "Intercanvi",
+            focusNote: "kom səs-KRIU: the iu is one gliding syllable, like 'eew' said fast.",
+            usageNote: "For a word you want to look up later, or to keep as a card."
+        ),
+        Phrase(
+            text: "Ho he dit bé?",
+            translation: "Did I say that right?",
+            deck: "Intercanvi",
+            focusNote: "u É DIT BÉ: four short syllables, the last with a closed é like the French été.",
+            usageNote: "Ask it about one sentence and you get one correction. Ask it about everything and you get none."
+        ),
+        Phrase(
+            text: "Corregeix-me, si us plau.",
+            translation: "Correct me, please.",
+            deck: "Intercanvi",
+            focusNote: "ku-rrə-JEISH-mə: a rolled rr, the soft j of 'measure', and a sh before the -me.",
+            usageNote: "Most people won't correct you unless asked. Ask once at the start and they will."
+        ),
+        Phrase(
+            text: "Perdona, m'he perdut.",
+            translation: "Sorry, I've lost the thread.",
+            deck: "Intercanvi",
+            focusNote: "pər-DO-nə mé pər-DUT: m'he is one syllable, and perdut lands on the end with a hard t.",
+            situation: "When the conversation has run past you.",
+            usageNote: "The same words as being lost in the street. Here they mean the thread."
+        ),
+        Phrase(
+            text: "Un moment, que hi penso.",
+            translation: "Hang on, I'm thinking.",
+            deck: "Intercanvi",
+            focusNote: "un mu-MÉN kə i PÈN-su: moment loses its t, hi is a bare i, penso ends in u.",
+            usageNote: "Buys the three seconds a sentence needs. The que just links: 'because I'm thinking about it'."
+        ),
+        Phrase(
+            text: "Ho entenc, però no sé com dir-ho.",
+            translation: "I understand, but I don't know how to say it.",
+            deck: "Intercanvi",
+            focusNote: "u ən-TENG pə-RÒ no SÉ kom DI-ru: the r of dir comes back before -ho, and the ho is u.",
+            usageNote: "The most honest sentence at any intercanvi, and the one that gets you the word."
+        ),
+        Phrase(
+            text: "Fa un any que aprenc català.",
+            translation: "I've been learning Catalan for a year.",
+            deck: "Intercanvi",
+            focusNote: "fə u-NANY kə ə-PRENG kə-tə-LÀ: any ends on the ny of 'canyon', and aprenc on ng plus k.",
+            usageNote: "Fa + time + que + present is how Catalan says 'have been doing for'. Swap un any for sis mesos or dos anys."
         ),
     ]
 }

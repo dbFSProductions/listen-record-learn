@@ -21,6 +21,7 @@ const KEYS = {
   progress: "xerra.progress",
   messages: "xerra.messages",
   chats: "xerra.chats",
+  feeds: "xerra.feeds",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -35,6 +36,12 @@ const KEYS = {
    only just cleared the old line, which is the intended effect and not a
    migration to write. Deb-o-lingo uses the same number; keep them in step. */
 export const RECALL_AFTER = 4;
+/* The review ladder, in days — see `library.reviewOf`. */
+const REVIEW_DAYS = [1, 2, 4, 8, 16, 32, 64];
+const DAY_MS = 24 * 60 * 60 * 1000;
+/* The fifth string in deck-key space, after `*`, `★`, `family:` and
+   `section:`: the phrases whose review has come round. */
+export const REVIEW_DECK = "review:due";
 const RECALL_PASS = 75; // the same "close" line the drill verdict uses
 
 const DB_NAME = "xerra";
@@ -411,6 +418,66 @@ export const ASPECTS = {
     base: true,
     sub: true,
   },
+
+  /* The little words. Catalan conversation is hard to parse for one reason
+     above all others: the pronouns that stand in for a place, an amount, a
+     whole idea, a thing or a person, and jump in front of the verb — hi, en,
+     ho, el/la/els/les, li/els. English has "there" and "it" and puts them
+     after; Catalan has five and puts them before, and two of them (hi, en)
+     have no English at all. So the gate asks *which little word* before it
+     shows the sentence: the English tells you what is being stood in for,
+     and you decide which pronoun does it. None of these is `base`, so a deck
+     offers exactly the shapes it holds — three in the paired decks, five in
+     Tot junt — and Shuffle all of Grammar offers whatever the queue has.
+     The mark is the word itself, since a bracket picture would say less
+     than the two letters do. Catalan-only: Spanish has lo/la/le and no hi or
+     en, so the sentences would not be twins and the point of the pairing
+     would be lost. */
+  hi: {
+    hue: "blue",
+    group: "pronoun",
+    mark: "hi",
+    label: "Hi",
+    gloss: "there — a place, or a phrase with a or en in front",
+    term: "hi · adverbial pronoun (place)",
+    endings: { "ca-ES": "a Horta → hi visc · a l'assaig → hi vaig · en això → hi penso" },
+  },
+  en: {
+    hue: "orange",
+    group: "pronoun",
+    mark: "en",
+    label: "En",
+    gloss: "of it, some, any — a phrase with de in front, or an amount",
+    term: "en · adverbial pronoun (partitive)",
+    endings: { "ca-ES": "de pa → en vull · dos → en tinc dos · d'això → en parlem · n' before a vowel" },
+  },
+  ho: {
+    hue: "purple",
+    group: "pronoun",
+    mark: "ho",
+    label: "Ho",
+    gloss: "it — a whole idea, or a bare this / that",
+    term: "ho · neuter direct object",
+    endings: { "ca-ES": "que plou → ho sé · això → ho vull · said 'u' in Barcelona" },
+  },
+  el: {
+    hue: "gold",
+    group: "pronoun",
+    mark: "el",
+    label: "El, la, els, les",
+    gloss: "him, her, it, them — a particular person or thing",
+    term: "el · la · els · les · direct object",
+    endings: { "ca-ES": "el cafè → el vull · la Marta → la veig · els castells → els porto · l' before a vowel" },
+  },
+  li: {
+    hue: "teal",
+    group: "pronoun",
+    mark: "li",
+    label: "Li, els",
+    gloss: "to him, to her, to them — the person it is done to",
+    term: "li · els · indirect object",
+    endings: { "ca-ES": "a la Marta → li dic · als castellers → els dic · trucar, agradar, dir take li" },
+  },
 };
 
 /* The question each group asks, in the words the gate prints. `question` is
@@ -433,6 +500,10 @@ export const ASPECT_GROUPS = {
   mood: {
     question: "Fact, wish, doubt — or not yet?",
     prompt: "Decide how you hold it first. The sentence comes after.",
+  },
+  pronoun: {
+    question: "Which little word?",
+    prompt: "Decide which pronoun stands in for the missing bit. The sentence comes after.",
   },
 };
 
@@ -481,6 +552,10 @@ export function aspectOf(phrase) {
        fact — "vinguis → vens" — so the difference is on the screen every time
        and not left to be worked out. Only the subjunctive cards carry it. */
     plain: phrase.indicative || null,
+    /* On a pronoun card, what the little word is standing in for — "a
+       l'assaig" under "Hi vaig" — so the substitution is on the screen and
+       not left to be guessed. Only the Pronoms cards carry it. */
+    stands: phrase.standsFor || null,
   };
 }
 
@@ -606,7 +681,7 @@ export function myWordsDeck(language) {
    deck shown behind two tiles is a card in two places. Claiming the family here
    is what takes it out of the Decks count and the Decks list at once. */
 const SECTION_FAMILIES = {
-  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo"],
+  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo", "Pronoms"],
   vocab: Object.values(VOCAB_FAMILY),
   about: [ABOUT_DECK],
 };
@@ -644,6 +719,16 @@ const CHATS_DECK = { "ca-ES": "Xerrades", "es-ES": "Charlas", "it-IT": "Chiacchi
 
 export function chatsDeck(language) {
   return CHATS_DECK[language] ?? "Chats";
+}
+
+/* Where a word or phrase kept from a page of a book is filed. One deck per
+   language like the other two, and an ordinary deck for the same reason: the
+   words you keep looking up in your own reading are the vocabulary you are
+   actually short of, and they only become a deck if reading files them. */
+const BOOKS_DECK = { "ca-ES": "Llibres", "es-ES": "Libros", "it-IT": "Libri" };
+
+export function booksDeck(language) {
+  return BOOKS_DECK[language] ?? "Books";
 }
 
 /** The part after the prefix — what a row says once its family is open. */
@@ -922,6 +1007,10 @@ export const library = {
         phrase.indicative = seed.indicative;
         backfilled = true;
       }
+      if (seed?.standsFor && !phrase.standsFor) {
+        phrase.standsFor = seed.standsFor;
+        backfilled = true;
+      }
     }
 
     const existing = new Set(this.phrases.map((p) => p.text));
@@ -944,6 +1033,8 @@ export const library = {
       aspect: p.aspect || null,
       aspectNote: p.aspectNote || null,
       indicative: p.indicative || null,
+      // What a pronoun stands in for, on the Pronoms cards and null elsewhere.
+      standsFor: p.standsFor || null,
       /* The keyword mnemonic, on the Paraules decks and null everywhere else.
          Copied here field by field like the rest — a card built by spreading
          the seed would quietly carry whatever the generator learns next. */
@@ -1194,6 +1285,44 @@ export const library = {
   /** Good goes still owed before the phrase turns into a memory question. */
   toRecall(phraseID) {
     return Math.max(0, RECALL_AFTER - this.goodAttempts(phraseID));
+  },
+
+  /* Spaced repetition, read off the attempts rather than stored.
+
+     The interval doubles with every *day* you have said the phrase well and
+     resets to one day the moment you don't: one day, two, four, eight, up to
+     about two months. Days rather than goes, because four good goes in one
+     sitting are one act of remembering, and counting them as four would put
+     a card just learned a week away. A phrase never attempted has no review
+     — it is new, and the path is where new cards are met. Nothing here ever
+     demotes: level two is `recallReady` and stays whatever this says. A
+     typed go in quiet mode is not an attempt and so does not count, on the
+     argument that credit in this app means having said it. */
+  reviewOf(phraseID) {
+    const attempts = [...this.attemptsFor(phraseID)].sort(
+      (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+    );
+    if (!attempts.length) return null;
+    const days = new Set();
+    let streak = 0;
+    for (let i = attempts.length - 1; i >= 0; i -= 1) {
+      const score = attemptScore(attempts[i]);
+      if (score != null && score < RECALL_PASS) break;
+      days.add(new Date(attempts[i].recordedAt).toDateString());
+      streak = days.size;
+    }
+    const last = new Date(attempts[attempts.length - 1].recordedAt).getTime();
+    const interval = REVIEW_DAYS[Math.min(Math.max(streak, 1) - 1, REVIEW_DAYS.length - 1)];
+    return { last, streak, interval, dueAt: last + interval * DAY_MS };
+  },
+
+  /** Every drillable phrase whose review has come round, most overdue first. */
+  due(language, now = Date.now()) {
+    return this.drillable(language)
+      .map((phrase) => ({ phrase, review: this.reviewOf(phrase.id) }))
+      .filter(({ review }) => review && review.dueAt <= now)
+      .sort((a, b) => a.review.dueAt - b.review.dueAt)
+      .map(({ phrase }) => phrase);
   },
 
   recordAttempt(attempt) {
@@ -1511,6 +1640,30 @@ export const chats = {
           .slice(-CHATS_KEEP)
       : [];
     this.save();
+  },
+};
+
+// -------------------------------------------------------------------- feeds
+
+/* The last fetch of each feed the reader page shows, so the page opens on
+   something when the train is in a tunnel and an episode you started can be
+   found again. Diagnostics-grade rather than record-grade: not in export/
+   import, since the Worker will hand the same list back. */
+export const feeds = {
+  bySource: {},
+
+  load() {
+    const stored = readJSON(KEYS.feeds, {});
+    this.bySource = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  },
+
+  get(source) {
+    return this.bySource[source] ?? null;
+  },
+
+  set(source, data) {
+    this.bySource = { ...this.bySource, [source]: data };
+    writeJSON(KEYS.feeds, this.bySource);
   },
 };
 

@@ -674,6 +674,23 @@ have said it.
   a `[hidden] { display: none }` rule, and the headless run is what caught
   each.
 
+- **Every partner line is glossed, and the tools under it are three.** Asked
+  for as *"the chat feature needs the tap-gloss thing. I don't always need
+  it to translate it all"* and *"too many small options under the text"*.
+  `/converse` now returns a `glossary` for the reply — additive, same shape
+  as `/message`'s, capped at sixty — which `turn()` writes onto the partner
+  turn and `glossedLine` matches onto the line with `glossSegments`, so the
+  bubble is the message page's reading in a bubble: the line exactly as it
+  came, every glossed run a `.msg-word`, the English of one word a tap
+  away. A line from before the field, or one the model came back without,
+  is plain text. Under the line: a round play button, an **English** pill
+  and a **···** (`.xat-tool`, the page's grey, not the link blue), and *Help
+  me answer*, *Say it back* and *Keep as a card* wait behind the ··· in a
+  second row (`more`, local like `english`). The fix under your own line
+  wears the same two — play and Keep. The tap-a-word gloss is what lets
+  English be the second resort rather than the first. The five uppercase
+  links are gone from the page.
+
 Worth asserting, with `/converse` stubbed and — for Talk — `js/speech.js`
 and `js/audio.js` routed with `transcription.transcribe` and the `Recorder`
 methods overridden, since headless Chromium here has no microphone even with
@@ -739,6 +756,144 @@ starter remembers it, a reopened chat keeps it, an ended chat has no select,
 `#xat-again` carries it; a chat with no `voice` and Joana as the drill voice
 reads and plays as Enric; a `chatVoice` from another language falls back;
 and the drill's own fetch records `null`.
+
+### Escolta i llegeix: the input half, in-house
+
+Asked for as *"Is there a way we can pull audio from En guàrdia in and text
+from Sàpiens? It seems a shame to not have it 'in house'."* Everything else
+in the app is output — you say the phrase, you write the line, you name the
+shape — and a conversation fails the other way round, when you cannot parse
+what comes back. The fix for that is volume, hours of listening and reading,
+which no drill supplies and which a learner who loves history will only sit
+through if it is history. So the fourth face of Real life is a reader:
+**En guàrdia!**, Catalunya Ràdio's history hour, playable in the app with
+its blurb read the way a message is read; **Sàpiens**, the history magazine,
+each piece read the same way; and **a story written for you** at your level
+on whatever you ask, with three questions to check you followed it.
+
+- **It is a page behind a row on Real life, not a seventh tile.** The grid
+  is two by three and stays so; `readerRow()` is a filled purple row under
+  the chat starter, and `state.reader` is the page, cleared by every way out
+  like `message` and `chat`. Purple because purple is memory's colour here
+  and this is the input that feeds it — and because Real life's orange rows
+  are the things you asked for, which these aren't. `READER_TITLE` is what
+  the page head and the message page's back link print.
+- **Everything the reader opens lands on the message page with a `kind`.**
+  Reading a text with a tap on every word and the English withheld until you
+  have said what you made of it is exactly what `renderMessage` already
+  does, so an article, an episode's blurb and a story are `messages` entries
+  with `kind: "article" | "episode" | "story"`, a `title`, and a `source`
+  (`name`, `link`, `audio`, `duration`) where there is one. What the page
+  does *not* do for them is offer a reply — `paintReply` returns early when
+  `reading` — since nobody is waiting for one; the gist box asks *What is it
+  about?* or, for a story, *What happened?*; the back link goes to the
+  reader; the card is striped purple; and an episode carries its `<audio>`
+  above the text so you can listen while you read. `isMessage` is the one
+  reader of the kind, and *From your messages* on Real life and the tile's
+  count use it: a story is not a message somebody sent. The reader lists
+  them under *Read before*, and an item opened before reopens by its
+  `source.link` without a second call.
+- **The feeds come through the Worker, and the Worker reads two URLs and
+  nothing else.** `/feed` takes `{ source }` and `FEEDS` is the allowlist —
+  this is not an open proxy, and a URL parameter would have made it one. It
+  is answered before the Gemini-key check and outside the AI rate limiter,
+  since no model is involved, and cached at the edge for half an hour with
+  the Cache API. `parseFeed` is RSS by regex, because a Worker has no
+  DOMParser: title, link, date, the description and the longer
+  `content:encoded` where there is one (capped at what `/message` will
+  take), the audio enclosure — only when its type is audio, so an article's
+  image is not offered as an episode — and `itunes:duration`. Every text
+  field is CDATA-unwrapped, tag-stripped and entity-decoded, with the
+  accented Latin-1 entities a Catalan feed actually uses, since a gloss
+  cannot be matched onto *Cat&ograve;lic*. **The two URLs were found from
+  documentation, not fetched**: the development sandbox could not reach
+  either host, so each source carries a second spelling and the first that
+  parses wins. If the En guàrdia list is empty on the phone, the URL in
+  `FEEDS` is the first thing to check, and `worker/tools/feed-test.mjs`
+  shows the shape the parser expects. `feeds` in store.js keeps the last
+  fetch per source so the page opens on something in a tunnel; not in
+  export/import, since the Worker hands the same list back.
+- **The audio is the broadcaster's own file, streamed.** `<audio controls>`
+  on the reader's player card and on the episode's page, `src` set to the
+  enclosure URL, nothing stored: a podcast feed is built for exactly this.
+  Play here, then *open* the episode to read the blurb — the same player is
+  on that page, though it starts again, since the view is re-rendered.
+- **A story is a message the app wrote.** `/story` returns
+  `MESSAGE_SCHEMA`'s glossary and keep list plus a `title`, the `text`
+  (120–180 words, two or three paragraphs, the spoken past and never the
+  literary one) and three `questions` in the language with their answers
+  and the English of the question. It takes a `topic` (Catalan history by
+  default), the learner's `facts` — `learnerFacts`, extracted from
+  `chatPayload` so the chat and the story read the same About me — and
+  `known`, the phrases they have said well at least once, to lean on. On
+  the batch budget like `/message`. The page paints the questions after the
+  reveal (`paintQuestions`), each answer behind *Show the answer*, so the
+  checking is more reading rather than a quiz. `STORY_IDEAS` are four chips
+  that fill the box; nothing else on the card explains itself.
+- **Your own books, a page at a time.** Asked for as *"I also have loads of
+  books that are slightly above my level."* That is the input worth having
+  — the plot carries you past the words you don't know — and the input a
+  beginner cannot get through unaided, because "slightly above" means a
+  gloss every third word. The phone does the hard half: Camera at the page,
+  the Live Text button, Select all, Copy. So `bookCard` is a paste box with
+  a book's name on it (a datalist of the books you have read from), and
+  every page goes through `/message` with `kind: "book"` and the `title`
+  onto the message page as a `kind: "book"` entry with `source: { name,
+  page }`, headed by the book and *Page 3*, asking *What happened on this
+  page?*. The Worker's `buildBookPrompt` is a second prompt behind the same
+  route — a page may start mid-sentence and carry page furniture, the
+  register line is about the narrating voice and which past tense carries
+  it, the keep list is narrative connectives and set expressions rather than
+  the plot — with a 4000-character cap and a 450-entry glossary, since a page
+  is three to four hundred words; without the field the message prompt is
+  what it always was, and `message-test.mjs` asserts both.
+  - **What the book adds over a run of articles is memory across pages.**
+    Every word you tap while the question is open is written onto the page
+    as `looked` (`trimWord` takes the punctuation off the run), and
+    `renderBook` — `state.book`, between `message` and `reader` in
+    `render()` — adds them up with `bookWords`: each word with how many pages
+    it was looked up on, most often first, and a *Keep* that files it in the
+    language's **Llibres** deck (`booksDeck` in store.js; *Libros*, *Libri*)
+    with the book as its situation. A word looked up on three pages is the
+    card to make, and this is a personal frequency list built from your own
+    reading, which no seed deck can supply. The page's keep list goes to
+    Llibres too, with the page number. *Your books* on the reader lists each
+    book with its pages and lookups; book pages stay out of *Read before*.
+- **Nothing the sister apps call changed shape.** `/feed` and `/story` are
+  new routes, `kind` on `/message` is optional and off by default; `card-test.mjs` with `BEFORE` set is still byte-identical.
+  `worker/**` is on the deploy trigger, so merging ships them. The reader
+  would port whole, with `FEEDS` swapped for Spanish sources.
+
+Worth asserting, with `/feed`, `/message` and `/story` stubbed: `#quick-reader`
+sits under `#chat-go`; opening it fetches both feeds once and caches them in
+`xerra.feeds`; the sections are headed *En guàrdia!* and *Sàpiens*; episodes
+have a `[data-play]` and articles do not; an episode's `.row-sub` reads the
+date and *55 min* from either `00:55:12` or `3300`; `#reader-player` is hidden
+until a play and then names the episode with the enclosure as its `src`;
+opening an article makes one `/message` call whose text starts with the title
+and the body, heads the page with the title and *From Sàpiens*, backs to
+*‹ Escolta i llegeix*, carries a `.msg-source` link and no `.msg-audio`, asks
+*What is it about?*, and after the reveal has no `#msg-draft` and an empty
+`#msg-questions`; reopening it makes no second call; an episode's page carries
+`.msg-audio`; a story chip fills `#story-topic`, `#story-go` makes one
+`/story` call with the topic, `facts` and `known`, heads the page with the
+story's title, keeps its paragraphs, asks *What happened?*, and after Enter
+paints two `.msg-q` with `.msg-q-en` under each and `.msg-a` hidden until
+`[data-answer]`; the story is in `xerra.messages` with `kind: "story"` and
+its questions; *Read before* lists three; *From your messages* lists none of
+them; and the tile reads *3 read*. For books: `#book-card` sits under the
+story card; an empty title makes no call and focuses `#book-title`; a page
+makes one `/message` call with `kind: "book"` and the title, heads the page
+with the book and *Page 1*, backs to the book, asks *What happened on this
+page?*, and three taps on one word write one `looked` entry (trimmed, with
+its gloss) and `taps: 1`, while a tap after the reveal writes nothing;
+`[data-keep]` files in `Llibres` with *From «El quadern gris», page 1.*;
+back lands on the book page reading *1 page · 1 word looked up* with the
+word listed and no `#book-title`; a second page is *Page 2*, the same word
+tapped again reads *2 pages*, pages list newest first, and
+`[data-keep-word]` files *el comte* in `Llibres` and flips to *Kept ✓*;
+*Your books* reads *2 pages · 2 words looked up*, *Read before* leaves the
+pages out, the datalist offers the title, and the tile counts *5 read*.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -2023,7 +2178,8 @@ answers its own question, and the drill asks before it shows.
   comes back before an enclitic (*anar-hi* is ə-NAR-i, *quedar-me* keeps its
   r) and the notes say so where it happens; *hagis* has the soft j of
   'measure'; *junts* and *evident* lose a t; *temps* loses its p.
-- **Grammar's tile reads *Past, future, would, subjunctive*** instead of
+- **Grammar's tile reads *Tenses, mood, the little words*** (it read *Past,
+  future, would, subjunctive* until Pronoms arrived) instead of
   *Name the shape, then say it*, and the Settings switch is *Grammar — name
   the shape first* with copy that names all three questions. The switch is
   still one switch: `settings.aspectGate` turns every gate off together.
@@ -2058,6 +2214,52 @@ reads *Not yet*; an opened Subjuntiu fold survives a reload; in `content.js`
 library shows the same four families and 113 cards; and Salutacions is still
 ungated. Deb-o-lingo has the past gate in a three-shape cut; the groups would
 port with it, and the content would not — its sentences are Deb's.
+
+### The little words: Pronoms
+
+Catalan conversation is hard to parse for one reason above all others: *hi*,
+*en*, *ho*, *el/la/els/les* and *li/els* stand in for a place, an amount, a
+whole idea, a thing or a person, and jump in front of the verb. English has
+"there" and "it" and puts them after; two of these have no English at all.
+So **Pronoms** is a fifth family under Grammar, on the gate's machinery: the
+English says what is being stood in for, and you decide which little word
+does it before the sentence shows.
+
+- **Five shapes in a `pronoun` group, none of them `base`.** `hi`, `en`,
+  `ho`, `el`, `li` in `ASPECTS`, each with the word itself as its `mark` —
+  a bracket picture would say less than the two letters do — and an
+  `endings` line for Catalan only (`a Horta → hi visc · en això → hi
+  penso`). With no base shapes a deck offers exactly what it holds: three in
+  each paired deck, five in Tot junt, and Shuffle all of Grammar whatever
+  the queue has. The question is *Which little word?*
+- **Four decks, thirty-two cards, every one from this learner's week.**
+  `Pronoms · Hi o en` (hi against en, one ho as the odd card), `Ho o el`
+  (the neuter against the particular, one hi), `Li o el` (indirect against
+  direct — *li truco*, never *la truco*; *l'ajudo*, never *li ajudo* — one
+  en), and `Tot junt`. The focusNotes do double duty as ever, and the
+  loudest of them is that **ho is said "u"** in Barcelona.
+- **`standsFor` is the new field**, on the Swift `Phrase`, through
+  `gen-content.py`, copied onto the installed card and backfilled beside
+  `indicative`; `aspectOf` flattens it to `stands` and `standsLine` prints
+  *Standing in for «a l'assaig»* on the verdict and the phrase sheet, behind
+  the same gate as the note, since it names the phrase the pronoun replaced.
+- **Catalan-only, and that is the design rather than a gap.** Spanish has
+  lo/la/le and neither hi nor en, so the sentences could not be twins and
+  the pairing would lose its point. The Spanish Grammar tile still counts
+  113; the Catalan one counts 145.
+
+### Intercanvi: the survival kit
+
+The library had three repair phrases in three hundred cards. Chatting
+successfully is mostly keeping the chat alive when you are lost, so
+**Intercanvi** is fourteen phrases said at every language exchange —
+*Com es diu això?*, *Què vol dir…?*, *No ho he entès*, *Ho pots dir d'una
+altra manera?*, *Corregeix-me*, *Un moment, que hi penso*, *Fa un any que
+aprenc català* — and the one that matters most in Barcelona: **Parla'm en
+català, si us plau. L'estic aprenent**, for the moment someone hears your
+accent and switches to Spanish to be kind. An everyday deck, last in
+`catalanStarterDecks` so the path's colours don't move, and so on the
+Practice path as three lessons.
 
 ### A withdrawn seed card has to reach the phone
 
@@ -2309,6 +2511,11 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
+- **`/feed` is the one route with no model behind it.** Two allowlisted RSS
+  feeds, parsed by regex and cached at the edge for half an hour, answered
+  before the Gemini-key check and outside the AI rate limiter. `/story` is
+  the other newcomer, on the batch budget like `/message`. Both additive —
+  see *Escolta i llegeix*.
 - **`/picture` is the sixth endpoint, and all three apps call it now.** Xerra
   did not when this was written; it does, since #46. All three teach vocabulary
   by the keyword method — the word sounds like something in English, and one
@@ -2558,6 +2765,9 @@ The parser is regex over Swift source, so it's sensitive to formatting. Match
 the surrounding `Phrase(...)` style exactly — one field per line, double-quoted
 strings — and check the output diff looks sane before committing.
 
+`standsFor` is the Pronoms cards' field — what the little word stands in for —
+and is written only beside an `aspect`, like `indicative`.
+
 Two fields are Swift *enum cases* rather than strings — `language: .spanish`
 and `aspect: .line` — so they have their own reader, `enum_field`. Both are
 validated against a list and an unknown case exits rather than being written
@@ -2716,12 +2926,46 @@ all** — with no Azure key there is no score to judge by, and the alternative i
 that nothing ever leaves level one on the degraded path.
 
 Deliberately *not* done: peeking doesn't demote a phrase, and nothing ever
-comes back down. Spaced repetition is still the unbuilt feature, and a decay
-rule is the shape it should take, not a special case bolted onto this.
+comes back down. Spaced repetition is built now — see *Review* below — and it
+is a decay rule read off the attempts, not a special case bolted onto this:
+it decides *when* a card comes round, never which level it is at.
 
 Deb-o-lingo has the same feature in the same shape — same constants, same
 flags, same `mode` values. Keep them in step. The Swift app does **not** have
 it, and gains nothing from it while it can't be installed.
+
+## Review: spaced repetition, read off the attempts
+
+Retrieval practice was in (level two) and scheduling was not: nothing ever
+brought a card back. It does now, and the shape is the decay rule this file
+said it should be rather than a counter bolted onto level two.
+
+- **`library.reviewOf(id)` is the whole rule, and nothing is stored.** The
+  interval doubles with every *day* a phrase has been said well and resets
+  to one day the moment it isn't — `REVIEW_DAYS` is 1, 2, 4, 8, 16, 32, 64
+  — read off the attempt history like `recallReady` is. Days rather than
+  goes, because four good goes in one sitting are one act of remembering.
+  A phrase never attempted has no review: it is new, and the path is where
+  new cards are met. A typed go in quiet mode is not an attempt, so it does
+  not count, on the argument that credit here means having said it.
+- **Nothing demotes.** Level two is `recallReady` and stays whatever the
+  review says; a lapsed card comes round sooner, that is all.
+- **`review:due` is the fifth string in deck-key space** (`REVIEW_DECK` in
+  store.js), after `*`, `★`, `family:` and `section:`; `deckNameProblem`
+  refuses the `review:` prefix and `queueFor` drills `library.due()` — most
+  overdue first — capped at `REVIEW_CAP` (30), so a session is finishable
+  and the rest come round tomorrow.
+- **Two surfaces, both absent when nothing is due.** `.due-strip` under the
+  language line on the home page (*Review · 2 phrases due today · Start ›*),
+  and a Review node first in the path's Everything unit. Purple, because
+  purple is what memory looks like in this app. A strip reading *0 due*
+  would be a nag.
+
+Worth asserting: no strip and no node with no attempts; plant one good attempt
+three days old, one good today and one failed yesterday, and the strip reads
+*2 phrases due today*, the node counts 2, the strip drills `1/2` with the
+three-day-old card first and `#back` reading *‹ Home*. Neither sister fork has
+this; it would port whole, being two functions in store.js and two surfaces.
 
 ## The score is your weakest word
 
@@ -3474,7 +3718,22 @@ the parser losing a block to a formatting change.
   `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
   in the palette. **Draw it again** now sits under every drawing rather than
   only on the phrase sheet.
-- 421 phrases: 308 Catalan across thirty-one decks, and 113 Spanish across fourteen.
+- **Escolta i llegeix** is the reader behind Real life: En guàrdia! playable
+  in-app with its blurb glossed, Sàpiens read like a message, a story
+  written for you with questions, and your own books a pasted page at a
+  time with the words you keep looking up added up across pages
+  (`renderBook`, `bookWords`, `booksDeck`) — `renderReader`, `readerRow` and
+  `isMessage` in app.js, `feeds` in store.js, `/feed` and `/story` on the
+  Worker (additive; `worker/tools/feed-test.mjs`, `story-test.mjs`). The
+  chat's partner lines are glossed word by word and their tools are a play
+  button, English and a ···.
+- **Review** is spaced repetition read off the attempts: `library.reviewOf`
+  / `library.due` in store.js, `REVIEW_DECK`, the `.due-strip` on the home
+  page and a Review node on the path.
+- 467 phrases: 354 Catalan across thirty-six decks, and 113 Spanish across
+  fourteen. The Catalan newcomers are **Pronoms** (four decks, thirty-two
+  cards, the weak pronouns as a fifth Grammar family) and **Intercanvi**
+  (fourteen repair phrases for a language exchange).
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -3496,7 +3755,8 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v94 / `xerra-v94` — `js/version.js` first, `sw.js` second, as ever.
-- v0.1, the pronunciation core. Spaced repetition and listening/dictation
-  drills are deliberately **not** built yet. AI-generated content from life
-  context now is — see About me above.
+- v95 / `xerra-v95` — `js/version.js` first, `sw.js` second, as ever.
+- v0.1, the pronunciation core. Spaced repetition is built now (Review); a
+  dictation drill is half-built as quiet mode's Listen-then-write; shadowing
+  along with continuous speech is the pronunciation technique still missing.
+  AI-generated content from life context is in — About me, and now stories.

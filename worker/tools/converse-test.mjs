@@ -124,6 +124,18 @@ console.log("\nA turn is corrected and answered");
   ok("and not to open again", !prompt.includes("so open it"));
   ok("the correction comes back whole", body.correction?.fixed === TURN.correction.fixed && body.correction?.translation === TURN.correction.translation && body.correction?.note === TURN.correction.note);
   ok("the reply and hint come back", body.reply === TURN.reply && body.hint?.translation === TURN.hint.translation);
+  ok("a reply with no glossary is a reply with an empty one", Array.isArray(body.glossary) && body.glossary.length === 0);
+  ok("the prompt asks for a gloss per word of the reply", prompt.includes("glossary: every word or short set phrase of your reply"));
+}
+
+console.log("\nThe reply's glossary");
+{
+  stub({ ...TURN, glossary: [{ text: "fa gaire", gloss: "long (ago)" }, { text: "hi", gloss: "there" }, { text: "", gloss: "x" }, { text: "vius", gloss: "" }] });
+  const body = await (await post({ ...BASE, history: [{ role: "learner", text: "Hola" }] })).json();
+  ok("the glossary comes back, blanks dropped", body.glossary?.length === 2 && body.glossary[0].text === "fa gaire");
+  const many = Array.from({ length: 80 }, (_, i) => ({ text: `w${i}`, gloss: "g" }));
+  stub({ ...TURN, glossary: many });
+  ok("and is capped at sixty", (await (await post({ ...BASE, history: [{ role: "learner", text: "Hola" }] })).json()).glossary.length === 60);
 }
 
 console.log("\nWhat is sanitised");
