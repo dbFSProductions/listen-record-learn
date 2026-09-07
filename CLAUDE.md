@@ -830,8 +830,37 @@ on whatever you ask, with three questions to check you followed it.
   reveal (`paintQuestions`), each answer behind *Show the answer*, so the
   checking is more reading rather than a quiz. `STORY_IDEAS` are four chips
   that fill the box; nothing else on the card explains itself.
+- **Your own books, a page at a time.** Asked for as *"I also have loads of
+  books that are slightly above my level."* That is the input worth having
+  — the plot carries you past the words you don't know — and the input a
+  beginner cannot get through unaided, because "slightly above" means a
+  gloss every third word. The phone does the hard half: Camera at the page,
+  the Live Text button, Select all, Copy. So `bookCard` is a paste box with
+  a book's name on it (a datalist of the books you have read from), and
+  every page goes through `/message` with `kind: "book"` and the `title`
+  onto the message page as a `kind: "book"` entry with `source: { name,
+  page }`, headed by the book and *Page 3*, asking *What happened on this
+  page?*. The Worker's `buildBookPrompt` is a second prompt behind the same
+  route — a page may start mid-sentence and carry page furniture, the
+  register line is about the narrating voice and which past tense carries
+  it, the keep list is narrative connectives and set expressions rather than
+  the plot — with a 4000-character cap and a 450-entry glossary, since a page
+  is three to four hundred words; without the field the message prompt is
+  what it always was, and `message-test.mjs` asserts both.
+  - **What the book adds over a run of articles is memory across pages.**
+    Every word you tap while the question is open is written onto the page
+    as `looked` (`trimWord` takes the punctuation off the run), and
+    `renderBook` — `state.book`, between `message` and `reader` in
+    `render()` — adds them up with `bookWords`: each word with how many pages
+    it was looked up on, most often first, and a *Keep* that files it in the
+    language's **Llibres** deck (`booksDeck` in store.js; *Libros*, *Libri*)
+    with the book as its situation. A word looked up on three pages is the
+    card to make, and this is a personal frequency list built from your own
+    reading, which no seed deck can supply. The page's keep list goes to
+    Llibres too, with the page number. *Your books* on the reader lists each
+    book with its pages and lookups; book pages stay out of *Read before*.
 - **Nothing the sister apps call changed shape.** `/feed` and `/story` are
-  new routes; `card-test.mjs` with `BEFORE` set is still byte-identical.
+  new routes, `kind` on `/message` is optional and off by default; `card-test.mjs` with `BEFORE` set is still byte-identical.
   `worker/**` is on the deploy trigger, so merging ships them. The reader
   would port whole, with `FEEDS` swapped for Spanish sources.
 
@@ -852,7 +881,19 @@ story's title, keeps its paragraphs, asks *What happened?*, and after Enter
 paints two `.msg-q` with `.msg-q-en` under each and `.msg-a` hidden until
 `[data-answer]`; the story is in `xerra.messages` with `kind: "story"` and
 its questions; *Read before* lists three; *From your messages* lists none of
-them; and the tile reads *3 read*.
+them; and the tile reads *3 read*. For books: `#book-card` sits under the
+story card; an empty title makes no call and focuses `#book-title`; a page
+makes one `/message` call with `kind: "book"` and the title, heads the page
+with the book and *Page 1*, backs to the book, asks *What happened on this
+page?*, and three taps on one word write one `looked` entry (trimmed, with
+its gloss) and `taps: 1`, while a tap after the reveal writes nothing;
+`[data-keep]` files in `Llibres` with *From «El quadern gris», page 1.*;
+back lands on the book page reading *1 page · 1 word looked up* with the
+word listed and no `#book-title`; a second page is *Page 2*, the same word
+tapped again reads *2 pages*, pages list newest first, and
+`[data-keep-word]` files *el comte* in `Llibres` and flips to *Kept ✓*;
+*Your books* reads *2 pages · 2 words looked up*, *Read before* leaves the
+pages out, the datalist offers the title, and the tile counts *5 read*.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -3678,8 +3719,10 @@ the parser losing a block to a formatting change.
   in the palette. **Draw it again** now sits under every drawing rather than
   only on the phrase sheet.
 - **Escolta i llegeix** is the reader behind Real life: En guàrdia! playable
-  in-app with its blurb glossed, Sàpiens read like a message, and a story
-  written for you with questions — `renderReader`, `readerRow` and
+  in-app with its blurb glossed, Sàpiens read like a message, a story
+  written for you with questions, and your own books a pasted page at a
+  time with the words you keep looking up added up across pages
+  (`renderBook`, `bookWords`, `booksDeck`) — `renderReader`, `readerRow` and
   `isMessage` in app.js, `feeds` in store.js, `/feed` and `/story` on the
   Worker (additive; `worker/tools/feed-test.mjs`, `story-test.mjs`). The
   chat's partner lines are glossed word by word and their tools are a play

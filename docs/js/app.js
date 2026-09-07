@@ -4,7 +4,7 @@ import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
-  messages, messagesDeck, chats, chatsDeck, REVIEW_DECK, feeds,
+  messages, messagesDeck, chats, chatsDeck, booksDeck, REVIEW_DECK, feeds,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring, transcription } from "./speech.js";
@@ -76,6 +76,11 @@ const state = {
      page, which is why it is a flag beside `message` rather than a value of
      it. Cleared by every way out, like `message` and `chat`. */
   reader: false,
+
+  /* The book whose pages you are looking at, by title, or null. A page opened
+     from a book goes back to the book, the book back to the reader, so it
+     sits between `message` and `reader` in render() and is cleared with them. */
+  book: null,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
      "quick", or null for the tiles themselves. It is deliberately *not*
@@ -897,6 +902,7 @@ function goHome() {
   state.section = null;
   state.message = null;
   state.reader = false;
+  state.book = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -1091,6 +1097,7 @@ function render() {
   else if (state.tab === "practise" && state.deck) renderDrill();
   else if (state.tab === "practise" && state.section === "quick" && state.chat) renderChat();
   else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
+  else if (state.tab === "practise" && state.section === "quick" && state.book) renderBook();
   else if (state.tab === "practise" && state.section === "quick" && state.reader) renderReader();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
@@ -1927,6 +1934,7 @@ function renderQuick() {
     state.message = null;
     state.chat = null;
     state.reader = false;
+    state.book = null;
     render();
   };
   document.getElementById("quick-go")?.addEventListener("click", ask);
@@ -2328,8 +2336,9 @@ function renderMessage() {
     article: [item.title || "An article", `From ${item.source?.name || "Sàpiens"}`],
     episode: [item.title || "An episode", `From ${item.source?.name || "En guàrdia!"}`],
     story: [item.title || "A story", "Read it, then check yourself"],
+    book: [item.source?.name || item.title || "A page", item.source?.page ? `Page ${item.source.page}` : "From a book"],
   }[kind] ?? ["Message", ""];
-  const back = state.reader ? READER_TITLE : TILE_BY_KEY.quick.title;
+  const back = state.book ? firstLine(state.book, 22) : state.reader ? READER_TITLE : TILE_BY_KEY.quick.title;
 
   view.innerHTML = `
     ${pageHead("quick", heading[0], heading[1], `<button class="link" id="msg-back">‹ ${esc(back)}</button>`)}
@@ -2354,7 +2363,7 @@ function renderMessage() {
       <p class="small muted msg-hint">${
         revealed
           ? ""
-          : kind === "story"
+          : kind === "story" || kind === "book"
           ? "Tap a word you are stuck on. Then say what happened, in the box below."
           : reading
           ? "Tap a word you are stuck on. Then say what it is about, in the box below."
@@ -2398,7 +2407,13 @@ function renderMessage() {
       button.classList.toggle("open", !gloss.hidden);
       if (!gloss.hidden && item.gist === null && !opened.has(button.dataset.word)) {
         opened.add(button.dataset.word);
-        messages.update(item.id, { taps: (item.taps ?? 0) + 1 });
+        /* Which words, as well as how many: the book page adds them up
+           across pages, and a word looked up on three pages is the card to
+           make. Stripped of the punctuation the run came with. */
+        const seg = segments[Number(button.dataset.word)];
+        const looked = [...(item.looked ?? [])];
+        if (seg?.gloss !== undefined) looked.push({ text: trimWord(seg.text), gloss: seg.gloss });
+        messages.update(item.id, { taps: (item.taps ?? 0) + 1, looked });
       }
     })
   );
@@ -2418,7 +2433,7 @@ function renderMessage() {
     box.innerHTML = `
       <div class="card">
         <label class="field"><span>${
-          kind === "story" ? "What happened?" : reading ? "What is it about?" : "What is it telling you, or asking you to do?"
+          kind === "story" ? "What happened?" : kind === "book" ? "What happened on this page?" : reading ? "What is it about?" : "What is it telling you, or asking you to do?"
         }</span>
           <textarea id="msg-gist" lang="en-GB" rows="2"></textarea></label>
         <button class="btn btn-primary" id="msg-check" style="width:100%">Check</button>
@@ -2669,14 +2684,19 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
     toast("That one is already in the library.");
     return;
   }
-  const deck = messagesDeck(item.language);
+  const book = item.kind === "book" ? item.source?.name || item.title || "" : "";
+  const deck = book ? booksDeck(item.language) : messagesDeck(item.language);
   const about = firstLine(item.gist || item.read?.translation || item.text, 90);
   library.add({
     text,
     translation,
     deck,
     language: item.language,
-    situation: kind === "reply" ? `Your reply to a message: “${about}”` : `From a message you received: “${about}”`,
+    situation: book
+      ? `From «${book}»${item.source?.page ? `, page ${item.source.page}` : ""}.`
+      : kind === "reply"
+      ? `Your reply to a message: “${about}”`
+      : `From a message you received: “${about}”`,
     usageNote: kind === "phrase" && entry.why ? entry.why : null,
     focusNote: null,
     replies: [],
@@ -2793,6 +2813,8 @@ function renderReader() {
       <button class="btn btn-primary" id="story-go" style="width:100%">Write me a story</button>
       <div class="notice bad" id="story-error" hidden></div>
     </div>
+    ${bookCard()}
+    <div id="reader-books"></div>
     <div id="reader-read"></div>
     <div class="card reader-player" id="reader-player" hidden>
       <p class="reader-now" id="reader-now"></p>
@@ -2819,7 +2841,9 @@ function renderReader() {
     })
   );
   document.getElementById("story-go").addEventListener("click", writeStory);
+  wireBookCard();
 
+  paintBooks();
   paintRead();
   for (const source of READER_SOURCES) {
     paintFeed(source, feeds.get(source.key));
@@ -2830,7 +2854,11 @@ function renderReader() {
      with the translation and the questions still there. */
   function paintRead() {
     const box = document.getElementById("reader-read");
-    const read = messages.forLanguage(settings.language).filter((m) => !isMessage(m)).slice(-8).reverse();
+    const read = messages
+      .forLanguage(settings.language)
+      .filter((m) => !isMessage(m) && m.kind !== "book")
+      .slice(-8)
+      .reverse();
     if (!read.length) {
       box.innerHTML = "";
       return;
@@ -2858,6 +2886,43 @@ function renderReader() {
     box.querySelectorAll("[data-read-open]").forEach((button) =>
       button.addEventListener("click", () => {
         state.message = button.dataset.readOpen;
+        render();
+      })
+    );
+  }
+
+  /* The books you have pasted pages from, most recently read first, each a
+     row into its own page. */
+  function paintBooks() {
+    const box = document.getElementById("reader-books");
+    const books = bookList(settings.language);
+    if (!books.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Your books</div>
+      <div class="rows rows-spaced">
+        ${books
+          .map(
+            (book) => `
+          <div class="row striped hue-purple">
+            <button class="row-open" data-book="${esc(book.title)}">
+              <span class="row-main">
+                <span class="row-title">${esc(book.title)}</span>
+                <span class="row-sub">${book.pages.length} page${book.pages.length === 1 ? "" : "s"} · ${book.lookups} word${
+                  book.lookups === 1 ? "" : "s"
+                } looked up</span>
+              </span>
+              <span class="chev">›</span>
+            </button>
+          </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-book]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.book = button.dataset.book;
         render();
       })
     );
@@ -3045,6 +3110,250 @@ function renderReader() {
       }
     }
   }
+}
+
+// ------------------------------------------------------------------- books
+
+/* Your own books, a page at a time.
+
+   The learner has shelves of books a little above their level, which is the
+   input worth having — the plot carries you past the words you don't know —
+   and the input a beginner cannot get through unaided, because "a little
+   above" means a gloss every third word. The phone already does the hard
+   half: point the Camera at the page, tap Live Text, Select all, Copy. So
+   this is a paste box with a book's name on it, and every page goes through
+   /message with `kind: "book"` — the book prompt, the longer cap, the bigger
+   glossary — onto the message page like everything else the reader opens.
+
+   What the book adds over a run of articles is memory across pages. Every
+   word you tap while the question is open is written onto the page
+   (`looked`), and the book's page adds them up: a word looked up on three
+   pages is the word you are actually short of, and it is one tap from a card
+   in the language's Llibres deck. That is a personal frequency list built
+   from your own reading, which is the vocabulary work no seed deck can do. */
+const BOOK_WORDS_SHOWN = 30;
+
+function trimWord(text) {
+  return String(text ?? "").replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, "");
+}
+
+/* The pages of every book in this language, grouped by title, most recently
+   read first. */
+function bookList(language) {
+  const byTitle = new Map();
+  for (const item of messages.forLanguage(language)) {
+    if (item.kind !== "book") continue;
+    const title = item.source?.name || item.title || "Untitled";
+    if (!byTitle.has(title)) byTitle.set(title, { title, pages: [], lookups: 0 });
+    const book = byTitle.get(title);
+    book.pages.push(item);
+    book.lookups += item.taps ?? 0;
+  }
+  return [...byTitle.values()].reverse();
+}
+
+/* The words looked up across a book's pages, each with how many pages it was
+   looked up on, most often first. Keyed on the accent-folded lower-case word
+   so «Sobte» and «sobte» are one entry, printed as it was first met. */
+function bookWords(book, language) {
+  const words = new Map();
+  for (const page of book.pages) {
+    const seen = new Set();
+    for (const entry of page.looked ?? []) {
+      const key = foldAccents(String(entry.text ?? "").toLocaleLowerCase(language));
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const word = words.get(key) ?? { text: entry.text, gloss: entry.gloss, pages: 0 };
+      word.pages += 1;
+      words.set(key, word);
+    }
+  }
+  return [...words.values()].sort((a, b) => b.pages - a.pages);
+}
+
+/* The paste box, on the reader and on a book's own page. With a title
+   already known the book field is fixed; otherwise it offers the books you
+   have read from as suggestions. */
+function bookCard(title = null) {
+  const titles = bookList(settings.language).map((book) => book.title);
+  return `
+    <div class="card" id="book-card">
+      ${
+        title === null
+          ? `<label class="field"><span>Reading a book? Which one?</span>
+               <input id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
+               <datalist id="book-titles">${titles.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist></label>`
+          : ""
+      }
+      <label class="field"><span>${title === null ? "Paste a page." : "Paste the next page."}</span>
+        <textarea id="book-text" lang="${esc(settings.language)}" rows="4" autocapitalize="none"></textarea></label>
+      <p class="tiny muted" style="margin:-4px 0 10px">On the phone: Camera at the page, the Live Text button, Select all, Copy.</p>
+      <button class="btn btn-primary" id="book-go" style="width:100%">Read this page</button>
+      <div class="notice bad" id="book-error" hidden></div>
+    </div>`;
+}
+
+function wireBookCard(fixedTitle = null) {
+  const button = document.getElementById("book-go");
+  if (!button) return;
+  button.addEventListener("click", async () => {
+    const titleBox = document.getElementById("book-title");
+    const textBox = document.getElementById("book-text");
+    const errorBox = document.getElementById("book-error");
+    const title = fixedTitle ?? titleBox?.value.trim() ?? "";
+    const text = textBox.value.trim();
+    if (!title) {
+      titleBox?.focus();
+      return;
+    }
+    if (!text) {
+      textBox.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Reading…`;
+    try {
+      await readBookPage(title, text);
+    } catch (error) {
+      if (!document.getElementById("book-go")) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = "Read this page";
+    }
+  });
+}
+
+/* One page through /message as a book, saved as it arrives with its page
+   number — the count of that book's pages plus one — and opened. */
+async function readBookPage(title, text) {
+  const language = LANGUAGES[settings.language];
+  const read = await cardAssistant.readMessage(
+    { message: text, languageCode: settings.language, languageName: language.englishName, kind: "book", title },
+    settings
+  );
+  if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+  const page = (bookList(settings.language).find((book) => book.title === title)?.pages.length ?? 0) + 1;
+  const saved = messages.add({
+    kind: "book",
+    title,
+    text,
+    source: { name: title, page },
+    looked: [],
+    read: {
+      translation: read.translation,
+      register: read.register || "",
+      glossary: Array.isArray(read.glossary) ? read.glossary : [],
+      keep: Array.isArray(read.keep) ? read.keep : [],
+    },
+  });
+  if (state.section !== "quick") return;
+  state.reader = true;
+  state.book = title;
+  state.message = saved.id;
+  render();
+}
+
+function renderBook() {
+  const title = state.book;
+  const book = bookList(settings.language).find((b) => b.title === title);
+  if (!book) {
+    state.book = null;
+    render();
+    return;
+  }
+  const language = LANGUAGES[settings.language];
+  const words = bookWords(book, settings.language);
+  const pages = [...book.pages].reverse();
+
+  view.innerHTML = `
+    ${pageHead(
+      "quick",
+      title,
+      `${book.pages.length} page${book.pages.length === 1 ? "" : "s"} · ${book.lookups} word${book.lookups === 1 ? "" : "s"} looked up`,
+      `<button class="link" id="book-back">‹ ${esc(READER_TITLE)}</button>`
+    )}
+    ${bookCard(title)}
+    ${
+      words.length
+        ? `<div class="section-label">Words you looked up</div>
+           <p class="small muted" style="margin:-4px 0 10px">Most often first. One looked up on several pages is the card to make.</p>
+           <div class="rows rows-spaced">
+             ${words
+               .slice(0, BOOK_WORDS_SHOWN)
+               .map(
+                 (word, i) => `
+               <div class="row striped hue-purple book-word">
+                 <span class="row-main">
+                   <span class="row-title" lang="${esc(settings.language)}">${esc(word.text)} <span class="book-word-gloss">${esc(word.gloss)}</span></span>
+                   <span class="row-sub">${word.pages === 1 ? "1 page" : `${word.pages} pages`}</span>
+                 </span>
+                 <button class="link book-keep" data-keep-word="${i}" ${replyKept({ text: word.text }) ? "disabled" : ""}>${
+                   replyKept({ text: word.text }) ? "Kept ✓" : "Keep"
+                 }</button>
+               </div>`
+               )
+               .join("")}
+           </div>`
+        : ""
+    }
+    <div class="section-label">Pages</div>
+    <div class="rows rows-spaced">
+      ${pages
+        .map(
+          (page) => `
+        <div class="row striped hue-purple">
+          <button class="row-open" data-page-open="${esc(page.id)}">
+            <span class="row-main">
+              <span class="row-title">Page ${page.source?.page ?? "?"} · ${esc(firstLine(page.text, 48))}</span>
+              <span class="row-sub">${page.gist === null ? "Not read yet" : `${page.taps ?? 0} looked up`}</span>
+            </span>
+            <span class="chev">›</span>
+          </button>
+        </div>`
+        )
+        .join("")}
+    </div>`;
+
+  document.getElementById("book-back").onclick = () => {
+    state.book = null;
+    render();
+  };
+  wireBookCard(title);
+  view.querySelectorAll("[data-page-open]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.message = button.dataset.pageOpen;
+      render();
+    })
+  );
+  /* A word into the Llibres deck, with the book as its situation. Painted
+     in place, like every other keep. */
+  view.querySelectorAll("[data-keep-word]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const word = words[Number(button.dataset.keepWord)];
+      if (!word?.text || !word.gloss) return;
+      if (replyKept({ text: word.text })) {
+        button.disabled = true;
+        button.textContent = "Kept ✓";
+        return;
+      }
+      const deck = booksDeck(settings.language);
+      library.add({
+        text: word.text,
+        translation: word.gloss,
+        deck,
+        language: settings.language,
+        situation: `From «${title}».`,
+        usageNote: null,
+        focusNote: null,
+        replies: [],
+      });
+      button.disabled = true;
+      button.textContent = "Kept ✓";
+      toast(`Added to ${deck}.`);
+    })
+  );
 }
 
 // ------------------------------------------------------------------ xerrada

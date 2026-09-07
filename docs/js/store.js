@@ -721,6 +721,16 @@ export function chatsDeck(language) {
   return CHATS_DECK[language] ?? "Chats";
 }
 
+/* Where a word or phrase kept from a page of a book is filed. One deck per
+   language like the other two, and an ordinary deck for the same reason: the
+   words you keep looking up in your own reading are the vocabulary you are
+   actually short of, and they only become a deck if reading files them. */
+const BOOKS_DECK = { "ca-ES": "Llibres", "es-ES": "Libros", "it-IT": "Libri" };
+
+export function booksDeck(language) {
+  return BOOKS_DECK[language] ?? "Books";
+}
+
 /** The part after the prefix — what a row says once its family is open. */
 export function deckLeaf(deck) {
   const at = deck.indexOf(SUBDECK);

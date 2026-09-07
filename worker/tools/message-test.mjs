@@ -144,5 +144,29 @@ console.log("\nThe old routes still answer");
   ok("an unknown route is a 404", (await post({}, "/messages")).status === 404);
 }
 
+console.log("\nA page from a book");
+{
+  const sent = stub(READ);
+  const res = await post({ ...BASE, message: "De sobte, la Marta es va posar a riure.", kind: "book", title: "El quadern gris" }, "/message");
+  ok("200", res.status === 200);
+  const prompt = promptOf(sent);
+  ok("the book prompt is used", prompt.includes("a page from that book"), prompt.slice(0, 200));
+  ok("the title reaches the model", prompt.includes("«El quadern gris»"));
+  ok("and not the message prompt", !prompt.includes("received the message below"));
+  ok("it asks about the narrating voice", prompt.includes("who is narrating"));
+  const plain = stub(READ);
+  await post({ ...BASE, message: "Hola" }, "/message");
+  ok("without a kind, the message prompt as before", promptOf(plain).includes("received the message below") && !promptOf(plain).includes("a page from that book"));
+  const long = stub(READ);
+  await post({ ...BASE, message: "x".repeat(5000), kind: "book" }, "/message");
+  ok("a page is capped at four thousand", promptOf(long).includes("x".repeat(4000)) && !promptOf(long).includes("x".repeat(4001)));
+  const shortCap = stub(READ);
+  await post({ ...BASE, message: "x".repeat(5000) }, "/message");
+  ok("a message still at twenty-five hundred", promptOf(shortCap).includes("x".repeat(2500)) && !promptOf(shortCap).includes("x".repeat(2501)));
+  stub(READ);
+  const empty = await post({ ...BASE, message: "", kind: "book" }, "/message");
+  ok("an empty page says so", (await empty.json()).error === "Paste the page first.");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

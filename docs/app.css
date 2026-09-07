@@ -2096,3 +2096,13 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .msg-q-en { margin: 2px 0 0; }
 .msg-q-show { padding: 4px 0; font-size: 0.8rem; }
 .msg-a { margin: 4px 0 0; font-weight: 700; color: var(--purple-ink); }
+
+/* A word looked up in a book: the word with its gloss beside it, how many
+   pages it was looked up on, and a Keep at the end of the row. */
+.book-word { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.book-word .row-main { flex: 1; }
+.book-word-gloss { font-weight: 600; color: var(--text-2); }
+.book-word-gloss::before { content: "· "; }
+.book-keep { flex: none; font-size: 0.8rem; }
+.book-keep:disabled { color: var(--text-3); cursor: default; }
+#book-card input[list] { width: 100%; }
