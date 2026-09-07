@@ -119,6 +119,29 @@ console.log("\nWhat is refused");
   ok("an empty feed falls through to the next URL", (await post({ source: "sapiens" })).status === 200);
 }
 
+console.log("\nA Latin-1 feed");
+{
+  // Catalunya Ràdio's feed is ISO-8859-1. Built as bytes so that a UTF-8
+  // read would have turned every ò into U+FFFD, as it did on the phone.
+  const latin1 = (text) => Uint8Array.from([...text].map((ch) => ch.charCodeAt(0)));
+  const XML = `<?xml version="1.0" encoding="ISO-8859-1"?><rss version="2.0"><channel><title>En guàrdia!</title>
+<item><title>Les cròniques de Kaminski a la Guerra Civil</title><link>https://x/1</link><description>Capítol 1296. La resistència amb què Catalunya va respondre a l'alçament.</description>
+<enclosure url="https://mp3.x/1.mp3" type="audio/mpeg"/></item></channel></rss>`;
+  globalThis.fetch = async () => new Response(latin1(XML), { status: 200, headers: { "Content-Type": "application/xml" } });
+  const body = await (await post({ source: "en-guardia" })).json();
+  ok("the accents survive a Latin-1 feed", body.items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil", body.items?.[0].title);
+  ok("in the summary too", body.items?.[0].summary === "Capítol 1296. La resistència amb què Catalunya va respondre a l'alçament.", body.items?.[0].summary);
+  // Declared in the header instead of the XML.
+  globalThis.fetch = async () => new Response(latin1(XML.replace(' encoding="ISO-8859-1"', "")), { status: 200, headers: { "Content-Type": "text/xml; charset=iso-8859-1" } });
+  ok("or in the Content-Type", (await (await post({ source: "en-guardia" })).json()).items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil");
+  // Declared nowhere: sniffed from the failed UTF-8 decode.
+  globalThis.fetch = async () => new Response(latin1(XML.replace(' encoding="ISO-8859-1"', "")), { status: 200, headers: { "Content-Type": "text/xml" } });
+  ok("or nowhere, and still read right", (await (await post({ source: "en-guardia" })).json()).items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil");
+  // A UTF-8 feed with no declaration is still UTF-8.
+  globalThis.fetch = async () => new Response(PODCAST.replace(' encoding="UTF-8"', ""), { status: 200, headers: { "Content-Type": "text/xml" } });
+  ok("a UTF-8 feed is untouched", (await (await post({ source: "en-guardia" })).json()).items?.[1].title === "1010 - Els almogàvers");
+}
+
 console.log("\nAutodiscovery and Atom");
 {
   const HOME = `<!doctype html><html><head><title>Sàpiens</title>

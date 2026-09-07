@@ -1064,10 +1064,17 @@ const TILES = [
 
 const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
 
+/* A long title — an episode's, a book's — would otherwise be squeezed into
+   the column the back link leaves it and wrap one word to a line. Over about
+   two dozen characters the banner drops its mark and sets the title smaller,
+   so it reads as a title rather than a list. */
+const LONG_TITLE = 24;
+
 function pageHead(section, title, subtitle, trailing = "") {
+  const long = String(title ?? "").length > LONG_TITLE;
   return `
-    <header class="page-head">
-      <span class="page-mark" aria-hidden="true">${SECTIONS[section].mark}</span>
+    <header class="page-head${long ? " long" : ""}">
+      ${long ? "" : `<span class="page-mark" aria-hidden="true">${SECTIONS[section].mark}</span>`}
       <div class="page-head-main">
         <h1>${esc(title)}</h1>
         ${subtitle ? `<p class="page-sub">${esc(subtitle)}</p>` : ""}

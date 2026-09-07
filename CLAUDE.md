@@ -344,6 +344,15 @@ you are inside it, which includes coming back from the print page with the
 ticks still on. Opening flips `hidden` in place rather than re-rendering,
 because the ticks live in `wireDeckManager`'s closure.
 
+### A long title drops the banner's mark
+
+An episode's title — *Les cròniques de Kaminski a la Guerra Civil* — landed
+in the column the back link left it and wrapped one word to a line, seven
+lines of banner. Reported with a screenshot. Over `LONG_TITLE` (24)
+characters `pageHead` adds `long`: the mark goes, the title sets at 1.05rem
+and the back link yields a little. Short titles are exactly as they were,
+mark included.
+
 ### The way home is in the banner everywhere
 
 About me printed its *‹ Home* in a `.topbar` above the page head — the
@@ -811,7 +820,14 @@ on whatever you ask, with three questions to check you followed it.
   image is not offered as an episode — and `itunes:duration`. Every text
   field is CDATA-unwrapped, tag-stripped and entity-decoded, with the
   accented Latin-1 entities a Catalan feed actually uses, since a gloss
-  cannot be matched onto *Cat&ograve;lic*. **The two URLs were found from
+  cannot be matched onto *Cat&ograve;lic*. **The bytes are decoded in the
+  charset the feed declares** (`decodeBody`): Catalunya Ràdio's feed is
+  ISO-8859-1, `response.text()` assumes UTF-8, and the first build printed
+  *cr�niques* on every title — reported from the phone with a screenshot.
+  The charset is read from the Content-Type header, then the XML
+  declaration, and a body that declares nothing and still will not decode
+  as UTF-8 is read as Latin-1, by hand if the runtime's TextDecoder does not
+  know it. **The two URLs were found from
   documentation, not fetched**: the development sandbox could not reach
   either host, so each source carries a second spelling and the first that
   parses wins. **On the phone, En guàrdia came through and Sàpiens did

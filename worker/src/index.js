@@ -1407,7 +1407,7 @@ async function fetchFeed(source) {
       signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
-    const parsed = parseFeed(await response.text());
+    const parsed = parseFeed(await decodeBody(response));
     if (!parsed.items.length) throw new Error(`no items at ${url}`);
     const result = {
       source,
@@ -1449,6 +1449,37 @@ async function fetchFeed(source) {
   throw new PublicError(`Couldn't reach ${feed.title} just now. Try again in a minute.`, 502);
 }
 
+/* The body as text, in the charset the feed actually uses. `response.text()`
+   assumes UTF-8, and Catalunya Ràdio's feed is ISO-8859-1 — so every accented
+   letter in every title came through as U+FFFD, and the phone printed
+   *cr�niques*. The charset is read from the Content-Type header, then from
+   the XML declaration; a body that declares nothing and still fails to
+   decode as UTF-8 is tried as Latin-1, since that is the only other thing a
+   Catalan feed has ever been. Latin-1 is decoded by hand when the runtime's
+   TextDecoder does not know it: one byte, one code point. */
+async function decodeBody(response) {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const head = String.fromCharCode(...bytes.slice(0, 300));
+  const declared =
+    /charset=["']?([\w-]+)/i.exec(response.headers.get("Content-Type") ?? "")?.[1] ??
+    /^<\?xml[^>]*encoding=["']([\w-]+)["']/i.exec(head)?.[1] ??
+    "";
+  const charset = declared.toLowerCase();
+  if (charset && !/^utf-?8$/.test(charset)) return decodeAs(bytes, charset);
+  const utf8 = new TextDecoder("utf-8").decode(bytes);
+  return !charset && utf8.includes("\uFFFD") ? decodeAs(bytes, "iso-8859-1") : utf8;
+}
+
+function decodeAs(bytes, charset) {
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return text;
+  }
+}
+
 /* Feed autodiscovery: the page's own `<link rel="alternate">` to its RSS or
    Atom feed, followed only when it points at one of the feed's own hosts. */
 async function discoverFeed(feed) {
@@ -1457,7 +1488,7 @@ async function discoverFeed(feed) {
     signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status} from ${feed.discover}`);
-  const html = (await response.text()).slice(0, 200_000);
+  const html = (await decodeBody(response)).slice(0, 200_000);
   const links = html.match(/<link\b[^>]*>/gi) ?? [];
   for (const tag of links) {
     if (!/type=["']application\/(rss|atom)\+xml["']/i.test(tag)) continue;
