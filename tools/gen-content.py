@@ -90,6 +90,11 @@ def main():
             phrase["aspect"] = aspect
             if aspect_note:
                 phrase["aspectNote"] = aspect_note
+            # The subjunctive beside its plain form, "vinguis → vens", on the
+            # cards that have one.
+            indicative = field(block, "indicative")
+            if indicative:
+                phrase["indicative"] = indicative
         elif aspect_note:
             sys.exit(f"aspectNote with no aspect on {text!r}")
         phrases.append(phrase)

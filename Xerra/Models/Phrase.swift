@@ -79,6 +79,11 @@ struct Phrase: Identifiable, Codable, Hashable {
     /// Why *this* sentence is that shape. Shown with the verdict once you have
     /// chosen, so a wrong answer explains itself.
     var aspectNote: String?
+    /// On a subjunctive card, the subjunctive in the sentence beside the plain
+    /// form it would be as a fact — written `"vinguis → vens"` — so the
+    /// difference is on the screen every time rather than left to be worked
+    /// out. The conditional decks' si-clauses carry it too (tingués → tinc).
+    var indicative: String?
     var createdAt: Date = Date()
     /// Set when the phrase was jotted down in the moment and still needs
     /// its target-language text filled in.

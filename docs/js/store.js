@@ -176,9 +176,18 @@ export const ABOUT_DECK = "About me";
    or a moment that hasn't come. A card is asked its own group's question and
    offered its own group's shapes, so a queue mixing the three (Shuffle all of
    Grammar) still asks one clean question per card rather than ten buttons.
+   Every shape wears a `hue` — one of the deck-row colours — on its mark, its
+   choice button's edge, its verdict and the phrase sheet, so a shape looks
+   like itself wherever it turns up. The choices used to be deliberately
+   uncoloured, on the argument that a coloured choice reads as a recommended
+   one; that holds for *one* coloured choice and not for every choice wearing
+   its own, and it was asked for — grammar in black and white is grammar
+   looking as dull as people expect it to be. No shape wears green or red,
+   which are the verdict's, and none wears the drill's own colours as fills.
    Adding a shape is an entry here, in a group, and cards that name it. */
 export const ASPECTS = {
   dot: {
+    hue: "orange",
     /* The box is in the picture on purpose: what makes a dot a dot is the box
        round the time, so the mark draws it. Square brackets because the box is
        shut — against the present perfect's round ones, which are a stretch of
@@ -201,6 +210,7 @@ export const ASPECTS = {
     base: true,
   },
   line: {
+    hue: "blue",
     group: "past",
     mark: "▬▬",
     label: "A line",
@@ -218,6 +228,7 @@ export const ASPECTS = {
      "past continuous + preterite" is one instance of this shape, and the one
      the cards lean on hardest, but it isn't the whole of it. */
   both: {
+    hue: "purple",
     group: "past",
     mark: "▬●▬",
     label: "Both",
@@ -238,6 +249,7 @@ export const ASPECTS = {
      always a specific moment in this table, and the anchor here is whatever
      past moment you happen to have landed on. */
   pastPerfect: {
+    hue: "teal",
     group: "past",
     mark: "●···|",
     label: "An event before the event",
@@ -254,6 +266,7 @@ export const ASPECTS = {
      it. That bracket is exactly what chooses it over the preterite in Spain,
      which is the decision the `Hoy o ayer` deck exists to drill. */
   presentPerfect: {
+    hue: "gold",
     group: "past",
     mark: "(▬···●)",
     label: "A line reaching now",
@@ -279,6 +292,7 @@ export const ASPECTS = {
      the line's ending (-ia / -ía) put on the whole infinitive, in both
      languages, which is why *would* looks like *used to* moved ahead. */
   will: {
+    hue: "blue",
     group: "ahead",
     mark: "|→●",
     label: "It will",
@@ -291,6 +305,7 @@ export const ASPECTS = {
     base: true,
   },
   would: {
+    hue: "purple",
     group: "ahead",
     mark: "|⇢○",
     label: "It would",
@@ -303,6 +318,7 @@ export const ASPECTS = {
     base: true,
   },
   now: {
+    hue: "orange",
     group: "ahead",
     mark: "|●",
     label: "Already fixed",
@@ -341,6 +357,7 @@ export const ASPECTS = {
      Catalan swaps in -i (parli, vinguis, sigui), Spanish swaps the vowel
      (hable, vengas, sea). */
   fact: {
+    hue: "blue",
     group: "mood",
     mark: "●",
     label: "A fact",
@@ -353,6 +370,7 @@ export const ASPECTS = {
     base: true,
   },
   wish: {
+    hue: "orange",
     group: "mood",
     mark: "→○",
     label: "A wish or a push",
@@ -366,6 +384,7 @@ export const ASPECTS = {
     sub: true,
   },
   doubt: {
+    hue: "purple",
     group: "mood",
     mark: "?○",
     label: "A doubt or a feeling",
@@ -379,6 +398,7 @@ export const ASPECTS = {
     sub: true,
   },
   notYet: {
+    hue: "teal",
     group: "mood",
     mark: "···○",
     label: "Not yet",
@@ -457,6 +477,10 @@ export function aspectOf(phrase) {
     // has to hold a phrase, the table and a language at the same time.
     endings: shape.endings?.[phrase.language] ?? null,
     note: phrase.aspectNote || null,
+    /* The subjunctive in this sentence beside the plain form it would be as a
+       fact — "vinguis → vens" — so the difference is on the screen every time
+       and not left to be worked out. Only the subjunctive cards carry it. */
+    plain: phrase.indicative || null,
   };
 }
 
@@ -892,6 +916,12 @@ export const library = {
         phrase.gender = seed.gender;
         backfilled = true;
       }
+      /* Same again for `indicative`, which arrived after the subjunctive decks
+         had already reached the phone. Only ever fills a blank. */
+      if (seed?.indicative && !phrase.indicative) {
+        phrase.indicative = seed.indicative;
+        backfilled = true;
+      }
     }
 
     const existing = new Set(this.phrases.map((p) => p.text));
@@ -913,6 +943,7 @@ export const library = {
       language: p.language || "ca-ES",
       aspect: p.aspect || null,
       aspectNote: p.aspectNote || null,
+      indicative: p.indicative || null,
       /* The keyword mnemonic, on the Paraules decks and null everywhere else.
          Copied here field by field like the rest — a card built by spreading
          the seed would quietly carry whatever the generator learns next. */

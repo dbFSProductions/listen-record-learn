@@ -4671,11 +4671,16 @@ function aspectGateBody(phrase) {
   const group = ASPECT_GROUPS[ASPECTS[phrase.aspect].group];
   const base = choices.filter((key) => ASPECTS[key].base).length;
   const question = choices.length > base ? group.wide ?? group.question : group.question;
+  /* The sentence is the thing to decide about, so it is the loudest thing on
+     the screen: full ink, on a card striped in Grammar's gold. The question
+     used to be the bold line on top and the sentence a grey prompt under it,
+     which read the wrong way round — reported as the sentence not standing
+     out — so the question is a small gold label now, and the sentence the
+     card. */
   return `
-    <p class="instruction">${question}</p>
-
-    <div class="card">
-      <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
+    <div class="card striped hue-gold aspect-gate-card">
+      <p class="aspect-question">${question}</p>
+      <p class="aspect-sentence">${esc(phrase.translation)}</p>
       <p class="tiny muted" style="margin:10px 0 0">${esc(group.prompt)}</p>
     </div>
 
@@ -4684,7 +4689,7 @@ function aspectGateBody(phrase) {
         .map((key) => [key, ASPECTS[key]])
         .map(
           ([key, aspect]) => `
-        <button class="aspect-choice" data-aspect="${key}">
+        <button class="aspect-choice hue-${aspect.hue}" data-aspect="${key}">
           <span class="aspect-mark">${aspect.mark}</span>
           <span class="aspect-choice-body">
             <strong>${esc(aspect.label)}</strong>
@@ -4722,6 +4727,19 @@ function termLine(shape) {
   return shape.endings ? `${esc(shape.term)} · ${esc(shape.endings)}` : esc(shape.term);
 }
 
+/* The subjunctive beside the plain form — "vinguis, as a fact vens" — on
+   every card that carries one, so the difference is in front of you rather
+   than left to be worked out. Asked for from the phone. `plain` is written as
+   "vinguis → vens" and split here; a card written without the arrow prints
+   as it is. Behind the same gate as the note, since it quotes the form you
+   are being asked to produce. */
+function plainLine(shape) {
+  if (!shape.plain) return "";
+  const [sub, ind] = shape.plain.split("→").map((part) => part.trim());
+  if (!ind) return `<span class="aspect-plain">${esc(shape.plain)}</span>`;
+  return `<span class="aspect-plain"><b>${esc(sub)}</b> is the subjunctive — as a fact it'd be <b>${esc(ind)}</b></span>`;
+}
+
 function aspectVerdict(shape, choice, asking) {
   if (!shape || !choice) return "";
   const right = choice === shape.key;
@@ -4739,11 +4757,12 @@ function aspectVerdict(shape, choice, asking) {
     ? `Subjunctive, yes — but ${esc(theirs)}, not ${esc(mine)}`
     : `Not quite — ${esc(theirs)}, not ${esc(mine)}`;
   return `
-    <div class="card aspect-verdict ${right ? "right" : near ? "near" : "wrong"}">
+    <div class="card aspect-verdict hue-${shape.hue} ${right ? "right" : near ? "near" : "wrong"}">
       <span class="aspect-mark">${shape.mark}</span>
       <span class="aspect-verdict-body">
         <strong>${verdict}</strong>
         <span class="aspect-term">${termLine(shape)}</span>
+        ${asking ? "" : plainLine(shape)}
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
     </div>`;
@@ -5470,11 +5489,12 @@ function showPhrase(phrase) {
           so the shape is simply stated here — no gate, no verdict, and the
           answer showing even when the drill's question is switched off. */
        aspectOf(phrase)
-         ? `<div class="phrase-aspect">
+         ? `<div class="phrase-aspect hue-${aspectOf(phrase).hue}">
               <span class="aspect-mark">${aspectOf(phrase).mark}</span>
               <span class="aspect-verdict-body">
                 <strong>${esc(aspectOf(phrase).label)}</strong>
                 <span class="aspect-term">${termLine(aspectOf(phrase))}</span>
+                ${plainLine(aspectOf(phrase))}
                 ${aspectOf(phrase).note ? `<span class="aspect-why">${esc(aspectOf(phrase).note)}</span>` : ""}
               </span>
             </div>`

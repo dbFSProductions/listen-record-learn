@@ -40,6 +40,7 @@
      this is the one variable in the palette the two forks don't share. */
   --teal: #00c2b2;
   --teal-dark: #00a294;
+  --teal-ink: #008577;
   /* The feminine half of the keyword pictures' gender cue — blue is the
      masculine half and is --blue, already in the palette. It is never lettering
      and never a fill behind text: it is one swatch dot beside a line of
@@ -117,6 +118,7 @@
     --add-ink: #ffb14d;
     --settings-ink: #d8a6ff;
     --purple-ink: #d8a6ff;
+    --teal-ink: #4fe0d0;
     --you-ink: var(--blue);
   }
 }
@@ -368,6 +370,10 @@ p { margin: 0 0 10px; }
 .hue-purple { --hue: var(--purple); --hue-dark: var(--purple-dark); --hue-ink: var(--purple-ink);   --hue-on: #ffffff; }
 .hue-orange { --hue: var(--orange); --hue-dark: var(--orange-dark); --hue-ink: var(--add-ink);      --hue-on: #ffffff; }
 .hue-gold   { --hue: var(--gold);   --hue-dark: var(--gold-dark);   --hue-ink: var(--amber);        --hue-on: #4b4b4b; }
+/* Teal is quiet mode's, and now two grammar shapes' as well — the pluperfect
+   and "not yet", the two that stand off the main line. As a hue it never
+   fills a deck row; `deckColour` doesn't hand it out. */
+.hue-teal   { --hue: var(--teal);   --hue-dark: var(--teal-dark);   --hue-ink: var(--teal-ink);     --hue-on: #ffffff; }
 
 /* A deck row is a banner now — the path's unit banner, one row tall: the
    fill, white lettering, the solid slab underneath and the drop on press.
@@ -1126,6 +1132,32 @@ button { font: inherit; }
 
    One button per entry in ASPECTS, stacked full width: three lines of reading
    each, and a thumb-sized target for the answer you are least sure of. */
+/* The gate's card: the sentence is the thing to decide about, so it is the
+   loudest thing on the screen — full ink, heavy, on a card striped in
+   Grammar's gold — and the question is a small gold label over it. It was
+   the other way round for one release (a bold question, a grey sentence),
+   and the sentence did not stand out. */
+.aspect-gate-card { padding-top: 12px; }
+.aspect-question {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hue-ink);
+}
+.aspect-sentence {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+/* Every choice wears its shape's hue: the mark and the title in its ink, its
+   colour down the left edge, a wash of it behind — the striped-row idiom.
+   Every choice coloured is not one choice recommended; the same hue follows
+   the shape onto the verdict and the phrase sheet. */
 .aspect-choices { display: flex; flex-direction: column; gap: 10px; }
 .aspect-choice {
   appearance: none;
@@ -1136,14 +1168,16 @@ button { font: inherit; }
   text-align: left;
   padding: 13px 15px;
   border: 2px solid var(--line);
+  border-left: 6px solid var(--hue);
   border-radius: 14px;
-  background: var(--surface);
+  background: color-mix(in srgb, var(--hue) 7%, var(--surface));
   color: var(--text);
   cursor: pointer;
   box-shadow: 0 4px 0 var(--line);
 }
-.aspect-choice:active { transform: translateY(4px); box-shadow: none; }
-.aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; }
+.aspect-choice:active { transform: translateY(4px); box-shadow: none; background: color-mix(in srgb, var(--hue) 14%, var(--surface)); }
+.aspect-choice strong { display: block; font-size: 1rem; font-weight: 900; color: var(--hue-ink); }
+.aspect-choice .aspect-mark, .aspect-verdict .aspect-mark, .phrase-aspect .aspect-mark { color: var(--hue-ink); }
 
 /* The picture itself, and the whole reason the decks are built this way: a
    dot in its box, a line, a line with a dot cutting across it, an event before
@@ -1212,6 +1246,18 @@ button { font: inherit; }
 .aspect-verdict strong { display: block; font-size: 0.98rem; font-weight: 900; }
 .aspect-verdict .aspect-mark { margin-top: 2px; }
 
+/* The subjunctive beside its plain form, on every subjunctive card. The two
+   forms are the whole point, so they are the bold parts; the rest is the
+   ordinary quiet line. */
+.aspect-plain {
+  display: block;
+  margin-top: 7px;
+  color: var(--text-2);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.aspect-plain b { color: var(--hue-ink); font-weight: 900; }
+
 /* Why this particular sentence is that shape. The one part of the verdict that
    waits for a level-two card to be revealed — it quotes Spanish at you. */
 .aspect-why {
@@ -1231,7 +1277,8 @@ button { font: inherit; }
   margin: 0 0 12px;
   padding: 11px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--purple) 9%, transparent);
+  border-left: 6px solid var(--hue);
+  background: color-mix(in srgb, var(--hue) 9%, transparent);
 }
 .phrase-aspect strong { display: block; font-size: 0.92rem; font-weight: 900; }
 

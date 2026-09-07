@@ -1832,15 +1832,27 @@ actually speaking, where the decision comes before the words every time.
   re-renders the whole drill, which is safe here in a way it isn't lower down
   the page: the gate stands before you have recorded anything, so there is no
   attempt on screen for a `render()` to throw away.
-- **The choices are deliberately not coloured.** Every strong colour is already
-  saying something in the drill — green is the primary and the model, blue is
-  you, purple is level two, gold is road mode, red is recording — and a
-  coloured choice reads as a recommended one. The only colour on that screen
-  arrives with the verdict, and it is the border-and-tint idiom `.notice.good`
-  and `.notice.bad` already use. **There is no `--green-ink` or `--red-ink` to
-  letter a verdict in, and that is not an oversight** — the `-dark` twins are
-  the underside of a pressable control, not a shade that clears contrast as
-  text on the page — so the lettering stays the ordinary text colour.
+- **Every shape wears a colour, and the sentence is the loudest thing on the
+  gate.** The choices were deliberately uncoloured for a long while — every
+  strong colour is already saying something in the drill, and *one* coloured
+  choice reads as a recommended one. Then two things were reported from the
+  phone at once: the bold question line stood out more than the English it
+  was asking about, and *"people think grammar is dull as it is without
+  doing it all in black and white"*. So each `ASPECTS` entry carries a `hue`
+  (dot orange, line blue, both purple, the pluperfect and not-yet teal, the
+  present perfect gold; will blue, would purple, now orange; fact blue, wish
+  orange, doubt purple) and wears it as a `.hue-*` class on its choice
+  button (the striped-row idiom: colour down the edge, a wash behind, the
+  mark and the title in the ink), on its verdict and on the phrase sheet, so
+  a shape looks like itself wherever it turns up. Every choice coloured is
+  not one choice recommended. No shape wears green or red, which stay the
+  verdict's border-and-tint; `.hue-teal` is new for this and `deckColour`
+  never hands teal to a row. The gate card is `.striped.hue-gold` —
+  Grammar's colour — with the question as a small gold uppercase label
+  (`.aspect-question`) and the English in full ink at 1.5rem
+  (`.aspect-sentence`), so the sentence is the card and the question its
+  caption. **There is still no `--green-ink` or `--red-ink`**, for the
+  reason there never was.
 - **The phrase sheet states the shape flat**, with no gate and no verdict, and
   shows it even when the drill's question is switched off: the sheet is where
   you look a card up rather than being tested on it.
@@ -1977,6 +1989,20 @@ answers its own question, and the drill asks before it shows.
   `aspectNote` on each side names the other. Because of the second one,
   `potser` is on neither language's trigger line and `quizá` is on Spanish's
   only — putting potser on the Catalan doubt line would teach a castellanism.
+- **Every subjunctive card names its plain form.** Asked for as *"always put
+  the non-subjunctive version of the verb somewhere, just so I can see the
+  difference"*. `indicative` on the phrase is the pair written as
+  `"vinguis → vens"` — the form in the sentence and what it would be as a
+  fact — and `plainLine` in app.js prints it as *vinguis is the subjunctive
+  — as a fact it'd be vens* on the verdict and on the phrase sheet, the two
+  forms in the shape's ink. It is behind the level-two gate with the
+  `aspectNote`, since it quotes the form you are being asked to produce.
+  Every wish, doubt and not-yet card carries one, the four si-clauses in
+  Condicional (tingués → tinc) and the two negative commands in Futur do too,
+  and the fact cards carry none — the verb on those *is* the plain form.
+  `aspectOf` flattens it to `plain`. It arrived after the decks were on the
+  phone, so `installNewSeedContent` backfills it beside `gender`, filling
+  only blanks.
 - **The odd cards are the indicative counterparts, in pairs where they can
   be**: *vull venir* beside *vull que vinguis* (same person, so the
   infinitive and no que), *crec que té raó* beside *no crec que vingui* (take
@@ -2011,9 +2037,14 @@ Worth asserting, headless: the Grammar tile counts 113; behind it four
 "false"` and the two-deck families open; `Subjuntiu · Vull que` opens on
 *Fact, wish, doubt — or not yet?* with four `.aspect-choice` buttons in the
 order fact, wish, doubt, notYet and no `#listen`, `#record` or `#drill-edit`;
-picking doubt on the first card paints `.aspect-verdict.near` reading
-*Subjunctive, yes — but a wish or a push, not a doubt or a feeling* with the
-*vull que · cal que* endings line and the `.aspect-why`; picking wish on
+picking doubt on the first card paints `.aspect-verdict.near.hue-orange`
+reading *Subjunctive, yes — but a wish or a push, not a doubt or a feeling*
+with the *vull que · cal que* endings line, an `.aspect-plain` reading
+*vinguis is the subjunctive — as a fact it'd be vens*, and the `.aspect-why`;
+the gate card is `.striped.hue-gold` with `.aspect-question` smaller than
+`.aspect-sentence` and each `.aspect-choice` wearing its shape's `.hue-*`;
+a fact card has no `.aspect-plain` anywhere; a seed card planted without
+`indicative` has it after a reload; picking wish on
 *I want to come to the rehearsal* paints `.aspect-verdict.wrong` reading *Not
 quite — a fact, not a wish or a push*; `Futur · Demà` asks *Will, would, or
 already fixed?* with three buttons and never paints `.near`; `Passat · La
@@ -3403,7 +3434,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v92 / `xerra-v92` — `js/version.js` first, `sw.js` second, as ever.
+- v93 / `xerra-v93` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
