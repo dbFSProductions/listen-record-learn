@@ -134,6 +134,35 @@ for (const [status, detail, want, needle] of [
   ok("unfinished prediction -> 504", res.status === 504 && body.error.includes("taking too long"),
      `${res.status} ${body.error}`);
 }
+/* The Worker's own deadline on the prediction request, going first. This was
+   the way a slow render actually failed: the wait was 45s under a 40s abort, so
+   Replicate's "processing" answer never arrived, the abort was not a
+   PublicError, and the phone got the generic "couldn't answer that". Both slow
+   paths now say the same thing. */
+{
+  stub(() => { const e = new Error("The operation was aborted due to timeout"); e.name = "TimeoutError"; throw e; });
+  const res = await worker.fetch(req(), ENV, {});
+  const body = await res.json();
+  ok("our own abort -> 504, same words as processing",
+     res.status === 504 && body.error.includes("taking too long"), `${res.status} ${body.error}`);
+}
+{
+  stub(() => { throw new TypeError("fetch failed"); });
+  const res = await worker.fetch(req(), ENV, {});
+  const body = await res.json();
+  ok("network failure to Replicate -> 502, named",
+     res.status === 502 && body.error.includes("reach Replicate"), `${res.status} ${body.error}`);
+}
+{
+  stub((url) => {
+    if (url.includes("api.replicate.com")) return jsonRes({ status: "succeeded", output: "https://replicate.delivery/slow.jpg" });
+    const e = new Error("timeout"); e.name = "TimeoutError"; throw e;
+  });
+  const res = await worker.fetch(req(), ENV, {});
+  const body = await res.json();
+  ok("file fetch aborting -> 502 'could not be fetched'",
+     res.status === 502 && body.error.includes("could not be fetched"), `${res.status} ${body.error}`);
+}
 {
   stub((url) => url.includes("api.replicate.com")
     ? jsonRes({ status: "succeeded", output: "https://replicate.delivery/huge.jpg" })
