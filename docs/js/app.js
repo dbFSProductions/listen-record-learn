@@ -2,8 +2,8 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
-  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, chats, chatsDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -443,7 +443,7 @@ function wireReplies(root, replies, language, source = null) {
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
    than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.") {
+async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -451,7 +451,8 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.") 
   button.dataset.busy = "1";
   button.classList.add("busy");
   try {
-    const blob = await speech.modelAudio({ text, language }, settings);
+    // `voice` is the chat partner's; everything else speaks in the drill voice.
+    const blob = await speech.modelAudio({ text, language, voice }, settings);
     if (blob) await player.play(blob);
     else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
     else noVoice();
@@ -1034,7 +1035,7 @@ const TILES = [
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
   { key: "quick", title: "Real life", blurb: "A phrase, a message, a chat", colour: "orange" },
-  { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
+  { key: "grammar", title: "Grammar", blurb: "Past, future, would, subjunctive", colour: "gold" },
   { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
 
@@ -1279,11 +1280,19 @@ function renderPractice(section = null) {
      this is once again a page listing every family. */
   const all = section === "phrases";
   const inSection = (deck) => !section || all || sectionOf(deck) === section;
-  const foldBig = !section || all;
   const mine = section && !all ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
   const captures = mine.filter((p) => !p.text.trim());
   const decks = library.decks(settings.language).filter(inSection);
   const families = library.deckFamilies(settings.language).filter((f) => f.decks.some(inSection));
+  /* Behind a tile the section *is* the fold, so a section holding one family
+     opens it: folding Grammar's only family would put everything the page
+     has behind a second tap and show a single row. That argument runs out
+     the moment a section holds several — Grammar is Passat, Futur,
+     Condicional and Subjuntiu now, and fourteen deck rows under four banners
+     is the Settings → Decks scroll one level over. So the big-family fold
+     comes back on when there is more than one family to choose between, and
+     a fold the user has set still wins either way. */
+  const foldBig = !section || all || families.length > 1;
   const drillable = library.drillable(settings.language).filter((p) => inSection(p.deck));
 
   /* The home page leads with the brand rather than a Practice banner, as the
@@ -1576,7 +1585,7 @@ function renderPractice(section = null) {
      family; the chevron opens it. */
   function familyRow(family) {
     const inFamily = library.inFamily(family.name, settings.language);
-    const open = familyOpen(family.name, family.decks.length, !section);
+    const open = familyOpen(family.name, family.decks.length, foldBig);
     return `
       <div class="row family-row filled hue-${deckColour(family.name)}">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
@@ -2612,6 +2621,7 @@ function chatStarter() {
         <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
       <label class="field"><span>Who are you talking to? <span class="muted">(optional)</span></span>
         <textarea id="chat-who" lang="en-GB" rows="1"></textarea></label>
+      ${voiceField("chat-voice", partnerVoice(settings.language))}
       <p class="small muted" style="margin:0 0 10px">It plays that person in ${esc(
         LANGUAGES[settings.language]?.name ?? settings.language
       )}, follows up on what you say, and shows you how a native would have said each line — then you say it back before it moves on. Talk or type.</p>
@@ -2619,10 +2629,39 @@ function chatStarter() {
     </div>`;
 }
 
+/* Their voice: a select over the language's voices, opening on `selected`.
+   Only with an Azure key — the browser voice is one voice per language and
+   there is nothing to choose — and the same control on the starter card and
+   on the chat page, so a voice picked before the partner opens and a voice
+   changed mid-chat are one thing. */
+function voiceField(id, selected) {
+  if (!settings.hasAzure) return "";
+  const voices = LANGUAGES[settings.language]?.voices ?? [];
+  if (voices.length < 2) return "";
+  return `
+    <label class="field"><span>Their voice</span>
+      <select id="${id}" class="deck-select">
+        ${voices
+          .map(
+            (v) =>
+              `<option value="${esc(v.id)}" ${v.id === selected ? "selected" : ""}>${esc(v.name)} · ${esc(
+                v.gender
+              )}${v.id === settings.azureVoice ? " — your drill voice" : ""}</option>`
+          )
+          .join("")}
+      </select></label>`;
+}
+
 function wireChatStarter() {
   const select = document.getElementById("chat-scene");
   if (!select) return;
   const own = document.getElementById("chat-own");
+  /* Choosing a voice here is remembered for the next chat too — it is a
+     preference about who you rehearse with, not a fact about one scene. */
+  document.getElementById("chat-voice")?.addEventListener("change", (event) => {
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
   select.addEventListener("change", () => {
     own.hidden = select.value !== "own";
     if (!own.hidden) document.getElementById("chat-own-brief").focus();
@@ -2646,8 +2685,9 @@ function wireChatStarter() {
 
 /* `character` is who the partner is — an old man who has lived in Horta all
    his life, someone who was a casteller with Vilafranca — written by the
-   learner and carried on the scene, so *Have it again* keeps them. */
-function startChat(scene) {
+   learner and carried on the scene, so *Have it again* keeps them. `voice` is
+   the voice they speak in, written onto the chat for the same reason. */
+function startChat(scene, voice = partnerVoice(settings.language)) {
   const item = chats.add({
     scene: {
       key: scene.key,
@@ -2656,6 +2696,9 @@ function startChat(scene) {
       brief: scene.brief,
       character: scene.character ?? "",
     },
+    // Written onto the chat, so reopening it keeps the person you were
+    // talking to; the partner's lines are cached under it.
+    voice,
   });
   state.chat = item.id;
   render();
@@ -2730,6 +2773,13 @@ function keepFromChat(entry, item, button, kind = "partner") {
    setting says, and says why. */
 function talkNow() {
   return Boolean(settings.chatTalk && settings.hasAzure);
+}
+
+/* The voice this chat's partner speaks in. A chat from before voices were
+   chosen has none written on it, and reads as the default — the other gender
+   from the drill voice — rather than as the drill voice. */
+function partnerVoiceOf(item) {
+  return item.voice || partnerVoice(item.language, settings.azureVoice, "");
 }
 
 /* The conversation, shaped as the card the tutor expects. `text` is the last
@@ -2814,6 +2864,7 @@ function renderChat() {
              </div>`
       }
     </div>
+    ${item.ended ? "" : `<div class="xat-voice">${voiceField("xat-voice", partnerVoiceOf(item))}</div>`}
     <div class="card chat-card xat">
       <div class="chat-log xat-log" id="xat-log"></div>
       <div id="xat-composer" ${item.ended ? "hidden" : ""}></div>
@@ -2852,7 +2903,14 @@ function renderChat() {
     chats.update(item.id, { ended: true });
     render();
   });
-  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene));
+  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene, partnerVoiceOf(item)));
+  /* Changing the voice mid-chat: the next lines are in it, and Listen on the
+     earlier ones re-says them in it too, since the cache is keyed by voice. */
+  document.getElementById("xat-voice")?.addEventListener("change", (event) => {
+    chats.update(item.id, { voice: event.target.value });
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
 
   document.getElementById("xat-talk")?.addEventListener("click", () => setMode(true));
   document.getElementById("xat-type")?.addEventListener("click", () => setMode(false));
@@ -2889,7 +2947,10 @@ function renderChat() {
       box?.focus();
       return;
     }
-    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.");
+    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.", partnerVoiceOf(item));
+    else if (button.hasAttribute("data-say-fix") && turn.correction?.fixed)
+      // Your line as it should have been, in your own voice — the drill's.
+      sayAloud(button, turn.correction.fixed, language, "Couldn't play that.");
     else if (button.hasAttribute("data-practise")) {
       if (hold !== null || hearing) return;
       if (recorder.isRecording) {
@@ -3075,6 +3136,7 @@ function renderChat() {
                  <p class="xat-fixed" lang="${esc(item.language)}">${esc(fix.fixed)}</p>
                  ${fix.translation ? `<p class="xat-fix-english">${esc(fix.translation)}</p>` : ""}
                  ${fix.note ? `<p class="xat-fix-note">${esc(fix.note)}</p>` : ""}
+                 <button class="link" data-say-fix data-at="${at}">Listen</button>
                  <button class="link" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
                    kept ? "Kept as a card ✓" : "Keep as a card"
                  }</button>
@@ -3385,7 +3447,7 @@ function renderChat() {
      right there under the line. */
   async function autoplay(text) {
     try {
-      const blob = await speech.modelAudio({ text, language: item.language }, settings);
+      const blob = await speech.modelAudio({ text, language: item.language, voice: partnerVoiceOf(item) }, settings);
       if (blob) await player.play(blob);
       else if (browserSpeech.available(item.language)) browserSpeech.speak(text, item.language);
     } catch {
@@ -4604,19 +4666,23 @@ function renderDrill() {
    every single time, so the grammar-book word arrives attached to something
    you actually have a feel for. */
 function aspectGateBody(phrase) {
-  const choices = aspectChoices(state.queue);
-  /* "Dot in a box, or line?" is the whole idea asked as a question, and it is
-     the right one right up until a deck puts a perfect on the table — at which
-     point it is literally the wrong one, because neither answer is on offer.
-     So the three-shape decks keep the phrase and the wider ones ask the wider
-     question. */
-  const question = choices.length > 3 ? "Which shape?" : "Dot in a box, or line?";
+  const choices = aspectChoices(state.queue, phrase);
+  /* The question is the card's group's — dot or line for the past decks,
+     will-would-or-fixed ahead of now, fact-wish-doubt-or-not-yet for the
+     subjunctive. "Dot in a box, or line?" is the whole idea asked as a
+     question, and it is the right one right up until a deck puts a perfect on
+     the table — at which point it is literally the wrong one, because neither
+     answer is on offer. So a group whose deck has put more than its base
+     shapes on the table asks its wider question instead. */
+  const group = ASPECT_GROUPS[ASPECTS[phrase.aspect].group];
+  const base = choices.filter((key) => ASPECTS[key].base).length;
+  const question = choices.length > base ? group.wide ?? group.question : group.question;
   return `
     <p class="instruction">${question}</p>
 
     <div class="card">
       <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
-      <p class="tiny muted" style="margin:10px 0 0">Decide the shape first. The sentence comes after.</p>
+      <p class="tiny muted" style="margin:10px 0 0">${esc(group.prompt)}</p>
     </div>
 
     <div class="aspect-choices">
@@ -4668,11 +4734,21 @@ function aspectVerdict(shape, choice, asking) {
   const picked = ASPECTS[choice];
   const mine = picked?.label.toLowerCase() ?? "something else";
   const theirs = shape.label.toLowerCase();
+  /* Three of the mood shapes are the subjunctive, and picking one of them for
+     another is the mood right and the reason wrong — which is most of what
+     the deck exists to teach, so it earns its own verdict rather than a plain
+     red: the form you would have said is the right form. */
+  const near = !right && Boolean(shape.sub && picked?.sub);
+  const verdict = right
+    ? `Yes — ${esc(theirs)}`
+    : near
+    ? `Subjunctive, yes — but ${esc(theirs)}, not ${esc(mine)}`
+    : `Not quite — ${esc(theirs)}, not ${esc(mine)}`;
   return `
-    <div class="card aspect-verdict ${right ? "right" : "wrong"}">
+    <div class="card aspect-verdict ${right ? "right" : near ? "near" : "wrong"}">
       <span class="aspect-mark">${shape.mark}</span>
       <span class="aspect-verdict-body">
-        <strong>${right ? `Yes — ${esc(theirs)}` : `Not quite — ${esc(theirs)}, not ${esc(mine)}`}</strong>
+        <strong>${verdict}</strong>
         <span class="aspect-term">${termLine(shape)}</span>
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
@@ -7264,13 +7340,15 @@ function renderSettings() {
         showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
         "Show me" for when it has gone completely.</p>
       <div class="switch-row">
-        <span>Dot or line — name the shape first</span>
+        <span>Grammar — name the shape first</span>
         <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
       </div>
-      <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
-        which shape it is — a dot in a box (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
-        perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
-        Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
+      <p class="tiny muted" style="margin:8px 0 0">On the Grammar decks, the drill shows you the English and asks a
+        question before it will show you the sentence: on the past decks, which shape it is — a dot in a box
+        (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the perfects; on the future and
+        conditional decks, whether it will, it would, or it's already fixed; on the subjunctive decks, whether it's a
+        fact, a wish, a doubt, or not yet. It only offers the shapes the deck you're in actually uses. Cards outside
+        those decks never carry a shape, so this does nothing to the rest of the library.</p>
       <div class="switch-row">
         <span>Road mode — listen and repeat</span>
         <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>

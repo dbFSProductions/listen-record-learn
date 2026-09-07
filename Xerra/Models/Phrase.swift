@@ -1,24 +1,37 @@
 import Foundation
 
-/// Which shape in the past a sentence is: a dot is an event in a time-boxed
-/// past, a line is a stretch of it, some sentences are a line with a dot
-/// cutting across, and the two perfects sit off the main timeline — an event
-/// finished before the past moment you are talking about, and a line dashed
-/// forward into the dot of now.
+/// Which shape a sentence is, and the drill asks for it *before* it will show
+/// you the sentence — you pick the shape, then you say the words. The proper
+/// term rides along with each one so the grammar vocabulary is on the screen
+/// without being the thing you are tested on.
 ///
-/// This is the picture the past-tense decks are built on, and the drill asks
-/// for it *before* it will show you the sentence — you pick the shape, then you
-/// say the words. The proper term rides along with each one so the grammar
-/// vocabulary is on the screen without being the thing you are tested on.
+/// Three groups, three questions. In the past: a dot is an event in a
+/// time-boxed past, a line is a stretch of it, some sentences are a line with
+/// a dot cutting across, and the two perfects sit off the main timeline — an
+/// event finished before the past moment you are talking about, and a line
+/// dashed forward into the dot of now. Ahead of now: it will (future), it
+/// would (conditional), or it is already fixed and said in the present. And
+/// the mood: a fact stated straight, or one of the three subjunctives — a wish
+/// or a push, a doubt or a feeling, a moment that hasn't come.
 ///
 /// The web app's twin is `ASPECTS` in docs/js/store.js; keep the keys in step,
 /// because they are what `aspect:` is written as in the generated content.
 enum Aspect: String, Codable, CaseIterable, Hashable {
+    // The past
     case dot
     case line
     case both
     case pastPerfect
     case presentPerfect
+    // Ahead of now
+    case will
+    case would
+    case now
+    // The mood
+    case fact
+    case wish
+    case doubt
+    case notYet
 }
 
 /// Which gender a noun is, and therefore which colour its keyword picture

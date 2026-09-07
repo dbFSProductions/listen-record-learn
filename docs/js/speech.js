@@ -48,7 +48,13 @@ export const speech = {
     if (!phrase.text?.trim()) return null;
     if (!settings.hasAzure) return null;
 
-    const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
+    /* The voice is the settings' unless the caller names one — the rehearsal
+       chat's partner speaks in a voice of their own, so the two sides of a
+       conversation are two people. The cache is keyed by voice, so a line
+       heard in one voice is not served back in another. Additive: a phrase
+       without `voice` is exactly the call it always was. */
+    const voice = phrase.voice || settings.azureVoice;
+    const key = cacheKey(phrase.text, voice, phrase.language);
     /* The cache read used to sit outside the try, so a database that would not
        open — a blocked version upgrade, storage evicted mid-session, private
        browsing — threw out of here, out of `loadPhrase`, and left the drill on
@@ -62,7 +68,7 @@ export const speech = {
     }
 
     try {
-      const blob = await this.synthesise(phrase.text, phrase.language, settings);
+      const blob = await this.synthesise(phrase.text, phrase.language, settings, voice);
       // Failing to *keep* it is not failing to have it. A full or unavailable
       // store costs the offline copy, never the audio you just asked for.
       try {
@@ -92,13 +98,13 @@ export const speech = {
     }
   },
 
-  async synthesise(text, language, settings) {
+  async synthesise(text, language, settings, voice = settings.azureVoice) {
     const SDK = await loadSDK();
     const config = SDK.SpeechConfig.fromSubscription(
       settings.azureKey.trim(),
       settings.azureRegion.trim()
     );
-    config.speechSynthesisVoiceName = settings.azureVoice;
+    config.speechSynthesisVoiceName = voice;
     config.speechSynthesisOutputFormat =
       SDK.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3;
 

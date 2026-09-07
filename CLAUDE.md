@@ -190,13 +190,17 @@ squares now, with About me the fifth and the sixth blank; see below.
   phrase you searched for must never be hiding inside a fold, one level up. It
   sits *under* the tiles on the home page (the four squares are what the tab is
   for) and back on top inside a section, where it is the filter for the list.
-- **A family opens by default behind a tile.** `familyOpen`'s third argument is
-  what turns the big-family fold off: Grammar holds one family, so folding it
-  would put everything that page has behind a second tap and show a single row.
-  Behind a tile the section *is* the fold. A fold the user has actually set
-  still wins, in both directions.
+- **A family opens by default behind a tile — until the tile holds several.**
+  `familyOpen`'s third argument is what turns the big-family fold off: a
+  section holding one family *is* the fold, so folding it would put everything
+  that page has behind a second tap and show a single row. That argument runs
+  out the moment a section holds more than one family, which Grammar does now
+  (Passat, Futur, Condicional, Subjuntiu), so `renderPractice` puts the fold
+  back on when `families.length > 1`. `FOLD_FROM` still decides which ones
+  actually fold — Passat and Subjuntiu do, the two-deck families stay open —
+  and a fold the user has actually set still wins, in both directions.
 - **`section:` is the fourth string in deck-key space**, after `*`, `★` and
-  `family:`. `section:grammar` drills all forty-eight past cards whatever
+  `family:`. `section:grammar` drills all 112 grammar cards whatever
   family they are in, which is what *Shuffle all of Grammar* starts, so
   `deckNameProblem` has to refuse it like the other three.
 - **★ Favourites and Shuffle all belong to Decks and show nowhere else.**
@@ -630,6 +634,26 @@ have said it.
   played as it arrives in both modes, quietly: `autoplay` swallows the
   refusal iOS may give a play not started by a tap, because a toast on every
   turn would be worse than the *Listen* under every line.
+- **The other person has a voice of their own, and your line is read back
+  in yours.** Reported as *"not always the same male voice doing all the
+  talking for both sides of the chat"*. `item.voice` is written onto the chat
+  by `startChat` and is what every partner line — the autoplay and each
+  *Listen* — is synthesised in; `partnerVoice` in store.js picks it: your
+  remembered `settings.chatVoice` if it is one of the language's voices,
+  otherwise the first voice whose gender is not your drill voice's, so Enric
+  gets Joana and Joana gets Enric. *Their voice* is one select
+  (`voiceField`), on the starter card before the partner opens and under the
+  brief on the chat page to change mid-chat; both write `settings.chatVoice`,
+  the page's also writes the chat, and *Have it again* carries it over. It
+  shows only with an Azure key and a language with two voices — the browser
+  voice is one voice per language and there is nothing to choose. The other
+  side is *Listen* on **A native would say** (`data-say-fix`), in the drill
+  voice with no override, which is what makes the two sides two people.
+  `speech.modelAudio` takes an optional `voice` on the phrase for this and
+  keys its cache by it — additive, so the drill's call is byte-for-byte what
+  it was, and **speech.js is no longer the verbatim copy the forks took**:
+  port `voice` with the chat. A chat from before this has no `voice` and
+  `partnerVoiceOf` reads it as the default rather than as the drill voice.
 - **Lines are kept as cards in the language's `Xerrades` deck** (`chatsDeck`
   in store.js; *Charlas*, *Chiacchierate*) — the partner's line you want to
   be able to say, or your own line as it should have been, with the note as
@@ -701,7 +725,19 @@ records, the go is scored against the fixed line, `.xat-result` shows the
 dial and the weakest word and *Heard:*, `xerra.attempts` is untouched, and
 Move on puts `#xat-record` back; Say it on a partner line scores against
 that line and Done leaves the record button standing; nothing heard makes no call and says so; a 503 says *Say it again* and leaves the partner's
-turn last; and Type mid-recording cancels the recorder without a call.
+turn last; and Type mid-recording cancels the recorder without a call. For
+the voice, with `speech.modelAudio` overridden to record `phrase.voice`:
+no `#chat-voice` without a key; with one and Enric as the drill voice,
+`#chat-voice` lists the three Catalan voices with Joana selected and Enric
+labelled *your drill voice*, sits above `#chat-go`, and Start writes
+`voice: "ca-ES-JoanaNeural"` onto the chat and autoplays with it; the
+partner's `[data-say]` and the fix's `[data-say-fix]` record Joana and
+`null` respectively; `#xat-voice` opens on the chat's voice, changing it
+writes the chat and `settings.chatVoice`, and the next Listen is in it; the
+starter remembers it, a reopened chat keeps it, an ended chat has no select,
+`#xat-again` carries it; a chat with no `voice` and Joana as the drill voice
+reads and plays as Enric; a `chatVoice` from another language falls back;
+and the drill's own fetch records `null`.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -1890,6 +1926,101 @@ what her unit drills), and `both`/pluperfect stay here until she needs them.
 The mechanism is otherwise Xerra's shape — keep the gate logic, the level-two
 stacking and the `aspectNote` gating in step. The Worker is untouched either
 way.
+
+### Ahead of now, and the mood: the rest of Grammar
+
+Asked for as *"a bit more for the grammar section — future, conditional and
+subjunctive, and definitely with a choose-if-it's-subjunctive game like the
+past tense thing"*. Three more families under Grammar in each language —
+`Futur` / `Futuro`, `Condicional`, `Subjuntiu` / `Subjuntivo` — eight decks
+and sixty-four sentences a language, built exactly the way the past decks
+are: the two languages say the same sentences, each card's `aspect` is the
+shape it is *about*, every deck carries an odd card or two so its name never
+answers its own question, and the drill asks before it shows.
+
+- **`ASPECTS` grew a `group`, and the group is the question.** The past
+  shapes are `past` and ask *Dot in a box, or line?* as before. The future
+  and conditional decks share `ahead` — **It will** (future), **It would**
+  (conditional), **Already fixed** (the present, for a plan in the diary) —
+  and ask *Will, would, or already fixed?*. The subjunctive decks are
+  `mood` — **A fact** (indicative), **A wish or a push**, **A doubt or a
+  feeling**, **Not yet** — and ask *Fact, wish, doubt — or not yet?*.
+  `ASPECT_GROUPS` in store.js carries each question, its `wide` form where
+  one exists, and the one-line prompt under the English. Everything else —
+  the mark column, the term, the endings line keyed by language, the
+  `aspectNote`, the level-two stacking, road mode taking it off — is the
+  past gate's machinery untouched.
+- **`aspectChoices(queue, phrase)` now offers the *card's* group**, base
+  shapes plus whatever of that group the queue holds. That is what makes
+  *Shuffle all of Grammar* work: 112 cards from three groups, and each one
+  asks its own question with its own three, four or five buttons rather than
+  twelve. `ahead` and `mood` are all `base`, so those decks always ask the
+  whole question; the past group is the only one with extras.
+- **Subjunctive, yes — but the wrong reason** is a third verdict. The three
+  subjunctive shapes carry `sub`, and picking one for another paints
+  `.aspect-verdict.near` in amber (quiet mode's near-miss colour) reading
+  *Subjunctive, yes — but a wish or a push, not a doubt or a feeling*. The
+  form you would have said is the right form, which is most of what the deck
+  exists to teach, so it is not a plain red.
+- **The conditional's ending is the line's ending**, -ria / -ía on the whole
+  infinitive, and the verdict says so every time — the same argument as
+  *-aba and -ía are always the line*. The future's is the whole infinitive
+  with -ré / -é. Both endings lines also name the verbs that shorten
+  (tindré, voldria; tendré, querría) in their `aspectNote`s.
+- **Two cards where the twins part company on the shape**, and both are on
+  purpose. *It must be about ten o'clock* is `now` in Catalan (**deuen ser
+  les deu**, deure + the plain verb) and `will` in Spanish (**serán las
+  diez**, the future of probability). *Maybe it's closed* is `fact` in
+  Catalan (**potser està tancat** — potser takes the indicative) and `doubt`
+  in Spanish (**quizá esté cerrado**). The sentence is held constant so what
+  varies is the machinery; here the machinery differs in mood, and the
+  `aspectNote` on each side names the other. Because of the second one,
+  `potser` is on neither language's trigger line and `quizá` is on Spanish's
+  only — putting potser on the Catalan doubt line would teach a castellanism.
+- **The odd cards are the indicative counterparts, in pairs where they can
+  be**: *vull venir* beside *vull que vinguis* (same person, so the
+  infinitive and no que), *crec que té raó* beside *no crec que vingui* (take
+  the no off and the subjunctive goes with it), *quan arribo a casa, sopo*
+  beside *quan arribi a casa, et trucaré* (a habit is every night; not-yet is
+  tonight), *si plou, no sortirem* beside *si plogués, no sortiríem* (a real
+  if takes the present and the future, an unreal one the past subjunctive and
+  the conditional). `Futur · Ja està decidit` is four such pairs and nothing
+  else, present against future, the way `Avui o ahir` is.
+- **The Catalan is Central Catalan and the focusNotes say v as b**, as the
+  past decks' *batch* already did: BULL, BIN-guis, BUIT. The infinitive's r
+  comes back before an enclitic (*anar-hi* is ə-NAR-i, *quedar-me* keeps its
+  r) and the notes say so where it happens; *hagis* has the soft j of
+  'measure'; *junts* and *evident* lose a t; *temps* loses its p.
+- **Grammar's tile reads *Past, future, would, subjunctive*** instead of
+  *Name the shape, then say it*, and the Settings switch is *Grammar — name
+  the shape first* with copy that names all three questions. The switch is
+  still one switch: `settings.aspectGate` turns every gate off together.
+- **The Grammar list is alphabetical, like every list here**: Condicional,
+  Futur, Passat, Subjuntiu. A pedagogical order would want Passat first; the
+  deck list has never had one and the past decks inside Passat are
+  alphabetical too, so this is the convention rather than a decision to
+  revisit here.
+
+Worth asserting, headless: the Grammar tile counts 112; behind it four
+`[data-fold]` rows in that order with Passat and Subjuntiu `aria-expanded=
+"false"` and the two-deck families open; `Subjuntiu · Vull que` opens on
+*Fact, wish, doubt — or not yet?* with four `.aspect-choice` buttons in the
+order fact, wish, doubt, notYet and no `#listen`, `#record` or `#drill-edit`;
+picking doubt on the first card paints `.aspect-verdict.near` reading
+*Subjunctive, yes — but a wish or a push, not a doubt or a feeling* with the
+*vull que · cal que* endings line and the `.aspect-why`; picking wish on
+*I want to come to the rehearsal* paints `.aspect-verdict.wrong` reading *Not
+quite — a fact, not a wish or a push*; `Futur · Demà` asks *Will, would, or
+already fixed?* with three buttons and never paints `.near`; `Passat · La
+línia` still asks *Dot in a box, or line?* with three and `Passat · Tot
+junt` *Which shape?* with five; `section:grammar` queues `1/112` and every
+card's question matches its button count; the phrase sheet for *sàpigues*
+reads *Not yet*; an opened Subjuntiu fold survives a reload; in `content.js`
+*Potser està tancat* is `fact` while *Quizá esté cerrado* is `doubt`, and
+*Deuen ser les deu* is `now` while *Serán las diez* is `will`; the Spanish
+library shows the same four families and 112 cards; and Salutacions is still
+ungated. Deb-o-lingo has the past gate in a three-shape cut; the groups would
+port with it, and the content would not — its sentences are Deb's.
 
 ### A withdrawn seed card has to reach the phone
 
@@ -3080,7 +3211,7 @@ Vocab, About me, Quick, Grammar and All Phrases, in that order, and no
 `[data-deck]` at all; `.home-head .wordmark` reads *fin·o·lingo*, `.crest` has
 loaded (`naturalWidth > 0`), `#open-settings` is inside `.home-head`, there is
 no `.page-head` on the home page, and `.section-intro` carries the language and
-the count; the counts come from the library (48 behind Grammar, 36 behind
+the count; the counts come from the library (112 behind Grammar, 36 behind
 Vocab, 243 behind All Phrases, and the Practice count leaves About me cards
 out); typing into `#search` from the tiles still finds *la clau* and an About
 me card alike, and clearing it brings the tiles back; `[data-section="decks"]`
@@ -3182,7 +3313,10 @@ the parser losing a block to a formatting change.
   be edited and sent again, and an Ask panel at the foot takes questions
   about any word or phrase in it. **Talk** (the record
   button, sent as heard, with an Azure key) or **Type**, on
-  `settings.chatTalk`. Kept lines land in the language's `Xerrades` deck.
+  `settings.chatTalk`. The partner speaks in a voice of their own — *Their
+  voice*, `item.voice`, defaulting to the other gender from the drill voice
+  via `partnerVoice` — and your corrected line has a Listen in yours. Kept
+  lines land in the language's `Xerrades` deck.
   `renderChat`, `CHAT_SCENES`, `chatStarter`, `talkNow` and `keepFromChat` in
   app.js, `chats` and `chatsDeck` in store.js, `transcription` in speech.js,
   `/converse` on the Worker (additive; `worker/tools/converse-test.mjs`).
@@ -3229,6 +3363,13 @@ the parser losing a block to a formatting change.
   sentences, drawn with each language's own machinery, which is why `endings`
   in `ASPECTS` is keyed by locale. Ported to Deb-o-lingo in a three-shape cut
   (dot, line, present perfect) with its own content and a louder endings line.
+- **The rest of Grammar** is the same gate asking two more questions: the
+  future and conditional decks ask *Will, would, or already fixed?* and the
+  subjunctive decks *Fact, wish, doubt — or not yet?*, with an amber verdict
+  for the subjunctive picked for the wrong reason. `group` on every `ASPECTS`
+  entry and `ASPECT_GROUPS` in store.js; `aspectChoices(queue, phrase)`
+  offers the card's own group. Eight decks and sixty-four sentences a
+  language, twins across Catalan and Spanish like the past.
 - **Paraules** is vocabulary by the keyword method — thirty-six single words in
   six decks under one family, each with a sound bridge and one absurd scene,
   drawn on request through the Worker's `/picture`. `sounds` / `picture` on the
@@ -3246,7 +3387,7 @@ the parser losing a block to a formatting change.
   `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
   in the palette. **Draw it again** now sits under every drawing rather than
   only on the phrase sheet.
-- 291 phrases: 243 Catalan across twenty-three decks, and 48 Spanish across six.
+- 419 phrases: 307 Catalan across thirty-one decks, and 112 Spanish across fourteen.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -3261,10 +3402,14 @@ the parser losing a block to a formatting change.
   England instead of Germany, the band instead of the hotel, the rehearsal
   instead of the phantom brother, in both languages — and reworded the Catalan
   rain card from the *va estar plovent* calque to *va ploure* via
-  `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks are the
-  newest arrivals — A taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora
-  de casa, six words each.
-- v91 / `xerra-v91` — `js/version.js` first, `sw.js` second, as ever.
+  `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks — A
+  taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora de casa, six words
+  each — came next. The newest arrivals are the rest of Grammar, sixty-four
+  more sentences a language in eight decks: Futur · Demà / Ja està decidit,
+  Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
+  Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
+  and Subjuntivo.
+- v92 / `xerra-v92` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
