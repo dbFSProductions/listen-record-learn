@@ -214,6 +214,36 @@ say("\nConfig");
      calls[0].url.includes("googleapis.com"), calls[0].url);
 }
 
+say("\nThree kinds of 429, three different things to do about them");
+/* `asPublicError` is shared by every Gemini call, so this drives it down the
+   Gemini branch (no Replicate token) rather than testing a copy of it. What
+   matters is that the advice differs: two of these will never clear by
+   waiting, and the old single message told you to wait for all three. */
+for (const [label, detail, needle, notNeedle] of [
+  ["limit: 0 names the plan, not a wait",
+   "Quota exceeded for quota metric 'Generate requests', limit: 0",
+   "isn't in this key's plan", "few minutes"],
+  ["a free-tier quota resets at midnight Pacific",
+   "You exceeded your current quota. quota_metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, quota_id: GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+   "midnight Pacific", "few minutes"],
+  /* Google camel-cases it in the quota id and underscores it in the metric.
+     A body carrying only the camel form is the one a `free[_ ]tier` regex
+     misses, which is why this case is here on its own. */
+  ["…and is recognised camel-cased too",
+   "You exceeded your current quota. quota_id: GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+   "midnight Pacific", "few minutes"],
+  ["anything else is still the per-minute limit",
+   "Resource has been exhausted (e.g. check quota).",
+   "few minutes", "midnight Pacific"],
+]) {
+  stub(() => jsonRes({ error: { message: detail } }, 429));
+  const res = await worker.fetch(req(), { ...ENV, REPLICATE_API_TOKEN: "" }, {});
+  const body = await res.json();
+  ok(label,
+     res.status === 429 && body.error.includes(needle) && !body.error.includes(notNeedle),
+     `${res.status} ${body.error}`);
+}
+
 say("\nValidation still bites");
 {
   stub(() => jsonRes({}));

@@ -2280,8 +2280,9 @@ below said what that was costing. What is true of them now:
   scene. It is the only call here that returns
   bytes rather than words, so it earns its own endpoint on exactly the argument
   `/replies` won: an image is the biggest, slowest output this Worker makes and
-  card generation must stay small and fast. It runs `GEMINI_IMAGE_MODEL` alone
-  (no fallback — nothing else in the chain can draw), sends **no
+  card generation must stay small and fast. On the Gemini side it runs
+  `GEMINI_IMAGE_MODEL` alone (no fallback — nothing else in that chain can
+  draw), sends **no
   `generation_config`** (an image model has no `thinking_level` and rejects the
   field, which is why `callModel` now takes one and `null` omits the key), and
   gets `IMAGE_TIMEOUT_MS` (40s) rather than the 25s sized for a card. On the
@@ -2294,6 +2295,48 @@ below said what that was costing. What is true of them now:
   and `picture-test.mjs` holds the abort to it. Nothing
   the other endpoints send changed shape, so this was additive for all three
   apps — but `worker/**` is on the deploy trigger, so merging it shipped it.
+- **It draws through Replicate, and Gemini is the other branch.** `drawPicture`
+  is the fork and `REPLICATE_API_TOKEN` is what chooses: set, and the drawing
+  goes to Replicate (#45); absent, and it falls back to `GEMINI_IMAGE_MODEL`.
+  Everything either side of that fork is shared — the endpoint, the validator,
+  `buildPicturePrompt`, the budget and the whole client. Both apps ask for an
+  image and get bytes; they do not care who drew it.
+  - **The one real difference is the shape of the answer.** Gemini returns the
+    bytes inline, which is why `outputImageOf` exists. Replicate returns a
+    *URL*, so the Worker fetches it and base64s it before replying — the app is
+    offline-first and stores a blob, and a link into someone else's CDN is not
+    that. Don't "save a request" by handing the URL to the client: that trades
+    the whole offline story for one round trip.
+  - **It is asked for in one request, not two.** Replicate's prediction API is
+    asynchronous by default — create, then poll — but `Prefer: wait` makes it
+    block until the image is done, which is what lets an image fit inside one
+    Worker invocation. Polling from a Worker would burn the budget on round
+    trips. See `REPLICATE_WAIT_S` and `REPLICATE_ABORT_MS` for why this
+    Worker's own deadline has to sit *past* that wait.
+- **Why Gemini is the fallback and not the route: it is not on the free tier.**
+  An unbilled key is not rate limited on `GEMINI_IMAGE_MODEL` — it is allowed
+  *zero* requests, which comes back as a 429 reading `limit: 0` and will read
+  the same tomorrow. Everything up to and including Gemini works (the endpoint,
+  the model id, the auth and the prompt all passed; a wrong model id would have
+  been a 404) and the call is refused at the last step, which is why it looked
+  for a while like a bug in this repo and none of it was. Turning billing on
+  for the key's Google Cloud project is the fix. Replicate is also the cheaper
+  route by an order of magnitude — FLUX schnell is about $0.003 an image
+  against Gemini's few cents — which is the other half of why it is the default.
+- **Three kinds of 429, and they want three different things.** `asPublicError`
+  reads them apart, and it is shared by *every* Gemini call rather than being
+  the image path's: `limit: 0` is the plan refusing the model outright and no
+  amount of waiting helps, so the message names billing; a `free_tier` quota
+  with a real number behind it is the daily allowance and comes back at
+  midnight Pacific; anything else is the ordinary per-minute limit, where
+  waiting a few minutes really is right. The detail was already on
+  `TransientError` — it went into the message for the log line and was thrown
+  away on the way out; this reads it.
+- **Write the probe before the endpoint.** `worker/tools/draw-one.mjs` exists
+  because the Gemini response shape was guessed from documentation and got as
+  far as production before anyone saw a real one. Point a copy of it at a new
+  provider first, see a real response, then write the parser against what came
+  back.
 - **`outputImageOf` accepts more than one response shape on purpose.** No repo
   here holds a Gemini key and there is no image fixture to replay, so that path
   could not be tried before it was deployed. It reads the bytes from
