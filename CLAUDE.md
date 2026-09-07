@@ -542,6 +542,14 @@ have said it.
   a scene of your own, whose first line becomes the title. The five that ship
   are the intercanvi, a café, the market, an assaig and a neighbour, because
   those are the conversations this learner is actually about to have.
+- **Who you are talking to is yours to write.** Asked for as *"Can I set a
+  character, eg old man that has lived in Horta all his life, or person that
+  was a casteller with Vilafranca."* `#chat-who` on the starter is optional
+  free text, carried as `scene.character` so *Have it again* keeps them, sent
+  as `character` and printed in the page head as *With …*. The Worker's
+  prompt names the person and tells the model to let it show in what they
+  say rather than announce it; without one the prompt is byte-identical to
+  what it was, and `converse-test.mjs` asserts that.
 - **One endpoint, `/converse`, and one call per turn.** Four things come back
   and each is behind its own tap: the partner's `reply`; its
   `replyTranslation`, withheld until you press *English* — the level-two
@@ -565,6 +573,27 @@ have said it.
   box — a retry is one tap, and a turn that never got an answer is never left
   standing as if it had. A reply that arrives after you have left the page is
   still saved, for the interview's reason.
+- **A corrected line stops the conversation until you have said the fix.**
+  Asked for as *"it needs to correct my answer, say it, let me practise it,
+  then move on."* When `fixed` comes back non-empty the partner's turn is
+  saved but withheld — `hold` is its index, local to the page so a chat
+  reopened later shows everything — the fixed line is read out instead of
+  the reply, and `practiceCard` stands at the foot of the log: the line,
+  Listen, the record button when there is a key, and *Move on*. A go is the
+  drill's recorder scored by `scoring.score` against the fixed line, and the
+  verdict is the drill's dial and weakest word, since that is the number this
+  app trusts. **Nothing is filed**: the fix is not a card and a go at it is
+  not an attempt, on quiet mode's argument. The composer is hidden while the
+  hold stands (`say` refuses too, since Enter in a hidden box is still
+  Enter), and *Move on* clears the hold, repaints, and plays the reply. A
+  line that was fine goes straight on as before.
+- **Your last line can be edited and sent again.** *Edit* sits under the
+  most recent learner bubble only — a change further back would orphan
+  everything after it — and turns the bubble into a box. *Send it again*
+  truncates the transcript to that point, so the old correction and the
+  reply that answered the old line both go, clears any hold, and sends the
+  new line as if it had been the first go. Talk mode needs this most: a
+  mishearing is one tap from being said right, without a second recording.
 - **Talk or Type, and Talk is the point.** Two pills over the card
   (`.xat-toggle`, the drill's mode pills in green), one always on. **Talk** is
   the drill's record button where the box would be: tap, say the line, tap
@@ -640,9 +669,16 @@ the other's repaint; with no Azure key `#xat-type` is pressed, `#xat-input`
 carries the language and `autocorrect="off"`, there is no `#xat-record`, and
 `#xat-talk` toasts and stays put; an empty send makes no call; Enter sends,
 the second call's history is partner-then-learner, the learner's bubble gets
-`.xat-fix` with `.xat-fixed`, `.xat-fix-english` and `.xat-fix-note`, the
-new partner line follows and `xerra.chats` holds three turns with the
-correction on the second; a fine line paints `.xat-ok`; a 503 puts the line
+`.xat-fix` with `.xat-fixed`, `.xat-fix-english` and `.xat-fix-note`,
+`xerra.chats` holds three turns with the correction on the second, and the
+reply is held: one `.xat-turn.partner`, `#xat-practice` carrying the fixed
+line and no `#xat-practice-say` without a key, `#xat-composer` hidden, and
+`#xat-move-on` letting the second partner line through with the box back
+and empty; `[data-edit]` is on the last learner bubble only, opens
+`#xat-edit-input` with the line in it, `#xat-edit-cancel` puts the bubble
+back, and `#xat-edit-send` makes one call whose history is cut back to the
+new line and leaves the record at three turns; `#chat-who` goes along as
+`character` and heads the page *With …*; a fine line paints `.xat-ok`; a 503 puts the line
 back in the box, leaves the transcript as it was and re-enables Send;
 `[data-keep]` files the partner's line in `Xerrades` with the scene in its
 situation and flips to *Kept ✓*, `[data-keep-fix]` files the fixed line with
@@ -658,8 +694,11 @@ pressed and `#xat-record` stands where the box was; `#xat-type` brings the
 box back, writes `chatTalk: false` and leaves the open English open; tapping
 the button paints `.recording` and *Listening…* at once, the second tap
 transcribes in the chat's language and sends what was heard as the last
-history entry and a learner bubble, then puts the button back; nothing heard
-makes no call and says so; a 503 says *Say it again* and leaves the partner's
+history entry and a learner bubble; with `scoring.score` stubbed too, the
+held reply shows `#xat-practice-say`, `#xat-move-on` is disabled while it
+records, the go is scored against the fixed line, `.xat-result` shows the
+dial and the weakest word and *Heard:*, `xerra.attempts` is untouched, and
+Move on puts `#xat-record` back; nothing heard makes no call and says so; a 503 says *Say it again* and leaves the partner's
 turn last; and Type mid-recording cancels the recorder without a call. For
 the voice, with `speech.modelAudio` overridden to record `phrase.voice`:
 no `#chat-voice` without a key; with one and Enric as the drill voice,
@@ -3230,9 +3269,11 @@ the parser losing a block to a formatting change.
   phrase to say, a message to read and a chat to have are all the language
   meeting real people; key and deck are still `quick` / `Quick`. Pick a scene
   — the intercanvi, a café, the market, an assaig, a neighbour, or one of your
-  own — and the assistant plays the other person in Catalan, corrects each
-  line you say, and offers the English and a hint behind a tap. **Talk** (the
-  record button, sent as heard, with an Azure key) or **Type**, on
+  own, and say who the other person is — and the assistant plays them in
+  Catalan, corrects each line you say and holds its reply until you have said
+  the fix back (scored, with a key), and offers the English and a hint behind
+  a tap. Your last line can be edited and sent again. **Talk** (the record
+  button, sent as heard, with an Azure key) or **Type**, on
   `settings.chatTalk`. The partner speaks in a voice of their own — *Their
   voice*, `item.voice`, defaulting to the other gender from the drill voice
   via `partnerVoice` — and your corrected line has a Listen in yours. Kept

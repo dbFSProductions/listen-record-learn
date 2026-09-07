@@ -239,13 +239,18 @@ on, write what you think it says, and only then see the English, keep the
 stock phrases as cards and write your reply, which comes back corrected.
 **Rehearse a conversation**: pick a scene — a language exchange, a café, the
 market, castells rehearsal, a neighbour on the stairs, or describe one
-yourself — and the assistant plays the other person, in Catalan, and keeps
-the conversation going. **Talk** or **Type**: in Talk you tap the mic, say
+yourself — say who you are talking to if you like (*an old man who has lived
+in Horta all his life*), and the assistant plays that person, in Catalan, and
+keeps the conversation going. **Talk** or **Type**: in Talk you tap the mic, say
 your line, tap again, and it is sent as it was heard while the answer is read
 out to you (needs an Azure key); in Type you use the keyboard. Every line you
 say comes back with how a native would have said it and a note on what
-changed; the English of each of its lines is one tap away, and so is a hint at
-what you could answer, built from what you told it about yourself. Any line
+changed — and when something changed, the conversation waits: the fixed line
+is read out, you say it back (scored, with an Azure key) as many times as you
+like, then **Move on** lets the reply through. Got misheard, or want to say it
+differently? **Edit** under your last line sends it again. The English of each
+of its lines is one tap away, and so is a hint at what you could answer, built
+from what you told it about yourself. Any line
 worth having — theirs, or yours as it should have been — is one tap from a
 card in the **Xerrades** deck, and the chats are kept so you can read back
 what you got wrong before the next one.

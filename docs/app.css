@@ -1910,3 +1910,30 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .xat-talk-box .xat-note { text-align: center; margin: 0; }
 .quick-chat-card .deck-select { margin-bottom: 0; }
 .xat-summary { margin-top: 14px; }
+
+/* Saying the fix back before the reply comes through. A card at the foot of
+   the log, in the fix's amber so it reads as the fix continued, with a
+   smaller copy of the drill's record button and the drill's dial. */
+.xat-practice {
+  align-self: stretch;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border: 2px solid color-mix(in srgb, var(--amber) 50%, transparent);
+}
+.xat-practice .xat-fixed { font-size: 1.1rem; margin: 2px 0 8px; }
+.xat-practice-row { display: flex; align-items: center; gap: 10px; }
+.xat-practice-row .btn { flex: 1; }
+.xat-practice-record { width: 56px; height: 56px; box-shadow: 0 4px 0 var(--green-dark); }
+.xat-practice-record:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--green-dark); }
+.xat-practice-record.recording { box-shadow: 0 4px 0 var(--red-dark); }
+.xat-practice-record svg { width: 24px; height: 24px; }
+.xat-practice-record:disabled { opacity: 0.45; cursor: default; }
+.xat-practice-note { margin: 8px 0 0; text-align: center; }
+.xat-result { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.xat-result-text { display: grid; gap: 2px; font-size: 0.9rem; line-height: 1.4; }
+.xat-result-text span { font-size: 0.82rem; overflow-wrap: anywhere; }
+/* Editing your last line in place: the bubble becomes a box. */
+.xat-editing { width: 100%; max-width: 100%; }
+.xat-editing textarea { width: 100%; }
+.xat-editing .xat-tools { justify-content: flex-end; }
