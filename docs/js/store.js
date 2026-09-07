@@ -1560,6 +1560,13 @@ const DEFAULT_SETTINGS = {
      says (`talkNow` in app.js). A setting for road mode's reason: how you are
      practising today, not a fact about one chat. */
   chatTalk: true,
+  /* The voice the rehearsal chat's partner speaks in, once you have chosen
+     one. Empty means "the other one": `partnerVoice` picks the first voice of
+     the language whose gender is not your drill voice's, so the two sides of
+     a chat are never the one man talking to himself. Validated against the
+     language's voices on load like `azureVoice`, and back to empty when it
+     isn't one of them. */
+  chatVoice: "",
   /* Quiet mode: road mode's mirror, and the other half of the same question —
      which channels have you got right now? On the road you can speak but not
      look; in a train, an office, or a room with someone asleep in it you can
@@ -1598,6 +1605,7 @@ export const settings = {
        default is a default, not a preference imposed on a choice already made. */
     const voices = LANGUAGES[this.language]?.voices ?? [];
     if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
+    if (this.chatVoice && !voices.some((v) => v.id === this.chatVoice)) this.chatVoice = "";
   },
 
   save() {
@@ -1642,6 +1650,20 @@ export function setFamilyOpen(name, open) {
 export function defaultVoice(language) {
   const voices = LANGUAGES[language]?.voices ?? [];
   return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
+}
+
+/* The voice the other person in a rehearsal chat speaks in. Your choice if
+   you have made one and it is one of this language's voices; otherwise the
+   first voice whose gender is not `mine`'s — so with Enric as the drill voice
+   the partner is Joana, and with Joana it is Enric — and, in a language with
+   one voice, that voice. `mine` is the drill voice, and it is the voice your
+   own corrected lines are read back in, which is what makes the two sides of
+   the chat two people. */
+export function partnerVoice(language, mine = settings.azureVoice, chosen = settings.chatVoice) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  if (chosen && voices.some((v) => v.id === chosen)) return chosen;
+  const myGender = voices.find((v) => v.id === mine)?.gender;
+  return (voices.find((v) => v.gender !== myGender) ?? voices.find((v) => v.id !== mine) ?? voices[0])?.id ?? "";
 }
 
 export const LANGUAGES = {

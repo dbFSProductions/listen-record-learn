@@ -1893,6 +1893,10 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .xat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .xat-head .chat-brief { flex: 1; }
 .xat-modes { display: flex; gap: 6px; flex: none; }
+/* Their voice, under the brief and the pills: a field like the starter's,
+   pulled in so it reads as part of the head rather than as a form. */
+.xat-voice .field { margin: 6px 0 10px; }
+.xat-voice .deck-select { margin-bottom: 0; }
 .xat-toggle[aria-pressed="true"] {
   background: var(--green);
   border-color: var(--green);

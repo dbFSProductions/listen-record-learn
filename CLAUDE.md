@@ -586,6 +586,26 @@ have said it.
   played as it arrives in both modes, quietly: `autoplay` swallows the
   refusal iOS may give a play not started by a tap, because a toast on every
   turn would be worse than the *Listen* under every line.
+- **The other person has a voice of their own, and your line is read back
+  in yours.** Reported as *"not always the same male voice doing all the
+  talking for both sides of the chat"*. `item.voice` is written onto the chat
+  by `startChat` and is what every partner line — the autoplay and each
+  *Listen* — is synthesised in; `partnerVoice` in store.js picks it: your
+  remembered `settings.chatVoice` if it is one of the language's voices,
+  otherwise the first voice whose gender is not your drill voice's, so Enric
+  gets Joana and Joana gets Enric. *Their voice* is one select
+  (`voiceField`), on the starter card before the partner opens and under the
+  brief on the chat page to change mid-chat; both write `settings.chatVoice`,
+  the page's also writes the chat, and *Have it again* carries it over. It
+  shows only with an Azure key and a language with two voices — the browser
+  voice is one voice per language and there is nothing to choose. The other
+  side is *Listen* on **A native would say** (`data-say-fix`), in the drill
+  voice with no override, which is what makes the two sides two people.
+  `speech.modelAudio` takes an optional `voice` on the phrase for this and
+  keys its cache by it — additive, so the drill's call is byte-for-byte what
+  it was, and **speech.js is no longer the verbatim copy the forks took**:
+  port `voice` with the chat. A chat from before this has no `voice` and
+  `partnerVoiceOf` reads it as the default rather than as the drill voice.
 - **Lines are kept as cards in the language's `Xerrades` deck** (`chatsDeck`
   in store.js; *Charlas*, *Chiacchierate*) — the partner's line you want to
   be able to say, or your own line as it should have been, with the note as
@@ -640,7 +660,19 @@ the button paints `.recording` and *Listening…* at once, the second tap
 transcribes in the chat's language and sends what was heard as the last
 history entry and a learner bubble, then puts the button back; nothing heard
 makes no call and says so; a 503 says *Say it again* and leaves the partner's
-turn last; and Type mid-recording cancels the recorder without a call.
+turn last; and Type mid-recording cancels the recorder without a call. For
+the voice, with `speech.modelAudio` overridden to record `phrase.voice`:
+no `#chat-voice` without a key; with one and Enric as the drill voice,
+`#chat-voice` lists the three Catalan voices with Joana selected and Enric
+labelled *your drill voice*, sits above `#chat-go`, and Start writes
+`voice: "ca-ES-JoanaNeural"` onto the chat and autoplays with it; the
+partner's `[data-say]` and the fix's `[data-say-fix]` record Joana and
+`null` respectively; `#xat-voice` opens on the chat's voice, changing it
+writes the chat and `settings.chatVoice`, and the next Listen is in it; the
+starter remembers it, a reopened chat keeps it, an ended chat has no select,
+`#xat-again` carries it; a chat with no `voice` and Joana as the drill voice
+reads and plays as Enric; a `chatVoice` from another language falls back;
+and the drill's own fetch records `null`.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -3201,7 +3233,10 @@ the parser losing a block to a formatting change.
   own — and the assistant plays the other person in Catalan, corrects each
   line you say, and offers the English and a hint behind a tap. **Talk** (the
   record button, sent as heard, with an Azure key) or **Type**, on
-  `settings.chatTalk`. Kept lines land in the language's `Xerrades` deck.
+  `settings.chatTalk`. The partner speaks in a voice of their own — *Their
+  voice*, `item.voice`, defaulting to the other gender from the drill voice
+  via `partnerVoice` — and your corrected line has a Listen in yours. Kept
+  lines land in the language's `Xerrades` deck.
   `renderChat`, `CHAT_SCENES`, `chatStarter`, `talkNow` and `keepFromChat` in
   app.js, `chats` and `chatsDeck` in store.js, `transcription` in speech.js,
   `/converse` on the Worker (additive; `worker/tools/converse-test.mjs`).
@@ -3294,7 +3329,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v89 / `xerra-v89` — `js/version.js` first, `sw.js` second, as ever.
+- v90 / `xerra-v90` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

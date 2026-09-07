@@ -3,7 +3,7 @@
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
-  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, chats, chatsDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -443,7 +443,7 @@ function wireReplies(root, replies, language, source = null) {
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
    than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.") {
+async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -451,7 +451,8 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.") 
   button.dataset.busy = "1";
   button.classList.add("busy");
   try {
-    const blob = await speech.modelAudio({ text, language }, settings);
+    // `voice` is the chat partner's; everything else speaks in the drill voice.
+    const blob = await speech.modelAudio({ text, language, voice }, settings);
     if (blob) await player.play(blob);
     else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
     else noVoice();
@@ -2618,6 +2619,7 @@ function chatStarter() {
         </select></label>
       <label class="field" id="chat-own" hidden><span>Where are you, and who are you talking to?</span>
         <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
+      ${voiceField("chat-voice", partnerVoice(settings.language))}
       <p class="small muted" style="margin:0 0 10px">It plays the other person in ${esc(
         LANGUAGES[settings.language]?.name ?? settings.language
       )}, follows up on what you say, and shows you how a native would have said each line. Talk or type.</p>
@@ -2625,10 +2627,39 @@ function chatStarter() {
     </div>`;
 }
 
+/* Their voice: a select over the language's voices, opening on `selected`.
+   Only with an Azure key — the browser voice is one voice per language and
+   there is nothing to choose — and the same control on the starter card and
+   on the chat page, so a voice picked before the partner opens and a voice
+   changed mid-chat are one thing. */
+function voiceField(id, selected) {
+  if (!settings.hasAzure) return "";
+  const voices = LANGUAGES[settings.language]?.voices ?? [];
+  if (voices.length < 2) return "";
+  return `
+    <label class="field"><span>Their voice</span>
+      <select id="${id}" class="deck-select">
+        ${voices
+          .map(
+            (v) =>
+              `<option value="${esc(v.id)}" ${v.id === selected ? "selected" : ""}>${esc(v.name)} · ${esc(
+                v.gender
+              )}${v.id === settings.azureVoice ? " — your drill voice" : ""}</option>`
+          )
+          .join("")}
+      </select></label>`;
+}
+
 function wireChatStarter() {
   const select = document.getElementById("chat-scene");
   if (!select) return;
   const own = document.getElementById("chat-own");
+  /* Choosing a voice here is remembered for the next chat too — it is a
+     preference about who you rehearse with, not a fact about one scene. */
+  document.getElementById("chat-voice")?.addEventListener("change", (event) => {
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
   select.addEventListener("change", () => {
     own.hidden = select.value !== "own";
     if (!own.hidden) document.getElementById("chat-own-brief").focus();
@@ -2649,9 +2680,12 @@ function wireChatStarter() {
   });
 }
 
-function startChat(scene) {
+function startChat(scene, voice = partnerVoice(settings.language)) {
   const item = chats.add({
     scene: { key: scene.key, title: scene.title, blurb: scene.blurb ?? "", brief: scene.brief },
+    // Written onto the chat, so reopening it keeps the person you were
+    // talking to; the partner's lines are cached under it.
+    voice,
   });
   state.chat = item.id;
   render();
@@ -2727,6 +2761,13 @@ function talkNow() {
   return Boolean(settings.chatTalk && settings.hasAzure);
 }
 
+/* The voice this chat's partner speaks in. A chat from before voices were
+   chosen has none written on it, and reads as the default — the other gender
+   from the drill voice — rather than as the drill voice. */
+function partnerVoiceOf(item) {
+  return item.voice || partnerVoice(item.language, settings.azureVoice, "");
+}
+
 function renderChat() {
   const item = chats.find(state.chat);
   if (!item) {
@@ -2762,6 +2803,7 @@ function renderChat() {
              </div>`
       }
     </div>
+    ${item.ended ? "" : `<div class="xat-voice">${voiceField("xat-voice", partnerVoiceOf(item))}</div>`}
     <div class="card chat-card xat">
       <div class="chat-log xat-log" id="xat-log"></div>
       <div id="xat-composer" ${item.ended ? "hidden" : ""}></div>
@@ -2799,7 +2841,14 @@ function renderChat() {
     chats.update(item.id, { ended: true });
     render();
   });
-  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene));
+  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene, partnerVoiceOf(item)));
+  /* Changing the voice mid-chat: the next lines are in it, and Listen on the
+     earlier ones re-says them in it too, since the cache is keyed by voice. */
+  document.getElementById("xat-voice")?.addEventListener("change", (event) => {
+    chats.update(item.id, { voice: event.target.value });
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
 
   document.getElementById("xat-talk")?.addEventListener("click", () => setMode(true));
   document.getElementById("xat-type")?.addEventListener("click", () => setMode(false));
@@ -2811,7 +2860,10 @@ function renderChat() {
     const at = Number(button.dataset.at);
     const turn = item.turns[at];
     if (!turn) return;
-    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.");
+    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.", partnerVoiceOf(item));
+    else if (button.hasAttribute("data-say-fix") && turn.correction?.fixed)
+      // Your line as it should have been, in your own voice — the drill's.
+      sayAloud(button, turn.correction.fixed, language, "Couldn't play that.");
     else if (button.hasAttribute("data-english")) {
       english.has(at) ? english.delete(at) : english.add(at);
       paintLog();
@@ -2959,6 +3011,7 @@ function renderChat() {
                  <p class="xat-fixed" lang="${esc(item.language)}">${esc(fix.fixed)}</p>
                  ${fix.translation ? `<p class="xat-fix-english">${esc(fix.translation)}</p>` : ""}
                  ${fix.note ? `<p class="xat-fix-note">${esc(fix.note)}</p>` : ""}
+                 <button class="link" data-say-fix data-at="${at}">Listen</button>
                  <button class="link" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
                    kept ? "Kept as a card ✓" : "Keep as a card"
                  }</button>
@@ -3081,7 +3134,7 @@ function renderChat() {
      right there under the line. */
   async function autoplay(text) {
     try {
-      const blob = await speech.modelAudio({ text, language: item.language }, settings);
+      const blob = await speech.modelAudio({ text, language: item.language, voice: partnerVoiceOf(item) }, settings);
       if (blob) await player.play(blob);
       else if (browserSpeech.available(item.language)) browserSpeech.speak(text, item.language);
     } catch {
