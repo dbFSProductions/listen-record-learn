@@ -1198,6 +1198,12 @@ button { font: inherit; }
   border-left-color: var(--red);
   background: color-mix(in srgb, var(--red) 9%, var(--surface));
 }
+/* Subjunctive, yes — but the wrong reason. Amber, the colour quiet mode's
+   near-miss already wears: the mood was right, which is most of the point. */
+.aspect-verdict.near {
+  border-left-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface));
+}
 /* The border and the tint carry right-or-wrong, and the lettering stays the
    ordinary text colour — the same way `.notice.good` and `.notice.bad` do it.
    There is no --green-ink or --red-ink to letter this in, and that is not an

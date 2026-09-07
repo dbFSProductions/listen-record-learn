@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, deckFamily, progress,
   messages, messagesDeck, chats, chatsDeck,
 } from "./store.js";
@@ -1034,7 +1034,7 @@ const TILES = [
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
   { key: "quick", title: "Real life", blurb: "A phrase, a message, a chat", colour: "orange" },
-  { key: "grammar", title: "Grammar", blurb: "Name the shape, then say it", colour: "gold" },
+  { key: "grammar", title: "Grammar", blurb: "Past, future, would, subjunctive", colour: "gold" },
   { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
 
@@ -1279,11 +1279,19 @@ function renderPractice(section = null) {
      this is once again a page listing every family. */
   const all = section === "phrases";
   const inSection = (deck) => !section || all || sectionOf(deck) === section;
-  const foldBig = !section || all;
   const mine = section && !all ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
   const captures = mine.filter((p) => !p.text.trim());
   const decks = library.decks(settings.language).filter(inSection);
   const families = library.deckFamilies(settings.language).filter((f) => f.decks.some(inSection));
+  /* Behind a tile the section *is* the fold, so a section holding one family
+     opens it: folding Grammar's only family would put everything the page
+     has behind a second tap and show a single row. That argument runs out
+     the moment a section holds several — Grammar is Passat, Futur,
+     Condicional and Subjuntiu now, and fourteen deck rows under four banners
+     is the Settings → Decks scroll one level over. So the big-family fold
+     comes back on when there is more than one family to choose between, and
+     a fold the user has set still wins either way. */
+  const foldBig = !section || all || families.length > 1;
   const drillable = library.drillable(settings.language).filter((p) => inSection(p.deck));
 
   /* The home page leads with the brand rather than a Practice banner, as the
@@ -1576,7 +1584,7 @@ function renderPractice(section = null) {
      family; the chevron opens it. */
   function familyRow(family) {
     const inFamily = library.inFamily(family.name, settings.language);
-    const open = familyOpen(family.name, family.decks.length, !section);
+    const open = familyOpen(family.name, family.decks.length, foldBig);
     return `
       <div class="row family-row filled hue-${deckColour(family.name)}">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
@@ -4286,19 +4294,23 @@ function renderDrill() {
    every single time, so the grammar-book word arrives attached to something
    you actually have a feel for. */
 function aspectGateBody(phrase) {
-  const choices = aspectChoices(state.queue);
-  /* "Dot in a box, or line?" is the whole idea asked as a question, and it is
-     the right one right up until a deck puts a perfect on the table — at which
-     point it is literally the wrong one, because neither answer is on offer.
-     So the three-shape decks keep the phrase and the wider ones ask the wider
-     question. */
-  const question = choices.length > 3 ? "Which shape?" : "Dot in a box, or line?";
+  const choices = aspectChoices(state.queue, phrase);
+  /* The question is the card's group's — dot or line for the past decks,
+     will-would-or-fixed ahead of now, fact-wish-doubt-or-not-yet for the
+     subjunctive. "Dot in a box, or line?" is the whole idea asked as a
+     question, and it is the right one right up until a deck puts a perfect on
+     the table — at which point it is literally the wrong one, because neither
+     answer is on offer. So a group whose deck has put more than its base
+     shapes on the table asks its wider question instead. */
+  const group = ASPECT_GROUPS[ASPECTS[phrase.aspect].group];
+  const base = choices.filter((key) => ASPECTS[key].base).length;
+  const question = choices.length > base ? group.wide ?? group.question : group.question;
   return `
     <p class="instruction">${question}</p>
 
     <div class="card">
       <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
-      <p class="tiny muted" style="margin:10px 0 0">Decide the shape first. The sentence comes after.</p>
+      <p class="tiny muted" style="margin:10px 0 0">${esc(group.prompt)}</p>
     </div>
 
     <div class="aspect-choices">
@@ -4350,11 +4362,21 @@ function aspectVerdict(shape, choice, asking) {
   const picked = ASPECTS[choice];
   const mine = picked?.label.toLowerCase() ?? "something else";
   const theirs = shape.label.toLowerCase();
+  /* Three of the mood shapes are the subjunctive, and picking one of them for
+     another is the mood right and the reason wrong — which is most of what
+     the deck exists to teach, so it earns its own verdict rather than a plain
+     red: the form you would have said is the right form. */
+  const near = !right && Boolean(shape.sub && picked?.sub);
+  const verdict = right
+    ? `Yes — ${esc(theirs)}`
+    : near
+    ? `Subjunctive, yes — but ${esc(theirs)}, not ${esc(mine)}`
+    : `Not quite — ${esc(theirs)}, not ${esc(mine)}`;
   return `
-    <div class="card aspect-verdict ${right ? "right" : "wrong"}">
+    <div class="card aspect-verdict ${right ? "right" : near ? "near" : "wrong"}">
       <span class="aspect-mark">${shape.mark}</span>
       <span class="aspect-verdict-body">
-        <strong>${right ? `Yes — ${esc(theirs)}` : `Not quite — ${esc(theirs)}, not ${esc(mine)}`}</strong>
+        <strong>${verdict}</strong>
         <span class="aspect-term">${termLine(shape)}</span>
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
@@ -6946,13 +6968,15 @@ function renderSettings() {
         showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
         "Show me" for when it has gone completely.</p>
       <div class="switch-row">
-        <span>Dot or line — name the shape first</span>
+        <span>Grammar — name the shape first</span>
         <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
       </div>
-      <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
-        which shape it is — a dot in a box (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
-        perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
-        Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
+      <p class="tiny muted" style="margin:8px 0 0">On the Grammar decks, the drill shows you the English and asks a
+        question before it will show you the sentence: on the past decks, which shape it is — a dot in a box
+        (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the perfects; on the future and
+        conditional decks, whether it will, it would, or it's already fixed; on the subjunctive decks, whether it's a
+        fact, a wish, a doubt, or not yet. It only offers the shapes the deck you're in actually uses. Cards outside
+        those decks never carry a shape, so this does nothing to the rest of the library.</p>
       <div class="switch-row">
         <span>Road mode — listen and repeat</span>
         <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>

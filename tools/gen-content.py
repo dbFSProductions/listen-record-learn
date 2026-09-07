@@ -18,7 +18,11 @@ OUT = ROOT / "docs/js/content.js"
 LANGUAGES = {"catalan": "ca-ES", "spanish": "es-ES", "italian": "it-IT"}
 # Keep in step with `Aspect` in Xerra/Models/Phrase.swift and `ASPECTS` in
 # docs/js/store.js — these strings are the key the drill looks the shape up by.
-ASPECTS = {"dot", "line", "both", "pastPerfect", "presentPerfect"}
+ASPECTS = {
+    "dot", "line", "both", "pastPerfect", "presentPerfect",  # the past
+    "will", "would", "now",                                  # ahead of now
+    "fact", "wish", "doubt", "notYet",                       # the mood
+}
 # Blue or pink on the object the word names. Written through as the one-letter
 # key `genderOf` in docs/js/store.js reads, and written at all only on the cards
 # whose article elides — everything else is worked out from the article.
@@ -77,8 +81,9 @@ def main():
             if gender not in GENDERS:
                 sys.exit(f"unknown gender .{gender} on {text!r}")
             phrase["gender"] = GENDERS[gender]
-        # Dot / line / both, and why this sentence is that shape. Only the
-        # past-tense decks carry them; everything else omits the keys entirely.
+        # Dot / line / both, will / would / now, fact / wish / doubt / not yet
+        # — and why this sentence is that shape. Only the Grammar decks carry
+        # them; everything else omits the keys entirely.
         if aspect:
             if aspect not in ASPECTS:
                 sys.exit(f"unknown aspect .{aspect} on {text!r}")
