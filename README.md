@@ -247,8 +247,11 @@ out to you (needs an Azure key); in Type you use the keyboard. Every line you
 say comes back with how a native would have said it and a note on what
 changed — and when something changed, the conversation waits: the fixed line
 is read out, you say it back (scored, with an Azure key) as many times as you
-like, then **Move on** lets the reply through. Got misheard, or want to say it
-differently? **Edit** under your last line sends it again. The English of each
+like, then **Move on** lets the reply through. **Say it** under any of its lines
+does the same for the other side of the conversation. Got misheard, or want
+to say it differently? **Edit** under your last line sends it again. A word
+you didn't catch, a phrase you'd like to know more about: the **Ask** box at
+the foot of the page answers questions about the conversation so far. The English of each
 of its lines is one tap away, and so is a hint at what you could answer, built
 from what you told it about yourself. Any line
 worth having — theirs, or yours as it should have been — is one tap from a
