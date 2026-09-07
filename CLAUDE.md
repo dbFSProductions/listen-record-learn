@@ -527,8 +527,9 @@ have said it.
   the page head and every back link print, so the name lives in one place.
   The sister apps' fourth tile is still called Quick; that is a divergence in
   a title, not in a key. `chatStarter` is one card under the message box (a
-  select of scenes and a Start button, not six rows — the ask box has to stay
-  on top and the page already had two boxes), `paintChats` lists the chats
+  select of scenes, the character box and a Start button, not six rows — the
+  ask box has to stay on top and the page already had two boxes — and no
+  explanatory paragraph: there was one, *"we don't need this text"*), `paintChats` lists the chats
   you have had under the messages, `quickCount` reads *3 asked for · 2
   messages · 1 chat*, and `state.chat` is the chat open behind the page —
   cleared by `goHome`, by `#quick-home` and by *‹ Real life*, exactly as
@@ -3409,7 +3410,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v92 / `xerra-v92` — `js/version.js` first, `sw.js` second, as ever.
+- v93 / `xerra-v93` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

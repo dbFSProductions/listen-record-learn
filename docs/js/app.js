@@ -2622,9 +2622,6 @@ function chatStarter() {
       <label class="field"><span>Who are you talking to? <span class="muted">(optional)</span></span>
         <textarea id="chat-who" lang="en-GB" rows="1"></textarea></label>
       ${voiceField("chat-voice", partnerVoice(settings.language))}
-      <p class="small muted" style="margin:0 0 10px">It plays that person in ${esc(
-        LANGUAGES[settings.language]?.name ?? settings.language
-      )}, follows up on what you say, and shows you how a native would have said each line — then you say it back before it moves on. Talk or type.</p>
       <button class="btn btn-primary" id="chat-go" style="width:100%">Start the chat</button>
     </div>`;
 }
