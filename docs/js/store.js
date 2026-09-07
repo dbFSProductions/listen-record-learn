@@ -18,6 +18,9 @@ const KEYS = {
   aboutMe: "xerra.aboutMe",
   aiLog: "xerra.aiLog",
   decks: "xerra.decks",
+  progress: "xerra.progress",
+  messages: "xerra.messages",
+  chats: "xerra.chats",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -35,9 +38,14 @@ export const RECALL_AFTER = 4;
 const RECALL_PASS = 75; // the same "close" line the drill verdict uses
 
 const DB_NAME = "xerra";
-const DB_VERSION = 1;
+/* Bumped to 2 for the pictures store. The upgrade handler creates whatever is
+   missing rather than assuming a fresh database, so an install that predates
+   this keeps its recordings and its cached model audio and simply gains the
+   third box. */
+const DB_VERSION = 2;
 const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
+const STORE_PICTURES = "pictures";
 const SEED_REPLACEMENTS = new Map([
   ["Em falta pressió a l'esquena.", "Més pit!"],
   // 'Va estar plovent' is Spanish's estuvo lloviendo calqued into Catalan;
@@ -160,12 +168,15 @@ export const ABOUT_DECK = "About me";
    label, the gloss and the term all still work, so a new language costs
    nothing until someone writes the line for it.
 
-   Adding a fourth shape (the perfect and the pluperfect are next) is an entry
-   here and cards that name it. The gate draws one button per entry, in this
-   order, so nothing else has to learn about it — but note that every gated
-   card then offers every button, which is the thing to think about before
-   adding one: a shape only worth offering on some cards wants a different
-   design, not a fifth key. */
+   Every shape belongs to a `group`, and the group is the question the gate
+   asks. The past decks ask about the shape of time — dot or line — and the
+   three `base` shapes there are always on offer. The future and conditional
+   decks ask *when*: will it, would it, or is it as good as now. The
+   subjunctive decks ask *how you hold the sentence*: a fact, a wish, a doubt,
+   or a moment that hasn't come. A card is asked its own group's question and
+   offered its own group's shapes, so a queue mixing the three (Shuffle all of
+   Grammar) still asks one clean question per card rather than ten buttons.
+   Adding a shape is an entry here, in a group, and cards that name it. */
 export const ASPECTS = {
   dot: {
     /* The box is in the picture on purpose: what makes a dot a dot is the box
@@ -174,6 +185,7 @@ export const ASPECTS = {
        time still open into now. A drawn-border version (a `.mark-box` span —
        marks render unescaped, so markup works) was tried and put back: the
        bracket glyphs sit better in the mark column. */
+    group: "past",
     mark: "[●]",
     label: "A dot in a box",
     gloss: "an event in a time-boxed past",
@@ -189,6 +201,7 @@ export const ASPECTS = {
     base: true,
   },
   line: {
+    group: "past",
     mark: "▬▬",
     label: "A line",
     gloss: "a habit, a state, a background",
@@ -205,6 +218,7 @@ export const ASPECTS = {
      "past continuous + preterite" is one instance of this shape, and the one
      the cards lean on hardest, but it isn't the whole of it. */
   both: {
+    group: "past",
     mark: "▬●▬",
     label: "Both",
     gloss: "a line with a dot cutting across it",
@@ -224,6 +238,7 @@ export const ASPECTS = {
      always a specific moment in this table, and the anchor here is whatever
      past moment you happen to have landed on. */
   pastPerfect: {
+    group: "past",
     mark: "●···|",
     label: "An event before the event",
     gloss: "already over before that past moment",
@@ -239,6 +254,7 @@ export const ASPECTS = {
      it. That bracket is exactly what chooses it over the preterite in Spain,
      which is the decision the `Hoy o ayer` deck exists to drill. */
   presentPerfect: {
+    group: "past",
     mark: "(▬···●)",
     label: "A line reaching now",
     gloss: "in a stretch of time that includes today",
@@ -248,24 +264,181 @@ export const ASPECTS = {
       "ca-ES": "he · has · ha + -at / -ut / -it — the 'I have gone / eaten' one",
     },
   },
+
+  /* ---- Ahead of now: the future and conditional decks.
+
+     Three shapes, and the third is the one that catches people. English says
+     "I'm going to Girona tomorrow" and a learner reaches for a future; both
+     these languages say a plan already in the diary in the plain present
+     (*demà vaig a Girona*, *mañana voy a Girona*), and Catalan in particular
+     has no *vaig a* future at all — *vaig a* means you are physically on your
+     way somewhere. So the gate offers the present beside the future and the
+     conditional, and the odd cards in the future decks are exactly these.
+
+     The conditional's ending is worth saying out loud on every verdict: it is
+     the line's ending (-ia / -ía) put on the whole infinitive, in both
+     languages, which is why *would* looks like *used to* moved ahead. */
+  will: {
+    group: "ahead",
+    mark: "|→●",
+    label: "It will",
+    gloss: "ahead of now, and you're saying it'll come — a promise, a forecast",
+    term: "future",
+    endings: {
+      "ca-ES": "-ré · -ràs · -rà · -rem · -reu · -ran, on the whole infinitive",
+      "es-ES": "-é · -ás · -á · -emos · -éis · -án, on the whole infinitive",
+    },
+    base: true,
+  },
+  would: {
+    group: "ahead",
+    mark: "|⇢○",
+    label: "It would",
+    gloss: "in a world that isn't this one — or a softer, politer ask",
+    term: "conditional",
+    endings: {
+      "ca-ES": "-ria · -ries · -ria · -ríem · -ríeu · -rien — the line's ending, on the whole infinitive",
+      "es-ES": "-ía · -ías · -ía · -íamos · -íais · -ían — the line's ending, on the whole infinitive",
+    },
+    base: true,
+  },
+  now: {
+    group: "ahead",
+    mark: "|●",
+    label: "Already fixed",
+    gloss: "in the diary already, or how things stand — so it's said in the present",
+    term: "present",
+    endings: {
+      "ca-ES": "the ordinary present — demà tinc, la setmana que ve anem",
+      "es-ES": "the ordinary present — mañana tengo, la semana que viene vamos",
+    },
+    base: true,
+  },
+
+  /* ---- The mood: the subjunctive decks.
+
+     The question here is not when but how you hold the sentence. A fact is
+     stated straight, in the tenses above. Everything else is the subjunctive,
+     and it comes in three kinds a learner can actually feel: you *want* it and
+     it is someone else's to do (vull que vinguis), you *doubt* it or you are
+     *reacting* to it (no crec que sigui, m'alegro que hagis vingut), or the
+     moment simply *hasn't come* (quan arribi, abans que marxis, perquè ho
+     sàpigues). The three subjunctive shapes carry `sub` so the verdict can say
+     "subjunctive, yes — but a doubt, not a wish": getting the mood right and
+     the reason wrong is worth more than a plain red.
+
+     One trap the trigger lines are careful about: Catalan's *potser* takes
+     the indicative — potser està — where Spanish's quizá goes subjunctive, so
+     quizá is on the Spanish line and potser is on neither.
+
+     All four are `base`: every subjunctive deck offers every one, because the
+     odd cards in each deck are the indicative counterparts — *crec que té
+     raó* beside *no crec que tingui raó* — and a deck whose name answered its
+     own question would be no test at all.
+
+     The endings line is the trigger words and the form together, since the
+     trigger is what you hear first and the form is what it makes you say:
+     Catalan swaps in -i (parli, vinguis, sigui), Spanish swaps the vowel
+     (hable, vengas, sea). */
+  fact: {
+    group: "mood",
+    mark: "●",
+    label: "A fact",
+    gloss: "stated as so — how things are, or what you yourself will do or want to do",
+    term: "indicative — no subjunctive",
+    endings: {
+      "ca-ES": "the plain tenses — és · té · vindrà · va venir",
+      "es-ES": "the plain tenses — es · tiene · vendrá · vino",
+    },
+    base: true,
+  },
+  wish: {
+    group: "mood",
+    mark: "→○",
+    label: "A wish or a push",
+    gloss: "you want it to happen, and it's someone else's to do",
+    term: "subjunctive — wanting",
+    endings: {
+      "ca-ES": "vull que · cal que · espero que · tant de bo + the -i forms: vinguis · sigui · faci",
+      "es-ES": "quiero que · hace falta que · espero que · ojalá + the swapped vowel: vengas · sea · haga",
+    },
+    base: true,
+    sub: true,
+  },
+  doubt: {
+    group: "mood",
+    mark: "?○",
+    label: "A doubt or a feeling",
+    gloss: "you're not sure it's so, or you're reacting to it",
+    term: "subjunctive — doubting, feeling",
+    endings: {
+      "ca-ES": "no crec que · dubto que · m'alegro que · és normal que + the -i forms: sigui · tingui · hagi",
+      "es-ES": "no creo que · quizá · me alegro de que · es normal que + the swapped vowel: sea · tenga · haya",
+    },
+    base: true,
+    sub: true,
+  },
+  notYet: {
+    group: "mood",
+    mark: "···○",
+    label: "Not yet",
+    gloss: "a moment that hasn't come — when, before, so that, unless",
+    term: "subjunctive — waiting",
+    endings: {
+      "ca-ES": "quan · abans que · perquè · fins que + the -i forms: arribi · marxis · tingui",
+      "es-ES": "cuando · antes de que · para que · hasta que + the swapped vowel: llegue · te vayas · tenga",
+    },
+    base: true,
+    sub: true,
+  },
 };
 
-/* Which shapes the gate offers for the deck you are in.
+/* The question each group asks, in the words the gate prints. `question` is
+   what stands over the card; `wide` replaces it once a deck has put a shape
+   on the table that the question doesn't name — the past group's perfects, so
+   far — and `prompt` is the one line under the English saying what to decide.
+   The past group's `question` is the whole idea asked as a question, and it
+   is the right one right up until a perfect is on offer, at which point it is
+   literally the wrong question: neither answer is a button. */
+export const ASPECT_GROUPS = {
+  past: {
+    question: "Dot in a box, or line?",
+    wide: "Which shape?",
+    prompt: "Decide the shape first. The sentence comes after.",
+  },
+  ahead: {
+    question: "Will, would, or already fixed?",
+    prompt: "Decide when first. The sentence comes after.",
+  },
+  mood: {
+    question: "Fact, wish, doubt — or not yet?",
+    prompt: "Decide how you hold it first. The sentence comes after.",
+  },
+};
 
-   Five buttons on every card would be wrong: a sentence from the imperfect
-   deck has no business offering a pluperfect, and a choice that is never the
-   answer anywhere in the deck is noise you have to read past every time. So
-   the offer is the shapes the queue actually contains — the deck you picked is
+/* Which shapes the gate offers for the card you are on, in the deck you are
+   in.
+
+   Every shape of every group on every card would be wrong: a sentence from
+   the imperfect deck has no business offering a subjunctive, and a choice
+   that is never the answer anywhere in the deck is noise you have to read
+   past every time. So the offer is the card's own group, and within that
+   group the shapes the queue actually contains — the deck you picked is
    context, the same way its name already is.
 
-   The three `base` shapes are always on offer under that. Dot-or-line is the
-   question every past sentence poses, and it stays live even in a deck that
-   happens to answer it the same way every time; the perfects are extra shapes
-   that only turn up where a deck has put them. That floor is also what stops a
-   single-shape deck from offering exactly one button and answering itself. */
-export function aspectChoices(queue) {
+   The group's `base` shapes are always on offer under that. Dot-or-line is
+   the question every past sentence poses, and it stays live even in a deck
+   that happens to answer it the same way every time; the perfects are extra
+   shapes that only turn up where a deck has put them. That floor is also what
+   stops a single-shape deck from offering exactly one button and answering
+   itself. The other two groups are all base, so their decks always ask the
+   whole question. */
+export function aspectChoices(queue, phrase) {
+  const group = ASPECTS[phrase?.aspect]?.group ?? "past";
   const inPlay = new Set((queue ?? []).map((p) => p?.aspect).filter((key) => ASPECTS[key]));
-  return Object.keys(ASPECTS).filter((key) => ASPECTS[key].base || inPlay.has(key));
+  return Object.keys(ASPECTS).filter(
+    (key) => ASPECTS[key].group === group && (ASPECTS[key].base || inPlay.has(key))
+  );
 }
 
 /* The shape this card asks about — the entry from the table above, plus the
@@ -287,6 +460,66 @@ export function aspectOf(phrase) {
   };
 }
 
+/* Blue for masculine, pink for feminine — the gender cue inside a keyword
+   picture.
+
+   Every mnemonic system that teaches gendered nouns bakes a fixed cue into the
+   scene: Linkword puts a boxer in every masculine one and perfume in every
+   feminine one, Fluent Forever puts the two genders in two different rooms.
+   Colour is the popular one and it is the weakest of the three — a colour is
+   not an event, so it survives being *read* less well than a boxer does. What
+   makes it work here is that the scene gets drawn: `picture` is a sentence and
+   the drawing is made from that sentence, so "the knife is blue" is a thing the
+   image model can put on the screen and a thing you can see in a thumbnail
+   without reading a word.
+
+   What is coloured is the object the word names, not the whole scene. One blue
+   knife is a hook; a blue wash over everything competes with the scene it is
+   supposed to be marking.
+
+   The gender is read off the card's own article, so no seed content had to
+   learn about this and a card typed into the Add tab gets the cue for free.
+   `phrase.gender` overrides that, and exists for exactly the cards the article
+   cannot answer: in Catalan both articles elide to `l'`, so `l'avió` and
+   `l'escala` are the two words in the Paraules decks where a learner genuinely
+   cannot recover the gender from what is printed — which is to say, the two
+   where the cue is worth most. */
+/* `article` is what the learner actually reaches for. "Masculine" is the
+   grammar word for it, and useful in the picture cue, but when you are filing a
+   word the question in your head is "el or la?" — so that is what the field
+   asks, with the colour it paints beside it. Catalan and Spanish share both
+   articles; Italian's masculine changes shape with the sound after it, which is
+   why `ARTICLE_GENDER` below knows about il/lo/gli and this does not try to. */
+export const GENDERS = {
+  m: { label: "masculine", colour: "blue", article: "el" },
+  f: { label: "feminine", colour: "pink", article: "la" },
+};
+
+/* Definite and indefinite articles across the three languages in LANGUAGES.
+   Anything not in here — a verb, an adjective, a whole sentence, a bare noun —
+   simply has no gender to draw, which is the right answer for most of the app:
+   only the Paraules decks are single nouns. */
+const ARTICLE_GENDER = new Map([
+  ["el", "m"], ["els", "m"], ["los", "m"], ["un", "m"], ["uns", "m"], ["unos", "m"],
+  ["la", "f"], ["les", "f"], ["las", "f"], ["una", "f"], ["unes", "f"], ["unas", "f"],
+  // Italian, whose masculine article changes shape with the sound after it.
+  ["il", "m"], ["lo", "m"], ["i", "m"], ["gli", "m"], ["uno", "m"], ["le", "f"],
+]);
+
+/** "m", "f", or null for a card that isn't a gendered noun — or is `l'`. */
+export function genderOf(phrase) {
+  if (phrase?.gender && GENDERS[phrase.gender]) return phrase.gender;
+  const text = (phrase?.text ?? "").trim();
+  /* Only a noun phrase is read for its article. "El compte, si us plau" also
+     starts with "el", and a sentence is not a thing with a gender to paint —
+     so anything punctuated like a sentence, or longer than an article and a
+     word or two, is left alone rather than guessed at. An explicit `gender`
+     above overrides this, which is how a card can opt in regardless. */
+  const words = text.split(/\s+/);
+  if (words.length > 3 || /[.,;:!?]/.test(text)) return null;
+  return ARTICLE_GENDER.get(words[0]?.toLowerCase()) || null;
+}
+
 /* Decks whose names share a prefix before " · " are one family: Castells,
    Castells · Pinya, Castells · Ordres and the rest read as a single thing in
    the lists, and a big family can be folded away. This is a naming convention
@@ -298,6 +531,95 @@ const SUBDECK = " · ";
 export function deckFamily(deck) {
   const at = deck.indexOf(SUBDECK);
   return at === -1 ? deck : deck.slice(0, at);
+}
+
+/* The four ways in, and what each one owns.
+
+   The Practice tab used to open on one long list of every deck: the everyday
+   phrases, the six past-tense decks and the six Paraules decks all in one
+   column, folded but competing. They are three different kinds of practice —
+   sentences you say, a shape you name before you say it, and single words with
+   a picture — and the list gave you no way to say which you were in the mood
+   for. So the tab opens on four tiles instead, and this is the table that says
+   which tile a deck belongs behind.
+
+   A family name, not a field on the phrase — same argument as `deckFamily`
+   itself: the naming *is* the grouping, so a new grammar unit joins Grammar by
+   being called `Passat · Whatever` or by adding its family here, and nothing
+   downstream has to learn a new kind of deck. Anything unclaimed is Decks,
+   which is what keeps the default right: a deck typed into the Add tab lands
+   where the everyday phrases are without being told to.
+
+   Keyed by family across all three languages, because a library is one
+   language at a time but this table is not. */
+/* The vocabulary family, per language. It is a *deck name prefix* and nothing
+   more — the same string that puts `Paraules · A taula` in the Words section —
+   so adding a language here is what makes its words findable, and there is no
+   second field on a phrase saying "this is a word". */
+const VOCAB_FAMILY = {
+  "ca-ES": "Paraules",
+  "es-ES": "Palabras",
+  "it-IT": "Parole",
+};
+
+export function vocabFamily(language) {
+  return VOCAB_FAMILY[language] ?? VOCAB_FAMILY["ca-ES"];
+}
+
+/* Where a word you add yourself is filed, unless you say otherwise — the
+   vocabulary twin of MY_PHRASES, and an ordinary deck in exactly the same way.
+   The leaf is English beside Catalan deck names for the same reason
+   MY_PHRASES is: it is yours, not part of the course. */
+export const MY_WORDS_LEAF = "My words";
+
+export function myWordsDeck(language) {
+  return `${vocabFamily(language)}${SUBDECK}${MY_WORDS_LEAF}`;
+}
+
+/* About me is a section of one deck. It used to be the top row inside Decks —
+   the one row there that opened the interview rather than drilling — and it is
+   its own square on the home screen now, so its cards leave Decks with it: a
+   deck shown behind two tiles is a card in two places. Claiming the family here
+   is what takes it out of the Decks count and the Decks list at once. */
+const SECTION_FAMILIES = {
+  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo"],
+  vocab: Object.values(VOCAB_FAMILY),
+  about: [ABOUT_DECK],
+};
+
+/** "grammar", "vocab", "about", or "decks" for everything else. */
+export function sectionOf(deck) {
+  const family = deckFamily(deck ?? "");
+  for (const [section, families] of Object.entries(SECTION_FAMILIES)) {
+    if (families.includes(family)) return section;
+  }
+  return "decks";
+}
+
+/* Where a phrase asked for in the moment is filed. An ordinary deck name like
+   MY_PHRASES — the cards in it drill, star, score and export like any others,
+   and it shows in Decks with the rest. */
+export const QUICK_DECK = "Quick";
+
+/* Where a phrase kept from a received message is filed, and where the reply
+   you sent lands. One deck per language, because these are the language's own
+   stock written phrases — a Catalan notice's "us hi esperem a tots i totes" is
+   nothing to a Spanish library. An ordinary deck name like QUICK_DECK, for the
+   same reason: the phrases people actually send you are as good a deck as the
+   ones you asked for, and they only become one if reading them files them. */
+const MESSAGES_DECK = { "ca-ES": "Missatges", "es-ES": "Mensajes", "it-IT": "Messaggi" };
+
+export function messagesDeck(language) {
+  return MESSAGES_DECK[language] ?? "Messages";
+}
+
+/* Where a line kept from a rehearsal chat is filed — the partner's line you
+   want to be able to say, or your own line as it should have been. One deck
+   per language like Missatges, and an ordinary deck for the same reason. */
+const CHATS_DECK = { "ca-ES": "Xerrades", "es-ES": "Charlas", "it-IT": "Chiacchierate" };
+
+export function chatsDeck(language) {
+  return CHATS_DECK[language] ?? "Chats";
 }
 
 /** The part after the prefix — what a row says once its family is open. */
@@ -322,6 +644,7 @@ function openDB() {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_MODEL)) db.createObjectStore(STORE_MODEL);
       if (!db.objectStoreNames.contains(STORE_RECORDINGS)) db.createObjectStore(STORE_RECORDINGS);
+      if (!db.objectStoreNames.contains(STORE_PICTURES)) db.createObjectStore(STORE_PICTURES);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -387,6 +710,14 @@ export const audioStore = {
   deleteRecording: (key) => idbDelete(STORE_RECORDINGS, key),
   clearModelCache: () => idbClear(STORE_MODEL),
   modelKeys: () => idbKeys(STORE_MODEL),
+
+  /* The drawing of a keyword picture, keyed by phrase id. Kept out of
+     export/import for the same reason the recordings are: blobs stay on the
+     device, and a restored backup offers to draw them again. */
+  putPicture: (key, blob) => idbPut(STORE_PICTURES, key, blob),
+  getPicture: (key) => idbGet(STORE_PICTURES, key),
+  deletePicture: (key) => idbDelete(STORE_PICTURES, key),
+  clearPictures: () => idbClear(STORE_PICTURES),
 
   async usage() {
     if (!navigator.storage?.estimate) return null;
@@ -530,6 +861,9 @@ export const library = {
         focusNote: replacement.focusNote || null,
         situation: replacement.situation || null,
         usageNote: replacement.usageNote || null,
+        sounds: replacement.sounds || null,
+        picture: replacement.picture || null,
+        gender: replacement.gender || null,
       });
       replacedPhrase = true;
     }
@@ -542,6 +876,23 @@ export const library = {
     );
     const retired = kept.length !== this.phrases.length;
     this.phrases = kept;
+
+    /* A field that arrived after the card did. `gender` is set on exactly the
+       two seed words whose article elides to `l'`, and those cards are already
+       on the phone carrying no gender at all — they are not newcomers, so
+       nothing else in here would ever reach them, and the cue would be missing
+       from the two words it was written for. Matched by text like
+       SEED_REPLACEMENTS above, and it only ever fills a blank: a gender you
+       chose yourself in the editor is yours. */
+    const seedByText = new Map(SEED_PHRASES.map((p) => [p.text, p]));
+    let backfilled = false;
+    for (const phrase of this.phrases) {
+      const seed = seedByText.get(phrase.text);
+      if (seed?.gender && !phrase.gender) {
+        phrase.gender = seed.gender;
+        backfilled = true;
+      }
+    }
 
     const existing = new Set(this.phrases.map((p) => p.text));
     const newcomers = SEED_PHRASES.filter(
@@ -562,10 +913,18 @@ export const library = {
       language: p.language || "ca-ES",
       aspect: p.aspect || null,
       aspectNote: p.aspectNote || null,
+      /* The keyword mnemonic, on the Paraules decks and null everywhere else.
+         Copied here field by field like the rest — a card built by spreading
+         the seed would quietly carry whatever the generator learns next. */
+      sounds: p.sounds || null,
+      picture: p.picture || null,
+      /* Almost always null: the gender is read off the card's own article and
+         only the words whose article elides to `l'` need to say it out loud. */
+      gender: p.gender || null,
       createdAt: new Date().toISOString(),
     }));
 
-    if (!newcomers.length && !replacedPhrase && !retired) return;
+    if (!newcomers.length && !replacedPhrase && !retired && !backfilled) return;
     if (newcomers.length) {
       this.phrases.push(...newcomers);
       writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);
@@ -700,6 +1059,24 @@ export const library = {
     return replies;
   },
 
+  /* A re-imagined keyword scene. Mutated in place for the same reason the note,
+     the star and the replies are: `update` replaces the object and the drill is
+     holding a reference to it in `state.queue`, so the card you re-imagined
+     would carry on showing the scene it was rendered with.
+
+     It writes both halves together because they are one mnemonic — a new scene
+     hung off the old sound bridge is a riddle whose answer has moved. A blank
+     `sounds` is allowed and clears it; a blank `picture` is refused, since that
+     would leave the card with a bridge and nothing on the end of it. */
+  setPicture(phraseID, { sounds, picture }) {
+    const phrase = this.phrases.find((p) => p.id === phraseID);
+    if (!phrase || !picture?.trim()) return null;
+    phrase.sounds = sounds?.trim() || null;
+    phrase.picture = picture.trim();
+    this.savePhrases();
+    return phrase;
+  },
+
   /* Refile a card. Mutated in place for the same reason the note, the star and
      the replies are: `update` replaces the object and the drill is holding a
      reference to it in `state.queue`, so the card you moved would carry on
@@ -748,6 +1125,8 @@ export const library = {
     for (const attempt of this.attemptsFor(phraseID)) {
       await audioStore.deleteRecording(attempt.id);
     }
+    // The drawing of its keyword picture goes with it, like the recordings do.
+    await audioStore.deletePicture(phraseID);
     this.attempts = this.attempts.filter((a) => a.phraseID !== phraseID);
     this.phrases = this.phrases.filter((p) => p.id !== phraseID);
     this.savePhrases();
@@ -818,6 +1197,9 @@ export const library = {
         attempts: this.attempts,
         aboutMe: aboutMe.turns,
         decks: customDecks.byLanguage,
+        progress: progress.lessons,
+        messages: messages.items,
+        chats: chats.items,
       },
       null,
       2
@@ -837,6 +1219,9 @@ export const library = {
     // phrases, so there is nothing extra to put back.
     aboutMe.replace(Array.isArray(parsed.aboutMe) ? parsed.aboutMe : []);
     customDecks.replace(parsed.decks);
+    progress.replace(parsed.progress);
+    messages.replace(parsed.messages);
+    chats.replace(parsed.chats);
   },
 };
 
@@ -951,13 +1336,214 @@ export const aboutMe = {
   },
 };
 
+// ----------------------------------------------------------------- messages
+
+/* Messages people have sent you, and what you made of them. Each is the text
+   exactly as it was pasted, what the assistant supplied for reading it
+   (`read`: the translation, the register, the glossary and the phrases worth
+   keeping), the gist you wrote before you were shown the translation, how many
+   words you had to look up, and the reply you drafted and what it became.
+
+   Persisted, for the About me transcript's reason: it is material, not a
+   study aside. "What did that notice say?" is a question you ask three days
+   later, and a reply you sent is the best record of how you write. Newest
+   last; capped, since a phone's storage is evictable and the phrases worth
+   having are already cards. Rides in export/import with the phrases. */
+const MESSAGES_KEEP = 60;
+
+export const messages = {
+  items: [],
+
+  load() {
+    const stored = readJSON(KEYS.messages, null);
+    this.items = Array.isArray(stored) ? stored.slice(-MESSAGES_KEEP) : [];
+  },
+
+  save() {
+    if (this.items.length > MESSAGES_KEEP) this.items = this.items.slice(-MESSAGES_KEEP);
+    writeJSON(KEYS.messages, this.items);
+  },
+
+  add(entry) {
+    const saved = {
+      id: uid(),
+      language: settings.language,
+      at: new Date().toISOString(),
+      text: "",
+      read: null,
+      gist: null,
+      taps: 0,
+      reply: null,
+      ...entry,
+    };
+    this.items.push(saved);
+    this.save();
+    return saved;
+  },
+
+  find(id) {
+    return this.items.find((item) => item.id === id) ?? null;
+  },
+
+  /* Mutates in place, like `keepNote` on a phrase: the page is holding the
+     object, and replacing it would leave the page repainting a stale one. */
+  update(id, patch) {
+    const item = this.find(id);
+    if (!item) return null;
+    Object.assign(item, patch);
+    this.save();
+    return item;
+  },
+
+  remove(id) {
+    this.items = this.items.filter((item) => item.id !== id);
+    this.save();
+  },
+
+  forLanguage(language) {
+    return this.items.filter((item) => item.language === language);
+  },
+
+  replace(items) {
+    this.items = Array.isArray(items)
+      ? items.filter((item) => item && typeof item === "object" && typeof item.text === "string" && item.id).slice(-MESSAGES_KEEP)
+      : [];
+    this.save();
+  },
+};
+
+// -------------------------------------------------------------------- chats
+
+/* Rehearsal conversations: the scene, and every turn of it. A partner turn
+   carries the line, its English and the hint at what to say back; a learner
+   turn carries what they said and, once the next reply has come, the
+   correction of it. Persisted for the messages' reason — the corrections are
+   the best record there is of what you get wrong, and "what did I say last
+   time?" is a question you ask on the way to the next one. Newest last,
+   capped, in export/import with the phrases. */
+const CHATS_KEEP = 30;
+
+export const chats = {
+  items: [],
+
+  load() {
+    const stored = readJSON(KEYS.chats, null);
+    this.items = Array.isArray(stored) ? stored.slice(-CHATS_KEEP) : [];
+  },
+
+  save() {
+    if (this.items.length > CHATS_KEEP) this.items = this.items.slice(-CHATS_KEEP);
+    writeJSON(KEYS.chats, this.items);
+  },
+
+  add(entry) {
+    const saved = {
+      id: uid(),
+      language: settings.language,
+      at: new Date().toISOString(),
+      scene: { key: "", title: "", brief: "" },
+      turns: [],
+      ended: false,
+      ...entry,
+    };
+    this.items.push(saved);
+    this.save();
+    return saved;
+  },
+
+  find(id) {
+    return this.items.find((item) => item.id === id) ?? null;
+  },
+
+  /* Mutates in place, like `messages.update`: the page is holding the object. */
+  update(id, patch) {
+    const item = this.find(id);
+    if (!item) return null;
+    Object.assign(item, patch);
+    this.save();
+    return item;
+  },
+
+  remove(id) {
+    this.items = this.items.filter((item) => item.id !== id);
+    this.save();
+  },
+
+  forLanguage(language) {
+    return this.items.filter((item) => item.language === language);
+  },
+
+  replace(items) {
+    this.items = Array.isArray(items)
+      ? items
+          .filter((item) => item && typeof item === "object" && item.id && Array.isArray(item.turns))
+          .slice(-CHATS_KEEP)
+      : [];
+    this.save();
+  },
+};
+
+// ----------------------------------------------------------------- progress
+
+/* Which lessons on the Practice path have been finished, and the best average
+   each has scored. Ported from Deb-o-lingo, minus the streak: this app has no
+   6:30 coffee to keep, and a flame nobody asked for is a nag.
+
+   A lesson is five cards of a deck in order, and its id is the deck's name
+   with the lesson's number on it (`Salutacions#2`), so the ticks follow the
+   deck through everything the deck can do — a card added to it grows a new
+   lesson at the end rather than renumbering the ones you have done, and a deck
+   deleted takes its ticks into irrelevance rather than onto another deck.
+   `best` is the mean over the cards of the best *weakest-word* score each got
+   during that run, so it is not a number this file has already argued against
+   trusting; an unscored run (no Azure key) ticks with no number. Nothing is
+   ever locked by any of this: the ticks record what you did, not what you may
+   do. Rides in export/import with the phrases. */
+export const progress = {
+  lessons: {},
+
+  load() {
+    this.lessons = readJSON(KEYS.progress, {}) ?? {};
+  },
+
+  save() {
+    writeJSON(KEYS.progress, this.lessons);
+  },
+
+  replace(lessons) {
+    this.lessons = lessons && typeof lessons === "object" && !Array.isArray(lessons) ? lessons : {};
+    this.save();
+  },
+
+  isDone(lessonId) {
+    return Boolean(this.lessons[lessonId]);
+  },
+
+  bestFor(lessonId) {
+    return this.lessons[lessonId]?.best ?? null;
+  },
+
+  completeLesson(lessonId, average) {
+    const entry = this.lessons[lessonId] ?? { completedAt: null, best: null, times: 0 };
+    entry.completedAt = new Date().toISOString();
+    entry.times += 1;
+    if (average != null && (entry.best == null || average > entry.best)) entry.best = Math.round(average);
+    this.lessons[lessonId] = entry;
+    this.save();
+    return entry;
+  },
+};
+
 // ----------------------------------------------------------------- settings
 
 const DEFAULT_SETTINGS = {
   language: "ca-ES",
   azureKey: "",
   azureRegion: "northeurope",
-  azureVoice: "ca-ES-JoanaNeural",
+  /* Enric: the male Catalan voice. The default is male in every language — see
+     `defaultVoice` — and this is `defaultVoice("ca-ES")` spelled out, because
+     LANGUAGES is declared further down the file. */
+  azureVoice: "ca-ES-EnricNeural",
   assistantEndpoint: "",
   assistantPasscode: "",
   slowRate: 0.65,
@@ -968,6 +1554,19 @@ const DEFAULT_SETTINGS = {
      is a setting rather than a flag on the drill because it is a way you are
      practising for the whole walk, not a decision about one card. */
   roadMode: false,
+  /* The rehearsal chat's Talk/Type switch. Talk — say the line, hear the
+     answer — is what the feature is for, so it is the default; it needs an
+     Azure key to hear you, and without one the page is in Type whatever this
+     says (`talkNow` in app.js). A setting for road mode's reason: how you are
+     practising today, not a fact about one chat. */
+  chatTalk: true,
+  /* The voice the rehearsal chat's partner speaks in, once you have chosen
+     one. Empty means "the other one": `partnerVoice` picks the first voice of
+     the language whose gender is not your drill voice's, so the two sides of
+     a chat are never the one man talking to himself. Validated against the
+     language's voices on load like `azureVoice`, and back to empty when it
+     isn't one of them. */
+  chatVoice: "",
   /* Quiet mode: road mode's mirror, and the other half of the same question —
      which channels have you got right now? On the road you can speak but not
      look; in a train, an office, or a room with someone asleep in it you can
@@ -987,6 +1586,11 @@ const DEFAULT_SETTINGS = {
   // falls back to the FOLD_FROM rule, so a family you have never touched can
   // change its mind as decks are added to it.
   openFamilies: {},
+  /* Units on the Practice path you have folded open or shut, by deck name.
+     Anything absent follows the default — open if it holds the lesson START is
+     on, folded otherwise — so the one open unit walks down the path with you
+     until you say otherwise. Same shape as openFamilies, for the same reason. */
+  openUnits: {},
 };
 
 export const settings = {
@@ -994,6 +1598,14 @@ export const settings = {
 
   load() {
     Object.assign(this, DEFAULT_SETTINGS, readJSON(KEYS.settings, {}));
+    /* A saved voice that isn't one of the saved language's — an old export, a
+       voice Azure retired — falls back to the language's default rather than
+       being sent to Azure, which would answer with an error on every Listen.
+       A saved voice that is valid is left alone whatever its gender: the
+       default is a default, not a preference imposed on a choice already made. */
+    const voices = LANGUAGES[this.language]?.voices ?? [];
+    if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
+    if (this.chatVoice && !voices.some((v) => v.id === this.chatVoice)) this.chatVoice = "";
   },
 
   save() {
@@ -1010,14 +1622,48 @@ export const settings = {
   },
 };
 
-/** Is this deck family showing its decks? A big one starts folded. */
-export function familyOpen(name, deckCount) {
-  return settings.openFamilies?.[name] ?? deckCount < FOLD_FROM;
+/* Is this deck family showing its decks? A big one starts folded — on a page
+   listing every family, five castells decks would push the everyday ones off
+   the screen.
+
+   `foldBig` is what a section page turns off. Behind a tile the section *is*
+   the fold: Grammar holds one family, so folding it by default puts everything
+   that page has behind a second tap and shows a single row. What the user has
+   actually folded still wins either way — the remembered choice is a lasting
+   opinion, and this is only what to do in the absence of one. */
+export function familyOpen(name, deckCount, foldBig = true) {
+  return settings.openFamilies?.[name] ?? (!foldBig || deckCount < FOLD_FROM);
 }
 
 export function setFamilyOpen(name, open) {
   settings.openFamilies = { ...settings.openFamilies, [name]: open };
   settings.save();
+}
+
+/* The voice a language starts on, and the one it goes back to when you switch
+   to it: the male one. Asked for from the phone — the lists lead with a female
+   voice in all three languages, so every language switch meant a second trip
+   to the voice select to put the male voice back. Whichever voice is preferred
+   is a fact about the one person using this app rather than about the
+   languages, so it lives here in one place and nowhere else. The first voice
+   is the fallback for a language with no male one. */
+export function defaultVoice(language) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
+}
+
+/* The voice the other person in a rehearsal chat speaks in. Your choice if
+   you have made one and it is one of this language's voices; otherwise the
+   first voice whose gender is not `mine`'s — so with Enric as the drill voice
+   the partner is Joana, and with Joana it is Enric — and, in a language with
+   one voice, that voice. `mine` is the drill voice, and it is the voice your
+   own corrected lines are read back in, which is what makes the two sides of
+   the chat two people. */
+export function partnerVoice(language, mine = settings.azureVoice, chosen = settings.chatVoice) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  if (chosen && voices.some((v) => v.id === chosen)) return chosen;
+  const myGender = voices.find((v) => v.id === mine)?.gender;
+  return (voices.find((v) => v.gender !== myGender) ?? voices.find((v) => v.id !== mine) ?? voices[0])?.id ?? "";
 }
 
 export const LANGUAGES = {

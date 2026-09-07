@@ -1,6 +1,9 @@
 # Xerra — working notes
 
-A Catalan pronunciation trainer. You hear a native model, record yourself, and
+A Catalan pronunciation trainer. The repo, the `<title>` and the manifest still
+say Xerra; the home screen says **fin·o·lingo**, under the crest of the Colla
+Castellera d'Horta, so that the three apps in this family look like a family —
+see *Fin-o-lingo at the top* below. You hear a native model, record yourself, and
 the app shows you where the two differ: stacked waveforms, pitch contour, and
 per-word / per-phoneme scoring.
 
@@ -14,20 +17,71 @@ up an Azure key; it isn't repeated here.
 
 | | | |
 |---|---|---|
-| `Xerra/` | Native SwiftUI, iOS | **Cannot currently be deployed.** See below. |
+| `Xerra/` | Native SwiftUI, iOS | Reference implementation. Buildable again — see below. |
 | `docs/` | Vanilla-JS PWA | **The one that actually runs.** Work here by default. |
 
-The native app came first and is the reference implementation. But the
-development Mac is a 2015 model, capped at macOS Monterey → Xcode 14.2 → iOS 16
-deployment target. The phone runs iOS 17+. Xcode cannot sign and install onto a
-device newer than it supports, so the Swift app builds but can never reach the
-hardware it was written for.
+The native app came first and is the reference implementation. For most of this
+project's life it could not be deployed: the development Mac was a 2015 model
+capped at macOS Monterey → Xcode 14.2 → iOS 16, the phone ran iOS 17+, and
+Xcode cannot sign and install onto a device newer than it supports. The whole
+PWA exists to route around that.
 
-The web app exists to route around exactly that, and it is what the user
-actually has on their phone. **Do not "fix" the Swift app's deployment target
-to make it build for the device — that's the thing that's impossible, not an
-oversight.** The Swift source stays in the repo because it is the source of
-truth for content (below) and the reference for the audio algorithms.
+**That constraint is gone.** The machine is now an M1 Mac mini on macOS 26 with
+Xcode 26.6 and the iOS 26.5 SDK (verified 2026-09-05), and the project's
+deployment target is already iOS 17. Nothing about the old ceiling applies, and
+the earlier instruction here — *don't "fix" the deployment target, it's
+impossible* — is withdrawn.
+
+What that does **not** mean is that the Swift app works. It has not been built
+in a long time and has had no attention while every feature below was written
+into the web app, so assume it is behind on content plumbing and missing
+everything from level two onwards. Two known gates as of the last attempt:
+
+- **The iOS platform is not downloaded.** `xcodebuild` reports *"iOS 26.5 is not
+  installed"*; `xcodebuild -downloadPlatform iOS` fetches it, and it is several
+  gigabytes. `xcodebuild -runFirstLaunch` was needed first and does **not**
+  require sudo on this machine.
+- **Free provisioning still forces the weekly reinstall.** That part of the
+  story is unchanged, and it is why storage is plain JSON — see *Storage*.
+
+So the web app remains the one that ships, and the default place to work. The
+difference is that the native app is now a *choice* rather than an
+impossibility, and "make it an actual iOS app" is a live option rather than a
+dead end. The Swift source is still the source of truth for content (below) and
+the reference for the audio algorithms either way.
+
+---
+
+## Xerra is upstream; the forks follow
+
+There are three apps in this family, in three repos, all cloned side by side
+under `~/dev/`:
+
+| repo | app | language |
+|---|---|---|
+| `listen-record-learn` | **Xerra** — this one | Catalan, Spanish, Italian |
+| `deb-o-lingo` | Deb-o-lingo | Spanish |
+| `mum-o-lingo` | Mum-o-lingo | Spanish |
+
+**Changes are made here first and rolled out to the other two afterwards.**
+Where this file says a feature "came from Deb-o-lingo" or that Deb-o-lingo
+"now has this too", that is the history of one particular feature, not the
+direction of travel — read those as notes on what already happened, and assume
+new work starts in Xerra.
+
+Two consequences worth keeping in mind:
+
+- **The forks can be behind, and being behind is invisible from in here.** The
+  way to tell is to diff the shared files (`docs/js/app.js`, `speech.js`,
+  `audio.js`, `store.js`, `card-assistant.js`) against the fork's copy, or to
+  read the fork's own working notes, which record what it has taken.
+- **The Worker is shared and is on a deploy trigger**, so a `worker/**` change
+  merged here is live for all three within the minute — the forks' *clients*
+  can lag their Worker, but never the other way round.
+
+Each app is its own GitHub Pages deployment, so a rollout is not done until
+each one has been merged, reloaded on the phone, and checked against its own
+version pair in Settings.
 
 ---
 
@@ -51,9 +105,10 @@ docs/                 The PWA. Served by GitHub Pages, no build step.
   js/speech.js        TTS and scoring; Azure SDK wrangling
   js/card-assistant.js Client for AI-assisted study-card completion
   js/store.js         localStorage (metadata) + IndexedDB (audio blobs)
+  js/print-pdf.js     The print sheet as a PDF the app writes itself
   js/content.js       GENERATED — do not hand-edit, see below
   sw.js               Service worker, offline cache
-  vendor/             Azure Speech JS SDK, vendored deliberately
+  vendor/             Azure Speech JS SDK, jsPDF, and the PDF's fonts — vendored deliberately
 
 tools/gen-content.py  Regenerates docs/js/content.js from SeedContent.swift
 worker/               Cloudflare Worker; keeps the Gemini key out of the PWA
@@ -75,7 +130,9 @@ Two things to know before "fixing" it:
 
 - **`--teal` is the one colour the two forks don't share.** It is quiet mode's,
   and quiet mode is Xerra-only; everything else in the palette is meant to stay
-  in step.
+  in step. `--pink` is also only here so far, but that one is a porting job not
+  yet done rather than a divergence — it is the feminine half of the keyword
+  pictures' gender cue, and Spanish nouns have genders too.
 - **White on these fills does not clear 4.5:1**, and that is the accepted
   trade-off of the look, not an oversight. The `-ink` variants are the darkened
   versions, and they are what text on the page background uses.
@@ -101,12 +158,860 @@ and `/chat` payloads breaks the other app too. Both share the one rate limit.
 
 ---
 
+### Four squares, and the tab opens on them
+
+The Practice tab used to open on one long column holding everything: the
+everyday decks, the six past-tense decks and the six Paraules decks, folded but
+competing for the same list. Those are three different kinds of practice —
+sentences you say, a shape you name before you say it, single words with a
+picture — and the list gave you no way to say which you were in the mood for.
+So the tab opens on **four tiles**: Decks, Grammar, Vocab and Quick — six
+squares now, with About me the fifth and the sixth blank; see below.
+
+- **`SECTION_FAMILIES` in store.js is the whole of it, and `sectionOf` is the
+  one reader.** A tile owns *deck families*, not a field on the phrase — the
+  same argument `deckFamily` itself makes, that the naming is the grouping. A
+  new grammar unit joins Grammar by being called `Passat · Whatever`, or by
+  adding one family name to that table. **Anything unclaimed is Decks**, which
+  is what keeps the default right: a deck typed into the Add tab lands with the
+  everyday phrases without being told to, and no seed content had to learn
+  about any of this.
+- **The tiles are not a fourth tab.** The tab bar has three buttons and adding
+  a fourth would shrink every target on it; the tiles are a face of Practice,
+  held in `state.section`, with `null` meaning the tiles themselves. Tapping
+  the Practice tab always comes home, which is why the handler clears
+  `state.section` and the search box.
+- **`state.section` is deliberately not touched by starting a drill.** Back
+  from the drill puts you where you were: in Grammar if you opened a card
+  there, on the tiles if you got to it by searching from them. Setting it in
+  `startDeck` would land you in a section you never opened.
+- **Search still reaches everything, from every page.** It reads the whole
+  library rather than the section's share — the same invariant that says a
+  phrase you searched for must never be hiding inside a fold, one level up. It
+  sits *under* the tiles on the home page (the four squares are what the tab is
+  for) and back on top inside a section, where it is the filter for the list.
+- **A family opens by default behind a tile — until the tile holds several.**
+  `familyOpen`'s third argument is what turns the big-family fold off: a
+  section holding one family *is* the fold, so folding it would put everything
+  that page has behind a second tap and show a single row. That argument runs
+  out the moment a section holds more than one family, which Grammar does now
+  (Passat, Futur, Condicional, Subjuntiu), so `renderPractice` puts the fold
+  back on when `families.length > 1`. `FOLD_FROM` still decides which ones
+  actually fold — Passat and Subjuntiu do, the two-deck families stay open —
+  and a fold the user has actually set still wins, in both directions.
+- **`section:` is the fourth string in deck-key space**, after `*`, `★` and
+  `family:`. `section:grammar` drills all 112 grammar cards whatever
+  family they are in, which is what *Shuffle all of Grammar* starts, so
+  `deckNameProblem` has to refuse it like the other three.
+- **★ Favourites and Shuffle all belong to Decks and show nowhere else.**
+  Neither is a past-tense unit or a keyword word, and a Favourites row inside
+  Grammar would drill Catalan you starred in a café. About me used to be the
+  third of these and the top row of Decks; it is its own square now.
+- **About me is the fifth square, and the sixth is blank.** The row inside
+  Decks was one tap deeper than the interview deserved, and a deck the app
+  writes about you is no more one of "the phrases you practise" than a
+  past-tense unit is. So `about: [ABOUT_DECK]` joined `SECTION_FAMILIES`, which
+  is what takes the deck out of the Decks count and the Decks list at once —
+  no skip in `deckList` needed — and the tile does what the row did: it opens
+  the workshop, which lists the cards. It is the one tile carrying `data-about`
+  rather than `data-section`, because it opens a page and not a list, and it
+  is green because its page has always worn Practice's green. **It is always
+  shown**, unlike the row, which hid with no assistant and no cards: a tile
+  that comes and goes leaves a hole in a grid, so the tile says *Needs the
+  assistant* instead and the page it opens now links to Settings. Search still
+  finds an About me card from the tiles, since it reads the whole library.
+- **The grid is the sister apps' grid now: Practice, Vocab, About me, Quick,
+  Grammar, All Phrases** — Quick has since been retitled *Real life*, see
+  *Xerrada* below; its key is unchanged. For a while the sixth square was blank; parity won.
+  *Practice* is the tile that was called Decks — its section key is still
+  `decks`, because that is what `sectionOf` answers for everything unclaimed
+  and nothing downstream reads the tile's title. *All Phrases* is the whole
+  library as one list, the way this page looked before the tiles: in
+  `renderPractice`, `all` switches every section filter off, brings the
+  big-family fold back (this is once again a page listing every family), keeps
+  the ★ Favourites and Shuffle all rows, and offers *Add a phrase* the way the
+  forks' Phrases page offers *Add a card*. It wears `sec-phrases`, which is why
+  the `--phrases-*` variables are still in the palette. The home search box
+  stays under the grid even so — a phrase you searched for must never be
+  hiding behind a tile, and that invariant is cheaper than the redundancy.
+- **Practice is the winding path, not the deck list.** Behind the Practice tile
+  is the journey the sister apps have: a banner per unit, nodes offset
+  left-centre-right, a gold tick once a lesson is done and a bobbing START on
+  the first one that isn't. `practiceUnits` builds it from the everyday decks —
+  each deck a unit, its cards chunked five to a lesson in the deck's own order
+  by `chunkLessons`, so a deck of fifteen is three nodes. Units come in the
+  order the decks first appear in the library, which for the seed content is
+  the order the course was written in (Sounds, then Salutacions, then the café)
+  and for your own decks is the order you made them; the alphabetical order the
+  deck list uses would put Cafès before Sounds. Only Practice's decks are on
+  it: Grammar and Vocab keep their lists, About me and Quick have their own
+  tiles, and the deck list itself — rows, accordion, cards — is one tap away
+  under All Phrases. The path ends with an *Everything* unit carrying Shuffle
+  all and ★ Favourites as nodes, then anything jotted down, and the search box
+  stays on top: typing replaces the path with results, as it did the list.
+  - **A lesson id is the deck's name with the lesson's number on it**
+    (`Salutacions#2`), so ticks follow the deck: a card added grows a new node
+    at the end rather than renumbering the done ones, and a deleted deck takes
+    its ticks into irrelevance rather than onto another deck. `progress` in
+    store.js is the store (`xerra.progress`), ported from Deb-o-lingo minus the
+    streak — this app has no 6:30 coffee to keep — and it rides in
+    export/import with the phrases.
+  - **`state.lesson` is what makes Done tick.** `startLesson` sets it;
+    `startDeck`, the sheet's Practise now and the drill's Back all clear it, so
+    Done at the end of a deck opened from All Phrases just goes back, and
+    leaving a lesson early leaves it unticked. `finishLesson` records the mean,
+    over the lesson's cards, of the best weakest-word score each earned during
+    this run — the drill's own number, not one of Azure's aggregates — and null
+    when nothing was scored, which still ticks. Then `renderComplete`: confetti,
+    the crest hopping where the parrot hops over there, *Lliçó completada!* in
+    the library's language, the card count and the average when there is one.
+    `state.celebration` wins over everything else in `render()` while it
+    stands, and Continue puts you back on the path with the tick on.
+  - **Each unit folds behind its banner.** Eleven units of nodes is a long
+    scroll for a path you are somewhere in the middle of, so the banner is a
+    button with the deck rows' triangle: the unit holding START is open by
+    default and the rest are shut, showing *3 lessons · 1 done*. A banner you
+    have tapped is remembered in `settings.openUnits` by deck name, absent
+    meaning "follow START" — so the one open unit walks down the path with you
+    until you say otherwise, and a unit you have finished folds itself away.
+    Same shape as `openFamilies`, for the same reason. The Everything unit
+    doesn't fold; it is two nodes.
+  - **Nothing is locked**, as in the forks. Every node is open from the first
+    launch; the ticks record what you did, not what you may do.
+- **The drill's back link names where it goes.** It said *‹ Practice*
+  whatever you came from, which was wrong from Grammar before and would have
+  been actively misleading once Practice was a tile. It reads the section's
+  title now, or *Home* from the tiles.
+- **Each tile's page wears that tile's colour**, so Grammar's banner is the gold
+  square you tapped. Inside the view `--sec` paints the page head and nothing
+  else — the tab bar carries its own `sec-` class and the primary buttons are on
+  `--accent` — so this is a header colour rather than a theme. **Not while
+  drilling**: the drill has its own colour language, and a gold page head over a
+  gold road-mode pill would say two things with one colour. Gold takes dark ink;
+  white on it is illegible, which no other accent here is.
+
+Deb-o-lingo and Mum-o-lingo have no deck list at all — their content is a path
+of lessons — so none of this ports. Xerra's own Practice tile now opens a path
+built from its decks (above); the deck list lives on under All Phrases.
+
+### Every deck wears a colour, and the lists wear it too
+
+The path had colour and nothing else did: behind Vocab, Grammar and All
+Phrases a deck was a white card with a triangle on it, and Quick and About me
+printed the same white rows. Asked for as *"add colour to the cards/decks …
+like we have in practice. Not the journey but just add colour"*.
+
+- **`deckColour(deck)` in app.js is the one reader**, and it is the path's
+  rotation — green, blue, purple, orange — counted over the decks in the
+  order they first appear in the library rather than over the path's units
+  alone. That is what makes Salutacions the same blue on the path, under All
+  Phrases, in a search and on paper. Practice's decks come first in the seed
+  content, so the path's colours did not move. A family that isn't itself a
+  deck (Passat, Paraules) takes a colour of its own when its first deck is
+  seen, so its row is coloured too. ★ Favourites is gold and Shuffle all is
+  blue, as the path has always drawn them; there is no sixth colour — teal is
+  quiet mode's and pink is the gender cue, and neither should turn up on a
+  deck row.
+- **A deck row is a one-row unit banner** (`.row.filled` with a `.hue-*`
+  class): the fill, white lettering, the solid slab and the drop on press.
+  Family rows and the Shuffle row wear it as well. The `.hue-*` classes carry
+  `--hue`, `--hue-dark`, `--hue-ink` and `--hue-on`, and gold takes dark ink
+  the way the Grammar tile does.
+- **The cards inside a deck are striped, not filled** (`.row.striped`): the
+  deck's colour down the left edge and a 7% wash of it behind, so a card says
+  whose it is without shouting over the banner. The same stripe is on every
+  phrase row a search turns up (in the phrase's own deck colour, with the
+  deck heading lettered to match), on Quick's answer card and its *Asked for
+  before* rows in Quick's orange, and on About me's cards in its green.
+- **The print sheet gets colour on the type only.** Paper has no fills — a
+  printer drops them, and a block of green behind 7pt notes would drown
+  them — so each deck's heading and each phrase are lettered in the deck's
+  colour, the rule under the heading is drawn in it, and *Listen for* — the
+  one note the sheet carries now — is in the link blue it wears in the app.
+  `.print-sheet` pins the inks to their light-theme values and is white
+  whatever the phone's theme, since the dark-theme inks are built for a dark
+  ground and vanish on paper.
+
+### Settings → Decks folds shut
+
+The deck manager lists every deck and was the longest thing on the Settings
+page, with Version — the one panel you check after every deploy — under it.
+Reported as *"way too long to scroll past"*. It is a `.card-fold` now: the
+header row is the button, the body is `hidden` until you open it, and
+`state.decksOpen` remembers the choice for the session only — `goHome()`
+shuts it again, so it is closed every time you arrive and stays open while
+you are inside it, which includes coming back from the print page with the
+ticks still on. Opening flips `hidden` in place rather than re-rendering,
+because the ticks live in `wireDeckManager`'s closure.
+
+### The way home is in the banner everywhere
+
+About me printed its *‹ Home* in a `.topbar` above the page head — the
+drill's shape, on a page that isn't the drill — while every other page keeps
+the link inside the coloured banner. Reported as the button being different
+there. It is in the banner now, with the tile's own person mark rather than
+Practice's waveform; same `#about-back` id, same handler.
+
+### Quick: the phrase you need in the next thirty seconds
+
+Everything else in the app is practice arranged in advance: a deck you picked, a
+card somebody wrote. Quick is the other direction. You are outside a pharmacy,
+you do not know how to ask for your medicine, and you have about as long as it
+takes to open the door. One box, one button, the phrase, and a Listen you can
+hit twice on the way in.
+
+- **It writes an ordinary card into an ordinary deck.** `QUICK_DECK` is a deck
+  name and nothing more, so what Quick collects drills, stars, scores, levels
+  up, edits, exports and shows in Decks with everything else. That is the point
+  of the feature rather than a detail of it — **the phrases you needed in real
+  life are the best deck in the app**, and they only become one if asking for
+  them files them. Resist giving these cards a flag, for the reason About me's
+  cards don't have one.
+- **It saves without being asked, and undoes in one tap.** The Add tab is
+  deliberate about Save because you are composing there. Here you are standing
+  in a doorway, and a card you have to remember to keep is a card you lose.
+  *Don't keep it* is the way back, and it is one tap because the mistake is
+  cheap.
+- **It goes through `/complete-card` with one extra field, not an endpoint of
+  its own.** What it wants *is* a card, and card generation is already the small
+  fast call — see what replies did to the Add tab. The field is `ask`: your line
+  as you typed it, which the Worker is told to read as a request and never as
+  text to translate, because "how do I ask if they have my medicine" is a
+  question to us and not a sentence to translate.
+- **`ask` is set on the draft only when it is there**, so `JSON.stringify(draft)`
+  at the end of the prompt is byte-identical for a caller that doesn't send one
+  — which is both sister apps. `worker/tools/card-test.mjs` asserts that against
+  the previous committed version of the file rather than against a copy of the
+  string, so it cannot quietly stop being true.
+- **The answer paints itself in place**, like the drill's star and its kept
+  notes, and for the same reason: a `render()` would throw away what you are
+  looking at. It re-reads the phrase from the library rather than trusting
+  `state.quick`, since the card can be deleted from its own sheet meanwhile.
+- **What you asked for before is printed under the box**, newest first, each
+  with a play button. It is the same deck you can open from Decks; it is here
+  because "what did I need yesterday?" is a question you ask on the page where
+  you needed it.
+
+Neither sister fork has this. It would port whole — the page is one call and one
+`library.add`, and the Worker already has the field.
+
+### Messages: reading what people send you, before you are told what it says
+
+Quick's second face. The phrases you need are one direction of real life
+reaching into the app; the texts people send you — the library saying the
+book is in, the colla announcing two meals — are the other. Google Translate
+hands over the meaning and throws away everything worth learning: the stock
+written Catalan (*escric per avisar-vos*, *a partir del dimarts*, *us hi
+esperem a tots i totes*), the register, the shape of a notice. So this reads
+the message *for* you rather than *at* you, in a fixed order.
+
+- **It lives on the Quick page, not on a seventh tile.** The grid is two by
+  three and a seventh square leaves a hole — the argument that put About me
+  on a tile and filled the sixth with All Phrases, and that keeps the three
+  apps' home screens identical. Quick is the right square because the two are
+  the same thing in two directions, and neither is practice arranged in
+  advance. The ask box stays first and on top: Quick's whole point is that
+  you can use it in the time it takes to open a door, and nothing may push
+  the box down the screen. The paste box is second because you are not in a
+  hurry when reading a message. The tile's subtitle counts both, *3 asked
+  for · 2 messages*, from `quickCount`.
+- **The English is withheld until you have written what you think it says.**
+  That is the whole feature, and it is the level-two gate for the level-two
+  reason: a translation visible above the box is a box nobody fills in.
+  `renderMessage` paints the message with every glossed word tappable, a
+  gist box underneath, and nothing else; `reveal` writes the gist and only
+  then paints the translation beside your reading, the register, the phrases
+  and the reply. *I can't tell — just show me* reveals with an empty gist,
+  and the page says so rather than printing nothing where your reading goes.
+  A message with `gist === null` is one you have not read yet, and the
+  list on Quick says so.
+- **The message on screen is the text exactly as it was pasted.** The model
+  never gets to retype it — `/message` returns a glossary and
+  `glossSegments` matches it *onto* the message here, longest run first, on
+  accent-folded, punctuation-stripped words, keeping every character of
+  whitespace so the paragraphs and the emoji survive. A run the glossary gave
+  as one entry (*a partir del*, *us hi esperem*) is one tappable piece, which
+  is the point of asking for set phrases rather than words; a word it forgot
+  is plain text and costs nothing else; a URL is never a button. A word that
+  occurs twice is two buttons with the same gloss.
+- **Taps are counted while the question is open, and free afterwards.** A
+  tap is a word you needed, and *You looked up 2 words on the way* is the
+  honest score — there is no number invented here, for quiet mode's reason.
+  Distinct words, not taps: opening and closing the same gloss three times is
+  one lookup. After the reveal you are checking, not reading, so `taps`
+  stops moving.
+- **What is worth keeping is the stock phrase, never the fact.** The Worker
+  is told that *the book is ready* is not reusable and *estarà preparat per
+  recollir-lo* is, and to trim each to the reusable part with one line on
+  why. Each is one tap from a card through `keepFromMessage` — `keepReply`'s
+  shape, with the message written into the situation (that is exactly what a
+  situation is for) and the `why` as the usage note. They land in the
+  language's **Missatges** deck (`messagesDeck` in store.js; *Mensajes*,
+  *Messaggi* for the other two), an ordinary deck like Quick's and for the
+  same reason: the phrases people actually send you are the best deck in the
+  app, and they only become one if reading them files them. *Kept as a
+  card ✓* is `replyKept`, read off the library at render.
+- **You write the reply first, and then see the correction.** In Catalan if
+  you can, in English if you can't; `/message-reply` returns what a native
+  would send in the register of the message, its English, and a note naming
+  what changed — a *tu* where the message used *vosaltres*, a word order
+  carried over from English — or saying the draft was already right. The
+  draft stays in the box above the result so a second go is one edit away.
+  Listen, Copy (the clipboard, since the reply is about to go into another
+  app) and Keep as a card, which files it in Missatges with *Your reply to a
+  message* as the situation.
+- **Two endpoints, additive, and the sister apps are untouched.** `/message`
+  is the biggest structured output after `/about-cards` — a gloss per word —
+  so it gets `BATCH_TIMEOUT_MS` and an endpoint of its own, on the argument
+  replies won; `/message-reply` is a card-sized call on the quality chain,
+  because the reply is going to a real person. Both take the message as data
+  and say so in the prompt. Nothing the other six endpoints send changed
+  shape — `card-test.mjs` with `BEFORE` set is still byte-identical — and
+  `worker/tools/message-test.mjs` drives both with `globalThis.fetch`
+  stubbed. `worker/**` is on the deploy trigger, so merging shipped them.
+- **`messages` in store.js is the record**: the text, what came back
+  (`read`), your `gist`, the `taps`, and the `reply` with the draft it was
+  made from. Persisted for the interview transcript's reason — *what did
+  that notice say?* is a question you ask three days later, and a reply you
+  sent is the best record of how you write — capped at sixty, newest last,
+  and in export/import with the phrases. `update` mutates in place, like
+  `keepNote`, because the page is holding the object. *Forget this message*
+  drops the record and leaves the cards alone, and says so.
+
+Worth asserting, with `/message` and `/message-reply` stubbed: `#msg-text`
+sits below `#quick-ask`; an empty paste is refused with no call; a paste
+makes one `/message` call carrying the text and the language and opens a
+page whose `.msg-text` reads exactly the pasted text, paragraphs and emoji
+included, with one `.msg-word` per glossed run (a multi-word entry is one
+button, the URL is none, a word twice is two), no `.msg-translation`, no
+`#msg-keep` and no `#msg-draft`; a tap shows the word's `.msg-g` and two
+distinct words tapped three times write `taps: 2` to `xerra.messages`; an
+empty Check is refused; Enter in `#msg-gist` checks, removes the box, paints
+`.msg-translation`, `.msg-gist` and `.msg-register` and reports the count,
+and a tap after that leaves `taps` alone; the keep list prints `.reply-why`,
+`[data-keep]` files a card in `Missatges` with the message in its situation
+and the why in its usage note, flips to *Kept ✓* and refuses a duplicate;
+an empty draft is refused, a draft makes one `/message-reply` call with the
+message and the draft, paints `#msg-reply` with `.msg-note`, keeps the draft
+in the box, and `#msg-reply-keep` files it; the tile reads *1 message*, the
+row under *From your messages* reads *Replied: …* and reopens the page with
+everything on it and no second call; `Missatges` is a `[data-deck]` row under
+All Phrases; export carries `messages` and import puts them back;
+`#msg-forget` removes the record and leaves the cards; and a 503 lands in
+`#msg-error` with the button back and nothing saved. Deb-o-lingo and
+Mum-o-lingo have none of this; it would port whole — the Worker is already
+serving it — with `messagesDeck` collapsing to one name.
+
+### Xerrada: having the conversation before you have it
+
+Asked for as *"I'm meeting people for language chats soon, I'd like to
+prepare. Can we run Catalan chat simulations?"* Everything else in the app is
+a line at a time — you say the phrase, you hear what comes back, and the
+exchange ends there. A real conversation is the thing after that: the
+follow-up question, the answer built on the spot, the moment you find you can
+say where you live but not how long you have lived there. So this is the
+other person, played by the assistant, in a scene you pick, speaking only
+Catalan to you, and every line you say comes back with how a native would
+have said it.
+
+- **It is the third face of the Real life page, and that page was Quick.**
+  It shipped for one commit behind About me, and was moved on request: *"I'm
+  guessing putting this in the quick section would be best, alongside get a
+  phrase to say, and read and answer a message. It's beginning to feel that
+  this section should be renamed."* So the tile is titled **Real life** —
+  *A phrase, a message, a chat* — because all three are the language meeting
+  real people rather than practice arranged in advance, and a rehearsal is
+  for exactly that. **The key is still `quick` and the deck is still
+  `Quick`**, on the Practice/`decks` precedent: the title is what the tile
+  says, and nothing downstream reads it — `TILE_BY_KEY.quick.title` is what
+  the page head and every back link print, so the name lives in one place.
+  The sister apps' fourth tile is still called Quick; that is a divergence in
+  a title, not in a key. `chatStarter` is one card under the message box (a
+  select of scenes, the character box and a Start button, not six rows — the
+  ask box has to stay on top and the page already had two boxes — and no
+  explanatory paragraph: there was one, *"we don't need this text"*), `paintChats` lists the chats
+  you have had under the messages, `quickCount` reads *3 asked for · 2
+  messages · 1 chat*, and `state.chat` is the chat open behind the page —
+  cleared by `goHome`, by `#quick-home` and by *‹ Real life*, exactly as
+  `state.message` is. The facts it follows up on still come from About me:
+  the interview and the cards it wrote are what the hints are built from, so
+  what you rehearse is *your* job and *your* town rather than a textbook's.
+- **`CHAT_SCENES` in app.js is the whole of the scene list.** Each carries a
+  `title`, a `blurb` for the row and the page head, and a `brief` written for
+  the model in the second person — *you are the waiter* — which is why the
+  page prints the blurb and never the brief. *Somewhere else…* opens a box for
+  a scene of your own, whose first line becomes the title. The five that ship
+  are the intercanvi, a café, the market, an assaig and a neighbour, because
+  those are the conversations this learner is actually about to have.
+- **Who you are talking to is yours to write.** Asked for as *"Can I set a
+  character, eg old man that has lived in Horta all his life, or person that
+  was a casteller with Vilafranca."* `#chat-who` on the starter is optional
+  free text with no example line under it (there was one; *"not needed"*),
+  carried as `scene.character` so *Have it again* keeps them, sent as
+  `character` and printed in the page head as *With …*. The Worker's
+  prompt names the person and tells the model to let it show in what they
+  say rather than announce it; without one the prompt is byte-identical to
+  what it was, and `converse-test.mjs` asserts that.
+- **One endpoint, `/converse`, and one call per turn.** Four things come back
+  and each is behind its own tap: the partner's `reply`; its
+  `replyTranslation`, withheld until you press *English* — the level-two
+  argument, one more time — and shown for every line once the chat has
+  ended; a `correction` of your *last* line (`fixed`, its `translation`, and
+  a `note` naming what changed, with `fixed` empty when the line was fine);
+  and a `hint` at what you could say next, behind *Help me answer*. One
+  structured call rather than two because each is a line long and a second
+  round trip on every turn of a conversation is a conversation nobody has. It
+  runs on the quality chain with the card budget, not the interview's fast
+  chain: the correction is what you take to a real person. An empty history
+  is the partner opening, as on `/interview`; a history ending on the partner
+  is refused. `worker/tools/converse-test.mjs` drives it stubbed, and the
+  other six endpoints are untouched — `card-test.mjs` with `BEFORE` set is
+  still byte-identical, so the sister apps are unaffected until they grow a
+  page for it.
+- **The correction arrives with the next reply, and belongs to your turn.**
+  A learner turn is pushed with `correction: null`, and `turn()` writes the
+  correction onto it when the answer comes and pushes the partner's turn after
+  it. A failed call pops your line back out of the transcript and into the
+  box — a retry is one tap, and a turn that never got an answer is never left
+  standing as if it had. A reply that arrives after you have left the page is
+  still saved, for the interview's reason.
+- **A corrected line stops the conversation until you have said the fix.**
+  Asked for as *"it needs to correct my answer, say it, let me practise it,
+  then move on."* When `fixed` comes back non-empty the partner's turn is
+  saved but withheld — `hold` is its index, local to the page so a chat
+  reopened later shows everything — the fixed line is read out instead of
+  the reply, and `practiceCard` stands at the foot of the log: the line,
+  Listen, the record button when there is a key, and *Move on*. A go is the
+  drill's recorder scored by `scoring.score` against the fixed line, and the
+  verdict is the drill's dial and weakest word, since that is the number this
+  app trusts. **Nothing is filed**: the fix is not a card and a go at it is
+  not an attempt, on quiet mode's argument. The composer is hidden while the
+  hold stands (`say` refuses too, since Enter in a hidden box is still
+  Enter), and *Move on* clears the hold, repaints, and plays the reply. A
+  line that was fine goes straight on as before.
+- **Say it is on the partner's lines too, so both sides get practised.**
+  Asked for once the fix's card had been seen: *"let's put it on the other
+  person too."* `[data-practise]` under a partner bubble opens the same card
+  (`practiceCard` with `holding` false: *Say it back*, Listen, the record
+  button, and *Done* where the fix's has *Move on*), in the bubble's grey
+  rather than the fix's amber since nothing was wrong. `saying` is the open
+  one, one at a time; it is not offered while a hold stands, and the
+  conversation never waits on it. `practiceText` is the one reader of what
+  the open card is scoring against, so the recorder, the scorer and the
+  result are shared between the two.
+- **Ask about it, at the foot of the page.** *"So I can ask questions if
+  there are words I don't understand or phrases I'd like to know more
+  about."* It is `cardChatPanel`, the drill's and the sheet's, with the
+  conversation shaped as the card by `chatAskContext`: the last thousand
+  characters of the transcript as `text` with the lines marked *They:* and
+  *You:*, and the scene and character as the situation. One turn of `/chat`,
+  which the sister apps share, so no Worker change; history dies with the
+  page, as it does everywhere else the panel is.
+- **Your last line can be edited and sent again.** *Edit* sits under the
+  most recent learner bubble only — a change further back would orphan
+  everything after it — and turns the bubble into a box. *Send it again*
+  truncates the transcript to that point, so the old correction and the
+  reply that answered the old line both go, clears any hold, and sends the
+  new line as if it had been the first go. Talk mode needs this most: a
+  mishearing is one tap from being said right, without a second recording.
+- **Talk or Type, and Talk is the point.** Two pills over the card
+  (`.xat-toggle`, the drill's mode pills in green), one always on. **Talk** is
+  the drill's record button where the box would be: tap, say the line, tap
+  again, and what Azure heard goes straight into the conversation — the bubble
+  shows what was heard and the correction is of that. It used to land in the
+  box for checking first; it sends now, because a mishearing costs one turn
+  and that is what a mishearing costs in a real conversation too.
+  `transcription.transcribe` in speech.js is `scoring.score` with no reference
+  text — a bare `SpeechRecognizer` on the same 16k WAV. **Type** is the box,
+  for quiet mode's reason, with the keyboard's dictation key as the way to
+  speak into it. `settings.chatTalk` is the choice, a setting for road mode's
+  reason (how you are practising today, not a fact about one chat), and it
+  defaults on; `talkNow()` is the one reader and is `chatTalk && hasAzure`,
+  so without a key the page is in Type whatever the setting says, and the
+  Talk pill refuses with the reason rather than flipping. Switching repaints
+  only the composer (`paintComposer`), so the English you had open stays
+  open, and switching mid-recording cancels the recording rather than
+  sending it — the tap was on Type, not on the mic. The partner's line is
+  played as it arrives in both modes, quietly: `autoplay` swallows the
+  refusal iOS may give a play not started by a tap, because a toast on every
+  turn would be worse than the *Listen* under every line.
+- **The other person has a voice of their own, and your line is read back
+  in yours.** Reported as *"not always the same male voice doing all the
+  talking for both sides of the chat"*. `item.voice` is written onto the chat
+  by `startChat` and is what every partner line — the autoplay and each
+  *Listen* — is synthesised in; `partnerVoice` in store.js picks it: your
+  remembered `settings.chatVoice` if it is one of the language's voices,
+  otherwise the first voice whose gender is not your drill voice's, so Enric
+  gets Joana and Joana gets Enric. *Their voice* is one select
+  (`voiceField`), on the starter card before the partner opens and under the
+  brief on the chat page to change mid-chat; both write `settings.chatVoice`,
+  the page's also writes the chat, and *Have it again* carries it over. It
+  shows only with an Azure key and a language with two voices — the browser
+  voice is one voice per language and there is nothing to choose. The other
+  side is *Listen* on **A native would say** (`data-say-fix`), in the drill
+  voice with no override, which is what makes the two sides two people.
+  `speech.modelAudio` takes an optional `voice` on the phrase for this and
+  keys its cache by it — additive, so the drill's call is byte-for-byte what
+  it was, and **speech.js is no longer the verbatim copy the forks took**:
+  port `voice` with the chat. A chat from before this has no `voice` and
+  `partnerVoiceOf` reads it as the default rather than as the drill voice.
+- **Lines are kept as cards in the language's `Xerrades` deck** (`chatsDeck`
+  in store.js; *Charlas*, *Chiacchierate*) — the partner's line you want to
+  be able to say, or your own line as it should have been, with the note as
+  its usage note and the scene as its situation. `keepFromChat` is
+  `keepFromMessage`'s shape, `replyKept` reads the kept state off the library
+  at paint, and an ordinary deck for the usual reason.
+- **`chats` in store.js is the record** — the scene and every turn, capped at
+  thirty, newest last, in export/import with the phrases. Persisted because
+  the corrections are the best record there is of what you get wrong, and
+  *what did I say last time?* is a question you ask on the way to the next
+  one. *End the chat* marks it `ended`: the composer and the pills go, the
+  English of every line shows, the hints go, a summary counts the lines and
+  the fixes, and *Have it again* starts a fresh chat in the same scene.
+  *Forget this chat* drops the record and leaves the cards. Two `hidden`
+  attributes on this page were silently beaten by `display` — `.chat-form` is
+  flex and `.field` is block, the `.sheet` trap twice more — so both now have
+  a `[hidden] { display: none }` rule, and the headless run is what caught
+  each.
+
+Worth asserting, with `/converse` stubbed and — for Talk — `js/speech.js`
+and `js/audio.js` routed with `transcription.transcribe` and the `Recorder`
+methods overridden, since headless Chromium here has no microphone even with
+the fake-device flags: the tile reads *Real life* and *Ask for a phrase*, then
+*1 chat*, while About me's tile reads as it did; the page runs `#quick-ask`,
+`#msg-text`, `#chat-scene` in that order, the select has six options with
+`#chat-own` hidden until *Somewhere else…* and an empty own scene refused;
+Start makes one call with an empty history, the brief and the language, heads
+the page with the scene and prints the blurb rather than the brief, backs to
+*‹ Real life*, and paints one `.xat-turn.partner` with no `.xat-english` until
+`[data-english]` and no `.xat-hint` until `[data-hint]`, the one surviving
+the other's repaint; with no Azure key `#xat-type` is pressed, `#xat-input`
+carries the language and `autocorrect="off"`, there is no `#xat-record`, and
+`#xat-talk` toasts and stays put; an empty send makes no call; Enter sends,
+the second call's history is partner-then-learner, the learner's bubble gets
+`.xat-fix` with `.xat-fixed`, `.xat-fix-english` and `.xat-fix-note`,
+`xerra.chats` holds three turns with the correction on the second, and the
+reply is held: one `.xat-turn.partner`, `#xat-practice` carrying the fixed
+line and no `#xat-practice-say` without a key, `#xat-composer` hidden, and
+`#xat-move-on` letting the second partner line through with the box back
+and empty; `[data-edit]` is on the last learner bubble only, opens
+`#xat-edit-input` with the line in it, `#xat-edit-cancel` puts the bubble
+back, and `#xat-edit-send` makes one call whose history is cut back to the
+new line and leaves the record at three turns; `#chat-who` goes along as
+`character` and heads the page *With …*; `[data-practise]` is under every
+partner line and absent while a hold stands, opens `.xat-practice-line`
+under that bubble with `#xat-practice-done` and no `#xat-move-on`, moves
+when another is opened, and Done closes it; `#xat-ask` carries the chat
+panel, and a question makes one `/chat` call whose `card.text` has *They:*
+and *You:* lines and whose situation names the scene and the character; a
+fine line paints `.xat-ok`; a 503 puts the line
+back in the box, leaves the transcript as it was and re-enables Send;
+`[data-keep]` files the partner's line in `Xerrades` with the scene in its
+situation and flips to *Kept ✓*, `[data-keep-fix]` files the fixed line with
+the note as `usageNote`; back lists the chat as *2 lines · still going* under
+*Your chats* with the ask box still on top, reopening it makes no call, and
+the turns survive a reload; `#xat-end` hides `#xat-composer`, removes the
+pills, shows every `.xat-english`, removes `[data-hint]` and paints
+`.xat-summary`; `#xat-again` makes one call and a second record in the same
+scene; `#xat-forget` removes the record and leaves the cards; export carries
+`chats` and import puts them back; with About me cards and an interview
+answer planted, `facts` goes along cards first. With a key: `#xat-talk` is
+pressed and `#xat-record` stands where the box was; `#xat-type` brings the
+box back, writes `chatTalk: false` and leaves the open English open; tapping
+the button paints `.recording` and *Listening…* at once, the second tap
+transcribes in the chat's language and sends what was heard as the last
+history entry and a learner bubble; with `scoring.score` stubbed too, the
+held reply shows `#xat-practice-say`, `#xat-move-on` is disabled while it
+records, the go is scored against the fixed line, `.xat-result` shows the
+dial and the weakest word and *Heard:*, `xerra.attempts` is untouched, and
+Move on puts `#xat-record` back; Say it on a partner line scores against
+that line and Done leaves the record button standing; nothing heard makes no call and says so; a 503 says *Say it again* and leaves the partner's
+turn last; and Type mid-recording cancels the recorder without a call. For
+the voice, with `speech.modelAudio` overridden to record `phrase.voice`:
+no `#chat-voice` without a key; with one and Enric as the drill voice,
+`#chat-voice` lists the three Catalan voices with Joana selected and Enric
+labelled *your drill voice*, sits above `#chat-go`, and Start writes
+`voice: "ca-ES-JoanaNeural"` onto the chat and autoplays with it; the
+partner's `[data-say]` and the fix's `[data-say-fix]` record Joana and
+`null` respectively; `#xat-voice` opens on the chat's voice, changing it
+writes the chat and `settings.chatVoice`, and the next Listen is in it; the
+starter remembers it, a reopened chat keeps it, an ended chat has no select,
+`#xat-again` carries it; a chat with no `voice` and Joana as the drill voice
+reads and plays as Enric; a `chatVoice` from another language falls back;
+and the drill's own fetch records `null`.
+
+### There is no tab bar, and adding belongs to a section
+
+Three tabs — Practice, Add, Settings — for three things that were never peers.
+Practice was the home screen, Add was something you do occasionally, Settings
+rarer still. Once the tiles arrived the bar was also duplicating them: a
+Practice button sitting under four squares that *are* Practice.
+
+- **The tiles are the home now**, and `goHome()` is the one way back to them.
+  Every page below them prints `homeLink()` — *‹ Home*, as in the forks; it read
+  *‹ Practice* until Practice became a tile — and one delegated listener on
+  `view` handles all of them, so a page only has to print the link.
+- **Settings kept a permanent control, because it is the one screen that
+  belongs to no section.** It is about the app rather than about anything you
+  practise, so it gets `gearButton()` in the home header — and only there,
+  since the tiles are the one page you can always reach.
+
+### Fin-o-lingo at the top
+
+The home page led with a green *Practice* banner, which was the tab's name
+back when it had a tab. It leads with the brand now, exactly the way
+Deb-o-lingo and Mum-o-lingo do: `.home-head` with `.brand` — the crest at 34px
+beside the wordmark **fin·o·lingo** — and the gear on the right, on the page
+ground rather than on a banner.
+
+- **The crest is the Colla Castellera d'Horta's**, cropped to a circle from
+  the photo it was handed over as and saved as `docs/icons/crest.png` at
+  160px, which is enough for 34px at 3x. It is in the service worker's
+  precache list, so it is on the phone offline like the parrot is over there.
+  It is the *header* logo only: the app icons in `docs/icons/` are still
+  Xerra's, and the `<title>`, the manifest and this file's heading still say
+  Xerra. Renaming the app outright is a separate decision, and the manifest's
+  `short_name` is what the phone's home screen prints.
+- **The language line went under the header.** *Català · 243 phrases ready*
+  was the banner's subtitle, and it is the one thing this app has to say at the
+  top that the single-language forks don't, so it is a quiet `.section-intro`
+  line rather than gone.
+- **The gear needed its own paint.** `.head-gear` is a translucent white disc
+  built for a coloured banner and vanishes on the page ground, so
+  `.home-head .head-gear` gives it the forks' `--line` disc instead. Same
+  control, same id, same delegated listener.
+- **What the bar cost was not just 74px.** It was the top-level slot that made
+  Add a *place*. `--tabbar-h` is gone, `body` clears only the home indicator
+  now, and the toast sits on that instead.
+
+**Adding is now something you do to a section, and `ADD_BY_SECTION` is the
+whole of it.** Phrases offers *Add a phrase*, Words offers *Add a word*, and
+the button carries which kind it makes.
+
+- **Past offers nothing, on purpose.** An `aspect` is not user content — it is
+  a claim about the sentence that is either right or teaching the wrong thing,
+  and it never travels alone: `aspectNote`, `marked` and `infinitive` all have
+  to agree with it, and `marked` has to reduce to `text` exactly or the
+  highlight silently dies. The past decks are also a *designed* curriculum,
+  built out of minimal pairs with one odd card per deck so a deck's name never
+  answers its own question; cards typed in beside them dilute that by
+  construction. They stay authored, in `SeedContent.swift`.
+- **Quick offers nothing either, because Quick *is* an add** — the whole
+  section is a box you ask for a phrase from.
+- **Not a type picker at the top of one form.** You press the button from
+  inside the section, so the kind is decided before the form opens and the form
+  asks only what that kind needs.
+
+### The gear had to look like a gear
+
+Reported from the phone as *"I don't see how I get to settings"* — one release
+after the gear replaced the tab bar, and with the headless run passing 27/27 at
+the time, because every assertion asked whether `#open-settings` was **there**
+and none could ask whether it was **findable**.
+
+Two things were wrong and both are the same mistake:
+
+- **`SECTIONS.settings.mark` was a spoked circle, not a cog.** A small circle
+  with eight short strokes around it. Under the word *Settings* in the tab bar
+  it was fine; alone at 23px on a green banner it reads as a brightness or sun
+  icon. It is a toothed cog now.
+- **A bare glyph on a coloured banner reads as artwork.** `.head-gear` wears a
+  translucent white disc, so the control says "press me" before the icon has to
+  say what it does.
+
+**The lesson worth keeping is about the test, not the icon.** A DOM assertion
+proves a control exists; it cannot prove anyone will find it. Now that
+Playwright is installed, `page.screenshot()` and an actual look is the check for
+anything whose failure mode is *invisible rather than absent* — and it took one
+screenshot to see this.
+
+The Azure notice on the same page says "Add it in Settings", so it is a link
+now. It was the one sentence in the app naming a destination the reader could
+not reach.
+
+### Quick asks its question and then gets out of the way
+
+The ask box had a placeholder spelling out a whole example — *"I'm about to walk
+into a pharmacy — how do I ask if they have my medicine?"*. The label above it
+already asks the question, and a two-line example in a two-row box is a wall of
+grey text to read past every time you are in a hurry, which is the only time
+Quick is open. Removed; the field label does the work.
+
+### The add button goes above the list
+
+`.section-add` sits under the search box and above the list, not at the foot of
+it — the same place Deb-o-lingo and Mum-o-lingo put theirs. At the bottom of a
+section holding two hundred phrases it was a screen and a half of scrolling
+away, which is not where you are standing when you decide to add one.
+
+#### The field asks "el or la?", and a regenerated picture is ours to replace
+
+Two things reported together, both about Add a word.
+
+**The gender field said "From the article".** That names the *mechanism*; the
+question in your head when you file a word is **el or la**, and the answer is
+also which colour the picture gets painted. So `GENDERS` carries an `article`
+now and the field reads *El — colour it blue* / *La — colour it pink*, with
+*El or La — colour it blue or pink* while it cannot tell. The override options
+are *Always el* / *Always la*, which is what distinguishes them from the
+automatic one when it has worked the answer out.
+
+**And the picture stopped following the card.** *Never overwrite yours* was
+measured by "is the box empty" — so the moment we filled it, the next press
+treated our own sentence as the user's and kept it. Change the English, press
+again, and every field refilled except the picture, which went on describing the
+old word. Reported exactly that way.
+
+`lastMade.picture` is the fix: we remember what we put there. Untouched since,
+it is ours to replace; edited at all, it is yours and it stays. **The general
+shape is worth keeping** — "did the user write this?" cannot be answered by
+"is it non-empty" on any field the app also writes to.
+
+#### The colour carries the gender, so the words don't have to
+
+**That is the whole point of the blue and the pink** — and the picture prompt
+was never told. So it spent the bridge and the scene on *el* and *la*, encoding
+in words the one thing the drawing already says in colour, and the mnemonic paid
+twice for it.
+
+`PICTURE_BRIEF` now says it: on a noun, the gender is carried by the colour the
+object is painted, so keep the article out of **both** lines and build the
+bridge and the scene from the noun itself.
+
+#### Every box the app writes to needs the same question asked of it
+
+*Fill in the rest for me* skipped the completion whenever both language boxes
+were full — an optimisation that was exactly wrong, because **after the first
+press both boxes are always full**. Change the English and the word never
+followed; it sat there answering the question you had just stopped asking.
+
+`lastMade` now holds all four fields, and the rule is the same one the editor's
+AI rebuild uses: **whichever side is *yours* is the brief, and the other is
+dropped so it gets written again.**
+
+- You edited the English → send the English alone, the word is rewritten.
+- You edited the word → send the word alone, the English is rewritten.
+- You typed both yourself → nothing of ours to refresh, so no call at all.
+- Sounds and picture the same: ours to replace, yours to leave.
+
+**The general rule, now three bugs deep:** *"did the user write this?"* can
+never be answered by *"is it non-empty"* on a field the app also writes to, and
+it cannot be answered by *"is anything missing"* either. Remember what you
+wrote, and compare.
+
+#### "Don't know" is the first option, and the reading goes underneath
+
+The slot read *El or La — colour it blue or pink*, which is **a description of
+the other two options sitting where a choice should be** — the list offered
+three things and two of them were the same two things. What that slot means is
+"I am not telling you; read it off the article", and the honest word for that is
+**Don't know**.
+
+What the app has worked out moved *under* the select, as `genderHint`: *Reading
+"el" — the picture will be blue.* Feedback, not a fourth thing to weigh up. It
+follows both the word box and the select, so choosing an override says what the
+override will do.
+
+#### Two bugs the same press produced
+
+- **The `/chat` call carried no language.** `chatContext` builds `languageCode`
+  from `phrase.language`, and *Fill in the rest for me* handed it a bare
+  `{ text, translation }` — so the Worker refused it with **"Choose a language
+  first."** every time, after the first call had already filled the word in.
+  The editor's picture button always passed `language`; this one never did.
+  **Anything built for `chatContext` needs `language` and `deck` on it**, and
+  the object is usually assembled by hand rather than being a real phrase, which
+  is exactly why it gets forgotten.
+- **A completed word came back as a sentence.** *"dog"* returned **"Un gos."**,
+  full stop and all — `/complete-card` writes phrases, because that is what it
+  is for. That is not cosmetic: **`genderOf` refuses any text containing
+  punctuation**, so the trailing stop silently cost the card its gender, which
+  is the one thing this screen exists to get right. Two guards, because either
+  alone is thin: the `situation` now says it is a single vocabulary word with
+  its article and not a sentence, and `stripTrailingStop` takes the punctuation
+  off the end whatever comes back. Only the *end* — an interior comma would mean
+  it really was a phrase.
+
+#### An adverb has no article, and the brief said every word did
+
+*Ahora* filed through Add a word came back as **el ahora**. The situation
+sent to `/complete-card` said the word was to be *"given with its article"*,
+flat, because that line was written to stop *"dog"* coming back as a
+sentence — and on a noun it is right. On anything else the model did what it
+was told and invented one. That is not cosmetic twice over: the card then
+drills a word nobody says, and `genderOf` reads the invented article and
+paints an adverb blue.
+
+`SINGLE_WORD_SITUATION` in app.js is the whole of the fix: a noun comes with
+its definite article, anything else — adverb, verb, adjective, question
+word — comes bare and is never given one. Same line in all three apps.
+
+### One side is enough, and the rest is filled in
+
+The first cut demanded the word **and** its English before it would save, and
+its only assistant button made a picture — which itself needed both boxes
+filled. So you had to do the app's job before the app would help, which is the
+opposite of the point.
+
+- **Either side will do.** `if (!text && !translation)` — you have heard a word
+  and don't know what it means, or you know the meaning and want the word.
+  Whichever you have is enough to start.
+- **"Fill in the rest for me" is one press for the whole card**, and it is two
+  calls in order because they answer different questions and the second needs
+  the first's answer: `/complete-card` for the missing side, then `/chat` for
+  the sound bridge and the scene, built from the **completed** word rather than
+  from whatever was in the box. When both boxes are already full the first call
+  is skipped, so a card typed out in full costs one call rather than two.
+- **A picture you wrote is never overwritten.** Only `sounds` is taken in that
+  case — it is the one part you cannot reasonably work out yourself, and it is
+  why the call still runs at all. The note under the box says so, because a
+  button that might eat what you wrote is a button you don't press.
+- **The gender needs no call.** It is read off the article the moment the word
+  lands in the box, which is why the completion dispatches an `input` event
+  rather than only setting `.value`.
+- **No worked example in the word box.** A placeholder spelling out *el
+  tenedor, not tenedor* is a sentence to read past every time, and the gender
+  note under the field already says what it was there to say.
+
+### Add a word, and the thing the app could not do
+
+`/complete-card` writes a *phrase*: a situation, a usage note, a tip, replies.
+There was no way to author `sounds` and `picture` at all — they arrived with
+the seed content, or you added a phrase and then reached for the editor's
+*Invent a picture for me* on a card that already existed. **So the Words
+section was read-only in practice**, which is a strange thing for a section to
+be in an app whose point is that you add what you personally keep losing.
+
+- **Almost all of it is parts that already existed** — `genderField`,
+  `deckField`, and the editor's own picture call. It uses the editor's field
+  ids (`f-text`, `f-translation`, `f-sounds`, `f-picture`) so `wirePictureAI`
+  works here **verbatim** rather than being copied, which is why that function
+  now optional-chains `f-deck`, `f-situation`, `f-usage` and `f-note`: a word
+  has no situation to be used in. Change those ids and two screens break.
+- **No Worker change.** It calls the same `/chat` the editor does, so
+  Deb-o-lingo and Mum-o-lingo are untouched by it.
+- **`myWordsDeck(language)` is where a word goes by default** — the vocabulary
+  twin of `MY_PHRASES`, and an ordinary deck name in exactly the same way.
+  `VOCAB_FAMILY` maps a locale to its family prefix (`Paraules`, `Palabras`,
+  `Parole`) and `SECTION_FAMILIES.vocab` is now derived from it, so adding a
+  language's words to the Words section is one entry rather than two lists to
+  keep in step.
+- **The gender select follows the box.** Its first option reads the article off
+  the word, and you have not typed the word when the form is drawn — so it is
+  updated on `input` rather than decided once at render.
+- **A picture is optional; both languages are not.** You can file the word now
+  and hang something on it later, but a card needs the word and its English —
+  the same argument the editor's picture button makes.
+
+The forks still have their four-tab bar. This is Xerra-first work and wants
+rolling out with the tiles, not before them.
+
 ### There is one browsing surface, not two
 
 Practice and Phrases were two tabs listing the same decks, so Phrases is gone
 and Practice absorbed it. `renderPractice` is the whole of it: a search box over
-a list that is the deck list while the box is empty and the matching phrases
-once it isn't. Three things had to come with it, and they are the reason not to
+a list that is the four tiles (or, behind one, that section's decks) while the
+box is empty and the matching phrases once it isn't. Three things had to come with it, and they are the reason not to
 "simplify" the page back into a plain deck list:
 
 - **The star.** Favourites were always a flag on the phrase, drillable as `★
@@ -223,6 +1128,136 @@ every deck with its card count and can delete one outright.
 Deb-o-lingo has none of this: its decks are course content, so there is nothing
 to make or unmake. The `.new-deck` row and the select styling below would port,
 the rest wouldn't.
+
+### The deck list ticks, folds, and prints
+
+Settings → Decks does three things now, and the third is the reason for the
+first two. Each row carries a **tick box** and a **fold**; the ticked decks
+feed a **Print selected** button that turns them into one sheet of A4 the
+browser prints to paper or to PDF.
+
+- **Several rows tick at once, and Delete is the one thing that still wants
+  exactly one.** Print wants a set — three decks on one sheet is the point of
+  choosing — and a "Delete 3 decks" button takes too much with it in one tap.
+  So with two or more ticked, Delete stays disabled and says *Tick one deck
+  on its own to delete it*; with one, it names the deck as it always did. The
+  rows are the same `data-deck-pick` / `aria-pressed` buttons; the tick is a
+  checkbox drawn by us, and *Select all* / *None* sit above the list because
+  printing the whole library is the commonest ask.
+- **The fold is Practice's fold**, `data-deck-show` rather than
+  `data-deck-fold` because it opens to read-only rows — the cards are there
+  to be checked before you print or delete, not tapped. Its open set is local
+  to `wireDeckManager` and *not* `state.openDecks`: that set is where you are
+  looking on the phrase list, and checking a deck's contents here should not
+  open it over there. An empty deck gets no fold.
+- **The print page is a page of the app, not a new window.** A home-screen
+  PWA on iOS opens `window.open` in Safari proper, which has its *own*
+  localStorage, so a print tab would find an empty library. `renderPrint`
+  draws the sheet into `#view` like every other page — `state.print` is
+  `{ decks, showing }`, and `render()` goes there when `showing` — and
+  `@media print` in app.css hides everything but `.print-sheet`, drops the
+  view's padding and width cap, and sets the sheet in two columns for A4.
+  One markup, two stylesheets; the on-screen preview *is* the sheet at phone
+  sizes. Back returns to Settings with the ticks still on, which is why the
+  decks outlive the page.
+- **What an entry carries is three lines: phrase, English, and the
+  `focusNote` as *Listen for*.** For one release it was the drill minus the
+  audio — the usage note, the grammar shape with its endings and
+  `aspectNote`, *Sounds like*, *Picture it* and an 18mm thumbnail of the
+  drawing — and it was asked back down: *"the PDF just needs both languages
+  and the listen for bit. We don't need to print the Use info."* The sheet
+  is a crib for saying the phrases, and the one note that helps with that is
+  the one naming what to listen for. The gender dot stays on the word, being
+  part of the word. Bringing any of the rest back is a line in `printEntry`;
+  the drawings would also need `loadPrintArt` back from git, since a print
+  has to wait for blobs it draws from IndexedDB.
+- **The sizes are two points up from where they started.** 11pt phrase,
+  10pt meaning, 9pt notes, 12pt deck heading, 10mm margins, two columns —
+  about twenty-two cards to a sheet, the whole Catalan library in ten
+  pages. It shipped at 9 / 8 / 7, the floor of comfortable, and was asked
+  up two sizes once the sheet was down to three lines a card: the room the
+  trimmed notes freed went to the type, not to more cards. Each
+  `.print-card` is `break-inside: avoid`, so a card is always read whole.
+  The gender dot carries `print-color-adjust: exact`, because a printer that
+  drops backgrounds would otherwise drop the whole cue.
+- **The PDF is the app's own, because iOS will not print without its
+  footer.** The print dialog was the PDF for one release and the phone
+  printed the URL, the date and the page number under every page. Two
+  things were tried against it and the notes on both are worth keeping.
+  `@page { margin: 0 }` takes the footer off in Chrome, which writes it into
+  the margin and has nowhere to put it once there is none; WebKit writes it
+  anyway, and Apple's support answer is that iOS Safari *can no longer turn
+  it off* — the workaround they give is a real PDF, which prints clean. So
+  the sheet is still wrapped in a one-cell `<table class="print-page">`
+  whose empty `thead` and `tfoot` rows repeat on every printed page as the
+  margins (with `column-fill: balance`, since `auto` makes Chromium size the
+  row as one tall column and print nine blank pages), and that is what
+  *Print from the browser instead* prints — footer-free in Chrome, footered
+  on the phone. The button itself, **Save as PDF**, goes through
+  `docs/js/print-pdf.js`: the same sheet laid out by hand on A4 through
+  jsPDF — two columns, a card never split, a heading never orphaned, the
+  deck's ink on its heading and its phrases, *Listen for* in the link blue,
+  the gender dot as a filled circle — and handed to the share sheet
+  (`navigator.share` with the file: Save to Files, Print, Mail) or to a
+  download where there is no share sheet. This is the "hand-rolled PDF
+  writer" this file used to say was deliberately not built; it is built
+  because nothing else works on the phone.
+  - **The writer loads when the print page opens, not when the button is
+    pressed.** iOS opens the share sheet only inside the tap that asked for
+    it, and a 400KB script load in between would lose the activation.
+    `preloadPDF` fetches `vendor/jspdf/jspdf.umd.min.js` as the page
+    renders (a classic script, loaded the way the Azure SDK is); the press
+    then does only the layout, which is a few hundred milliseconds for the
+    whole library. Neither the script nor the fonts are precached — same
+    call as the Azure SDK, to keep the install light — but the service
+    worker keeps them after the first use like everything else same-origin.
+  - **The fonts are generated, and `vendor/fonts/pdf-fonts.js` is not to be
+    hand-edited.** jsPDF's built-in fonts are Latin-1 only and the notes use
+    ə in 257 places, so the sheet embeds Nunito: static Regular (wght 400)
+    and Bold (800) instances of the variable font from
+    `github.com/googlefonts/nunito`, subset with fontTools to Latin,
+    Latin-1, Latin Extended-A, IPA, spacing modifiers, Greek and general
+    punctuation — about 48KB each — and DejaVu Sans, subset to IPA, Greek
+    and geometric shapes, for the four glyphs Nunito hasn't got (ɛ, β, ●,
+    ▬). `fontFor` in print-pdf.js decides per character, and a word with a
+    β in it is measured and drawn in two fonts. Licences sit beside the
+    file. To regenerate: `instancer.instantiateVariableFont` at each
+    weight, `subset.Subsetter` over the ranges named at the top of
+    print-pdf.js with hinting dropped, base64 into the module.
+  - **The preview on screen is still the HTML sheet**, and the two are meant
+    to look the same; the PDF's sizes and colours are the print
+    stylesheet's, copied into `TYPE` and `INK`. Change one and change the
+    other. The PDF runs a page longer than the browser's (eleven for the
+    library against ten) because its wrapping is greedy by word and it never
+    breaks a word.
+  - **Not checked from the home-screen app**, only from Safari, which is
+    where the footer was reported from. `navigator.share` with files needs
+    iOS 15; a standalone PWA gets the same share sheet.
+
+Worth asserting, headless: `#deck-print` and `#deck-delete` both disabled with
+nothing ticked; one tick names the deck on both; a second tick disables
+Delete with *Tick one deck* and reads *Print 2 decks · N cards*; unticking
+disarms; `#deck-select-all` ticks every row and `#deck-select-none` clears;
+`[data-deck-show="Salutacions"]` opens to fifteen `.deck-manage-card` rows
+that are not buttons, and survives a tick; an empty deck has no fold; the
+delete flow still ends at `#deck-delete-yes` and disarms after; `#deck-print`
+puts `.print-sheet` on screen with one `.print-deck` per ticked deck, a
+`.print-translation` and a *Listen for* on every card and no other
+`.print-note b` label — no *Use*, *Shape*, *Sounds like* or *Picture it* —
+no `.print-art` at all, and `.gender-dot`s on the six Paraules words; with
+print media emulated the `.print-chrome` and `.page-head` are hidden and the
+sheet is not; `page.pdf({ preferCSSPageSize: true, displayHeaderFooter: true })`
+gives two pages for 29 cards and ten for the whole library, none of them
+blank, with text starting about 11mm down every page and no URL anywhere
+in the text; `#print-go` (with `acceptDownloads`, since headless Chromium
+has no share sheet) hands back a download named for the language whose PDF
+has two pages for 29 cards and eleven for the library, none blank, every ə
+and β of the notes in its text, `Nunito` and `DejaVu` among its fonts and
+no URL, with `#print-error` still hidden; `#print-browser` calls
+`window.print`; and
+`#print-back` lands on Settings with the ticks on. Neither sister
+fork has any of this; it would port whole, since none of it touches the
+Worker.
 
 ### One deck field, and a card that can be refiled
 
@@ -431,6 +1466,20 @@ answer into.
   after a missed one as wrong, which is the opposite of naming the one you got
   wrong. There is no dial and no number: nothing was scored, and a number
   invented here would sit beside real ones in the same app.
+- **A slip of one letter is a slip, not a different word.** `ballerina` for
+  `ballarina` was struck through as wrong *and* listed as left out — two marks
+  for one vowel, reported from the phone as the corrections being over-zealous,
+  which they were. `closeEnough` in app.js is the whole of the fix: a typed
+  word within one edit of the word meant (two from eight letters; nothing
+  under four, because `i` is one edit from `a` and both are words) is *close*.
+  It pairs with its word in `alignWords`, so nothing is "left out"; it is
+  dotted in amber rather than struck through; and the spelling it should have
+  had is printed under the line. The distance allows a swap of two neighbours,
+  since `muisc` is a typo too, and is measured on the accent-folded forms so an
+  accent lost on the same word isn't charged twice. The alignment is weighted —
+  an exact word is worth two, a close one is worth one — so a near miss never
+  stands in where an exact match was there to be had. The verdict is a fourth,
+  *Nearly — one letter off*, between accents and wrong: worst mark wins.
 - **Three verdicts, and the middle one is the point.** An answer right but for
   its accents is **right**, marked with a wavy underline on the words that lost
   them. Accents are a long-press on an iOS keyboard; failing `esta` for `està`
@@ -460,6 +1509,16 @@ answer into.
   is Show me, which reveals without marking anything and so prints no verdict.
   It only appears at level one — level two already has its own full-width Show
   me, the one that plays the audio with it.
+- **Every verdict ends in *Write it again*, and Show me in *Now write it from
+  memory*.** Until that button existed the only way to have another go at a
+  card you had just got wrong was Next, and round the whole deck again — which
+  is the moment you least want to leave it. `#quiet-again` puts the question
+  back on the same card: `state.typed` cleared, and at level two `revealed`
+  cleared too, so the model audio is withheld again and level two's own Show me
+  returns. `peeked` is deliberately left alone — a card you looked at before
+  writing it was still looked at. The verdict goes with the box coming back;
+  what stands is the go in front of you, not the last one. Still nothing is
+  filed, so a card written five times is still a card said none.
 - **The switch is teal**, the last strong colour in the palette not already
   doing a job in the drill. Purple was the near miss and had to be left alone:
   a purple Quiet pill beside a purple *Level 2* badge reads as the same thing,
@@ -470,6 +1529,190 @@ Deb-o-lingo doesn't have this. It would port whole — the flag, the gates, the
 marking and the CSS are all drill-local, and the Worker is untouched — but
 `checkTyped`'s accent folding is doing Catalan-specific work (the interpunct)
 that Spanish has no use for.
+
+### A word, a sound and one ridiculous picture
+
+The six **Paraules** decks (thirty-six words, folded under one family row) are
+vocabulary by the keyword method, ported from Deb-o-lingo's Palabras unit and
+written fresh for Catalan. You hear an English sound inside the Catalan word
+and build one absurd scene out of that sound and the meaning: *la clau* sounds
+like a clown with the n bitten off, so a clown holds your front-door key in his
+teeth. Every other deck here teaches something you *say*; this is the one that
+teaches single words.
+
+- **Two fields, and the split is load-bearing.** `sounds` is the bridge — what
+  the word sounds like in English and nothing else. `picture` is the scene, and
+  its one job is to contain **both** the sound and the meaning, so that
+  recalling the scene hands the word back. A scene with the sound but not the
+  meaning is useless; so is a pretty one with neither. `picture` alone renders;
+  `sounds` alone renders nothing, being a riddle with its answer torn off.
+- **Never bridge to a sound the word hasn't got**, and in Catalan that bites
+  harder than it does in Spanish. *La clau* is not "claw" — au is the vowel in
+  *cow*, and a mnemonic that teaches the wrong mouth is worse than none in an
+  app that scores pronunciation for a living. It also bites on **stress**,
+  which is what decides which Catalan vowels survive: *l'escala* is not
+  "escalator" and *la maleta* is not Deb's "mallet", because English puts the
+  stress on the front of both and Catalan puts it in the middle. The `ll`
+  bridges (*forquilla*, *cullera*, *el llit*, *el bitllet*) are the one place
+  the bridge is deliberately approximate — English has no [ʎ] to bridge to, so
+  the scene says "ya" and the `focusNote` says *the lli of 'million', never the
+  plain y of 'yes'*.
+- **They are ordinary fields on a phrase, not a new store.** That buys the
+  editor, export, import and the weekly reinstall for nothing — and it means
+  *any* card can carry a picture, not only a Paraules word, which is where most
+  of the value ends up: a picture on the one word inside a phrase you keep
+  losing. Resist making them a special kind of card, for the reason About me
+  gives above. `gen-content.py` refuses a `sounds` with no `picture` rather
+  than writing half a mnemonic through.
+- **The drill's gates, and the picture takes a third position.** At level one
+  it waits behind `showTranslation` like the notes do — the scene names the
+  English, so printing it under a hidden meaning would be pointless. While a
+  question is standing it is *the point*: the Catalan is being withheld and the
+  picture is the road back to it, so it is offered as **Show me the picture**
+  rather than shown, above the plain Show me. It reads `questioned` rather than
+  `asking`, so quiet mode's typed question gets the hint too — that question is
+  the same question. Road mode takes it off entirely: it is a paragraph to
+  read.
+- **Reaching for the picture is not peeking.** `state.pictured` is its own flag
+  and deliberately does not set `peeked`: Show me hands over the answer, the
+  picture makes you produce it, and that is the method working as intended. The
+  attempt is still filed as `"recall"`. The hint button is tinted
+  (`.btn-picture`) and Show me is left plain, because the hierarchy is the
+  pedagogy.
+- **"Invent a picture for me" goes through `/chat`, and that is not laziness.**
+  A new endpoint would mean a Worker deploy that serves all three apps; this is
+  one turn of the conversation `cardChatPanel` already has, with the question
+  written for you. The answer is asked for as two labelled lines and parsed
+  back into the two boxes; a model that ignores the format costs only the
+  split, since the whole reply lands in Picture. Don't "improve" it into a
+  `/complete-card` field without reading what replies did to the Add tab.
+- **The scene gets drawn, and only when asked.** `/picture` on the Worker turns
+  the sentence into an image — the endpoint has been live since Deb-o-lingo's
+  unit shipped, so **this needed no Worker change at all**. The drawing is kept
+  in IndexedDB by phrase id and shown inside the same block, behind the same
+  gates, as the text. It is never fetched on its own initiative, and that is
+  the pedagogy rather than the bill: imagining the scene yourself is the
+  technique working, and a picture handed over unasked removes the effort that
+  makes it stick.
+- **Blue for masculine, pink for feminine, painted on the object the word
+  names.** Every mnemonic system that teaches gendered nouns bakes a fixed cue
+  into the scene — Linkword puts a boxer in every masculine one and perfume in
+  every feminine one, Fluent Forever puts the two genders in two different
+  rooms — and colour is the popular one. It is also the weakest of the three as
+  *prose*, because a colour is not an event; what rescues it here is that these
+  scenes get **drawn**, and a blue knife is legible in a thumbnail without
+  reading a word. One object is coloured, never the whole scene: a wash over
+  everything competes with the picture it is supposed to be marking.
+- **The gender is read off the card's own article**, so no seed content had to
+  learn about it and a noun typed into the Add tab gets the cue for free.
+  `genderOf` in store.js is the one reader and `ARTICLE_GENDER` covers all
+  three languages' articles. It refuses to guess at anything that isn't a noun
+  phrase — *El compte, si us plau* also starts with *el* — so a sentence, a
+  verb or anything punctuated is left alone rather than mislabelled.
+- **`phrase.gender` is the override, and it exists for `l'`.** Both Catalan
+  articles elide before a vowel, so `l'avió` and `l'escala` are the two words in
+  these decks a learner genuinely cannot read the gender off — which makes them
+  the two where the cue is worth most and the only two the Swift carries a
+  `gender:` on. It is an ordinary field on the phrase like `sounds` and
+  `picture`, so it exports, imports and reaches the editor for nothing.
+- **The two cards were already on the phone**, with no gender and no way to get
+  one: they are not newcomers, so neither `installNewSeedContent` nor
+  `SEED_REPLACEMENTS` would ever have reached them. The backfill pass beside
+  the retire pass is what does, and it only ever fills a blank — a gender you
+  set yourself in the editor is yours.
+- **The colour is carried by a swatch dot, not by the lettering.** Neither
+  `--blue` nor a pink of the same weight clears 4.5:1 as small text, and a cue
+  you have to decode from the shade of the type is a worse cue than one that
+  says *blue* out loud. The line reads as an instruction — *Paint the knife
+  blue in the scene* — because that is a thing you do to the scene you are
+  already imagining, where "masculine · blue" would be a second thing to
+  memorise beside it. `--pink` is new; unlike `--teal` it is **meant** to reach
+  Deb-o-lingo, whose Palabras cards have exactly the same problem.
+- **The Worker learned one optional paragraph** and is byte-identical without
+  it, which is what keeps the other two apps unaffected until they send a
+  `gender`. Same additive shape as `card.replies` on `/chat`.
+- **Draw it again is offered wherever a drawing is, the drill included.** What
+  comes back is one roll of a stochastic model and *that isn't it* is the
+  commonest thought on seeing it, so the redo belongs where you are looking at
+  the picture — which is mid-drill, not on the phrase sheet. The sheet keeps
+  **Remove the drawing**: throwing one away is tidying up, not trying again.
+  A failed redraw repaints the drawing you had rather than the offer — the blob
+  is still in the store, so showing *Draw this for me* would be a fright and a
+  lie at once.
+
+- **Imagine it again is the same offer one level up, and it is the one that
+  matters.** A redraw is for a picture that came out wrong; this is for a scene
+  that was never right — a bridge you don't hear in the word, or a scene that
+  simply doesn't stick. That is the failure that actually costs you the word,
+  and until now the only way out of it was Edit → *Invent a picture for me* →
+  Save: four taps and a screenful of small print away from the moment you
+  notice, which is mid-drill with the card in front of you. So it sits at the
+  foot of the picture block, in both the places a picture is shown, and writes
+  through `library.setPicture` — **mutated in place**, like `setReplies` and
+  `keepNote`, because the drill is holding this phrase in `state.queue`.
+  - **Nothing is confirmed first and the old scene is offered back**, which is
+    the deck field's bargain: what returns is one roll of a model and may well
+    be worse than what you had, and a seed scene was written for one mouth and
+    one life — exactly the thing this file says not to lose by accident. One
+    step back, not a history: roll twice and a second undo would be restoring a
+    scene you had already rejected.
+  - **The drawing is left alone and said to be stale.** Deleting it destroys
+    something you may still want; keeping quiet about it leaves a drawing of a
+    scene that no longer exists. So it stays, the note says so, and *Draw it
+    again* is already sitting in the row above as the way to catch it up.
+  - **It goes through `/chat`**, like the editor's *Invent a picture for me*
+    and on the same argument: `/picture` draws a scene, it doesn't write one,
+    and a new endpoint means a Worker deploy that serves all three apps.
+    `reimagineRequest` is the same brief with the rejected scene named **in the
+    middle of it** — an instruction after *"nothing before or after them"* is an
+    instruction inviting a third line — and it asks for a new bridge only
+    *where the word honestly offers one*. Insisting on a different bridge for
+    *la clau* is insisting on a wrong one, and a mnemonic that teaches the
+    wrong mouth is worse than none.
+  - **The editor's button learned the same thing.** On a card that already has
+    a scene it reads *Imagine another one* and sends the rejected one, so
+    pressing it can no longer hand back the scene you were pressing it to
+    escape. It reads the boxes rather than the phrase, because the boxes are
+    what the card is about to become.
+  - **The whole block is rebuilt on the way back, not just the sentence.** A new
+    bridge can arrive where there was none, and `pictureBlock` is the one place
+    that knows how those are laid out. Re-wiring the drawing with it costs one
+    read of IndexedDB and is what keeps its buttons alive — `wirePicture` is
+    the pair, and both call sites take it rather than `wirePictureArt`.
+- **Third IndexedDB store, so `DB_VERSION` went to 2.** The upgrade handler
+  creates whatever is missing, so an existing install keeps its recordings and
+  its cached model audio and gains the box. Worth knowing when testing: with no
+  Azure key nothing else touches IndexedDB, so **looking for a drawing is what
+  opens the database** and therefore when the upgrade actually runs. Drawings
+  are not in the export, for the reason recordings aren't — blobs stay on the
+  device — but they go when the card does.
+- **What comes back is shrunk before it is kept** — 512px, WebP where the
+  browser will encode it. A full-size render per word would outweigh the rest
+  of the app on a phone whose storage iOS is willing to evict.
+- **It sits in the editor, not on the sheet.** One implementation, reached from
+  the phrase sheet's Edit and from the drill's Edit alike, landing where the
+  result can be rewritten — a picture you invent yourself outlasts one you were
+  handed. Nothing is written until Save. The sheet is where a *drawing* is
+  thrown away and asked for again (`[data-undraw]`), which is the one control
+  the drill doesn't get.
+- **Purple, and it was already spoken for.** Purple is what memory looks like
+  here — it is the level-two badge. `--purple-ink` is new and is purple *as
+  lettering*, on the `--amber` precedent: `--purple` is a fill and vanishes as
+  small text on white.
+
+The words are searchable by their bridge as well as their Catalan, because the
+way back to a word you have half lost is usually the daft scene rather than any
+of its spelling.
+
+Deb-o-lingo has the same machinery with deliberately different scenes — hers
+are dollars and her own week. **Port the machinery, never the pictures**: a
+picture is aimed at one mouth and one life, the same way a focusNote is. The
+re-imagine ports whole — the store mutator, the two wiring functions, the
+prompt and the CSS are all client-side, and `/chat` is untouched — and it is
+worth taking over, since a scene that doesn't click is the same failure in
+Spanish. The
+one real divergence is where the cards live, which is the deck-versus-path
+difference the rest of this file already has.
 
 ### Dot or line: naming the shape before saying the sentence
 
@@ -685,6 +1928,101 @@ The mechanism is otherwise Xerra's shape — keep the gate logic, the level-two
 stacking and the `aspectNote` gating in step. The Worker is untouched either
 way.
 
+### Ahead of now, and the mood: the rest of Grammar
+
+Asked for as *"a bit more for the grammar section — future, conditional and
+subjunctive, and definitely with a choose-if-it's-subjunctive game like the
+past tense thing"*. Three more families under Grammar in each language —
+`Futur` / `Futuro`, `Condicional`, `Subjuntiu` / `Subjuntivo` — eight decks
+and sixty-four sentences a language, built exactly the way the past decks
+are: the two languages say the same sentences, each card's `aspect` is the
+shape it is *about*, every deck carries an odd card or two so its name never
+answers its own question, and the drill asks before it shows.
+
+- **`ASPECTS` grew a `group`, and the group is the question.** The past
+  shapes are `past` and ask *Dot in a box, or line?* as before. The future
+  and conditional decks share `ahead` — **It will** (future), **It would**
+  (conditional), **Already fixed** (the present, for a plan in the diary) —
+  and ask *Will, would, or already fixed?*. The subjunctive decks are
+  `mood` — **A fact** (indicative), **A wish or a push**, **A doubt or a
+  feeling**, **Not yet** — and ask *Fact, wish, doubt — or not yet?*.
+  `ASPECT_GROUPS` in store.js carries each question, its `wide` form where
+  one exists, and the one-line prompt under the English. Everything else —
+  the mark column, the term, the endings line keyed by language, the
+  `aspectNote`, the level-two stacking, road mode taking it off — is the
+  past gate's machinery untouched.
+- **`aspectChoices(queue, phrase)` now offers the *card's* group**, base
+  shapes plus whatever of that group the queue holds. That is what makes
+  *Shuffle all of Grammar* work: 112 cards from three groups, and each one
+  asks its own question with its own three, four or five buttons rather than
+  twelve. `ahead` and `mood` are all `base`, so those decks always ask the
+  whole question; the past group is the only one with extras.
+- **Subjunctive, yes — but the wrong reason** is a third verdict. The three
+  subjunctive shapes carry `sub`, and picking one for another paints
+  `.aspect-verdict.near` in amber (quiet mode's near-miss colour) reading
+  *Subjunctive, yes — but a wish or a push, not a doubt or a feeling*. The
+  form you would have said is the right form, which is most of what the deck
+  exists to teach, so it is not a plain red.
+- **The conditional's ending is the line's ending**, -ria / -ía on the whole
+  infinitive, and the verdict says so every time — the same argument as
+  *-aba and -ía are always the line*. The future's is the whole infinitive
+  with -ré / -é. Both endings lines also name the verbs that shorten
+  (tindré, voldria; tendré, querría) in their `aspectNote`s.
+- **Two cards where the twins part company on the shape**, and both are on
+  purpose. *It must be about ten o'clock* is `now` in Catalan (**deuen ser
+  les deu**, deure + the plain verb) and `will` in Spanish (**serán las
+  diez**, the future of probability). *Maybe it's closed* is `fact` in
+  Catalan (**potser està tancat** — potser takes the indicative) and `doubt`
+  in Spanish (**quizá esté cerrado**). The sentence is held constant so what
+  varies is the machinery; here the machinery differs in mood, and the
+  `aspectNote` on each side names the other. Because of the second one,
+  `potser` is on neither language's trigger line and `quizá` is on Spanish's
+  only — putting potser on the Catalan doubt line would teach a castellanism.
+- **The odd cards are the indicative counterparts, in pairs where they can
+  be**: *vull venir* beside *vull que vinguis* (same person, so the
+  infinitive and no que), *crec que té raó* beside *no crec que vingui* (take
+  the no off and the subjunctive goes with it), *quan arribo a casa, sopo*
+  beside *quan arribi a casa, et trucaré* (a habit is every night; not-yet is
+  tonight), *si plou, no sortirem* beside *si plogués, no sortiríem* (a real
+  if takes the present and the future, an unreal one the past subjunctive and
+  the conditional). `Futur · Ja està decidit` is four such pairs and nothing
+  else, present against future, the way `Avui o ahir` is.
+- **The Catalan is Central Catalan and the focusNotes say v as b**, as the
+  past decks' *batch* already did: BULL, BIN-guis, BUIT. The infinitive's r
+  comes back before an enclitic (*anar-hi* is ə-NAR-i, *quedar-me* keeps its
+  r) and the notes say so where it happens; *hagis* has the soft j of
+  'measure'; *junts* and *evident* lose a t; *temps* loses its p.
+- **Grammar's tile reads *Past, future, would, subjunctive*** instead of
+  *Name the shape, then say it*, and the Settings switch is *Grammar — name
+  the shape first* with copy that names all three questions. The switch is
+  still one switch: `settings.aspectGate` turns every gate off together.
+- **The Grammar list is alphabetical, like every list here**: Condicional,
+  Futur, Passat, Subjuntiu. A pedagogical order would want Passat first; the
+  deck list has never had one and the past decks inside Passat are
+  alphabetical too, so this is the convention rather than a decision to
+  revisit here.
+
+Worth asserting, headless: the Grammar tile counts 112; behind it four
+`[data-fold]` rows in that order with Passat and Subjuntiu `aria-expanded=
+"false"` and the two-deck families open; `Subjuntiu · Vull que` opens on
+*Fact, wish, doubt — or not yet?* with four `.aspect-choice` buttons in the
+order fact, wish, doubt, notYet and no `#listen`, `#record` or `#drill-edit`;
+picking doubt on the first card paints `.aspect-verdict.near` reading
+*Subjunctive, yes — but a wish or a push, not a doubt or a feeling* with the
+*vull que · cal que* endings line and the `.aspect-why`; picking wish on
+*I want to come to the rehearsal* paints `.aspect-verdict.wrong` reading *Not
+quite — a fact, not a wish or a push*; `Futur · Demà` asks *Will, would, or
+already fixed?* with three buttons and never paints `.near`; `Passat · La
+línia` still asks *Dot in a box, or line?* with three and `Passat · Tot
+junt` *Which shape?* with five; `section:grammar` queues `1/112` and every
+card's question matches its button count; the phrase sheet for *sàpigues*
+reads *Not yet*; an opened Subjuntiu fold survives a reload; in `content.js`
+*Potser està tancat* is `fact` while *Quizá esté cerrado* is `doubt`, and
+*Deuen ser les deu* is `now` while *Serán las diez* is `will`; the Spanish
+library shows the same four families and 112 cards; and Salutacions is still
+ungated. Deb-o-lingo has the past gate in a three-shape cut; the groups would
+port with it, and the content would not — its sentences are Deb's.
+
 ### A withdrawn seed card has to reach the phone
 
 Cutting a phrase out of `SeedContent.swift` stops it being *installed*. It does
@@ -809,6 +2147,22 @@ each with its English and a Listen button.
   while a level-two question is standing, out while the meaning is hidden.
   Pressing it puts three answers and their English on the screen, so it can't
   be on the near side of a line the replies are on the far side of.
+- **Every reply offers *Keep as a card*.** A reply is a phrase somebody
+  actually says, and the one you keep hearing is the one you will want to be
+  able to say — so the way from "I like this one" to a card of its own is one
+  tap, on the reply, rather than retyping it into Add. `keepReply` in app.js
+  is the whole of it: the reply's text and English become the card, the phrase
+  it answers is written into the situation (that is exactly what a situation
+  is for), no focusNote because nobody has written one — the editor's AI
+  rebuild is there for that. `replyDeck` decides where it lands: it follows its
+  card into an everyday deck, and lands in `My phrases` otherwise, because the
+  past decks are a designed curriculum a reply would dilute, a Paraules deck
+  holds single words, About me is about you and Quick is what you asked for.
+  *Kept as a card ✓* is read off the library at render (`replyKept`), so it
+  survives a re-render, a second visit and a reload, and a duplicate is refused
+  on the button rather than in a toast. `wireReplies` takes a `source` read at
+  the tap, not at wiring, because on the Add review the deck select and the
+  phrase box are still being edited. In all three apps.
 - Replies play through `speech.modelAudio`, which keys its cache on the text,
   so a reply you've heard once is available offline like any phrase.
 - **They are held back harder than the usage note in the drill.** A situation is
@@ -919,10 +2273,11 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
-- **`/picture` is the sixth endpoint, and Xerra does not call it.** The two
-  Spanish forks teach vocabulary by the keyword method — the word sounds like
-  something in English, and one absurd scene holds that sound and the meaning
-  together — and this draws that scene. It is the only call here that returns
+- **`/picture` is the sixth endpoint, and all three apps call it now.** Xerra
+  did not when this was written; it does, since #46. All three teach vocabulary
+  by the keyword method — the word sounds like something in English, and one
+  absurd scene holds that sound and the meaning together — and this draws that
+  scene. It is the only call here that returns
   bytes rather than words, so it earns its own endpoint on exactly the argument
   `/replies` won: an image is the biggest, slowest output this Worker makes and
   card generation must stay small and fast. It runs `GEMINI_IMAGE_MODEL` alone
@@ -973,8 +2328,8 @@ below said what that was costing. What is true of them now:
   could not be tried before it was deployed. It reads the bytes from
   `output_image` or from a `model_output` step, under either spelling of `data`
   and `mime_type`. If Google moves them, that function is the fix — and the
-  phone's error, *"the model drew nothing"*, is what points at it. **If Xerra
-  ever grows keyword pictures of its own, this endpoint is already there.**
+  phone's error, *"the model drew nothing"*, is what points at it. **Xerra draws
+  through it too now**, so a change here reaches all three apps at once.
 
 **`aiLog` is Xerra-only, so `card-assistant.js` is no longer the verbatim copy
 Deb-o-lingo took.** The timing lives in `request()`, which is the one place
@@ -1019,14 +2374,12 @@ v2 list.
   `library.add` knows where they came from. Resist any urge to give them a flag
   — the moment they are a special kind of phrase, every list in the app has to
   learn about them.
-- **The row is the one thing that is special, and it breaks a rule on purpose.**
-  Every other deck row drills; this one opens the workshop, because the only
-  way to put cards in the deck is the interview. The triangle still opens to the
-  cards and those still drill, through the same `startDeck` as everywhere else.
-  It also shows *before the deck exists*, which no other row does — "the first
-  time you open it, it asks about you" needs something to open. It sits above
-  ★ Favourites because an empty invitation has to be found; a deck full of
-  cards would not have earned the position.
+- **The tile is the one thing that is special, and it breaks a rule on
+  purpose.** Every other tile opens a list; this one opens the workshop,
+  because the only way to put cards in the deck is the interview, and the
+  workshop lists the cards, which drill through the same `startDeck` as
+  everywhere else. It was a row at the top of Decks before it was a square on
+  the home screen — see *Four squares* above for why it moved.
 - **Two endpoints, not one, and for the established reason.** `/interview` asks
   the next question, `/about-cards` turns the transcript into three to five
   cards. Writing five cards is the big slow call and asking one question is not,
@@ -1068,6 +2421,17 @@ v2 list.
   there is a transcript — answering a question only repaints the log, so
   rendering it conditionally meant the way out didn't appear until you left the
   page and came back, which is when you are least likely to look for it.
+
+- **The interview sits above the cards, the way Quick's ask box sits above
+  what it made.** Asked for as *"put the about me chat above the about me
+  cards … a similar layout to quick"*. The page opened on the practise
+  button and every card, with the box you talk to underneath — so on a deck
+  of thirty the thing the page is *for* was a screen and a half down. Now
+  it reads: the chat card and Create, then *Your cards* with its Practise
+  button and the rows. Nothing else moved — same ids, same handlers, same
+  `paintLog` — so the assertions below hold as they were, plus one on the
+  order: `#about-form` above `#about-make` above `#about-practise` above
+  the first `.row`. In all three apps.
 
 Deb-o-lingo has this as **Sobre mí** — same two endpoints, same persisted
 transcript, same guards, no Worker change needed. The one divergence is
@@ -1153,6 +2517,11 @@ which is what keeps the everyday Catalan cards byte-identical to what they were
 before Spanish arrived — including the Catalan past decks, which carry an
 `aspect` but no `language:` line at all.
 
+`sounds` and `picture` are the keyword mnemonic, and only the Paraules decks
+carry them. `picture` is the scene and is what renders, so a card with a
+`sounds` and no `picture` exits the generator rather than being written through
+as half a mnemonic.
+
 Every phrase carries a `focusNote` naming what to listen for. It's shown while
 drilling and is the pedagogical point of the app, not decoration. New phrases
 need one — including the Spanish ones, where it does double duty: the -aba and
@@ -1165,11 +2534,12 @@ the stressed syllable rather than talking about the grammar. That is
 ## Running it
 
 ```bash
-cd docs && python3 -m http.server 8765
-# then open http://127.0.0.1:8765
+cd docs && python3 -m http.server 8791
+# then open http://127.0.0.1:8791
 ```
 
-Must be `127.0.0.1` or `localhost` — microphone access requires a secure
+Port 8791 rather than 8765, which is often taken by another project on this
+machine. Must be `127.0.0.1` or `localhost` — microphone access requires a secure
 context, and those are treated as secure. A `file://` open will not work.
 
 ### On the actual phone
@@ -1212,6 +2582,23 @@ them again when reporting a change as done, rather than leaving them to be dug
 out of the diff. `.github/pull_request_template.md` has a slot for them (and
 for the "does this touch `worker/**`" question) so the PR half is structural
 rather than a thing to remember. Same rule in Deb-o-lingo.
+
+**The number is only good against `main` as it stands when you merge, and two
+branches will pick the same one.** Bumping is not the part that goes wrong —
+both sides of the collision that prompted this had bumped. What goes wrong is bumping
+relative to what your branch started from: #48 and #49 were cut from the same
+v59 and both wrote v60, so whichever landed second merged its bump as a no-op
+and shipped a changed `app.js` under a cache name the phone already had
+installed. Cache-first then served the old bundle, with the Settings panel
+agreeing that everything was fine — the one symptom the two numbers exist to
+make visible, hidden by the two numbers being right.
+
+So, before merging anything under `docs/`: read `main`'s two strings again and
+bump *past* them, and re-check after any rebase or merge of the base branch. If
+it has already happened, the fix is a bump-only commit on top (#50) rather than
+anything clever. A change that touches no shipped asset — this file, the PR
+template, `tools/` — needs no bump at all, and that is the other half of the
+rule: the number tracks what the phone downloads, not what the repo did.
 
 Bumping it is necessary and, on its own, was once not sufficient — see the
 mixed-bundle gotcha below. A local run from a fresh browser profile cannot
@@ -1487,6 +2874,35 @@ it's intentional.
 
 ---
 
+### Listen has to say when nothing came out
+
+Reported as *"we broke the listen button everywhere"*, and the audio path
+turned out to be untouched — what was missing was any way for the app to say
+so. Three silent failures, all of which look identical to a dead button:
+
+- **The browser voice takes an utterance and never says it.** iOS offers a
+  Catalan voice, accepts `speak()`, returns nothing and throws nothing. So
+  `browserSpeech.speak` now takes an `onSilent` callback and fires it when the
+  utterance has neither started nor queued after 800ms, and both callers say
+  so out loud. With an Azure key this path is never reached, which is why the
+  message names that as the fix.
+- **A database that will not open took the whole card off the screen.**
+  `speech.isCached` is the first await in `loadPhrase` — before the drill has
+  rendered anything — and it read IndexedDB unguarded, so a blocked version
+  upgrade or evicted storage threw there and left an empty view. A question
+  about whether to show a spinner must never be able to do that; unknown is
+  now "no". `modelAudio`'s cache read was outside its try for the same reason
+  and is now inside it: a cache you cannot read is a reason to synthesise, not
+  to give up. Failing to *keep* the result costs the offline copy and nothing
+  else.
+- **Assigning a stale voice can throw**, which came out of the click handler as
+  nothing at all. The default voice for the utterance's `lang` beats silence.
+
+The drill has always printed *Using the browser voice…* when there is no Azure
+key, and `speech.lastError` when Azure refuses. **Those two lines are the first
+thing to read when playback is reported dead** — between them and the new toast,
+every silent path now names itself.
+
 ## Storage
 
 Plain JSON, not a database — `phrases.json` and `attempts.json` alongside
@@ -1558,6 +2974,15 @@ existing card in `content.js` is byte-identical and `installNewSeedContent`
 still defaults to `ca-ES` for anything without one. What decides which library
 a seed card lands in is the Swift source and nothing else.
 
+**The voice a language opens on is its male one.** `defaultVoice` in store.js
+is the one reader: `DEFAULT_SETTINGS.azureVoice` is Enric, switching language in
+Settings lands on Álvaro or Diego, and `settings.load` falls back to it when a
+saved voice isn't one of the saved language's. Asked for from the phone — every
+voice list led with a female voice, so each language switch meant a second trip
+to the voice select. A saved voice that is valid is never touched, whatever its
+gender: the default is a default, not a preference imposed on a choice already
+made, and the voice list order in `LANGUAGES` is now presentation only.
+
 Two things to check when adding one: that Azure has neural voices for the
 locale (`gender` is only a label here — the id is what is sent), and that it is
 on Azure's Pronunciation Assessment list, or scoring degrades to the no-key
@@ -1575,10 +3000,28 @@ There's no test runner, but the app can be driven headlessly, which beats
 clicking through it:
 
 ```bash
-cd docs && python3 -m http.server 8765 --bind 127.0.0.1 &
-# then Playwright against http://127.0.0.1:8765 — Chromium is usually already
-# present at $PLAYWRIGHT_BROWSERS_PATH; do not run `playwright install`.
+cd docs && python3 -m http.server 8791 --bind 127.0.0.1 &
+# then Playwright against http://127.0.0.1:8791
 ```
+
+**Node and Playwright are installed on this machine** (Node via Homebrew,
+Chromium via `npx playwright install chromium`, 2026-09-05). Two things that
+cost time before they were written down:
+
+- **Playwright lives outside this repo, deliberately.** There is no
+  `package.json` here and there is not going to be one — the lack of a build
+  step is why this deploys to a phone at all. So the harness is installed in a
+  scratch directory of its own and the test scripts are run from there against
+  the served `docs/`. A `node_modules` inside the repo is the thing to avoid,
+  not Playwright itself.
+- **Pick a port and check it is free.** 8765 is often already serving another
+  project on this machine; a smoke test that "passed" against someone else's
+  page reported a title of *A/B listening room* and zero tiles. If the assertions
+  look absurd, check what is actually on the port before debugging the app.
+- The earlier note here said Chromium was already present at
+  `$PLAYWRIGHT_BROWSERS_PATH` and that `playwright install` should not be run.
+  That was untrue of this machine — the variable was empty and there was no
+  Playwright at all.
 
 Worth asserting on: no console errors on boot, the deck list matches
 `gen-content.py`'s reported counts, a deck opens and `.drill-text` is populated,
@@ -1642,12 +3085,24 @@ the card's `lang`; checking the exact text paints `.quiet-verdict.right` and put
 the phrase back in `.drill-text`; the same text
 with its accents and interpuncts stripped paints `.quiet-verdict.accents` with
 `.typed-word.accent` on the words that lost them and nothing struck through; a
+word one letter off — `ballerina` for `ballarina`, or two letters swapped —
+paints `.quiet-verdict.close` with `.typed-word.close` on that word, names the
+right spelling in `.typed-fixes`, and leaves *Left out* off the card, while a
+two-letter word swapped for another (`a` for `i`) is still `.typed-word.miss`; a
 dropped word is named in the *Left out* line while the words you did get stay
 `.typed-word.ok`; a wrong answer paints `.quiet-verdict.wrong` with
 `.typed-word.miss`; `xerra.attempts` is the same length afterwards as before,
 which is the assertion that matters most; Enter in the box checks, an empty
 Check is refused and leaves the box, and `#quiet-show` reveals without printing
-a verdict. On a card with four attempts behind it the level-two badge stands,
+a verdict. For the way back in: `#quiet-again` is absent while the question
+stands, sits inside every `.quiet-verdict` reading *Write it again*, and reads
+*Now write it from memory* after `#quiet-show`; pressing it removes the verdict,
+withholds the phrase from `.drill-text` again, empties and focuses `#quiet-input`,
+brings `#quiet-show` back and leaves the progress pill where it was; a second
+answer is marked afresh; and `xerra.attempts` is still the same length. At level
+two it puts `#show-me` back and takes `#listen` off again, with no *Shown, not
+remembered* line unless Show me was actually used. On a card with four attempts
+behind it the level-two badge stands,
 `#listen` is absent until the answer is in, `#show-me` is there and
 `#quiet-show` is not, and typing it leaves no *Shown, not remembered* line. On
 a past-tense card the shape gate comes first and `#quiet-input` only appears
@@ -1659,6 +3114,56 @@ checking the topbar's `scrollWidth` at 390px too, since it now carries two
 pills — at 320, 375 and 390, with a `1/207` progress pill, asserting the bar's
 `scrollWidth` never exceeds its `clientWidth` and that the Quiet pill's right
 edge stays inside the viewport.
+
+For the keyword pictures, with `/picture` and `/chat` stubbed: a Paraules card
+opens with `.picture-note` carrying its `.picture-sounds` and no
+`#picture-hint`, `Salutacions` has neither, and with *Show the meaning up
+front* off the picture waits for `#reveal` alongside the translation. Seed four
+passing attempts on one and the same card offers `#picture-hint` with no
+`.picture-note` — pressing it paints the picture while `.drill-text` still
+reads the English, `#listen` is still absent and the *Shown, not remembered*
+line is still off the card, which is the assertion that says peeking and
+picturing are different things. Quiet mode offers the same hint at level one
+and the typed question stays standing behind it; road mode has neither. Nothing
+is fetched until `.picture-draw` is pressed; one press paints `.picture-image`,
+a return to the card shows it again with no second call, the blob in the
+`pictures` store is an image and smaller than what was sent, a 503 lands in
+`.picture-art-error` with the offer still there, and the sheet's `[data-undraw]`
+empties the store and puts the offer back. Searching for `clown` finds *la
+clau* by its bridge alone; the editor carries `#f-sounds` and `#f-picture`, an
+edit to either is saved on the phrase, and `#f-picture-ai` parses two labelled
+lines into the two boxes. For the gender cue: `el ganivet` reads *Paint the
+knife blue* with a `.gender-dot.gender-m` and `la forquilla` reads *pink* with
+`.gender-f`; `l'avió` still reads masculine, which is the assertion the whole
+`gender` field exists for; `genderOf` returns null for *El compte, si us plau*,
+for `tenir` and for a bare `l'escala`, and `m` for `els diners`; the drawn
+request carries `card.gender`; `#f-gender` opens on *From the article —
+feminine* and picking Masculine repaints the line and writes `"m"` to the
+phrase. An install predating the field backfills the two `l'` words on load,
+leaves a card the article answers alone, leaves a gender you set yourself
+alone, and is a no-op the second time. On the Worker,
+`buildPicturePrompt` with no gender is byte-identical to what it was and an
+unknown gender is dropped rather than refused. For the redraw: `[data-redraw]`
+is in the drill as well as the sheet and `[data-undraw]` only in the sheet, a
+503 on a redraw leaves `.picture-image` on screen with the error beside it and
+the button still offered, and the next good one clears it. For the re-imagine:
+`[data-reimagine]` is offered in the drill and on the sheet and absent with no
+assistant configured, nothing is fetched until it is pressed, one press repaints
+`.picture-scene-text` *and* `.picture-sounds` and writes both to
+`xerra.phrases`, the request carries the rejected scene and still ends on the
+two-line format, `[data-unimagine]` puts the old pair back without a second
+call, a 503 leaves the card saying what it always said with the offer still
+there, a 503 *after* a good roll still offers `[data-unimagine]` — it lives in
+the row, not inside the sentence announcing the new scene — a card with a
+drawing keeps it (with its `[data-redraw]` and
+`[data-undraw]`) and is told the drawing is of the old scene, and the new scene
+survives a reload — searchable by it, since the bridge it came in on is gone.
+In the editor, `#f-picture-ai` reads *Imagine another one* on a card that has a
+scene and sends that scene, reads *Invent a picture for me* on one that hasn't
+and sends the old prompt exactly, and neither writes anything until Save. Two more that are easy to lose: an install still on
+`DB_VERSION` 1 upgrades in place and keeps its recordings — drill a card *with
+a picture* to trigger it, since with no Azure key nothing else opens the
+database — and deleting a card takes its drawing out of the store with it.
 
 The Add review can be driven with the assistant stubbed —
 Playwright's `page.route` over `/complete-card` and `/replies` — which covers
@@ -1672,8 +3177,9 @@ inside the hint. `#save-another` leaves you on Add with an empty form and the
 card in `xerra.phrases`; `#save-practise` puts `.drill-text` on screen showing
 the card just made, with a progress pill counting its whole deck rather than
 `1/1`. For About me, with `/interview` and `/about-cards` stubbed:
-`[data-about]` is on the deck list before the deck exists and absent entirely
-with no assistant configured, opening it fires one `/interview` call by itself
+`[data-about]` is a home tile before the deck exists and is still there with no
+assistant configured, reading *Needs the assistant* and opening a page that
+links to Settings; with one, opening it fires one `/interview` call by itself
 and puts the question in `.chat-msg.assistant`, `#about-make` is disabled until
 a learner turn exists, a batch containing a punctuation-only repeat of an
 existing card adds one fewer than it returned, the made cards are ordinary
@@ -1737,6 +3243,62 @@ About me path too whenever `renderDrill`'s topbar is touched — the two
 functions both open with `view.innerHTML = \`<div class="topbar">`, so a
 careless replacement lands in the wrong one.
 
+For the tiles: the home page has exactly six `.tile` buttons titled Practice,
+Vocab, About me, Quick, Grammar and All Phrases, in that order, and no
+`[data-deck]` at all; `.home-head .wordmark` reads *fin·o·lingo*, `.crest` has
+loaded (`naturalWidth > 0`), `#open-settings` is inside `.home-head`, there is
+no `.page-head` on the home page, and `.section-intro` carries the language and
+the count; the counts come from the library (112 behind Grammar, 36 behind
+Vocab, 243 behind All Phrases, and the Practice count leaves About me cards
+out); typing into `#search` from the tiles still finds *la clau* and an About
+me card alike, and clearing it brings the tiles back; `[data-section="decks"]`
+opens a page headed *Practice*, lists no About me row and no About me deck, and
+no `Passat` or `Paraules` key; `[data-section="phrases"]` opens a page headed
+*All Phrases* wearing `sec-phrases`, lists `Salutacions`, `*`, a
+`[data-fold="Castells"]` (big families fold there), the `Passat` and `Paraules`
+families and `[data-add-kind="phrase"]`, with `#search` on top; `#back` from a
+drill reads *‹ Practice*, *‹ All Phrases* or *‹ Grammar* after the tile it
+came through, and every `[data-go-home]`, `#about-back` and `#quick-home`
+reads *‹ Home*;
+`[data-section="grammar"]` lists only `Passat` deck keys with its family already
+open, has no `[data-about]`, and offers `[data-deck="section:grammar"]` which
+queues `1/48`; `#back` from that drill lands on Grammar rather than on the
+tiles, and `[data-home]` returns to them; `[data-section="decks"]` has no
+`Passat` or `Paraules` key but does have `Salutacions`; and a deck actually
+named `section:grammar` is refused like `family:` is. For the path, behind `[data-section="decks"]`: `.unit-name`s run Sounds,
+Salutacions, Cafès i sortir … Castells · Ordres and end on *Everything*, with
+no `Passat` or `Paraules` unit; there is one `[data-lesson]` per five cards of
+each deck (35 for the 159 seed phrases), no `[data-deck="Salutacions"]` row and
+a `[data-deck="*"]` node; exactly one `.node-callout` sits on the first node,
+which is `.current`; typing into `#search` replaces the `.unit`s with results;
+the first node drills `1/5` with `#back` reading *‹ Practice*, and Back leaves
+nothing `.done`; Next four times then `#done` shows `.complete` with
+`.complete-title` *Lliçó completada!*, a *Phrases 5* stat and no Average
+without Azure, and `#complete-continue` returns to the path with that node
+`.done`, START on the second, and `xerra.progress` carrying `Sounds#1` with
+`times: 1` and `best: null` — surviving a reload; a deck drilled from All
+Phrases to its Done shows no `.complete` and ticks nothing; and an export
+carries `progress`, which an import puts back. For the folds: only the unit
+holding START (and Everything) has a `.path` by default, the other ten
+`[data-unit-fold]` banners read `aria-expanded="false"` with *N lessons · M
+done* in their `.unit-sub` and draw no `[data-lesson]`; tapping one opens its
+nodes and flips its sub to *N phrases · M lessons*, tapping the open one shuts
+it, both survive a reload, and with `openUnits` cleared and Sounds finished the
+default open unit is Salutacions while Sounds reads *2 lessons · 2 done*. On
+the header, `.crest` is wider than `.head-gear`. For Quick, with
+`/complete-card` stubbed: `#quick-ask` carries `lang="en-GB"`, what you type
+goes as `ask` with `english` empty and `deck` `"Quick"`, the phrase lands in
+`.quick-phrase` with a `.quick-listen` beside it, `xerra.phrases` gains one card
+in the `Quick` deck **without a Save being pressed**, the box empties, a second
+ask puts the first under *Asked for before* with a working play button,
+`[data-quick-drop]` removes that card and only that card, and the Quick tile
+then reads *1 asked for* while `Quick` shows as an ordinary row in Decks. The
+Worker's half is `node worker/tools/card-test.mjs`, and the assertion that
+matters is the first one — run it as
+`git show HEAD:worker/src/index.js > /tmp/before.js && BEFORE=/tmp/before.js node worker/tools/card-test.mjs`
+so the prompt a caller without an `ask` gets is compared against the previous
+committed version, character for character.
+
 After editing `SeedContent.swift`, `python3 tools/gen-content.py` should produce
 either a diff you meant or no diff at all. A silent drop in the phrase count is
 the parser losing a block to a formatting change.
@@ -1751,12 +3313,58 @@ the parser losing a block to a formatting change.
 - GitHub Pages publishes from the default branch, so once Pages is enabled
   (main → `/docs`) the PWA is reachable at a URL the phone can install from.
   Check whether that's actually switched on before telling the user it's live.
-- Three tabs: Practice (deck list, library search and the drill), Add,
-  Settings. Phrases was merged into Practice. Deck rows accordion open to the
-  cards inside them and carry no score of their own.
+- Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
+  rows accordion open to the cards inside them and carry no score of their own.
+- **Home is the brand header — the colla's crest and *fin·o·lingo* — over six
+  squares in the sister apps' order**: Practice, Vocab, About me, Quick,
+  Grammar, All Phrases. **Practice is the forks' winding path**, built from the
+  everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
+  completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
+  `renderComplete` in app.js; `progress` in store.js); the deck list is behind
+  All Phrases. `SECTION_FAMILIES` / `sectionOf` in store.js say which
+  tile a deck is behind and everything unclaimed is Practice (key `decks`);
+  `state.section` is which one you are in, `null` being the tiles, `"phrases"`
+  the whole library as one list. About me's tile opens the interview page
+  directly (`state.about`) rather than a list.
+- **Quick** is a box you ask for a phrase from — *I'm about to walk into a
+  pharmacy, how do I ask if they have my medicine* — which answers, plays it,
+  and files it as an ordinary card in the `Quick` deck. `renderQuick` in app.js,
+  `QUICK_DECK` in store.js, and one optional `ask` field on the Worker's
+  `/complete-card` that leaves both sister apps' prompt byte-identical.
+- **Messages** is Quick's second face: paste a text somebody sent you, read
+  it yourself with a tap on any word you are stuck on, write what you think it
+  says, and only then see the English — then keep the stock phrases as cards
+  in the language's `Missatges` deck and write your reply, which comes back
+  corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
+  `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
+  (additive; `worker/tools/message-test.mjs`).
+- **Xerrada** is the conversation had before it is had for real, and the
+  third face of **Real life** — the tile that was Quick, renamed because a
+  phrase to say, a message to read and a chat to have are all the language
+  meeting real people; key and deck are still `quick` / `Quick`. Pick a scene
+  — the intercanvi, a café, the market, an assaig, a neighbour, or one of your
+  own, and say who the other person is — and the assistant plays them in
+  Catalan, corrects each line you say and holds its reply until you have said
+  the fix back (scored, with a key), offers the English and a hint behind a
+  tap, and lets you say its own lines back the same way. Your last line can
+  be edited and sent again, and an Ask panel at the foot takes questions
+  about any word or phrase in it. **Talk** (the record
+  button, sent as heard, with an Azure key) or **Type**, on
+  `settings.chatTalk`. The partner speaks in a voice of their own — *Their
+  voice*, `item.voice`, defaulting to the other gender from the drill voice
+  via `partnerVoice` — and your corrected line has a Listen in yours. Kept
+  lines land in the language's `Xerrades` deck.
+  `renderChat`, `CHAT_SCENES`, `chatStarter`, `talkNow` and `keepFromChat` in
+  app.js, `chats` and `chatsDeck` in store.js, `transcription` in speech.js,
+  `/converse` on the Worker (additive; `worker/tools/converse-test.mjs`).
 - Decks can be made (Add tab, or Settings → Decks) and deleted with everything
-  in them (Settings → Decks: pick a row, then one Delete button, then a confirm
-  sheet). A made deck is a name in `customDecks`
+  in them (Settings → Decks: tick a row on its own, then one Delete button,
+  then a confirm sheet). The same rows fold open to their cards and tick
+  several at once for **Print selected**, which writes them to an A4 PDF of the
+  app's own — phrase, English and *Listen for*, in the deck's colour — through
+  `renderPrint` and `print-pdf.js`, handed to the share sheet; iOS prints its
+  footer on anything that goes through the print dialog, so that path is the
+  fallback. A made deck is a name in `customDecks`
   and nothing more, and it stays off Practice until a card is filed in it. A
   card is refiled from the deck select on its own phrase sheet, or in the
   editor — `deckField` is the one control, in all three places.
@@ -1792,7 +3400,31 @@ the parser losing a block to a formatting change.
   sentences, drawn with each language's own machinery, which is why `endings`
   in `ASPECTS` is keyed by locale. Ported to Deb-o-lingo in a three-shape cut
   (dot, line, present perfect) with its own content and a louder endings line.
-- 255 phrases: 207 Catalan across seventeen decks, and 48 Spanish across six.
+- **The rest of Grammar** is the same gate asking two more questions: the
+  future and conditional decks ask *Will, would, or already fixed?* and the
+  subjunctive decks *Fact, wish, doubt — or not yet?*, with an amber verdict
+  for the subjunctive picked for the wrong reason. `group` on every `ASPECTS`
+  entry and `ASPECT_GROUPS` in store.js; `aspectChoices(queue, phrase)`
+  offers the card's own group. Eight decks and sixty-four sentences a
+  language, twins across Catalan and Spanish like the past.
+- **Paraules** is vocabulary by the keyword method — thirty-six single words in
+  six decks under one family, each with a sound bridge and one absurd scene,
+  drawn on request through the Worker's `/picture`. `sounds` / `picture` on the
+  phrase, `pictureBlock` / `wirePictureArt` / `drillPicture` in app.js, a third
+  IndexedDB store for the drawings. Ported from Deb-o-lingo's Palabras with its
+  own scenes, and it needed no Worker change.
+- **Imagine it again** re-writes the scene itself, wherever a picture is shown,
+  with the old one offered back in one tap — the redraw's counterpart for a
+  mnemonic that never clicked. `library.setPicture` in store.js,
+  `wirePicture` / `wirePictureScene` / `reimagineRequest` in app.js. No Worker
+  change: it is one turn of `/chat`.
+- **Gender is blue or pink on the thing the word names**, in the scene and in
+  the drawing. Read off the card's own article by `genderOf` in store.js, with
+  `phrase.gender` overriding it for the words whose article elides to `l'`.
+  `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
+  in the palette. **Draw it again** now sits under every drawing rather than
+  only on the phrase sheet.
+- 419 phrases: 307 Catalan across thirty-one decks, and 112 Spanish across fourteen.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -1807,8 +3439,14 @@ the parser losing a block to a formatting change.
   England instead of Germany, the band instead of the hotel, the rehearsal
   instead of the phantom brother, in both languages — and reworded the Catalan
   rain card from the *va estar plovent* calque to *va ploure* via
-  `SEED_REPLACEMENTS`, keeping its attempts.
-- v57 / `xerra-v57` — `js/version.js` first, `sw.js` second, as ever.
+  `SEED_REPLACEMENTS`, keeping its attempts. The six **Paraules** decks — A
+  taula, Al carrer, Cada dia, Preguntes, El rellotge, Fora de casa, six words
+  each — came next. The newest arrivals are the rest of Grammar, sixty-four
+  more sentences a language in eight decks: Futur · Demà / Ja està decidit,
+  Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
+  Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
+  and Subjuntivo.
+- v93 / `xerra-v93` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

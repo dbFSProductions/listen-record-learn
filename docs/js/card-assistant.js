@@ -101,6 +101,52 @@ export const cardAssistant = {
     });
   },
 
+  /* The keyword picture, drawn. The biggest and slowest thing the Worker
+     makes, and the only one that comes back as bytes rather than words —
+     which is exactly why it is an endpoint of its own rather than a field on
+     something else. See what replies did to /complete-card. The endpoint has
+     been live since Deb-o-lingo's Palabras unit shipped; this is the first
+     call to it from here. */
+  picture(payload, settings) {
+    return request("/picture", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /* A received message, read for the learner rather than translated at them:
+     a gloss per word so they can read it with a tap where they are stuck, the
+     translation for after they have written what they think it says, and the
+     phrases worth keeping. The biggest structured output after /about-cards,
+     so it is an endpoint of its own with the batch budget — see the Worker. */
+  readMessage(payload, settings) {
+    return request("/message", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /* The learner's own reply to that message, turned into what a native would
+     send, with a note on what changed. Written first, corrected second — the
+     order is the whole of the learning. */
+  messageReply(payload, settings) {
+    return request("/message-reply", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /* One turn of a rehearsal conversation: the partner's next line, its
+     English, the correction of what you just said, and a hint at what to say
+     back. One call for all four because each is a line long and a second
+     round trip on every turn is a conversation nobody has. */
+  converse(payload, settings) {
+    return request("/converse", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",

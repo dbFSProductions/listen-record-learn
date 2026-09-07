@@ -230,6 +230,34 @@ again** clears it and leaves the cards it already wrote alone.
 
 Needs the card assistant set up (above); without it the deck doesn't appear.
 
+**Real life** — the square for the language meeting real people, three ways.
+**Get the phrase**: one box you describe the moment in — *I'm about to walk
+into a pharmacy, how do I ask if they have my medicine?* — and it answers with
+the phrase, plays it, and files it in the Quick deck. **Read a message**: paste
+a text somebody sent you, read it yourself with a tap on any word you are stuck
+on, write what you think it says, and only then see the English, keep the
+stock phrases as cards and write your reply, which comes back corrected.
+**Rehearse a conversation**: pick a scene — a language exchange, a café, the
+market, castells rehearsal, a neighbour on the stairs, or describe one
+yourself — say who you are talking to if you like (*an old man who has lived
+in Horta all his life*), and the assistant plays that person, in Catalan, and
+keeps the conversation going. **Talk** or **Type**: in Talk you tap the mic, say
+your line, tap again, and it is sent as it was heard while the answer is read
+out to you (needs an Azure key); in Type you use the keyboard. Every line you
+say comes back with how a native would have said it and a note on what
+changed — and when something changed, the conversation waits: the fixed line
+is read out, you say it back (scored, with an Azure key) as many times as you
+like, then **Move on** lets the reply through. **Say it** under any of its lines
+does the same for the other side of the conversation. Got misheard, or want
+to say it differently? **Edit** under your last line sends it again. A word
+you didn't catch, a phrase you'd like to know more about: the **Ask** box at
+the foot of the page answers questions about the conversation so far. The English of each
+of its lines is one tap away, and so is a hint at what you could answer, built
+from what you told it about yourself. Any line
+worth having — theirs, or yours as it should have been — is one tap from a
+card in the **Xerrades** deck, and the chats are kept so you can read back
+what you got wrong before the next one.
+
 **Settings** — language, Azure credentials and voice, slow-playback speed,
 level-2 recall, road mode, audio prefetch and cache, and a **Version** panel showing what's
 *running* against what's *installed*. Those two differ for exactly as long as it

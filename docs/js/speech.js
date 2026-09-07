@@ -48,13 +48,32 @@ export const speech = {
     if (!phrase.text?.trim()) return null;
     if (!settings.hasAzure) return null;
 
-    const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
-    const cached = await audioStore.getModel(key);
-    if (cached) return cached;
+    /* The voice is the settings' unless the caller names one — the rehearsal
+       chat's partner speaks in a voice of their own, so the two sides of a
+       conversation are two people. The cache is keyed by voice, so a line
+       heard in one voice is not served back in another. Additive: a phrase
+       without `voice` is exactly the call it always was. */
+    const voice = phrase.voice || settings.azureVoice;
+    const key = cacheKey(phrase.text, voice, phrase.language);
+    /* The cache read used to sit outside the try, so a database that would not
+       open — a blocked version upgrade, storage evicted mid-session, private
+       browsing — threw out of here, out of `loadPhrase`, and left the drill on
+       "Generating audio…" for good with no way to say what had happened. A
+       cache that cannot be read is a reason to synthesise, not to give up. */
+    try {
+      const cached = await audioStore.getModel(key);
+      if (cached) return cached;
+    } catch {
+      // Nothing to report yet: the call below is still the real attempt.
+    }
 
     try {
-      const blob = await this.synthesise(phrase.text, phrase.language, settings);
-      await audioStore.putModel(key, blob);
+      const blob = await this.synthesise(phrase.text, phrase.language, settings, voice);
+      // Failing to *keep* it is not failing to have it. A full or unavailable
+      // store costs the offline copy, never the audio you just asked for.
+      try {
+        await audioStore.putModel(key, blob);
+      } catch {}
       this.lastError = null;
       return blob;
     } catch (error) {
@@ -63,20 +82,29 @@ export const speech = {
     }
   },
 
-  /** Is this phrase already cached? Used to decide whether to show a spinner. */
+  /* Is this phrase already cached? Used to decide whether to show a spinner —
+     which is why an unreadable database answers "no" rather than throwing.
+     This is the first await in `loadPhrase`, before the drill has rendered
+     anything at all, so a rejection here took the whole card off the screen:
+     no phrase, no buttons, no way to tell what had happened. A question about
+     a spinner should never be able to do that. */
   async isCached(phrase, settings) {
     if (!settings.hasAzure) return false;
     const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
-    return Boolean(await audioStore.getModel(key));
+    try {
+      return Boolean(await audioStore.getModel(key));
+    } catch {
+      return false;
+    }
   },
 
-  async synthesise(text, language, settings) {
+  async synthesise(text, language, settings, voice = settings.azureVoice) {
     const SDK = await loadSDK();
     const config = SDK.SpeechConfig.fromSubscription(
       settings.azureKey.trim(),
       settings.azureRegion.trim()
     );
-    config.speechSynthesisVoiceName = settings.azureVoice;
+    config.speechSynthesisVoiceName = voice;
     config.speechSynthesisOutputFormat =
       SDK.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3;
 
@@ -131,15 +159,39 @@ export const browserSpeech = {
     return Boolean(window.speechSynthesis && this.voiceFor(language));
   },
 
-  speak(text, language, { rate = 1 } = {}) {
+  /* iOS will take an utterance, report a voice for the language, and then
+     simply never say it — after an <audio> element has played, with the ringer
+     switch off, or for no reason it will admit to. `speechSynthesis.speak`
+     returns nothing and throws nothing, so the app had no way to tell that
+     apart from working, and the button did nothing and said nothing.
+
+     `onSilent` closes that: if the utterance has neither started nor been
+     queued a beat later, nothing is going to come out and the caller can say
+     so. Deliberately a callback rather than a promise — speaking is fire and
+     forget, and only the failure is worth waiting around for. */
+  speak(text, language, { rate = 1, onSilent = null } = {}) {
     if (!window.speechSynthesis) return false;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const voice = this.voiceFor(language);
-    if (voice) utterance.voice = voice;
+    // Assigning a voice can throw if the list went stale under us, and a throw
+    // here would come out of the click handler as nothing at all. The default
+    // voice for the utterance's `lang` is a better outcome than silence.
+    try {
+      if (voice) utterance.voice = voice;
+    } catch {}
     utterance.lang = language;
     utterance.rate = rate;
+    let started = false;
+    utterance.onstart = () => (started = true);
+    utterance.onerror = () => onSilent?.();
     window.speechSynthesis.speak(utterance);
+    if (onSilent) {
+      setTimeout(() => {
+        const busy = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+        if (!started && !busy) onSilent();
+      }, 800);
+    }
     return true;
   },
 
@@ -229,6 +281,60 @@ export const scoring = {
         words,
         engine: "Azure",
       };
+    } catch (error) {
+      this.lastError = describeAzureError(error);
+      return null;
+    }
+  },
+};
+
+/* Free recognition, for the rehearsal chat: what did they say, with no
+   reference text to score it against. The same SDK, the same 16k WAV and the
+   same error reading as `score`, minus the assessment — a `SpeechRecognizer`
+   with nothing applied to it transcribes. Resolves with the text, or null with
+   `transcribeError` set, so the chat can say why nothing landed in the box. */
+export const transcription = {
+  lastError: null,
+
+  async transcribe(recordingBlob, language, settings) {
+    this.lastError = null;
+    if (!settings.hasAzure) {
+      this.lastError = "Speaking your line needs an Azure key — add one in Settings, or use the keyboard's dictation key.";
+      return null;
+    }
+    try {
+      const SDK = await loadSDK();
+      const wav = await toWav16k(recordingBlob);
+      const file = new File([wav], "turn.wav", { type: "audio/wav" });
+      const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
+      config.speechRecognitionLanguage = language;
+      const recogniser = new SDK.SpeechRecognizer(config, SDK.AudioConfig.fromWavFileInput(file));
+      const result = await new Promise((resolve, reject) => {
+        recogniser.recognizeOnceAsync(
+          (r) => {
+            recogniser.close();
+            resolve(r);
+          },
+          (error) => {
+            recogniser.close();
+            reject(new Error(error));
+          }
+        );
+      });
+      if (result.reason === SDK.ResultReason.NoMatch) {
+        this.lastError = "Azure couldn't make out any speech — try again, a bit closer to the mic.";
+        return null;
+      }
+      if (result.reason === SDK.ResultReason.Canceled) {
+        const details = SDK.CancellationDetails.fromResult(result);
+        throw new Error(details.errorDetails || "Azure cancelled the request.");
+      }
+      const text = (result.text || "").trim();
+      if (!text) {
+        this.lastError = "Azure heard nothing it could write down. Try again.";
+        return null;
+      }
+      return text;
     } catch (error) {
       this.lastError = describeAzureError(error);
       return null;

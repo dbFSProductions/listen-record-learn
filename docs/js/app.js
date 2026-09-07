@@ -2,15 +2,17 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, aspectOf, aspectChoices,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
+  GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
+  messages, messagesDeck, chats, chatsDeck,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
-import { speech, browserSpeech, scoring } from "./speech.js";
+import { speech, browserSpeech, scoring, transcription } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
 import { VERSION } from "./version.js";
+import { preloadPDF, buildPrintPDF, deliverPDF } from "./print-pdf.js";
 
 const view = document.getElementById("view");
-const tabbar = document.getElementById("tabbar");
 const sheet = document.getElementById("sheet");
 const sheetTitle = document.getElementById("sheet-title");
 const sheetBody = document.getElementById("sheet-body");
@@ -34,11 +36,56 @@ const state = {
   scoringNow: false,
   levelTimer: null,
   search: "",
+  /* Whether Settings → Decks is unfolded. Session-only, like `openDecks`, and
+     put away again by goHome(): the panel is the longest thing on that page
+     and is wanted about once a week, so it opens when you ask and is shut
+     again the next time you arrive. Coming back from the print page keeps it
+     open, since that page is inside it. */
+  decksOpen: false,
 
   /* The Practice tab has three faces, not two: the deck list, the drill, and
      the About me workshop. `about` wins over `deck` in render() so that
      leaving the workshop to drill and coming back lands where you expect. */
   about: false,
+
+  /* The lesson being drilled, when the drill was started from a node on the
+     Practice path: its id, its title, and when it began. Null for every other
+     way into the drill — a deck row, a search result, the phrase sheet — so
+     Done at the end of a lesson ticks the node and Done at the end of a deck
+     just goes back. `startLesson` sets it and everything else clears it. */
+  lesson: null,
+
+  /* What the completion screen shows, once a lesson has been ticked; null
+     otherwise. It wins over everything else in render() while it stands. */
+  celebration: null,
+
+  /* The received message being read, by id, or null. Only meaningful behind
+     the Quick tile — the page it opens is Quick's second face — and cleared by
+     every way out of it, so a message never lies open under another page. */
+  message: null,
+
+  /* The rehearsal chat being had, by id, or null. Only meaningful behind the
+     Real life tile — the page it opens is that page's third face, after the
+     phrase you asked for and the message you read — and cleared by every way
+     out of it, like `message`. */
+  chat: null,
+
+  /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
+     "quick", or null for the tiles themselves. It is deliberately *not*
+     touched by starting a drill — the section you came from is where Back
+     should put you, and a card reached by searching from the tiles should
+     come back to the tiles rather than to a page you never opened. */
+  section: null,
+
+  /* Which composer the Add screen is showing: "phrase" or "word". There is no
+     Add tab any more — you add from inside the section the thing belongs to,
+     so the kind is decided by the button you pressed rather than by a picker
+     at the top of a form. Null when you are not adding. */
+  addKind: null,
+
+  /* The last thing Quick answered, so the card survives a repaint (playing it,
+     keeping it, throwing it away). Cleared when you ask again. */
+  quick: null,
 
   /* Which deck rows are accordioned open, by deck key. Held here rather than
      in settings: a family fold is a lasting opinion about a list that is
@@ -46,6 +93,13 @@ const state = {
      have to outlive a render() — starring a card from inside an open deck
      re-renders the page, and the deck has to still be open underneath. */
   openDecks: new Set(),
+
+  /* The print page: `decks` is what was ticked in Settings and `showing` is
+     whether the page is on screen. It is a page of Settings rather than a tab
+     of its own, and Back from it lands on Settings with the choice still
+     ticked — which is why the decks outlive the page. Null until the first
+     print. */
+  print: null,
 
   // Level two. `recall` says this phrase is a memory question; `revealed` says
   // the answer is on screen (always true at level one); `peeked` says you
@@ -74,9 +128,18 @@ const state = {
 
      Nothing in it is written to the phrase. See `checkTyped` for why. */
   typed: null,
+
+  /* The keyword picture, on a card that has one. Per card — loadPhrase resets
+     it — and only ever true because you asked for it: at level two the picture
+     is offered as a hint rather than shown, and reaching for it is not
+     peeking. See `drillPicture`. */
+  pictured: false,
 };
 
 // ------------------------------------------------------------------ helpers
+
+/** First letter up. Used where an article starts a sentence-like label. */
+const cap = (word) => String(word ?? "").replace(/^./, (c) => c.toUpperCase());
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) =>
@@ -126,6 +189,12 @@ const FAVOURITES_DECK = "★";
    decks can share a name — "Castells" is both the family and the general deck
    inside it. */
 const FAMILY_PREFIX = "family:";
+/* And a whole tile drills as one queue too — `section:grammar` is all
+   forty-eight past-tense cards whatever family they are in. The fourth string
+   in deck-key space, which is why `deckNameProblem` has to refuse it: a deck
+   actually called "section:grammar" would drill the sentinel instead of
+   itself. */
+const SECTION_PREFIX = "section:";
 
 /* A deck name is a string on a phrase and a key in a list, and the app already
    spends three strings of its own in that space: "*" is shuffle-all,
@@ -139,7 +208,12 @@ const DECK_NAME_MAX = 40;
 function deckNameProblem(name) {
   if (!name) return "Give the deck a name.";
   if (name.length > DECK_NAME_MAX) return `Deck names stop at ${DECK_NAME_MAX} characters.`;
-  if (name === "*" || name === FAVOURITES_DECK || name.startsWith(FAMILY_PREFIX))
+  if (
+    name === "*" ||
+    name === FAVOURITES_DECK ||
+    name.startsWith(FAMILY_PREFIX) ||
+    name.startsWith(SECTION_PREFIX)
+  )
     return "That name is spoken for — try another.";
   // A leading or trailing "·" would make a family with no name or a deck with
   // no leaf, and both read as a blank row on Practice.
@@ -257,15 +331,23 @@ const OK = 75;
    strands you is the answer, so these are for the ear, not just the page.
 
    Rendered in three places (the Add tab's review, the phrase sheet, and under
-   the drill) from one function, so they read the same everywhere. */
-function repliesBlock(replies, title = "You might hear back") {
+   the drill) from one function, so they read the same everywhere.
+
+   Each one offers *Keep as a card*. A reply is a phrase somebody actually says,
+   and the one you keep hearing is the one you will want to be able to say — so
+   the way from "I like this one" to a card of its own is one tap, here, rather
+   than retyping it into Add. A reply already in the library says *Kept ✓*
+   instead, read off the library at render so it survives a re-render and a
+   second visit. */
+function repliesBlock(replies, title = "You might hear back", keepable = true) {
   if (!replies?.length) return "";
   return `
     <div class="section-label">${esc(title)}</div>
     <ul class="replies">
       ${replies
-        .map(
-          (reply, i) => `
+        .map((reply, i) => {
+          const kept = keepable && replyKept(reply);
+          return `
         <li class="reply">
           <button class="reply-play" data-say="${i}" aria-label="Listen to this reply">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
@@ -273,21 +355,86 @@ function repliesBlock(replies, title = "You might hear back") {
           <span class="reply-main">
             <span class="reply-text">${esc(reply.text)}</span>
             <span class="reply-translation">${esc(reply.translation)}</span>
+            ${
+              keepable
+                ? `<button class="link reply-keep" data-keep="${i}" ${kept ? "disabled" : ""}>${
+                    kept ? "Kept as a card ✓" : "Keep as a card"
+                  }</button>`
+                : ""
+            }
           </span>
-        </li>`
-        )
+        </li>`;
+        })
         .join("")}
     </ul>`;
+}
+
+function replyKept(reply) {
+  const key = normaliseSentence(reply.text ?? "");
+  return Boolean(key) && library.forLanguage(settings.language).some((p) => normaliseSentence(p.text) === key);
+}
+
+/* Which deck a kept reply is filed in. The card it answers is the best clue —
+   a reply heard in a café belongs with the café phrases — but not always:
+   the past-tense decks are a designed curriculum a reply would dilute, a
+   Paraules deck holds single words, and About me is about you. So a reply
+   follows its card into an everyday deck and lands in My phrases otherwise. */
+function replyDeck(deck) {
+  return deck && sectionOf(deck) === "decks" && deck !== QUICK_DECK ? deck : MY_PHRASES;
+}
+
+/* One tap from a reply to a card of its own. The reply's text and English are
+   the card; the phrase it answers is written into the situation, because that
+   is exactly what a situation is for — where you would hear this. No focusNote,
+   because nobody has written one: the editor's AI rebuild is there for that,
+   and a card without a note still drills. Refuses a duplicate the way Add does,
+   but says so on the button rather than in a toast, since the button is what
+   you were looking at. */
+function keepReply(reply, language, source, button) {
+  const text = reply.text?.trim();
+  const translation = reply.translation?.trim();
+  if (!text || !translation) return;
+  const flip = () => {
+    button.disabled = true;
+    button.textContent = "Kept as a card ✓";
+  };
+  if (replyKept(reply)) {
+    flip();
+    toast("That one is already in the library.");
+    return;
+  }
+  const { deck: fromDeck, text: said } = source?.() ?? {};
+  const deck = replyDeck(fromDeck);
+  library.add({
+    text,
+    translation,
+    deck,
+    language,
+    situation: said?.trim() ? `Something you might hear after saying “${said.trim()}”.` : null,
+    usageNote: null,
+    focusNote: null,
+    replies: [],
+  });
+  flip();
+  toast(`Added to ${deck}.`);
 }
 
 /* The replies go through the same Azure voice and the same audio cache as the
    phrase itself — modelAudio keys on the text, so a reply you've heard once is
    there offline afterwards. No key, and the browser voice reads it instead. */
-function wireReplies(root, replies, language) {
+function wireReplies(root, replies, language, source = null) {
   root?.querySelectorAll("[data-say]").forEach((button) =>
     button.addEventListener("click", () => {
       const reply = replies[Number(button.dataset.say)];
       if (reply) sayAloud(button, reply.text, language, "Couldn't play that reply.");
+    })
+  );
+  /* `source` is read at the tap, not at wiring: on the Add review the deck
+     select and the phrase box are still being edited. */
+  root?.querySelectorAll("[data-keep]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const reply = replies[Number(button.dataset.keep)];
+      if (reply) keepReply(reply, language, source, button);
     })
   );
 }
@@ -296,7 +443,7 @@ function wireReplies(root, replies, language) {
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
    than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.") {
+async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -304,10 +451,11 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.") 
   button.dataset.busy = "1";
   button.classList.add("busy");
   try {
-    const blob = await speech.modelAudio({ text, language }, settings);
+    // `voice` is the chat partner's; everything else speaks in the drill voice.
+    const blob = await speech.modelAudio({ text, language, voice }, settings);
     if (blob) await player.play(blob);
-    else if (browserSpeech.available(language)) browserSpeech.speak(text, language);
-    else toast("No voice available for this language on this device.");
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
+    else noVoice();
   } catch {
     toast(failed);
   } finally {
@@ -337,6 +485,357 @@ async function fetchReplies(phrase) {
   return library.setReplies(phrase.id, replies);
 }
 
+/* The keyword picture: what the word sounds like in English, and the absurd
+   scene built out of that sound and the meaning. See the `catalanWords`
+   comment in SeedContent.swift for what makes one work and what makes one
+   useless — chiefly that the bridge has to be a sound the word actually has.
+
+   `picture` is what there is to show, so `sounds` on its own prints nothing:
+   a bridge with no scene hanging off it is a riddle with its answer torn off.
+   Any card can carry the pair, not only a Paraules word — they are ordinary
+   editable fields, so a picture can be hung on any word you keep losing. */
+function pictureBlock(phrase, style = "") {
+  if (!phrase?.picture?.trim()) return "";
+  const sounds = phrase.sounds?.trim();
+  return `
+    <div class="picture-note"${style ? ` style="${style}"` : ""}>
+      <strong>Picture it</strong>
+      ${sounds ? `<span class="picture-sounds">Sounds like &ldquo;${esc(sounds)}&rdquo;</span>` : ""}
+      <span class="picture-scene-text">${esc(phrase.picture)}</span>
+      ${genderCue(phrase)}
+      <div class="picture-art" data-art="${esc(phrase.id)}"></div>
+      <div class="picture-scene" data-scene="${esc(phrase.id)}"></div>
+    </div>`;
+}
+
+/* The gender cue, in the words as well as in the drawing.
+
+   It is an instruction to the reader rather than a label on the card — "paint
+   the plane blue" is something you do to the scene you are already imagining,
+   where "masculine · blue" is a second thing to memorise beside it. The colour
+   is carried by a dot rather than by coloured lettering: neither --blue nor a
+   pink of the same weight clears 4.5:1 as small text, and the swatch is the
+   part you read at a glance anyway.
+
+   The card's own text is named because that is the half a `l'` word cannot tell
+   you, and it is the half worth printing. */
+function genderCue(phrase) {
+  const gender = genderOf(phrase);
+  if (!gender) return "";
+  const { label, colour } = GENDERS[gender];
+  const thing = phrase.translation?.trim();
+  return `<span class="picture-gender">
+    <i class="gender-dot gender-${gender}"></i>
+    Paint ${thing ? `<b>${esc(thing)}</b>` : "it"} ${colour} in the scene —
+    <b>${esc(phrase.text)}</b> is ${label}.</span>`;
+}
+
+/* The one place a gender is stated rather than read.
+
+   Almost every card gets its colour from its own article, so the default option
+   says what the article gave and the field is there to be ignored. It earns its
+   place on the words the article can't answer — `l'avió`, `l'hora`, `l'escala`
+   — where without it the cue is simply absent from the card that needs it most.
+
+   Deliberately a plain field on the phrase like `sounds` and `picture`, not a
+   new kind of card: it exports, imports and survives the weekly reinstall with
+   everything else, for the reason About me's cards carry no flag. */
+/* What the app has made of the word so far, said under the select rather than
+   inside it. Three states: you chose, it read the article, or there is nothing
+   to read yet. */
+function genderHint(text, chosen) {
+  if (chosen && GENDERS[chosen]) {
+    return `Set to ${GENDERS[chosen].article} — the picture will be ${GENDERS[chosen].colour}.`;
+  }
+  const derived = genderOf({ text });
+  if (derived) {
+    return `Reading “${GENDERS[derived].article}” — the picture will be ${GENDERS[derived].colour}.`;
+  }
+  return "Start the word with its article and this fills itself in.";
+}
+
+function genderField(phrase, id = "f-gender") {
+  const chosen = phrase?.gender ?? "";
+  /* **The first option is "Don't know", and that is the whole shape of this
+     field.** It read "El or La — colour it blue or pink", which is a
+     *description of the two other options* sitting in the slot where a choice
+     should be — so the list offered three things and two of them were the same
+     two things. What that slot actually means is "I am not telling you, read it
+     off the article", and the honest word for that is Don't know.
+
+     What the app worked out goes *under* the select instead, where it is
+     feedback rather than a fourth option to weigh up. */
+  return `
+    <label class="field"><span>Gender (optional)</span>
+      <select id="${id}" data-gender-auto>
+        <option value=""${chosen ? "" : " selected"}>Don't know</option>
+        ${Object.entries(GENDERS)
+          .map(
+            ([key, { colour, article }]) =>
+              `<option value="${key}"${chosen === key ? " selected" : ""}>${cap(
+                esc(article)
+              )} — colour it ${esc(colour)}</option>`
+          )
+          .join("")}
+      </select>
+      <p class="tiny muted gender-hint" data-gender-hint="${esc(id)}">${genderHint(
+        phrase?.text ?? "",
+        chosen
+      )}</p></label>`;
+}
+
+/* The drawing of the scene, if there is one — and the offer to go and have one
+   made, if there isn't.
+
+   Filled in after the fact rather than inside `pictureBlock`, because the image
+   lives in IndexedDB and reading it is async while every render here is a
+   string. So the block leaves an empty slot and this fills it, which also means
+   the picture text is on screen at full speed whether or not there is a drawing
+   behind it.
+
+   It is never fetched on its own initiative, and that is the pedagogy rather
+   than the bill: imagining the scene yourself is the technique working, and a
+   picture handed over unasked removes the effort that makes it stick. Once made
+   it is kept, so a word is drawn once and is available offline afterwards like
+   the model audio is.
+
+   **Draw it again** is offered wherever a drawing is, the drill included: what
+   comes back is one roll of a stochastic model, and "that isn't it" is the
+   commonest thing to think on seeing it. It is one tap, it destroys nothing you
+   would miss, and the moment you want it is the moment you are looking at the
+   picture — which is mostly mid-drill, not on the phrase sheet. `controls` is
+   the sheet's extra: **Remove the drawing**, which is tidying up rather than
+   trying again, and belongs where you look a card up.
+
+   A failed redraw puts the old drawing back rather than the offer. Losing the
+   picture you had because the network dropped would read as the redraw having
+   deleted it — and the blob is still in the store, so the offer would be a lie
+   as well as a fright.
+
+   Blob URLs are held in a module-level map rather than made per render: the
+   drill re-renders on every reveal and every score, and a fresh object URL each
+   time would leak one per repaint. */
+const pictureURLs = new Map();
+
+function releasePicture(id) {
+  const url = pictureURLs.get(id);
+  if (url) URL.revokeObjectURL(url);
+  pictureURLs.delete(id);
+}
+
+async function wirePictureArt(root, phrase, { controls = false } = {}) {
+  const slot = root?.querySelector?.(`[data-art="${CSS.escape(phrase.id)}"]`);
+  if (!slot) return;
+
+  const paint = (blob, error = "") => {
+    if (!slot.isConnected) return;
+    if (!pictureURLs.has(phrase.id)) pictureURLs.set(phrase.id, URL.createObjectURL(blob));
+    slot.innerHTML = `<img class="picture-image" alt="${esc(phrase.picture)}" src="${pictureURLs.get(phrase.id)}">
+      ${
+        settings.hasAssistant || controls
+          ? `<div class="picture-art-row">
+               ${settings.hasAssistant ? `<button class="link" data-redraw>Draw it again</button>` : ""}
+               ${controls ? `<button class="link btn-danger" data-undraw>Remove the drawing</button>` : ""}
+             </div>`
+          : ""
+      }
+      ${error ? `<div class="notice bad picture-art-error">${esc(error)}</div>` : ""}`;
+    slot.querySelector("[data-redraw]")?.addEventListener("click", () => draw(blob));
+    slot.querySelector("[data-undraw]")?.addEventListener("click", async () => {
+      await audioStore.deletePicture(phrase.id);
+      releasePicture(phrase.id);
+      offer();
+    });
+  };
+
+  const offer = () => {
+    if (!slot.isConnected) return;
+    slot.innerHTML = settings.hasAssistant
+      ? `<button class="btn btn-picture picture-draw">Draw this for me</button>
+         <div class="notice bad picture-art-error" hidden></div>`
+      : "";
+    slot.querySelector(".picture-draw")?.addEventListener("click", () => draw());
+  };
+
+  async function draw(previous = null) {
+    slot.innerHTML = `<p class="small muted picture-drawing"><span class="spinner"></span> Drawing it… this one takes a while.</p>`;
+    try {
+      const { image } = await cardAssistant.picture(
+        {
+          languageCode: phrase.language,
+          languageName: LANGUAGES[phrase.language]?.englishName ?? phrase.language,
+          card: {
+            text: phrase.text,
+            translation: phrase.translation,
+            sounds: phrase.sounds ?? "",
+            picture: phrase.picture ?? "",
+            /* Blue or pink on the object the word names. Optional at the
+               Worker, so a card with no gender to draw sends "" and gets the
+               prompt it always got. */
+            gender: genderOf(phrase) ?? "",
+          },
+        },
+        settings
+      );
+      if (!image?.data) throw new Error("Nothing came back to draw.");
+      /* Shrunk before it is kept. What arrives is a full-size render, and this
+         is a thumbnail on a phone whose storage iOS is willing to evict — a
+         few hundred kilobytes a word would outweigh the rest of the app. */
+      const blob = await shrinkImage(base64ToBlob(image.data, image.mimeType || "image/png"));
+      await audioStore.putPicture(phrase.id, blob);
+      releasePicture(phrase.id);
+      paint(blob);
+    } catch (error) {
+      if (!slot.isConnected) return;
+      // A redraw that failed still has the drawing it was replacing.
+      if (previous) return paint(previous, error.message);
+      offer();
+      const box = slot.querySelector(".picture-art-error");
+      if (box) {
+        box.textContent = error.message;
+        box.hidden = false;
+      } else toast(error.message);
+    }
+  }
+
+  const existing = await audioStore.getPicture(phrase.id);
+  if (existing) paint(existing);
+  else offer();
+}
+
+/* "Imagine it again" — the scene's answer to the drawing's "Draw it again".
+
+   A redraw is for a picture that came out wrong; this is for one that was
+   never right. The scene is the mnemonic — the drawing is only a rendering of
+   it — so a bridge that doesn't click, or one built on a sound you don't hear
+   in the word, is the failure that actually costs you the word, and until now
+   the only way out of it was Edit, "Invent a picture for me", Save. That is
+   four taps and a screenful of small print away from the moment you notice,
+   which is mid-drill with the card in front of you.
+
+   So it sits where a picture is shown — the drill and the phrase sheet, the
+   same two places the drawing's controls sit — and writes through
+   `library.setPicture`, which mutates in place because the drill is holding
+   this phrase in `state.queue`. Nothing is confirmed first: a scene you didn't
+   ask for is undone in one tap, which is the argument the sheet's deck field
+   already makes.
+
+   The old scene is offered back rather than kept quietly, because what comes
+   back is one roll of a model and the one you had may well have been better —
+   and a seed scene was written for one mouth and one life, which is exactly
+   what this repo says not to lose by accident. One step back, not a history:
+   roll twice and the second undo would be putting back a scene you had already
+   rejected once.
+
+   The drawing is left alone and said to be stale. Deleting it would be
+   destroying something the user might still want, and silently keeping a
+   drawing of a scene that no longer exists is a lie — so it stays, with "Draw
+   it again" already sitting above this row as the way to catch it up.
+
+   It goes through `/chat`, like the editor's "Invent a picture for me" and for
+   the same reason: `/picture` draws a scene, it doesn't write one, and a new
+   endpoint means a Worker deploy that serves all three apps. */
+function wirePicture(root, phrase, options = {}) {
+  wirePictureArt(root, phrase, options);
+  wirePictureScene(root, phrase, options);
+}
+
+function wirePictureScene(root, phrase, options = {}) {
+  const { changedFrom = null } = options;
+  const slot = root?.querySelector?.(`[data-scene="${CSS.escape(phrase.id)}"]`);
+  if (!slot) return;
+  const note = slot.closest(".picture-note");
+
+  /* Both sides or nothing, on the editor's argument: the scene has to hold the
+     sound of the phrase and the English meaning at once, so half a card can't
+     make one. The offer is simply absent rather than refusing on tap. */
+  if (!settings.hasAssistant || !phrase.text?.trim() || !phrase.translation?.trim()) return;
+
+  /* The whole block is rebuilt, not just the sentence: a new bridge may arrive
+     where there was none, or none where there was one, and `pictureBlock` is
+     the one place that knows how those are laid out. Re-wiring the art with it
+     costs one read of IndexedDB and keeps the drawing's buttons alive. */
+  const repaint = (changed) => {
+    if (!note?.isConnected) return;
+    const holder = document.createElement("div");
+    holder.innerHTML = pictureBlock(phrase, note.getAttribute("style") ?? "");
+    note.innerHTML = holder.querySelector(".picture-note").innerHTML;
+    wirePicture(note, phrase, { ...options, changedFrom: changed });
+  };
+
+  /* The way back sits in the row rather than inside the sentence that announces
+     it, so that a second roll failing doesn't take it off the screen with the
+     message it was written into — the old scene is still there to go back to. */
+  const paint = (notice = "") => {
+    if (!slot.isConnected) return;
+    slot.innerHTML = `${notice}
+      <div class="picture-scene-row">
+        <button class="link" data-reimagine>Imagine it again</button>
+        ${changedFrom ? `<button class="link" data-unimagine>Put the old one back</button>` : ""}
+      </div>`;
+    slot.querySelector("[data-reimagine]")?.addEventListener("click", reimagine);
+    slot.querySelector("[data-unimagine]")?.addEventListener("click", () => {
+      library.setPicture(phrase.id, changedFrom);
+      repaint(null);
+    });
+  };
+
+  async function reimagine() {
+    const before = { sounds: phrase.sounds ?? "", picture: phrase.picture ?? "" };
+    // Read before the repaint, which empties the art slot and refills it async.
+    const hadDrawing = !!note?.querySelector(".picture-image");
+    slot.innerHTML = `<p class="small muted picture-drawing"><span class="spinner"></span> Imagining another one…</p>`;
+    try {
+      const { reply } = await cardAssistant.chat(
+        { ...chatContext(phrase), history: [{ role: "user", text: reimagineRequest(phrase) }] },
+        settings
+      );
+      const made = parsePicture(reply);
+      if (!made.picture) throw new Error("Nothing came back. Try again.");
+      library.setPicture(phrase.id, made);
+      repaint({ ...before, hadDrawing });
+    } catch (error) {
+      // The card still says what it always said — only the offer failed.
+      paint(`<div class="notice bad picture-scene-note">${esc(error.message)}</div>`);
+    }
+  }
+
+  paint(
+    changedFrom
+      ? `<div class="notice picture-scene-note">A new scene.${
+          changedFrom.hadDrawing ? " The drawing is still of the old one — draw it again to catch it up." : ""
+        }</div>`
+      : ""
+  );
+}
+
+function base64ToBlob(data, mimeType) {
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+/* Down to a card-sized thumbnail before it is stored. WebP where the browser
+   will encode it and whatever it falls back to where it won't — Safari quietly
+   returns PNG, which is bigger but still a fraction of what arrived. If the
+   canvas refuses entirely, the original is kept rather than nothing. */
+async function shrinkImage(blob, max = 512) {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const shrunk = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    return shrunk ?? blob;
+  } catch {
+    return blob;
+  }
+}
+
 function scoreClass(score) {
   if (score == null) return "";
   return score >= GOOD ? "good" : score >= OK ? "ok" : "bad";
@@ -363,22 +862,97 @@ sheet.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-sheet")) closeSheet();
 });
 
-// -------------------------------------------------------------------- tabs
+// ---------------------------------------------------------------- going home
 
-tabbar.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-tab]");
-  if (!button) return;
+/* There is no tab bar any more, so this is the way back to the tiles, and
+   every page that isn't the tiles carries a link to it.
+
+   The bar was three buttons for three things that were never peers: Practice
+   was the home screen, Add was something you do occasionally, Settings rarer
+   still. Once the tiles arrived it was also duplicating them — a Practice
+   button sitting under four squares that are Practice. What it cost was a
+   permanent 74px strip and the top-level slot that made Add a *place* rather
+   than something you do to a section. */
+function goHome() {
   stopEverything();
-  state.tab = button.dataset.tab;
+  state.tab = "practise";
   state.deck = null;
   state.about = false;
+  state.chat = null;
+  state.section = null;
+  state.message = null;
+  state.addKind = null;
+  state.search = "";
+  state.decksOpen = false;
   render();
+}
+
+/* The gear, top right of the tiles. Settings is the one screen that belongs to
+   no section — it is about the app rather than about anything you practise —
+   so it is the only thing that kept a permanent control, and the tiles page is
+   the only place that shows it. */
+function gearButton() {
+  return `<button class="head-gear" id="open-settings" aria-label="Settings">
+    ${SECTIONS.settings.mark}
+  </button>`;
+}
+
+/* Back to the tiles, worn by every page below them. The label names the
+   destination rather than saying "Back", because the destination is a place
+   with a name and "back" depends on how you got here. It read "‹ Practice"
+   while the tiles page was headed Practice; now that Practice is the top-left
+   tile the destination is Home, as it is in the sister apps. */
+function homeLink() {
+  return `<button class="link" data-go-home="1">‹ Home</button>`;
+}
+
+/* One listener for every way home, delegated, so a page only has to print the
+   link. */
+view.addEventListener("click", (event) => {
+  if (event.target.closest("[data-go-home]")) return goHome();
+  if (event.target.closest("#open-settings, #open-settings-notice")) {
+    stopEverything();
+    state.tab = "settings";
+    render();
+    return;
+  }
+  /* Adding is now something you do *to a section*, so the button carries which
+     kind of card it makes and the section it came from is left in `state` for
+     the way back. */
+  const add = event.target.closest("[data-add-kind]");
+  if (add) {
+    stopEverything();
+    state.addKind = add.dataset.addKind;
+    state.tab = "add";
+    render();
+  }
 });
 
-function syncTabs() {
-  for (const tab of tabbar.querySelectorAll(".tab")) {
-    tab.setAttribute("aria-current", String(tab.dataset.tab === state.tab));
-  }
+/* What a section offers to add, if anything.
+
+   Phrases and Words each make a different kind of card and say so on the
+   button; **Past offers nothing on purpose**. An `aspect` is not user content
+   — it is a claim about the sentence that is either right or teaching the
+   wrong thing, and it never travels alone: `aspectNote`, `marked` and
+   `infinitive` all have to agree with it, and `marked` has to reduce to `text`
+   exactly or the highlight silently dies. The past decks are also a designed
+   curriculum, built out of minimal pairs with one odd card per deck so that a
+   deck's name never answers its own question; cards typed in beside them
+   dilute that by construction. So they stay authored, in SeedContent.swift.
+
+   Quick has no button either, because Quick *is* one — the whole section is a
+   box you ask for a phrase from. */
+const ADD_BY_SECTION = {
+  decks: { kind: "phrase", label: "Add a phrase" },
+  vocab: { kind: "word", label: "Add a word" },
+  // The whole library offers the general kind, as the forks' Phrases page does.
+  phrases: { kind: "phrase", label: "Add a phrase" },
+};
+
+function sectionAddButton(section) {
+  const offer = ADD_BY_SECTION[section];
+  if (!offer || !section) return "";
+  return `<button class="btn section-add" data-add-kind="${offer.kind}">${esc(offer.label)}</button>`;
 }
 
 function stopEverything() {
@@ -403,9 +977,69 @@ const SECTIONS = {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>`,
   },
   settings: {
-    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>`,
+    /* A toothed cog, not a spoked circle. The old mark — a small circle with
+       eight short spokes — read as a brightness or sun icon the moment it lost
+       the word "Settings" underneath it in the tab bar, and the gear on the
+       tiles was reported as not being findable at all. Reported from the
+       phone; a desktop screenshot at 2x will not tell you this. */
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.6a7.6 7.6 0 0 0 0-3.2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.8-1.6L13.9 2h-3.8l-.4 2.9a7.6 7.6 0 0 0-2.8 1.6l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3.2l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.8 1.6l.4 2.9h3.8l.4-2.9a7.6 7.6 0 0 0 2.8-1.6l2.3 1 2-3.4z"/></svg>`,
+  },
+  /* The four tiles. Each is a face of the Practice tab rather than a tab of its
+     own — the tab bar has three buttons and adding more would shrink every
+     target on it — so they share `sec-practise` for the page accent and differ
+     only in their mark and their tile colour. */
+  decks: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="16" rx="2"/><path d="M19 7v13M7 9h5M7 13h5"/></svg>`,
+  },
+  grammar: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h16"/><circle cx="8" cy="17" r="2.5"/><path d="M13 17V7h6"/></svg>`,
+  },
+  vocab: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 4 3 3-2 6 5"/></svg>`,
+  },
+  quick: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>`,
+  },
+  about: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>`,
+  },
+  phrases: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>`,
   },
 };
+
+/* What each tile is called, what it says under its name, and which colour it
+   wears. The order is the order they sit in, and it is the sister apps' order
+   exactly — Practice, Words, About me, Quick, The Past, All Phrases over there
+   — so a thumb that knows one home screen knows all three. The two you reach
+   for daily are the top row, About me and Quick the second, and the grammar
+   drill sits bottom-left beside the whole library.
+
+   The colours are the page-accent ones rather than the drill's — inside the
+   drill each strong colour is already saying something (green is the model,
+   blue is you, purple is level two, gold is road mode, teal is quiet), and
+   none of that is on screen here. Vocab takes purple because that is already
+   the keyword picture's colour, and Quick takes Add's orange because what it
+   does is make a card.
+
+   Practice is the everyday decks — the tile was called Decks until the layout
+   was brought into line with the forks, where the same slot is the course
+   path. Its section key is still `decks`, because that is what `sectionOf`
+   answers for everything unclaimed and nothing downstream cares what the tile
+   says. About me is the one tile that opens a page rather than a list, which
+   is why it carries `data-about` and not `data-section`. All Phrases is the
+   whole library as one list — every deck of every section, the way the
+   Practice page looked before the tiles — with the search box on top. */
+const TILES = [
+  { key: "decks", title: "Practice", blurb: "The everyday decks", colour: "blue" },
+  { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
+  { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
+  { key: "quick", title: "Real life", blurb: "A phrase, a message, a chat", colour: "orange" },
+  { key: "grammar", title: "Grammar", blurb: "Past, future, would, subjunctive", colour: "gold" },
+  { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
+];
+
+const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
 
 function pageHead(section, title, subtitle, trailing = "") {
   return `
@@ -420,18 +1054,209 @@ function pageHead(section, title, subtitle, trailing = "") {
 }
 
 function render() {
-  syncTabs();
   window.scrollTo(0, 0);
-  view.className = `view page page-${state.tab} sec-${state.tab}`;
-  if (state.tab === "practise" && state.about) renderAbout();
+  /* The page wears the colour of the tile you came through, so Grammar's
+     banner is the gold square you tapped. Not while drilling: the drill has
+     its own colour language — green is the model, blue is you, gold is road
+     mode — and a gold page head over a gold road-mode pill says two things
+     with one colour. */
+  const accent =
+    state.tab === "practise" && state.section && !state.deck
+      ? state.section
+      : /* Adding wears the colour of the section it adds to, on the same rule:
+           "Add a word" is reached from Words and belongs to it, so it is
+           purple rather than Add's orange. */
+      state.tab === "add" && state.addKind === "word"
+      ? "vocab"
+      : state.tab;
+  view.className = `view page page-${state.tab} sec-${accent}`;
+  if (state.tab === "practise" && state.celebration) renderComplete();
+  else if (state.tab === "practise" && state.about) renderAbout();
   else if (state.tab === "practise" && state.deck) renderDrill();
-  else if (state.tab === "practise") renderPractice();
-  else if (state.tab === "add") renderAdd();
+  else if (state.tab === "practise" && state.section === "quick" && state.chat) renderChat();
+  else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
+  else if (state.tab === "practise" && state.section === "quick") renderQuick();
+  else if (state.tab === "practise") renderPractice(state.section);
+  else if (state.tab === "add") state.addKind === "word" ? renderAddWord() : renderAdd();
+  else if (state.print?.showing) renderPrint();
   else renderSettings();
   autosizeAll(view);
 }
 
 // ---------------------------------------------------------------- practice
+
+/* The Practice path — the winding journey the sister apps have, built out of
+   the everyday decks. Each deck is a unit with a banner, and its cards are
+   chunked five to a lesson, in the deck's own order, so a deck of fifteen is
+   three nodes. Units come in the order the decks first appear in the library,
+   which for the seed content is the order the course was written in — Sounds,
+   then Salutacions, then the café — and for your own decks is the order you
+   made them; alphabetical, which is what the deck list uses, would put Cafès
+   before Sounds. Only the Practice section's decks are on it: Grammar and
+   Vocab keep their lists, About me and Quick have their own tiles, and the
+   deck list itself is still one tap away under All Phrases.
+
+   Nothing is locked. The ticks and the START callout say where you have got
+   to; every node is open from the first launch, as in the forks. */
+const LESSON_SIZE = 5;
+
+/* Which colour a deck wears, everywhere a deck is drawn: its banner on the
+   path, its row under Vocab, Grammar and All Phrases, the stripe on the cards
+   inside it, the rows Quick and About me print, and its heading on the print
+   sheet. One rotation over the decks in the order they first appear in the
+   library — the path's own order — so Salutacions is the same blue on every
+   page it is on. A family that isn't itself a deck (Passat, Paraules) takes a
+   colour of its own the moment its first deck is seen, so its row is coloured
+   too and is never the twin of the first deck under it.
+
+   Practice's decks come first in the seed content, so the path's colours are
+   what they were before the rest of the app learned about them: this is the
+   same four-colour rotation that used to be counted over the path's units
+   alone. Only the Everything unit and ★ Favourites sit outside it — blue and
+   gold, as the path has always drawn them. */
+const DECK_COLOURS = ["green", "blue", "purple", "orange"];
+
+function deckPalette(language = settings.language) {
+  const palette = new Map();
+  const assign = (key) => {
+    if (!palette.has(key)) palette.set(key, DECK_COLOURS[palette.size % DECK_COLOURS.length]);
+  };
+  for (const phrase of library.forLanguage(language)) {
+    const family = deckFamily(phrase.deck);
+    if (family !== phrase.deck) assign(family);
+    assign(phrase.deck);
+  }
+  return palette;
+}
+
+function deckColour(deck, language = settings.language) {
+  if (deck === FAVOURITES_DECK) return "gold";
+  return deckPalette(language).get(deck) ?? "blue";
+}
+
+function chunkLessons(phrases, deck, name, unit) {
+  const lessons = [];
+  for (let at = 0; at < phrases.length; at += LESSON_SIZE) {
+    const number = lessons.length + 1;
+    lessons.push({
+      id: `${deck}#${number}`,
+      title: phrases.length <= LESSON_SIZE ? name : `${name} ${number}`,
+      deck,
+      unit,
+      phrases: phrases.slice(at, at + LESSON_SIZE),
+    });
+  }
+  return lessons;
+}
+
+function practiceUnits() {
+  const language = settings.language;
+  const units = [];
+  const seen = new Set();
+  for (const phrase of library.drillable(language)) {
+    const deck = phrase.deck;
+    if (seen.has(deck) || sectionOf(deck) !== "decks" || deck === QUICK_DECK) continue;
+    seen.add(deck);
+    const phrases = library.inDeck(deck, language);
+    const family = deckFamily(deck);
+    // "Castells · Pinya" reads as the unit; its nodes are "Pinya 1", "Pinya 2".
+    const leaf = family === deck ? deck : deckLeaf(deck);
+    const colour = deckColour(deck, language);
+    const unit = { id: deck, deck, title: deck, colour, lessons: [] };
+    unit.lessons = chunkLessons(phrases, deck, leaf, unit);
+    unit.subtitle = `${phrases.length} phrase${phrases.length === 1 ? "" : "s"} · ${
+      unit.lessons.length
+    } lesson${unit.lessons.length === 1 ? "" : "s"}`;
+    units.push(unit);
+  }
+  return units;
+}
+
+function findLesson(id) {
+  for (const unit of practiceUnits()) {
+    const lesson = unit.lessons.find((l) => l.id === id);
+    if (lesson) return lesson;
+  }
+  return null;
+}
+
+/* A lesson into the drill: its five cards, in order, with the deck as the
+   drill's key so Back and Edit behave as they do for the deck. `state.lesson`
+   is what makes Done at the end tick the node rather than just leave. */
+function startLesson(lesson) {
+  stopEverything();
+  state.about = false;
+  state.lesson = { id: lesson.id, title: lesson.title, startedAt: Date.now() };
+  state.deck = lesson.deck;
+  state.queue = lesson.phrases;
+  state.index = 0;
+  loadPhrase();
+}
+
+/* The end of a lesson. The score it records is the mean, over the lesson's
+   cards, of the best weakest-word score each earned during this run — the
+   same number the drill shows, not one of Azure's aggregates — and null when
+   nothing was scored, which still ticks the node. Then the celebration, which
+   is the one screen in the app that exists purely to say well done. */
+function finishLesson() {
+  const lesson = state.lesson;
+  const scores = state.queue
+    .map((phrase) => {
+      const run = library
+        .attemptsFor(phrase.id)
+        .filter((a) => new Date(a.recordedAt).getTime() >= lesson.startedAt)
+        .map(attemptScore)
+        .filter((score) => typeof score === "number");
+      return run.length ? Math.max(...run) : null;
+    })
+    .filter((score) => score != null);
+  const average = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  progress.completeLesson(lesson.id, average);
+  state.celebration = { title: lesson.title, phrases: state.queue.length, average };
+  state.lesson = null;
+  state.deck = null;
+  render();
+}
+
+const LESSON_DONE = { "ca-ES": "Lliçó completada!", "es-ES": "¡Lección completada!", "it-IT": "Lezione completata!" };
+
+function renderComplete() {
+  const c = state.celebration;
+  const confetti = Array.from({ length: 36 }, (_, i) => {
+    const colours = ["var(--green)", "var(--blue)", "var(--gold)", "var(--orange)", "var(--purple)"];
+    return `<span class="confetto" style="left:${Math.random() * 100}%;width:${6 + Math.random() * 7}px;height:${
+      3 + Math.random() * 4
+    }px;background:${colours[i % colours.length]};animation-delay:${Math.random() * 0.9}s;animation-duration:${
+      2 + Math.random() * 1.6
+    }s"></span>`;
+  }).join("");
+  view.innerHTML = `
+    <div class="confetti">${confetti}</div>
+    <div class="complete">
+      <img class="crest crest-big" src="icons/crest.png" alt="" width="120" height="120">
+      <h1 class="complete-title">${esc(LESSON_DONE[settings.language] ?? "Lesson complete!")}</h1>
+      <p class="muted" style="margin:-8px 0 18px">${esc(c.title)}</p>
+      <div class="stat-row">
+        <div class="stat" style="--stat:var(--blue)">
+          <div class="stat-label">Phrases</div>
+          <div class="stat-value">${c.phrases}</div>
+        </div>
+        ${
+          c.average != null
+            ? `<div class="stat" style="--stat:${scoreColour(c.average)}">
+                 <div class="stat-label">Average</div>
+                 <div class="stat-value">${c.average}</div>
+               </div>`
+            : ""
+        }
+      </div>
+      <button class="btn btn-primary" id="complete-continue" style="width:100%;max-width:320px">Continue</button>
+    </div>`;
+  document.getElementById("complete-continue").onclick = () => {
+    state.celebration = null;
+    render();
+  };
+}
 
 /* One page for browsing and one for drilling was one page too many: both were
    the same list of the same decks. So the deck list is also the phrase list —
@@ -442,40 +1267,74 @@ function render() {
    Captures get a section of their own. A phrase jotted down with no Catalan
    yet can't be drilled, so it belongs to no deck row and would otherwise have
    nowhere left to be tapped. */
-function renderPractice() {
+function renderPractice(section = null) {
   const language = LANGUAGES[settings.language];
   const phrases = library.forLanguage(settings.language);
-  const captures = phrases.filter((p) => !p.text.trim());
-  const decks = library.decks(settings.language);
-  const families = library.deckFamilies(settings.language);
-  const drillable = library.drillable(settings.language).length;
+  /* Everything below the tiles is the *section's* share of the library. Search
+     is the one exception and reads `phrases`, because a phrase you searched for
+     must never be hiding behind a tile any more than it may hide inside a fold.
+     Same invariant, one level up. */
+  /* All Phrases is the one section that is every section: the whole library
+     as one list, the way this page looked before the tiles. So `all` switches
+     every section filter off, and the big-family fold comes back on, since
+     this is once again a page listing every family. */
+  const all = section === "phrases";
+  const inSection = (deck) => !section || all || sectionOf(deck) === section;
+  const mine = section && !all ? phrases.filter((p) => sectionOf(p.deck) === section) : phrases;
+  const captures = mine.filter((p) => !p.text.trim());
+  const decks = library.decks(settings.language).filter(inSection);
+  const families = library.deckFamilies(settings.language).filter((f) => f.decks.some(inSection));
+  /* Behind a tile the section *is* the fold, so a section holding one family
+     opens it: folding Grammar's only family would put everything the page
+     has behind a second tap and show a single row. That argument runs out
+     the moment a section holds several — Grammar is Passat, Futur,
+     Condicional and Subjuntiu now, and fourteen deck rows under four banners
+     is the Settings → Decks scroll one level over. So the big-family fold
+     comes back on when there is more than one family to choose between, and
+     a fold the user has set still wins either way. */
+  const foldBig = !section || all || families.length > 1;
+  const drillable = library.drillable(settings.language).filter((p) => inSection(p.deck));
 
-  if (!phrases.length) {
-    view.innerHTML = `
-      ${pageHead("practise", "Practice", `Nothing to drill in ${language.name} yet`)}
-      <div class="empty">
-        <svg viewBox="0 0 24 24"><path d="M3 12h2l2-7 3 14 3-11 2 6h6"/></svg>
-        <p>No phrases yet.</p>
-        <p class="small">Add some on the Add tab and they'll appear here as decks.</p>
-      </div>`;
-    return;
-  }
+  /* The home page leads with the brand rather than a Practice banner, as the
+     sister apps do: the colla's crest and the wordmark, the gear beside them,
+     and the language and its count on a quiet line underneath — the one thing
+     this app has to say at the top that the single-language forks don't. */
+  const head = section
+    ? pageHead(section, TILE_BY_KEY[section].title, sectionSub(), backLink())
+    : `<header class="home-head">
+         <div class="brand">
+           <img class="crest" src="icons/crest.png" alt="" width="34" height="34">
+           <span class="wordmark">fin·o·lingo</span>
+         </div>
+         ${gearButton()}
+       </header>
+       <p class="muted section-intro">${esc(language.name)} · ${
+         library.drillable(settings.language).length
+       } phrases ready</p>`;
 
-  view.innerHTML = `
-    ${pageHead(
-      "practise",
-      "Practice",
-      drillable
-        ? `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable} phrase${
-            drillable === 1 ? "" : "s"
-          } ready in ${language.name}`
-        : `Nothing to drill in ${language.name} yet`
-    )}
+  /* On the tiles the search box goes *under* them: the four squares are what
+     the tab is for, and a box above them would push them down the page and read
+     as the main event. Inside a section it goes back on top, where it is the
+     filter for the list under it. */
+  const searchBox = `
     <label class="field">
       <input type="search" id="search" placeholder="Search phrases, decks and notes"
              value="${esc(state.search)}">
-    </label>
-    <div id="practice-list"></div>`;
+    </label>`;
+  view.innerHTML = `
+    ${head}
+    ${section ? searchBox : ""}
+    ${sectionAddButton(section)}
+    <div id="practice-list"></div>
+    ${section ? "" : searchBox}
+    ${
+      section || settings.hasAzure
+        ? ""
+        : `<div class="section-label">Heads up</div>
+           <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
+           the waveform comparison and scoring need one.
+           <button class="link" id="open-settings-notice">Add it in Settings</button></div>`
+    }`;
 
   const search = document.getElementById("search");
   search.addEventListener("input", () => {
@@ -484,11 +1343,198 @@ function renderPractice() {
   });
   paint();
 
+  function sectionSub() {
+    if (!drillable.length) return `Nothing here yet in ${language.name}`;
+    return `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${drillable.length} phrase${
+      drillable.length === 1 ? "" : "s"
+    }`;
+  }
+
+  function backLink() {
+    return homeLink();
+  }
+
   function paint() {
     const query = state.search.trim().toLowerCase();
     const list = document.getElementById("practice-list");
-    list.innerHTML = query ? searchResults(query) : deckList();
+    list.innerHTML = query
+      ? searchResults(query)
+      : section === "decks"
+      ? pathList()
+      : section
+      ? deckList()
+      : tiles();
     wire(list);
+  }
+
+  /* The winding path. Units with a banner each, nodes offset left-centre-right
+     like a certain owl's, a START callout on the first lesson you haven't
+     done, and at the end the things that are the whole library: Shuffle all
+     and ★ Favourites as nodes of their own, then anything jotted down. */
+  function pathList() {
+    const units = practiceUnits();
+    if (!units.length) {
+      return `<div class="empty">
+        <p>Nothing here yet.</p>
+        <p class="small">Add a phrase and it becomes the first lesson on the path.</p>
+      </div>`;
+    }
+    const offsets = [0, -1, 1];
+    let nodeIndex = 0;
+    const current = units.flatMap((u) => u.lessons).find((l) => !progress.isDone(l.id))?.id ?? null;
+    /* Each unit folds behind its banner, the way a big family folds behind its
+       row on the deck list — eleven units of nodes is a long scroll for a path
+       you are somewhere in the middle of. The one holding START is open by
+       default and the rest are shut; a banner you have tapped is remembered
+       in `settings.openUnits`, absent meaning "follow START". */
+    const unitOpen = (unit) =>
+      settings.openUnits?.[unit.id] ?? unit.lessons.some((l) => l.id === current);
+    const tick = `<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const star = `<svg viewBox="0 0 24 24"><path d="M12 2.6l2.8 5.9 6.4.8-4.7 4.4 1.2 6.3-5.7-3.1-5.7 3.1 1.2-6.3L2.8 9.3l6.4-.8z"/></svg>`;
+    const unitsHtml = units
+      .map((unit) => {
+        const nodes = unit.lessons
+          .map((lesson) => {
+            if (!unitOpen(unit)) return "";
+            const done = progress.isDone(lesson.id);
+            const isCurrent = lesson.id === current;
+            const best = progress.bestFor(lesson.id);
+            const offset = offsets[nodeIndex++ % offsets.length];
+            return `
+              <div class="node-slot" style="--offset:${offset}">
+                ${isCurrent ? `<div class="node-callout">START</div>` : ""}
+                <button class="node ${done ? "done" : "open"} ${isCurrent ? "current" : ""}"
+                        data-lesson="${esc(lesson.id)}"
+                        style="--node:${done ? "var(--gold)" : `var(--${unit.colour})`};--node-dark:${
+                          done ? "var(--gold-dark)" : `var(--${unit.colour}-dark)`
+                        }"
+                        aria-label="${esc(lesson.title)}">
+                  ${done ? tick : star}
+                </button>
+                <div class="node-title">${esc(lesson.title)}${best != null ? ` · <strong>${best}</strong>` : ""}</div>
+              </div>`;
+          })
+          .join("");
+        const open = unitOpen(unit);
+        const done = unit.lessons.filter((l) => progress.isDone(l.id)).length;
+        return `
+          <section class="unit">
+            <button class="unit-banner" data-unit-fold="${esc(unit.id)}" aria-expanded="${open}"
+                    style="--unit:var(--${unit.colour});--unit-dark:var(--${unit.colour}-dark)">
+              <span class="unit-main">
+                <span class="unit-name">${esc(unit.title)}</span>
+                <span class="unit-sub">${esc(
+                  open
+                    ? unit.subtitle
+                    : `${unit.lessons.length} lesson${unit.lessons.length === 1 ? "" : "s"} · ${done} done`
+                )}</span>
+              </span>
+              <span class="tri">${open ? "▼" : "▶"}</span>
+            </button>
+            ${open ? `<div class="path">${nodes}</div>` : ""}
+          </section>`;
+      })
+      .join("");
+    const favourites = starred();
+    const mix = `
+      <section class="unit">
+        <div class="unit-banner" style="--unit:var(--blue);--unit-dark:var(--blue-dark)">
+          <div class="unit-name">Everything</div>
+          <div class="unit-sub">Practise across all your decks</div>
+        </div>
+        <div class="path">
+          <div class="node-slot" style="--offset:${favourites.length ? -1 : 0}">
+            <button class="node open" data-deck="*" style="--node:var(--blue);--node-dark:var(--blue-dark)" aria-label="Shuffle all decks">
+              <svg viewBox="0 0 24 24"><path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+            </button>
+            <div class="node-title">Shuffle all · <strong>${drillable.length}</strong></div>
+          </div>
+          ${
+            favourites.length
+              ? `<div class="node-slot" style="--offset:1">
+                   <button class="node open" data-deck="${FAVOURITES_DECK}" style="--node:var(--gold);--node-dark:var(--gold-dark)" aria-label="Favourites">
+                     ${star}
+                   </button>
+                   <div class="node-title">Favourites · <strong>${favourites.length}</strong></div>
+                 </div>`
+              : ""
+          }
+        </div>
+      </section>`;
+    return `
+      ${unitsHtml}
+      ${mix}
+      ${
+        captures.length
+          ? `<div class="section-label">Jotted down — needs the ${esc(language.englishName)}</div>
+             <div class="rows rows-spaced">${captures.map(phraseRow).join("")}</div>`
+          : ""
+      }`;
+  }
+
+  /* The four ways in. It replaced one long column that put the everyday decks,
+     the past-tense decks and the Paraules words in the same list, folded but
+     competing — three different kinds of practice with no way to say which one
+     you were in the mood for.
+
+     Counted from the library rather than hardcoded, so an empty section says
+     so instead of leading somewhere blank, and Quick shows what it has
+     collected. */
+  /* Real life's tile counts the three things it collects: phrases asked for,
+     messages read and chats had. "3 asked for · 2 messages · 1 chat",
+     whichever of them there are, and the invitation when there are none. */
+  function quickCount(asked) {
+    const read = messages.forLanguage(settings.language).length;
+    const had = chats.forLanguage(settings.language).length;
+    const parts = [];
+    if (asked) parts.push(`${asked} asked for`);
+    if (read) parts.push(`${read} message${read === 1 ? "" : "s"}`);
+    if (had) parts.push(`${had} chat${had === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(" · ") : "Ask for a phrase";
+  }
+
+  /* About me's tile says what the row used to: the interview is the way in
+     until there are cards, and the count once there are. With no assistant
+     and no cards it says so rather than hiding — a tile that comes and goes
+     leaves a hole in a grid, and the page it opens names Settings as the way
+     to fix it. */
+  function aboutCount(cards) {
+    if (cards) return `${cards} card${cards === 1 ? "" : "s"} about you`;
+    return settings.hasAssistant ? "Tell it about you" : "Needs the assistant";
+  }
+
+  function tiles() {
+    return `
+      <div class="tiles">
+        ${TILES.map((tile) => {
+          const count =
+            tile.key === "quick"
+              ? library.inDeck(QUICK_DECK, settings.language).length
+              : tile.key === "about"
+              ? library.inDeck(ABOUT_DECK, settings.language).length
+              : tile.key === "phrases"
+              ? library.drillable(settings.language).length
+              : library.drillable(settings.language).filter((p) => sectionOf(p.deck) === tile.key).length;
+          return `
+            <button class="tile tile-${tile.colour}" ${
+              tile.key === "about" ? `data-about="1"` : `data-section="${tile.key}"`
+            }>
+              <span class="tile-mark" aria-hidden="true">${SECTIONS[tile.key].mark}</span>
+              <span class="tile-title">${esc(tile.title)}</span>
+              <span class="tile-blurb">${esc(tile.blurb)}</span>
+              <span class="tile-count">${
+                tile.key === "quick"
+                  ? quickCount(count)
+                  : tile.key === "about"
+                  ? aboutCount(count)
+                  : count
+                  ? `${count} phrase${count === 1 ? "" : "s"}`
+                  : "Empty"
+              }</span>
+            </button>`;
+        }).join("")}
+      </div>
+`;
   }
 
   /* A deck row does two things now, so it can't be one big button any more:
@@ -500,8 +1546,9 @@ function renderPractice() {
      score that matters is per attempt, on the card, where you earned it. */
   function deckRow(title, deckPhrases, key, nested = false) {
     const open = state.openDecks.has(key);
+    const hue = deckColour(key);
     return `
-      <div class="row deck-row${nested ? " nested" : ""}">
+      <div class="row deck-row filled hue-${hue}${nested ? " nested" : ""}">
         <button class="row-open" data-deck="${esc(key)}">
           <span class="row-main">
             <span class="row-title">${esc(title)}</span>
@@ -513,15 +1560,15 @@ function renderPractice() {
           <span class="tri">${open ? "▼" : "▶"}</span>
         </button>
       </div>
-      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested)).join("") : ""}`;
+      ${open ? deckPhrases.map((phrase) => deckCardRow(phrase, key, nested, hue)).join("") : ""}`;
   }
 
   /* A card inside an opened deck. It drills rather than opening the detail
      sheet: this list exists so you can go straight at the one phrase you know
      you're getting wrong. The sheet is still a search away. */
-  function deckCardRow(phrase, key, nested) {
+  function deckCardRow(phrase, key, nested, hue) {
     return `
-      <div class="row nested${nested ? " deep" : ""}">
+      <div class="row striped hue-${hue} nested${nested ? " deep" : ""}">
         ${starButton(phrase)}
         <button class="row-open" data-drill="${esc(phrase.id)}" data-drill-deck="${esc(key)}">
           <span class="row-main">
@@ -538,9 +1585,9 @@ function renderPractice() {
      family; the chevron opens it. */
   function familyRow(family) {
     const inFamily = library.inFamily(family.name, settings.language);
-    const open = familyOpen(family.name, family.decks.length);
+    const open = familyOpen(family.name, family.decks.length, foldBig);
     return `
-      <div class="row family-row">
+      <div class="row family-row filled hue-${deckColour(family.name)}">
         <button class="row-open" data-deck="${FAMILY_PREFIX}${esc(family.name)}">
           <span class="row-main">
             <span class="row-title">${esc(family.name)}</span>
@@ -554,59 +1601,27 @@ function renderPractice() {
       </div>`;
   }
 
-  /* The one row on this page that doesn't drill. Every other deck row is a
-     queue you can start; this one is a deck with a machine behind it, and the
-     only way to put cards in it is the interview. So the title opens the
-     workshop and the triangle still opens the cards — which do drill, through
-     the same startDeck as everywhere else.
+  /* Two of these rows belong to Decks and to nothing else. ★ Favourites
+     collects sentences from wherever they live, and Shuffle all is the whole
+     library — neither is a past-tense unit or a keyword word, and a Favourites
+     row inside Grammar would drill Catalan you starred in a café.
 
-     It shows before the deck exists, which no other row does, because "the
-     first time you open it, it asks about you" needs something to open. Once
-     the assistant is gone from Settings the row stays only if it has cards to
-     show: an empty row leading to a page that can only say "configure the
-     assistant" is a dead end. */
-  function aboutRow() {
-    const cards = library.inDeck(ABOUT_DECK, settings.language);
-    if (!cards.length && !settings.hasAssistant) return "";
-    const open = state.openDecks.has(ABOUT_DECK);
-    return `
-      <div class="row deck-row">
-        <button class="row-open" data-about="1">
-          <span class="row-main">
-            <span class="row-title">${esc(ABOUT_DECK)}</span>
-            <span class="row-sub">${
-              cards.length
-                ? `${cards.length} card${cards.length === 1 ? "" : "s"} about your life`
-                : "Tell the app about you, and it writes the cards"
-            }</span>
-          </span>
-          <span class="chev">›</span>
-        </button>
-        ${
-          cards.length
-            ? `<button class="fold" data-deck-fold="${esc(ABOUT_DECK)}" aria-expanded="${open}"
-                       aria-label="${open ? "Hide" : "Show"} the phrases in ${esc(ABOUT_DECK)}">
-                 <span class="tri">${open ? "▼" : "▶"}</span>
-               </button>`
-            : ""
-        }
-      </div>
-      ${open && cards.length ? cards.map((phrase) => deckCardRow(phrase, ABOUT_DECK, false)).join("") : ""}`;
-  }
-
+     About me used to be the top row here too. It is a tile now, and its deck
+     is its own section (`SECTION_FAMILIES` in store.js), so `families` has
+     already left it out by the time this runs — no skip needed. */
   function deckList() {
+    // Favourites and Shuffle all: the whole library's rows, so they belong on
+    // All Phrases as much as on Practice.
+    const home = !section || section === "decks" || all;
     const favourites = starred();
     const rows = [
-      aboutRow(),
-      ...(favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
+      ...(home && favourites.length ? [deckRow("★ Favourites", favourites, FAVOURITES_DECK)] : []),
       ...families.flatMap((family) => {
-        // Already drawn at the top by aboutRow(), with its own way in.
-        if (family.name === ABOUT_DECK) return [];
         if (family.decks.length === 1) {
           const deck = family.decks[0];
           return [deckRow(deck, library.inDeck(deck, settings.language), deck)];
         }
-        const open = familyOpen(family.name, family.decks.length);
+        const open = familyOpen(family.name, family.decks.length, foldBig);
         return [
           familyRow(family),
           ...(open
@@ -633,23 +1648,23 @@ function renderPractice() {
           : ""
       }
       ${
-        drillable
+        drillable.length
           ? `<div class="section-label">Everything</div>
-             <div class="rows">
-               <button class="row" data-deck="*">
-                 <span class="row-main"><span class="row-title">Shuffle all decks</span>
-                 <span class="row-sub">${drillable} phrases in ${esc(language.name)}</span></span>
+             <div class="rows rows-spaced">
+               <button class="row filled hue-blue" data-deck="${home ? "*" : `${SECTION_PREFIX}${esc(section)}`}">
+                 <span class="row-main"><span class="row-title">Shuffle ${
+                   home ? "all decks" : `all of ${esc(TILE_BY_KEY[section].title)}`
+                 }</span>
+                 <span class="row-sub">${drillable.length} phrases in ${esc(language.name)}</span></span>
                  <span class="chev">›</span>
                </button>
              </div>`
-          : ""
-      }
-      ${
-        settings.hasAzure
-          ? ""
-          : `<div class="section-label">Heads up</div>
-             <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
-             the waveform comparison and scoring need one. Add it in Settings.</div>`
+          : `<div class="empty">
+               <p>Nothing here yet.</p>
+               <p class="small">Cards land here when their deck belongs to ${esc(
+                 TILE_BY_KEY[section]?.title ?? "this section"
+               )}.</p>
+             </div>`
       }`;
   }
 
@@ -663,7 +1678,12 @@ function renderPractice() {
       phrase.deck.toLowerCase().includes(query) ||
       (phrase.situation ?? "").toLowerCase().includes(query) ||
       (phrase.usageNote ?? "").toLowerCase().includes(query) ||
-      (phrase.focusNote ?? "").toLowerCase().includes(query);
+      (phrase.focusNote ?? "").toLowerCase().includes(query) ||
+      /* The keyword picture is searchable too, and the bridge especially: the
+         way back to a word you have half lost is often the daft scene rather
+         than any of its Catalan. "ten-a-door" has to find the fork. */
+      (phrase.picture ?? "").toLowerCase().includes(query) ||
+      (phrase.sounds ?? "").toLowerCase().includes(query);
 
     const hits = phrases.filter(match);
     if (!hits.length) return `<div class="empty"><p>Nothing matches.</p></div>`;
@@ -676,18 +1696,30 @@ function renderPractice() {
     return [...groups]
       .map(
         ([deck, found]) => `
-          <div class="section-label">${esc(deck)}</div>
+          <div class="section-label inked hue-${deckColour(deck)}">${esc(deck)}</div>
           <div class="rows rows-spaced">${found.map(phraseRow).join("")}</div>`
       )
       .join("");
   }
 
   function wire(list) {
+    // A tile, and the way back from behind one. The search box is cleared on
+    // both, because a query typed on the tiles is about the whole library and
+    // carrying it into a section would show results from outside that section
+    // under that section's heading.
+    list.querySelectorAll("[data-section]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.section = button.dataset.section;
+        state.search = "";
+        render();
+      })
+    );
+
     list.querySelectorAll("[data-fold]").forEach((button) =>
       button.addEventListener("click", () => {
         const name = button.dataset.fold;
         const family = families.find((f) => f.name === name);
-        setFamilyOpen(name, !familyOpen(name, family.decks.length));
+        setFamilyOpen(name, !familyOpen(name, family.decks.length, foldBig));
         paint();
       })
     );
@@ -705,6 +1737,24 @@ function renderPractice() {
       button.addEventListener("click", () => startDeck(button.dataset.deck))
     );
 
+    // A unit's banner folds its nodes; the choice is remembered by deck name.
+    list.querySelectorAll("[data-unit-fold]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const id = button.dataset.unitFold;
+        settings.openUnits = { ...settings.openUnits, [id]: button.getAttribute("aria-expanded") !== "true" };
+        settings.save();
+        paint();
+      })
+    );
+
+    // A node on the path: five cards of its deck, in order, and a tick at the end.
+    list.querySelectorAll("[data-lesson]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const lesson = findLesson(button.dataset.lesson);
+        if (lesson) startLesson(lesson);
+      })
+    );
+
     // A card from an opened deck: the deck's own queue, started at that card.
     list.querySelectorAll("[data-drill]").forEach((button) =>
       button.addEventListener("click", () =>
@@ -712,8 +1762,8 @@ function renderPractice() {
       )
     );
 
-    // The one row that doesn't drill: About me leads to the interview that
-    // fills it. Its triangle still opens to its cards, which do drill.
+    // The one tile that doesn't open a list: About me leads to the interview
+    // that fills it, and its cards are listed there.
     list.querySelectorAll("[data-about]").forEach((button) =>
       button.addEventListener("click", () => {
         state.about = true;
@@ -747,6 +1797,1720 @@ function renderPractice() {
   }
 }
 
+/* Quick: the phrase you need in the next thirty seconds.
+
+   Everything else in this app is practice arranged in advance — a deck you
+   picked, a card somebody wrote. This is the other direction: you are outside
+   a pharmacy, you do not know how to ask for your medicine, and you have about
+   as long as it takes to open the door. So it is one box, one button, the
+   phrase, and a Listen you can hit twice on the way in.
+
+   Three decisions worth keeping:
+
+   - **It writes an ordinary card into an ordinary deck.** `QUICK_DECK` is a
+     deck name and nothing else, so what Quick collects drills, stars, scores,
+     levels up, edits, exports and shows in Decks with everything else. That is
+     the whole point of the feature rather than a detail of it: the phrases you
+     needed in real life are the best deck in the app, and they only become one
+     if asking for them files them. Resist giving these cards a flag — the same
+     argument About me's cards make.
+   - **It saves without asking, and can be undone in one tap.** The Add tab is
+     deliberate about Save because you are composing there. Here you are
+     standing in a doorway, and a card you have to remember to keep is a card
+     you lose. *Don't keep it* is the way back, and it is one tap because the
+     mistake is cheap.
+   - **It goes through `/complete-card` with one extra field**, rather than
+     earning an endpoint of its own. What it wants *is* a card, and card
+     generation is already the small fast call — see what replies did to the Add
+     tab. The field is `ask`: your line as you typed it, which the Worker is
+     told to read as a request and never as text to translate. It is set only
+     when it is there, so the prompt both sister apps get is byte-identical.
+     `worker/tools/card-test.mjs` asserts exactly that. */
+function renderQuick() {
+  const language = LANGUAGES[settings.language];
+
+  view.innerHTML = `
+    ${pageHead(
+      "quick",
+      TILE_BY_KEY.quick.title,
+      "A phrase, a message, a chat",
+      `<button class="link" id="quick-home">‹ Home</button>`
+    )}
+    ${
+      settings.hasAssistant
+        ? `<div class="card">
+             <label class="field"><span>What do you need to say, and where?</span>
+               <textarea id="quick-ask" lang="en-GB" rows="2"></textarea></label>
+             <button class="btn btn-primary" id="quick-go" style="width:100%">Get the phrase</button>
+             <div class="notice bad" id="quick-error" hidden></div>
+           </div>`
+        : `<div class="notice">Real life needs the card assistant. Set it up in Settings and this becomes a box
+             you can ask for a phrase from, a message reader and a conversation partner.</div>`
+    }
+    <div id="quick-answer"></div>
+    ${
+      settings.hasAssistant
+        ? `<div class="card quick-message-card">
+             <label class="field"><span>Got a message? Paste it here.</span>
+               <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
+             <p class="small muted" style="margin:0 0 10px">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
+             <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
+             <div class="notice bad" id="msg-error" hidden></div>
+           </div>
+           ${chatStarter()}`
+        : ""
+    }
+    <div id="quick-recent"></div>
+    <div id="quick-messages"></div>
+    <div id="quick-chats"></div>`;
+
+  document.getElementById("quick-home").onclick = () => {
+    state.section = null;
+    state.message = null;
+    state.chat = null;
+    render();
+  };
+  document.getElementById("quick-go")?.addEventListener("click", ask);
+  document.getElementById("msg-go")?.addEventListener("click", readMessage);
+  wireChatStarter();
+  paintAnswer();
+  paintRecent();
+  paintMessages();
+  paintChats();
+
+  /* The chats you have had, newest first, under the messages. Each reopens
+     on its page with every turn and every correction still there. */
+  function paintChats() {
+    const box = document.getElementById("quick-chats");
+    const had = chats.forLanguage(settings.language).slice(-8).reverse();
+    if (!had.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Your chats</div>
+      <div class="rows rows-spaced">
+        ${had
+          .map((item) => {
+            const said = item.turns.filter((turn) => turn.role === "learner").length;
+            return `
+              <div class="row striped hue-orange">
+                <button class="row-open" data-chat-open="${esc(item.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
+                    <span class="row-sub">${esc(
+                      item.ended
+                        ? `${said} line${said === 1 ? "" : "s"} · finished`
+                        : said
+                        ? `${said} line${said === 1 ? "" : "s"} · still going`
+                        : "Not started"
+                    )}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`;
+          })
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-chat-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.chat = button.dataset.chatOpen;
+        render();
+      })
+    );
+  }
+
+  /* The messages you have read, newest first, under the phrases you asked
+     for. Same argument as the phrases: "what did that notice say?" is a
+     question you ask on the page where you read it. Each opens back onto its
+     own page with the translation, the phrases and the reply still there. */
+  function paintMessages() {
+    const box = document.getElementById("quick-messages");
+    const read = messages.forLanguage(settings.language).slice(-8).reverse();
+    if (!read.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">From your messages</div>
+      <div class="rows rows-spaced">
+        ${read
+          .map(
+            (item) => `
+              <div class="row striped hue-orange">
+                <button class="row-open" data-msg-open="${esc(item.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(firstLine(item.text, 64))}</span>
+                    <span class="row-sub">${esc(
+                      item.gist === null
+                        ? "Not read yet"
+                        : item.reply
+                        ? `Replied: ${firstLine(item.reply.text, 60)}`
+                        : firstLine(item.read?.translation ?? "", 64)
+                    )}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-msg-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.message = button.dataset.msgOpen;
+        render();
+      })
+    );
+  }
+
+  /* The message goes to the assistant and comes back read — glossed, translated,
+     the phrases picked out — and is saved as it arrives, like a Quick phrase
+     is. Then the page for it opens, which is where the translation is withheld
+     until you have written what you think it says. Nothing is shown here. */
+  async function readMessage() {
+    const field = document.getElementById("msg-text");
+    const text = field.value.trim();
+    const button = document.getElementById("msg-go");
+    const errorBox = document.getElementById("msg-error");
+    if (!text) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Reading…`;
+    try {
+      const read = await cardAssistant.readMessage(
+        { message: text, languageCode: settings.language, languageName: language.englishName },
+        settings
+      );
+      if (state.section !== "quick") return;
+      if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+      const item = messages.add({
+        text,
+        read: {
+          translation: read.translation,
+          register: read.register || "",
+          glossary: Array.isArray(read.glossary) ? read.glossary : [],
+          keep: Array.isArray(read.keep) ? read.keep : [],
+        },
+      });
+      state.message = item.id;
+      render();
+    } catch (error) {
+      if (state.section !== "quick") return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.section === "quick" && document.getElementById("msg-go")) {
+        button.disabled = false;
+        button.textContent = "Read it";
+      }
+    }
+  }
+
+  /* The answer, and the three things you can do with it. Painted in place
+     rather than through render(), for the reason the drill repaints its own
+     star: a re-render here would throw away what you are looking at. */
+  function paintAnswer() {
+    const box = document.getElementById("quick-answer");
+    /* Looked up again rather than trusted: the card can be deleted from its
+       own phrase sheet, or edited from the drill, while `state.quick` goes on
+       holding the object it was. */
+    const phrase = state.quick && library.phrases.find((p) => p.id === state.quick.id);
+    if (!phrase) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="card quick-card striped hue-orange">
+        <p class="quick-phrase" lang="${esc(phrase.language)}">${esc(phrase.text)}</p>
+        <p class="quick-english">${esc(phrase.translation)}</p>
+        <button class="btn btn-primary quick-listen" data-quick-say>Listen</button>
+        ${phrase.focusNote ? `<p class="focus-note">${esc(phrase.focusNote)}</p>` : ""}
+        ${
+          phrase.usageNote
+            ? `<p class="small muted" style="margin:10px 0 0">${esc(phrase.usageNote)}</p>`
+            : ""
+        }
+        <p class="small muted quick-kept">Kept in your <b>${esc(QUICK_DECK)}</b> deck.</p>
+        <div class="btn-row">
+          <button class="btn" data-quick-drill>Practise it</button>
+          <button class="link btn-danger" data-quick-drop>Don't keep it</button>
+        </div>
+      </div>`;
+
+    const say = box.querySelector("[data-quick-say]");
+    say.addEventListener("click", () => sayAloud(say, phrase.text, language, "Couldn't play that."));
+    box.querySelector("[data-quick-drill]").addEventListener("click", () => {
+      state.quick = null;
+      startDeck(QUICK_DECK, phrase.id);
+    });
+    box.querySelector("[data-quick-drop]").addEventListener("click", async () => {
+      await library.remove(phrase.id);
+      state.quick = null;
+      paintAnswer();
+      paintRecent();
+      toast("Thrown away.");
+    });
+  }
+
+  /* What you have asked for before, newest first. It is the same deck you can
+     open from Decks, printed here because the answer to "what did I need
+     yesterday?" belongs on the page where you needed it. */
+  function paintRecent() {
+    const box = document.getElementById("quick-recent");
+    const recent = library
+      .inDeck(QUICK_DECK, settings.language)
+      .filter((phrase) => phrase.id !== state.quick?.id && phrase.text.trim())
+      .slice(-8)
+      .reverse();
+    if (!recent.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Asked for before</div>
+      <div class="rows rows-spaced">
+        ${recent
+          .map(
+            (phrase) => `
+              <div class="row striped hue-orange">
+                <button class="star" data-quick-play="${esc(phrase.id)}"
+                        aria-label="Listen to ${esc(phrase.text)}">▶</button>
+                <button class="row-open" data-quick-open="${esc(phrase.id)}">
+                  <span class="row-main">
+                    <span class="row-title">${esc(phrase.text)}</span>
+                    <span class="row-sub">${esc(phrase.translation)}</span>
+                  </span>
+                  <span class="chev">›</span>
+                </button>
+              </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-quick-play]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.quickPlay);
+        if (phrase) sayAloud(button, phrase.text, language, "Couldn't play that.");
+      })
+    );
+    box.querySelectorAll("[data-quick-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const phrase = library.phrases.find((p) => p.id === button.dataset.quickOpen);
+        if (phrase) showPhrase(phrase);
+      })
+    );
+  }
+
+  async function ask() {
+    const field = document.getElementById("quick-ask");
+    const line = field.value.trim();
+    const button = document.getElementById("quick-go");
+    const errorBox = document.getElementById("quick-error");
+    if (!line) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Asking…`;
+    try {
+      const result = await cardAssistant.complete(
+        {
+          target: "",
+          english: "",
+          situation: "",
+          ask: line,
+          deck: QUICK_DECK,
+          languageCode: settings.language,
+          languageName: language.englishName,
+        },
+        settings
+      );
+      if (state.section !== "quick") return;
+      if (!result.text?.trim()) throw new Error("Nothing came back. Try asking again.");
+      /* Saved as it arrives — see the note above this function. `library.add`
+         hands back what it filed, which is what the Listen button, Practise it
+         and Don't keep it all need. */
+      state.quick = library.add({
+        text: result.text,
+        translation: result.translation || line,
+        deck: QUICK_DECK,
+        situation: result.situation || null,
+        usageNote: result.usageNote || null,
+        focusNote: result.focusNote || null,
+      });
+      field.value = "";
+      autosize(field);
+      paintAnswer();
+      paintRecent();
+    } catch (error) {
+      if (state.section !== "quick") return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.section === "quick") {
+        button.disabled = false;
+        button.textContent = "Get the phrase";
+      }
+    }
+  }
+}
+
+function firstLine(text, max) {
+  const line = String(text ?? "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/* The words of a message, matched to the assistant's glossary. The message on
+   screen is always the text exactly as it was pasted — the model never gets
+   to retype it — so the glossary is matched *onto* it here, longest run
+   first, on accent-folded, punctuation-stripped words. A run the glossary
+   gave as one entry ("a partir del") becomes one tappable piece; a word it
+   forgot is plain text, and costs nothing else. Whitespace is kept as it
+   was, newlines included, so the message keeps its paragraphs. */
+function glossSegments(text, glossary, language) {
+  const key = (word) =>
+    foldAccents(word.toLocaleLowerCase(language))
+      .replace(/[‘’‛]/g, "'")
+      .replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, "");
+  const map = new Map();
+  let longest = 1;
+  for (const entry of glossary ?? []) {
+    const words = String(entry?.text ?? "").split(/\s+/).map(key).filter(Boolean);
+    if (!words.length || !entry.gloss) continue;
+    const k = words.join(" ");
+    if (!map.has(k)) map.set(k, entry.gloss);
+    longest = Math.max(longest, words.length);
+  }
+  const parts = text.split(/(\s+)/);
+  const segments = [];
+  let i = 0;
+  while (i < parts.length) {
+    const part = parts[i];
+    if (!part) {
+      i += 1;
+      continue;
+    }
+    if (/^\s+$/.test(part)) {
+      segments.push({ text: part });
+      i += 1;
+      continue;
+    }
+    let matched = false;
+    for (let n = longest; n >= 1; n -= 1) {
+      const end = i + (n - 1) * 2;
+      if (end >= parts.length) continue;
+      const words = [];
+      for (let j = i; j <= end; j += 2) words.push(key(parts[j]));
+      if (words.some((w) => !w)) continue;
+      const gloss = map.get(words.join(" "));
+      if (gloss === undefined) continue;
+      segments.push({ text: parts.slice(i, end + 1).join(""), gloss });
+      i = end + 1;
+      matched = true;
+      break;
+    }
+    if (!matched) {
+      segments.push({ text: part, plain: true });
+      i += 1;
+    }
+  }
+  return segments;
+}
+
+/* A received message, read rather than translated.
+
+   Everything on this page is arranged around one rule: the English is not
+   shown until you have written what you think the message says. Google
+   Translate gives you the meaning and throws the reading away; this page makes
+   you do the reading, with a tap on any word you are stuck on, and only then
+   shows you how close you got. The same gate as level two, for the same
+   reason — a translation visible above the box is a box nobody fills in.
+
+   Three things follow the gate, in this order: the translation beside your
+   own reading, the phrases from the message worth keeping as cards, and the
+   reply — which you write first, in Catalan if you can and English if you
+   cannot, and which comes back as what a native would send with a note on
+   what changed. Producing it and then seeing the correction is the learning;
+   being handed a reply to copy would be Google Translate again.
+
+   What you keep lands in the language's Missatges deck (`messagesDeck`), an
+   ordinary deck like Quick's, and the message itself stays in `messages` with
+   your reading and your reply on it. */
+function renderMessage() {
+  const item = messages.find(state.message);
+  if (!item) {
+    state.message = null;
+    render();
+    return;
+  }
+  const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
+  const revealed = item.gist !== null;
+  const segments = glossSegments(item.text, item.read?.glossary, item.language);
+  const opened = new Set();
+
+  view.innerHTML = `
+    ${pageHead("quick", "Message", "Read it, keep the good bits, reply", `<button class="link" id="msg-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`)}
+    <div class="card message-card striped hue-orange">
+      <p class="msg-text" lang="${esc(item.language)}">${segments
+        .map((seg, i) =>
+          seg.gloss !== undefined
+            ? `<button class="msg-word" data-word="${i}"><span class="msg-w">${esc(seg.text)}</span><span class="msg-g" hidden>${esc(
+                seg.gloss
+              )}</span></button>`
+            : esc(seg.text)
+        )
+        .join("")}</p>
+      <p class="small muted msg-hint">${
+        revealed ? "" : "Tap a word you are stuck on. Then say what it is telling you, in the box below."
+      }</p>
+    </div>
+    <div id="msg-gist-card"></div>
+    <div id="msg-reveal"></div>
+    <div id="msg-keep"></div>
+    <div id="msg-reply-card"></div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="link btn-danger" id="msg-forget">Forget this message</button>
+    </div>`;
+
+  document.getElementById("msg-back").onclick = () => {
+    state.message = null;
+    render();
+  };
+  document.getElementById("msg-forget").onclick = () => {
+    messages.remove(item.id);
+    state.message = null;
+    render();
+    toast("Forgotten. Any cards you kept from it are still in the library.");
+  };
+
+  /* Tapping a word shows its gloss in place and counts, while the question
+     is still open, as a word you needed. After the reveal the taps are free —
+     you are checking, not reading. */
+  view.querySelectorAll(".msg-word").forEach((button) =>
+    button.addEventListener("click", () => {
+      const gloss = button.querySelector(".msg-g");
+      gloss.hidden = !gloss.hidden;
+      button.classList.toggle("open", !gloss.hidden);
+      if (!gloss.hidden && item.gist === null && !opened.has(button.dataset.word)) {
+        opened.add(button.dataset.word);
+        messages.update(item.id, { taps: (item.taps ?? 0) + 1 });
+      }
+    })
+  );
+
+  paintGist();
+  paintReveal();
+  paintKeep();
+  paintReply();
+
+  function paintGist() {
+    const box = document.getElementById("msg-gist-card");
+    if (item.gist !== null) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="card">
+        <label class="field"><span>What is it telling you, or asking you to do?</span>
+          <textarea id="msg-gist" lang="en-GB" rows="2"></textarea></label>
+        <button class="btn btn-primary" id="msg-check" style="width:100%">Check</button>
+        <button class="link" id="msg-show" style="width:100%;margin-top:6px">I can't tell — just show me</button>
+      </div>`;
+    const field = document.getElementById("msg-gist");
+    const check = () => {
+      const gist = field.value.trim();
+      if (!gist) {
+        field.focus();
+        return;
+      }
+      reveal(gist);
+    };
+    document.getElementById("msg-check").onclick = check;
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        check();
+      }
+    });
+    document.getElementById("msg-show").onclick = () => reveal("");
+    autosize(field);
+  }
+
+  function reveal(gist) {
+    messages.update(item.id, { gist });
+    document.querySelector(".msg-hint").textContent = "";
+    paintGist();
+    paintReveal();
+    paintKeep();
+    paintReply();
+    document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function paintReveal() {
+    const box = document.getElementById("msg-reveal");
+    if (item.gist === null) {
+      box.innerHTML = "";
+      return;
+    }
+    const taps = item.taps ?? 0;
+    box.innerHTML = `
+      <div class="card">
+        <div class="section-label" style="margin-top:0">In English</div>
+        <p class="msg-translation">${esc(item.read?.translation ?? "")}</p>
+        ${
+          item.gist
+            ? `<div class="section-label">What you made of it</div>
+               <p class="msg-gist">${esc(item.gist)}</p>`
+            : `<p class="small muted">You asked to see it rather than saying what you read.</p>`
+        }
+        ${item.read?.register ? `<p class="small msg-register">${esc(item.read.register)}</p>` : ""}
+        <p class="small muted">${
+          taps === 0
+            ? "You read it without looking anything up."
+            : `You looked up ${taps} word${taps === 1 ? "" : "s"} on the way.`
+        }</p>
+      </div>`;
+  }
+
+  /* The phrases worth owning, each one tap from a card. Same shape as the
+     replies list, because it is the same job: a line somebody actually wrote,
+     with its English and a way to keep it. */
+  function paintKeep() {
+    const box = document.getElementById("msg-keep");
+    const keep = item.read?.keep ?? [];
+    if (item.gist === null || !keep.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Worth keeping</div>
+      <ul class="replies">
+        ${keep
+          .map((entry, i) => {
+            const kept = replyKept(entry);
+            return `
+          <li class="reply">
+            <button class="reply-play" data-say="${i}" aria-label="Listen to this phrase">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <span class="reply-main">
+              <span class="reply-text" lang="${esc(item.language)}">${esc(entry.text)}</span>
+              <span class="reply-translation">${esc(entry.translation)}</span>
+              ${entry.why ? `<span class="reply-why">${esc(entry.why)}</span>` : ""}
+              <button class="link reply-keep" data-keep="${i}" ${kept ? "disabled" : ""}>${
+                kept ? "Kept as a card ✓" : "Keep as a card"
+              }</button>
+            </span>
+          </li>`;
+          })
+          .join("")}
+      </ul>`;
+    box.querySelectorAll("[data-say]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const entry = keep[Number(button.dataset.say)];
+        if (entry) sayAloud(button, entry.text, language, "Couldn't play that.");
+      })
+    );
+    box.querySelectorAll("[data-keep]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const entry = keep[Number(button.dataset.keep)];
+        if (entry) keepFromMessage(entry, item, button);
+      })
+    );
+  }
+
+  /* Your reply. The box is first and the correction second, and the box stays
+     above the result so that a second go is one edit away rather than a
+     screenful. */
+  function paintReply() {
+    const box = document.getElementById("msg-reply-card");
+    if (item.gist === null) {
+      box.innerHTML = "";
+      return;
+    }
+    const reply = item.reply;
+    box.innerHTML = `
+      <div class="section-label">Your reply</div>
+      <div class="card">
+        <label class="field"><span>Write it in ${esc(language.englishName)} if you can, in English if you can't.</span>
+          <textarea id="msg-draft" lang="${esc(item.language)}" rows="2" autocapitalize="sentences">${esc(
+            reply?.draft ?? ""
+          )}</textarea></label>
+        <button class="btn btn-primary" id="msg-reply-go" style="width:100%">${
+          reply ? "Check it again" : "Check my reply"
+        }</button>
+        <div class="notice bad" id="msg-reply-error" hidden></div>
+      </div>
+      ${
+        reply
+          ? `<div class="card quick-card striped hue-orange" id="msg-reply">
+               <p class="quick-phrase" lang="${esc(item.language)}">${esc(reply.text)}</p>
+               <p class="quick-english">${esc(reply.translation)}</p>
+               ${reply.note ? `<p class="msg-note">${esc(reply.note)}</p>` : ""}
+               <div class="btn-row">
+                 <button class="btn btn-primary" id="msg-reply-say">Listen</button>
+                 <button class="btn" id="msg-reply-copy">Copy</button>
+               </div>
+               <button class="link reply-keep" id="msg-reply-keep" ${replyKept(reply) ? "disabled" : ""}>${
+                 replyKept(reply) ? "Kept as a card ✓" : "Keep as a card"
+               }</button>
+             </div>`
+          : ""
+      }`;
+    const field = document.getElementById("msg-draft");
+    autosize(field);
+    document.getElementById("msg-reply-go").onclick = () => sendReply(field.value.trim());
+    const say = document.getElementById("msg-reply-say");
+    say?.addEventListener("click", () => sayAloud(say, reply.text, language, "Couldn't play that."));
+    document.getElementById("msg-reply-copy")?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(reply.text);
+        toast("Copied.");
+      } catch {
+        toast("Couldn't copy. Select the text instead.");
+      }
+    });
+    document.getElementById("msg-reply-keep")?.addEventListener("click", (event) =>
+      keepFromMessage(reply, item, event.currentTarget, "reply")
+    );
+  }
+
+  async function sendReply(draft) {
+    const field = document.getElementById("msg-draft");
+    const button = document.getElementById("msg-reply-go");
+    const errorBox = document.getElementById("msg-reply-error");
+    if (!draft) {
+      field.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    try {
+      const result = await cardAssistant.messageReply(
+        { message: item.text, draft, languageCode: item.language, languageName: language.englishName },
+        settings
+      );
+      if (state.message !== item.id) return;
+      if (!result.text?.trim()) throw new Error("Nothing came back. Try again.");
+      messages.update(item.id, {
+        reply: { draft, text: result.text, translation: result.translation || "", note: result.note || "" },
+      });
+      paintReply();
+      document.getElementById("msg-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      if (state.message !== item.id) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = item.reply ? "Check it again" : "Check my reply";
+    }
+  }
+}
+
+/* One tap from a phrase in a message to a card of its own — `keepReply`'s
+   shape, with the message as the situation, because where you read this is
+   exactly what a situation is for. A phrase goes with its `why` as the usage
+   note; the reply you sent goes with the message it answered. Both land in
+   the language's Missatges deck. */
+function keepFromMessage(entry, item, button, kind = "phrase") {
+  const text = entry.text?.trim();
+  const translation = entry.translation?.trim();
+  if (!text || !translation) return;
+  const flip = () => {
+    button.disabled = true;
+    button.textContent = "Kept as a card ✓";
+  };
+  if (replyKept(entry)) {
+    flip();
+    toast("That one is already in the library.");
+    return;
+  }
+  const deck = messagesDeck(item.language);
+  const about = firstLine(item.gist || item.read?.translation || item.text, 90);
+  library.add({
+    text,
+    translation,
+    deck,
+    language: item.language,
+    situation: kind === "reply" ? `Your reply to a message: “${about}”` : `From a message you received: “${about}”`,
+    usageNote: kind === "phrase" && entry.why ? entry.why : null,
+    focusNote: null,
+    replies: [],
+  });
+  flip();
+  toast(`Added to ${deck}.`);
+}
+
+// ------------------------------------------------------------------ xerrada
+
+/* Rehearsing the conversation before you have it.
+
+   The learner is about to meet people for language chats, and everything else
+   in the app is a line at a time: you say the phrase, you hear what comes
+   back, and the exchange ends there. A real conversation is the thing after
+   that — the follow-up question, the answer you have to build on the spot,
+   the moment you realise you can say where you live but not how long you have
+   lived there. So this is the other person, played by the assistant, in a
+   scene you pick, speaking only Catalan to you; and every line you say comes
+   back with how a native would have said it.
+
+   It is the third face of the Real life page, after the phrase you asked for
+   and the message you read, and that is where the user put it: all three are
+   the language meeting real people rather than practice arranged in advance.
+   The facts it follows up on still come from About me — the interview and the
+   cards it wrote are what the hints are built from, so that what you rehearse
+   is your real job and your real town rather than a textbook's. */
+const CHAT_SCENES = [
+  {
+    key: "exchange",
+    title: "A language exchange",
+    blurb: "Meeting a new partner at an intercanvi",
+    brief:
+      "A language exchange (intercanvi lingüístic) in a bar. The learner has just sat down opposite you, a native speaker they have never met, who wants to practise English later; for now you are speaking your own language. Get to know each other — names, where you are each from, where you live, what you do, why they are learning.",
+  },
+  {
+    key: "cafe",
+    title: "At a café",
+    blurb: "A waiter, a table, an order",
+    brief:
+      "A neighbourhood café. You are the waiter; the learner has just sat down at a table outside. Take their order, ask the usual things — inside or out, anything to eat, sparkling or still — and chat a little if they do. Bring the bill when they ask.",
+  },
+  {
+    key: "market",
+    title: "At the market",
+    blurb: "A stall, a kilo of something",
+    brief:
+      "A stall at the local market. You are the stallholder; the learner has come to buy fruit and vegetables. Ask what they want and how much, say what is good today, tell them the price, and ask if they want anything else.",
+  },
+  {
+    key: "colla",
+    title: "At castells rehearsal",
+    blurb: "A casteller you haven't met yet",
+    brief:
+      "A castells rehearsal (assaig) at the colla's local, before the pinya goes up. You are a casteller who has been in the colla for years; the learner is new. Ask who they are, how they found the colla, where they go in the pinya, and put them at ease.",
+  },
+  {
+    key: "neighbour",
+    title: "A neighbour on the stairs",
+    blurb: "Small talk, then a question",
+    brief:
+      "The stairwell of the learner's building. You are a neighbour they have seen but never spoken to. Say hello, make small talk — the weather, the building, how long they have lived here — and ask them something about themselves.",
+  },
+];
+
+const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+/* The way into a chat, on the Real life page: a scene to pick and a Start
+   button, in one card the size of the two above it. The scenes are a select
+   rather than six rows because the page already has two boxes on it and the
+   phrase box has to stay on top; *Somewhere else…* opens a box for a scene
+   of your own. */
+function chatStarter() {
+  return `
+    <div class="card quick-chat-card">
+      <label class="field"><span>Want to rehearse a conversation?</span>
+        <select id="chat-scene" class="deck-select">
+          ${CHAT_SCENES.map((scene) => `<option value="${esc(scene.key)}">${esc(scene.title)}</option>`).join("")}
+          <option value="own">Somewhere else…</option>
+        </select></label>
+      <label class="field" id="chat-own" hidden><span>Where are you?</span>
+        <textarea id="chat-own-brief" lang="en-GB" rows="2"></textarea></label>
+      <label class="field"><span>Who are you talking to? <span class="muted">(optional)</span></span>
+        <textarea id="chat-who" lang="en-GB" rows="1"></textarea></label>
+      ${voiceField("chat-voice", partnerVoice(settings.language))}
+      <button class="btn btn-primary" id="chat-go" style="width:100%">Start the chat</button>
+    </div>`;
+}
+
+/* Their voice: a select over the language's voices, opening on `selected`.
+   Only with an Azure key — the browser voice is one voice per language and
+   there is nothing to choose — and the same control on the starter card and
+   on the chat page, so a voice picked before the partner opens and a voice
+   changed mid-chat are one thing. */
+function voiceField(id, selected) {
+  if (!settings.hasAzure) return "";
+  const voices = LANGUAGES[settings.language]?.voices ?? [];
+  if (voices.length < 2) return "";
+  return `
+    <label class="field"><span>Their voice</span>
+      <select id="${id}" class="deck-select">
+        ${voices
+          .map(
+            (v) =>
+              `<option value="${esc(v.id)}" ${v.id === selected ? "selected" : ""}>${esc(v.name)} · ${esc(
+                v.gender
+              )}${v.id === settings.azureVoice ? " — your drill voice" : ""}</option>`
+          )
+          .join("")}
+      </select></label>`;
+}
+
+function wireChatStarter() {
+  const select = document.getElementById("chat-scene");
+  if (!select) return;
+  const own = document.getElementById("chat-own");
+  /* Choosing a voice here is remembered for the next chat too — it is a
+     preference about who you rehearse with, not a fact about one scene. */
+  document.getElementById("chat-voice")?.addEventListener("change", (event) => {
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
+  select.addEventListener("change", () => {
+    own.hidden = select.value !== "own";
+    if (!own.hidden) document.getElementById("chat-own-brief").focus();
+  });
+  document.getElementById("chat-go").addEventListener("click", () => {
+    const character = document.getElementById("chat-who").value.trim();
+    if (select.value === "own") {
+      const field = document.getElementById("chat-own-brief");
+      const brief = field.value.trim();
+      if (!brief) {
+        field.focus();
+        return;
+      }
+      startChat({ key: "own", title: firstLine(brief, 40), blurb: "", brief, character });
+      return;
+    }
+    const scene = CHAT_SCENES.find((s) => s.key === select.value);
+    if (scene) startChat({ ...scene, character });
+  });
+}
+
+/* `character` is who the partner is — an old man who has lived in Horta all
+   his life, someone who was a casteller with Vilafranca — written by the
+   learner and carried on the scene, so *Have it again* keeps them. `voice` is
+   the voice they speak in, written onto the chat for the same reason. */
+function startChat(scene, voice = partnerVoice(settings.language)) {
+  const item = chats.add({
+    scene: {
+      key: scene.key,
+      title: scene.title,
+      blurb: scene.blurb ?? "",
+      brief: scene.brief,
+      character: scene.character ?? "",
+    },
+    // Written onto the chat, so reopening it keeps the person you were
+    // talking to; the partner's lines are cached under it.
+    voice,
+  });
+  state.chat = item.id;
+  render();
+}
+
+/* What one turn sends. The transcript, trimmed to what the Worker will keep
+   anyway, and the facts about the learner: the About me cards' English, which
+   are first-person sentences about their life, then their own interview
+   answers — capped together at the forty the Worker reads, cards first,
+   because a card is a fact already boiled down. Same 24k-body reasoning as
+   interviewPayload. */
+function chatPayload(item) {
+  const facts = [
+    ...library.inDeck(ABOUT_DECK, item.language).map((phrase) => phrase.translation?.slice(0, 120)),
+    ...aboutMe.turns.filter((turn) => turn.role === "learner").slice(-12).map((turn) => turn.text.slice(0, 160)),
+  ]
+    .filter(Boolean)
+    .slice(0, 40);
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    scene: item.scene.brief,
+    character: item.scene.character || "",
+    history: item.turns.slice(-20).map((turn) => ({ role: turn.role, text: turn.text.slice(0, 500) })),
+    facts,
+  };
+}
+
+/* One tap from a line in the chat to a card of its own — the partner's line
+   you want to be able to say, or your own line as it should have been, with
+   the note on what changed as its usage note. Both land in the language's
+   Xerrades deck, an ordinary deck like Missatges and for the same reason. */
+function keepFromChat(entry, item, button, kind = "partner") {
+  const text = entry.text?.trim();
+  const translation = entry.translation?.trim();
+  if (!text || !translation) {
+    toast("That line has no English to file it with.");
+    return;
+  }
+  const flip = () => {
+    button.disabled = true;
+    button.textContent = "Kept as a card ✓";
+  };
+  if (replyKept(entry)) {
+    flip();
+    toast("That one is already in the library.");
+    return;
+  }
+  const deck = chatsDeck(item.language);
+  const where = item.scene.title || "a rehearsal chat";
+  library.add({
+    text,
+    translation,
+    deck,
+    language: item.language,
+    situation: kind === "fix" ? `Your line, rehearsing: ${where}.` : `Said to you, rehearsing: ${where}.`,
+    usageNote: kind === "fix" && entry.note ? entry.note : null,
+    focusNote: null,
+    replies: [],
+  });
+  flip();
+  toast(`Added to ${deck}.`);
+}
+
+/* Talk or type. Talk is the record button and nothing to read back before it
+   goes — you say the line, it is transcribed and sent, and the partner
+   answers out loud — which is the conversation the feature is for. Type is
+   the box, for a train or a room with someone asleep in it, on quiet mode's
+   argument. The choice is a setting, like road mode, because it is how you
+   are practising today rather than a fact about one chat; and talk needs
+   Azure to hear you, so without a key the page is in type whatever the
+   setting says, and says why. */
+function talkNow() {
+  return Boolean(settings.chatTalk && settings.hasAzure);
+}
+
+/* The voice this chat's partner speaks in. A chat from before voices were
+   chosen has none written on it, and reads as the default — the other gender
+   from the drill voice — rather than as the drill voice. */
+function partnerVoiceOf(item) {
+  return item.voice || partnerVoice(item.language, settings.azureVoice, "");
+}
+
+/* The conversation, shaped as the card the tutor expects. `text` is the last
+   few lines of the transcript — the Worker caps it at a thousand characters,
+   which is the last handful of turns — with the partner's lines marked so
+   "what did they mean by…" has something to point at, and the scene as the
+   situation. No Worker change: /chat is the sister apps' too. */
+function chatAskContext(item) {
+  const lines = [];
+  let length = 0;
+  for (let i = item.turns.length - 1; i >= 0; i -= 1) {
+    const turn = item.turns[i];
+    const line = `${turn.role === "partner" ? "They" : "You"}: ${turn.text}`;
+    if (length + line.length + 1 > 1000) break;
+    lines.unshift(line);
+    length += line.length + 1;
+  }
+  const scene = item.scene.title || "a rehearsal chat";
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    deck: chatsDeck(item.language),
+    card: {
+      text: lines.join("\n") || "(nothing said yet)",
+      translation: "",
+      situation: `A rehearsal conversation in the app — ${scene}${item.scene.character ? `, with ${item.scene.character}` : ""}. "They" is the partner the app is playing; "You" is the learner.`,
+      usageNote: "",
+      focusNote: "",
+      replies: [],
+    },
+  };
+}
+
+function renderChat() {
+  const item = chats.find(state.chat);
+  if (!item) {
+    state.chat = null;
+    render();
+    return;
+  }
+  const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
+  let busy = false;
+  let hearing = false;
+  /* Which partner lines have their English or their hint open. Local to the
+     page, like the message page's opened glosses: what you have looked at is
+     not a fact about the chat, and it should survive the log being repainted
+     by the next turn. */
+  const english = new Set();
+  const hinted = new Set();
+  /* The partner's reply being held back while you say the fix. When your
+     line came back corrected, the conversation waits: the fixed line is read
+     out, you say it back (scored against it, with a key), and *Move on* lets
+     the reply through. `hold` is the index of the withheld partner turn, or
+     null; local, so a chat reopened later shows everything. `practice` is
+     the last scored go at the fix. */
+  let hold = null;
+  let practice = null;
+  /* A partner line being said back, by index, or null — the same card as the
+     fix's, opened under the bubble by *Say it*, so both sides of the
+     conversation can be practised. One at a time, and never while a hold
+     stands: the hold's card is the one that matters then. */
+  let saying = null;
+  /* The learner line being edited in place, by index, or null. Only the last
+     one is offered — a change further back would orphan everything after it. */
+  let editing = null;
+
+  view.innerHTML = `
+    ${pageHead(
+      "quick",
+      item.scene.title || "Xerrada",
+      item.ended ? "How it went" : item.scene.character ? `With ${item.scene.character}` : `Rehearsing it in ${language.name}`,
+      `<button class="link" id="chat-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`
+    )}
+    <div class="xat-head">
+      <p class="small muted chat-brief">${esc(item.scene.blurb || item.scene.brief)}</p>
+      ${
+        item.ended
+          ? ""
+          : `<div class="xat-modes" role="group" aria-label="Talk or type">
+               <button class="mode-toggle xat-toggle" id="xat-talk" aria-pressed="${talkNow()}">Talk</button>
+               <button class="mode-toggle xat-toggle" id="xat-type" aria-pressed="${!talkNow()}">Type</button>
+             </div>`
+      }
+    </div>
+    ${item.ended ? "" : `<div class="xat-voice">${voiceField("xat-voice", partnerVoiceOf(item))}</div>`}
+    <div class="card chat-card xat">
+      <div class="chat-log xat-log" id="xat-log"></div>
+      <div id="xat-composer" ${item.ended ? "hidden" : ""}></div>
+      <div class="notice bad" id="xat-error" hidden></div>
+    </div>
+    <div id="xat-summary"></div>
+    <div id="xat-ask" hidden></div>
+    <div class="btn-row" style="margin-top:18px">
+      ${
+        item.ended
+          ? `<button class="btn btn-primary" id="xat-again">Have it again</button>`
+          : `<button class="btn" id="xat-end">End the chat</button>`
+      }
+      <button class="link btn-danger" id="xat-forget">Forget this chat</button>
+    </div>`;
+
+  const log = document.getElementById("xat-log");
+  const composer = document.getElementById("xat-composer");
+  const errorBox = document.getElementById("xat-error");
+
+  document.getElementById("chat-back").onclick = () => {
+    stopEverything();
+    state.chat = null;
+    render();
+  };
+  document.getElementById("xat-forget").onclick = () => {
+    stopEverything();
+    chats.remove(item.id);
+    state.chat = null;
+    render();
+    toast("Forgotten. Any cards you kept from it are still in the library.");
+  };
+  document.getElementById("xat-end")?.addEventListener("click", () => {
+    if (busy) return;
+    stopEverything();
+    chats.update(item.id, { ended: true });
+    render();
+  });
+  document.getElementById("xat-again")?.addEventListener("click", () => startChat(item.scene, partnerVoiceOf(item)));
+  /* Changing the voice mid-chat: the next lines are in it, and Listen on the
+     earlier ones re-says them in it too, since the cache is keyed by voice. */
+  document.getElementById("xat-voice")?.addEventListener("change", (event) => {
+    chats.update(item.id, { voice: event.target.value });
+    settings.chatVoice = event.target.value;
+    settings.save();
+  });
+
+  document.getElementById("xat-talk")?.addEventListener("click", () => setMode(true));
+  document.getElementById("xat-type")?.addEventListener("click", () => setMode(false));
+
+  /* Delegated, because the log is rewritten on every turn. */
+  log.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.id === "xat-move-on") return moveOn();
+    if (button.id === "xat-practice-say") return togglePractice();
+    if (button.id === "xat-practice-listen") {
+      const text = practiceText();
+      if (text) sayAloud(button, text, language, "Couldn't play that.");
+      return;
+    }
+    if (button.id === "xat-practice-done") {
+      closeSaying();
+      return;
+    }
+    if (button.id === "xat-edit-cancel") {
+      editing = null;
+      paintLog();
+      return;
+    }
+    if (button.id === "xat-edit-send") return resend();
+    const at = Number(button.dataset.at);
+    const turn = item.turns[at];
+    if (!turn) return;
+    if (button.hasAttribute("data-edit")) {
+      if (busy) return;
+      editing = at;
+      paintLog();
+      const box = document.getElementById("xat-edit-input");
+      box?.focus();
+      return;
+    }
+    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.", partnerVoiceOf(item));
+    else if (button.hasAttribute("data-say-fix") && turn.correction?.fixed)
+      // Your line as it should have been, in your own voice — the drill's.
+      sayAloud(button, turn.correction.fixed, language, "Couldn't play that.");
+    else if (button.hasAttribute("data-practise")) {
+      if (hold !== null || hearing) return;
+      if (recorder.isRecording) {
+        clearInterval(state.levelTimer);
+        state.levelTimer = null;
+        recorder.cancel();
+      }
+      saying = saying === at ? null : at;
+      practice = null;
+      paintLog();
+    } else if (button.hasAttribute("data-english")) {
+      english.has(at) ? english.delete(at) : english.add(at);
+      paintLog();
+    } else if (button.hasAttribute("data-hint")) {
+      hinted.has(at) ? hinted.delete(at) : hinted.add(at);
+      paintLog();
+    } else if (button.hasAttribute("data-keep")) {
+      keepFromChat({ text: turn.text, translation: turn.translation }, item, button, "partner");
+    } else if (button.hasAttribute("data-keep-fix") && turn.correction) {
+      keepFromChat(
+        { text: turn.correction.fixed, translation: turn.correction.translation, note: turn.correction.note },
+        item,
+        button,
+        "fix"
+      );
+    }
+  });
+
+  paintLog();
+  paintComposer();
+  paintSummary();
+  /* Asking about it: the card chat, with the conversation as the card. A
+     word you did not catch, a phrase you would like to know more about — the
+     same panel the drill and the phrase sheet carry, one turn of /chat, and
+     the context is rebuilt per question so it always holds the latest lines.
+     History dies with the page, as it does everywhere else the panel is: a
+     study aside, not a transcript. */
+  cardChatPanel(document.getElementById("xat-ask"), "Ask about a word or a phrase", () => chatAskContext(item));
+  // The partner opens. A chat that starts with an empty box and waits is the
+  // blank page this exists to avoid — same call as the interview's first
+  // question.
+  if (!item.turns.length && !item.ended) turn();
+
+  /* Switching stops a recording in progress rather than sending it: the tap
+     was on Type, not on the mic. The setting is the phone's, not the chat's.
+     Talk without a key is refused with the reason, and the pill stays where
+     it was. */
+  function setMode(talk) {
+    if (talk && !settings.hasAzure) {
+      toast("Talk needs an Azure key so it can hear you. Add one in Settings, or type — the keyboard's dictation key works too.", 4500);
+      return;
+    }
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    settings.chatTalk = talk;
+    settings.save();
+    document.getElementById("xat-talk")?.setAttribute("aria-pressed", String(talkNow()));
+    document.getElementById("xat-type")?.setAttribute("aria-pressed", String(!talkNow()));
+    paintComposer();
+    composer.hidden = hold !== null;
+  }
+
+  /* The box or the button, repainted in place so the English you have opened
+     above it stays open. */
+  function paintComposer() {
+    if (item.ended) return;
+    if (talkNow()) {
+      composer.innerHTML = `
+        <div class="record-wrap xat-talk-box">
+          <button class="record xat-record" id="xat-record" aria-label="Say your line" aria-pressed="false">${MIC_SVG}</button>
+          <div class="small muted xat-note" id="xat-note">Tap, say your line, tap again. It is sent as you said it.</div>
+        </div>`;
+      document.getElementById("xat-record").addEventListener("click", toggleRecord);
+    } else {
+      composer.innerHTML = `
+        <form class="chat-form" id="xat-form">
+          <textarea rows="1" id="xat-input" lang="${esc(item.language)}" autocapitalize="sentences"
+                    autocorrect="off" spellcheck="false" aria-label="Your line"></textarea>
+          <button class="btn btn-primary" type="submit" id="xat-send">Send</button>
+        </form>
+        <p class="tiny muted xat-note" id="xat-note">${
+          settings.hasAzure
+            ? "Each line comes back with how a native would have said it. Switch to Talk to say it instead."
+            : "Type your line, or use the keyboard's dictation key. Each line comes back with how a native would have said it."
+        }</p>`;
+      const form = document.getElementById("xat-form");
+      const input = document.getElementById("xat-input");
+      const submit = () => {
+        const text = input.value.trim();
+        if (!text) {
+          input.focus();
+          return;
+        }
+        if (busy) return;
+        input.value = "";
+        autosize(input);
+        say(text);
+      };
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submit();
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          submit();
+        }
+      });
+      autosize(input);
+    }
+    setBusy();
+  }
+
+  function partnerBubble(turn, at) {
+    const showEnglish = item.ended || english.has(at);
+    const showHint = hinted.has(at);
+    const kept = replyKept({ text: turn.text });
+    return `
+      <div class="xat-turn partner">
+        <div class="chat-msg assistant" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        <div class="xat-tools">
+          <button class="link" data-say data-at="${at}">Listen</button>
+          ${
+            turn.translation
+              ? `<button class="link" data-english data-at="${at}" aria-expanded="${showEnglish}">English</button>`
+              : ""
+          }
+          ${
+            turn.hint?.text && !item.ended
+              ? `<button class="link" data-hint data-at="${at}" aria-expanded="${showHint}">Help me answer</button>`
+              : ""
+          }
+          <button class="link" data-keep data-at="${at}" ${kept ? "disabled" : ""}>${
+            kept ? "Kept as a card ✓" : "Keep as a card"
+          }</button>
+          ${hold === null ? `<button class="link" data-practise data-at="${at}" aria-expanded="${saying === at}">Say it</button>` : ""}
+        </div>
+        ${showEnglish && turn.translation ? `<p class="xat-english">${esc(turn.translation)}</p>` : ""}
+        ${saying === at ? practiceCard(turn.text, false) : ""}
+        ${
+          showHint && turn.hint?.text
+            ? `<p class="xat-hint"><b lang="${esc(item.language)}">${esc(turn.hint.text)}</b> <span>${esc(
+                turn.hint.translation ?? ""
+              )}</span></p>`
+            : ""
+        }
+      </div>`;
+  }
+
+  function lastLearnerAt() {
+    for (let i = item.turns.length - 1; i >= 0; i -= 1) if (item.turns[i].role === "learner") return i;
+    return -1;
+  }
+
+  function learnerBubble(turn, at) {
+    const fix = turn.correction;
+    const kept = fix?.fixed ? replyKept({ text: fix.fixed }) : false;
+    if (editing === at) {
+      return `
+        <div class="xat-turn learner xat-editing">
+          <textarea id="xat-edit-input" lang="${esc(item.language)}" rows="2" autocapitalize="sentences"
+                    autocorrect="off" spellcheck="false" aria-label="Your line">${esc(turn.text)}</textarea>
+          <div class="xat-tools">
+            <button class="link" id="xat-edit-cancel">Cancel</button>
+            <button class="link" id="xat-edit-send">Send it again</button>
+          </div>
+        </div>`;
+    }
+    const editable = !item.ended && !busy && at === lastLearnerAt();
+    return `
+      <div class="xat-turn learner">
+        <div class="chat-msg user" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        ${editable ? `<div class="xat-tools"><button class="link" data-edit data-at="${at}">Edit</button></div>` : ""}
+        ${
+          !fix
+            ? ""
+            : fix.fixed
+            ? `<div class="xat-fix">
+                 <span class="xat-fix-label">A native would say</span>
+                 <p class="xat-fixed" lang="${esc(item.language)}">${esc(fix.fixed)}</p>
+                 ${fix.translation ? `<p class="xat-fix-english">${esc(fix.translation)}</p>` : ""}
+                 ${fix.note ? `<p class="xat-fix-note">${esc(fix.note)}</p>` : ""}
+                 <button class="link" data-say-fix data-at="${at}">Listen</button>
+                 <button class="link" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
+                   kept ? "Kept as a card ✓" : "Keep as a card"
+                 }</button>
+               </div>`
+            : `<p class="xat-ok">✓ ${esc(fix.note || "That was fine.")}</p>`
+        }
+      </div>`;
+  }
+
+  function paintLog() {
+    log.hidden = !item.turns.length && !busy;
+    const shown = hold === null ? item.turns : item.turns.slice(0, hold);
+    log.innerHTML =
+      shown.map((turn, at) => (turn.role === "partner" ? partnerBubble(turn, at) : learnerBubble(turn, at))).join("") +
+      (hold !== null ? practiceCard(item.turns[hold - 1]?.correction?.fixed ?? "", true) : "") +
+      (busy ? `<div class="chat-msg assistant chat-thinking"><span class="spinner"></span></div>` : "");
+  }
+
+  /* Say the fix back before the conversation moves on. The fixed line, a
+     Listen, the record button when there is a key to score it — the drill's
+     weakest-word verdict against the fixed line, since that is the number
+     this app trusts — and Move on. Nothing here is filed as an attempt: the
+     fix is not a card, and a go at it is practice for the next line rather
+     than a record. */
+  /* What the open practice card is scoring against: the fix while a hold
+     stands, otherwise the partner line opened with Say it. */
+  function practiceText() {
+    if (hold !== null) return item.turns[hold - 1]?.correction?.fixed ?? "";
+    if (saying !== null) return item.turns[saying]?.text ?? "";
+    return "";
+  }
+
+  function closeSaying() {
+    if (hearing) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    saying = null;
+    practice = null;
+    paintLog();
+  }
+
+  /* `holding` is the fix's card, which ends in Move on; the partner's ends in
+     Done and the conversation was never waiting on it. */
+  function practiceCard(text, holding) {
+    const recording = recorder.isRecording;
+    return `
+      <div class="xat-practice ${holding ? "" : "xat-practice-line"}" id="xat-practice">
+        <span class="xat-fix-label">${holding ? "Now you say it" : "Say it back"}</span>
+        <p class="xat-fixed" lang="${esc(item.language)}">${esc(text)}</p>
+        <div class="xat-practice-row">
+          <button class="link" id="xat-practice-listen">Listen</button>
+          ${
+            settings.hasAzure
+              ? `<button class="record xat-practice-record ${recording ? "recording" : ""}" id="xat-practice-say"
+                         aria-label="Say it" aria-pressed="${recording}" ${hearing ? "disabled" : ""}>${MIC_SVG}</button>`
+              : ""
+          }
+          ${
+            holding
+              ? `<button class="btn btn-primary" id="xat-move-on" ${hearing || recording ? "disabled" : ""}>Move on</button>`
+              : `<button class="btn" id="xat-practice-done" ${hearing || recording ? "disabled" : ""}>Done</button>`
+          }
+        </div>
+        <p class="tiny muted xat-practice-note" id="xat-practice-note">${
+          settings.hasAzure ? "Tap the mic, say it, tap again. As many goes as you like." : "Say it out loud a couple of times, then move on."
+        }</p>
+        <div id="xat-practice-result">${practiceResult()}</div>
+      </div>`;
+  }
+
+  function practiceResult() {
+    if (!practice) return "";
+    const score = attemptScore(practice);
+    const weakest = (practice.words ?? [])
+      .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+      .filter((word) => typeof word.score === "number")
+      .sort((a, b) => a.score - b.score)[0];
+    return `
+      <div class="xat-result ${scoreClass(score)}">
+        ${score != null ? scoreDial(score) : ""}
+        <div class="xat-result-text">
+          ${
+            score == null
+              ? `<b>Heard, not scored.</b>`
+              : score >= GOOD
+              ? `<b>Every word cleared ${GOOD}.</b>`
+              : weakest
+              ? `<b>Weakest word: «${esc(weakest.word)}»</b> at ${Math.round(weakest.score)}.`
+              : `<b>${Math.round(score)}</b>`
+          }
+          ${practice.transcript ? `<span class="muted">Heard: ${esc(practice.transcript)}</span>` : ""}
+        </div>
+      </div>`;
+  }
+
+  /* Let the held reply through, and read it out. */
+  function moveOn() {
+    if (hold === null || hearing) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      recorder.cancel();
+    }
+    const at = hold;
+    hold = null;
+    practice = null;
+    paintLog();
+    paintComposer();
+    composer.hidden = false;
+    setBusy();
+    log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+    const reply = item.turns[at]?.text;
+    if (reply) autoplay(reply);
+  }
+
+  /* One go at the fixed line: the drill's recorder, the drill's scorer, the
+     drill's number. */
+  async function togglePractice() {
+    const fixed = practiceText();
+    const note = () => document.getElementById("xat-practice-note");
+    if (!fixed) return;
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      hearing = true;
+      const result = await recorder.stop();
+      if (!result) {
+        hearing = false;
+        if (!log.isConnected) return;
+        paintLog();
+        if (note()) note().textContent = "Too short — try again.";
+        return;
+      }
+      if (note()) note().textContent = "Scoring…";
+      paintLog();
+      const scored = await scoring.score(result.blob, { text: fixed, language: item.language }, settings);
+      hearing = false;
+      if (!log.isConnected || practiceText() !== fixed) return;
+      practice = scored;
+      paintLog();
+      if (!scored && note()) note().textContent = scoring.lastError || "Couldn't score that. Try again.";
+      return;
+    }
+    stopEverything();
+    recorder = new Recorder();
+    try {
+      await recorder.start();
+    } catch (error) {
+      toast(
+        String(error?.name) === "NotAllowedError"
+          ? "Microphone blocked. Allow it in Safari's site settings."
+          : "Couldn't start recording."
+      );
+      return;
+    }
+    paintLog();
+    const listening = () => {
+      if (note()) note().textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap again when you've said it.`;
+    };
+    listening();
+    state.levelTimer = setInterval(listening, 100);
+  }
+
+  /* Your last line, said differently. Everything after it goes — the
+     correction was of the old line and the reply answered it — and the new
+     line is sent as if it had been the first go. */
+  function resend() {
+    const box = document.getElementById("xat-edit-input");
+    const text = box?.value.trim();
+    if (!text) {
+      box?.focus();
+      return;
+    }
+    if (busy || editing === null) return;
+    const at = editing;
+    editing = null;
+    hold = null;
+    practice = null;
+    item.turns.length = at;
+    item.turns.push({ role: "learner", text, correction: null });
+    chats.save();
+    composer.hidden = false;
+    errorBox.hidden = true;
+    turn(text);
+  }
+
+  function paintSummary() {
+    const box = document.getElementById("xat-summary");
+    if (!item.ended) {
+      box.innerHTML = "";
+      return;
+    }
+    const said = item.turns.filter((turn) => turn.role === "learner");
+    const fixed = said.filter((turn) => turn.correction?.fixed).length;
+    box.innerHTML = `
+      <div class="notice good xat-summary">${
+        said.length
+          ? `You said ${said.length} line${said.length === 1 ? "" : "s"}. ${
+              fixed
+                ? `${fixed} came back with a fix — ${fixed === 1 ? "it is" : "they are"} marked above, and each can be kept as a card.`
+                : "None needed a fix."
+            } The English of every line is showing now.`
+          : "You didn't get to say anything this time."
+      }</div>`;
+  }
+
+  function setBusy() {
+    const send = document.getElementById("xat-send");
+    const record = document.getElementById("xat-record");
+    if (send) send.disabled = busy || hearing;
+    if (record) record.disabled = busy;
+  }
+
+  /* Your line goes into the transcript before the call, and comes back out
+     of it if the call fails — so a retry is one tap rather than a retype, and
+     a turn that never got an answer is never left standing as if it had. */
+  async function say(text) {
+    if (!text || busy || item.ended || hold !== null) return;
+    item.turns.push({ role: "learner", text, correction: null });
+    chats.save();
+    errorBox.hidden = true;
+    await turn(text);
+  }
+
+  async function turn(said = null) {
+    if (busy) return;
+    busy = true;
+    saying = null;
+    practice = null;
+    errorBox.hidden = true;
+    setBusy();
+    paintLog();
+    log.scrollIntoView({ block: "end" });
+    try {
+      const result = await cardAssistant.converse(chatPayload(item), settings);
+      if (!result.reply?.trim()) throw new Error("Nothing came back. Try again.");
+      /* Saved whether or not the page is still on screen, for the interview's
+         reason: the chat is persistent, and a reply fetched while you had
+         left is waiting for you when you come back. */
+      const last = item.turns[item.turns.length - 1];
+      if (last?.role === "learner") {
+        last.correction = result.correction
+          ? {
+              fixed: result.correction.fixed || "",
+              translation: result.correction.translation || "",
+              note: result.correction.note || "",
+            }
+          : { fixed: "", translation: "", note: "" };
+      }
+      item.turns.push({
+        role: "partner",
+        text: result.reply.trim(),
+        translation: result.replyTranslation || "",
+        hint: result.hint?.text ? { text: result.hint.text, translation: result.hint.translation || "" } : null,
+      });
+      chats.save();
+      busy = false;
+      if (!log.isConnected) return;
+      /* A corrected line stops the conversation until you have said the fix:
+         the reply is held, the fix is read out, and Move on lets it through.
+         A line that was fine goes straight on. */
+      if (last?.role === "learner" && last.correction?.fixed) {
+        hold = item.turns.length - 1;
+        practice = null;
+        composer.hidden = true;
+        paintLog();
+        setBusy();
+        log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+        autoplay(last.correction.fixed);
+        return;
+      }
+      paintLog();
+      setBusy();
+      log.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+      autoplay(result.reply.trim());
+    } catch (error) {
+      // The line comes back out of the transcript — and into the box, when
+      // there is a box; in talk mode it is said again.
+      if (said && item.turns[item.turns.length - 1]?.role === "learner") item.turns.pop();
+      chats.save();
+      busy = false;
+      if (!log.isConnected) return;
+      const input = document.getElementById("xat-input");
+      if (said && input) {
+        input.value = said;
+        autosize(input);
+      }
+      errorBox.innerHTML = `${esc(error.message)}${
+        said ? (input ? "" : " Say it again.") : ` <button class="link" id="xat-retry">Try again</button>`
+      }`;
+      errorBox.hidden = false;
+      document.getElementById("xat-retry")?.addEventListener("click", () => turn());
+    } finally {
+      busy = false;
+      if (log.isConnected) {
+        paintLog();
+        setBusy();
+      }
+    }
+  }
+
+  /* The partner's line is played as it arrives, since a conversation is
+     heard. Quietly: iOS may refuse a play that was not started by a tap, and
+     a toast on every turn would be worse than the Listen button that is
+     right there under the line. */
+  async function autoplay(text) {
+    try {
+      const blob = await speech.modelAudio({ text, language: item.language, voice: partnerVoiceOf(item) }, settings);
+      if (blob) await player.play(blob);
+      else if (browserSpeech.available(item.language)) browserSpeech.speak(text, item.language);
+    } catch {
+      /* The Listen button is the way to hear it. */
+    }
+  }
+
+  /* Talk: the drill's recorder, then Azure transcribes it with no reference
+     text, and what it heard goes straight into the conversation — the bubble
+     shows what was heard, and the correction is of that. A mishearing costs
+     one turn, which is what a mishearing costs in a real conversation too. */
+  async function toggleRecord() {
+    const button = document.getElementById("xat-record");
+    const note = document.getElementById("xat-note");
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      button.classList.remove("recording");
+      button.setAttribute("aria-pressed", "false");
+      hearing = true;
+      button.disabled = true;
+      note.textContent = "Working out what you said…";
+      const result = await recorder.stop();
+      if (!result) {
+        hearing = false;
+        if (!note.isConnected) return;
+        button.disabled = false;
+        note.textContent = "Too short — try again.";
+        return;
+      }
+      const text = await transcription.transcribe(result.blob, item.language, settings);
+      hearing = false;
+      if (!note.isConnected) return;
+      button.disabled = false;
+      if (!text) {
+        note.textContent = transcription.lastError || "Azure heard nothing. Try again.";
+        return;
+      }
+      note.textContent = "Tap, say your line, tap again. It is sent as you said it.";
+      say(text);
+      return;
+    }
+    if (busy) return;
+    stopEverything();
+    recorder = new Recorder();
+    try {
+      await recorder.start();
+    } catch (error) {
+      toast(
+        String(error?.name) === "NotAllowedError"
+          ? "Microphone blocked. Allow it in Safari's site settings."
+          : "Couldn't start recording."
+      );
+      return;
+    }
+    button.classList.add("recording");
+    button.setAttribute("aria-pressed", "true");
+    const listening = () => {
+      if (!note.isConnected) return;
+      note.textContent = `Listening… ${recorder.elapsed().toFixed(1)}s. Tap again when you've said it.`;
+    };
+    listening();
+    state.levelTimer = setInterval(listening, 100);
+  }
+}
+
 /* A phrase row: the star, then the phrase and what it means. A capture with no
    target-language text yet can't be drilled or compared, so its row opens the
    edit form rather than the detail sheet. */
@@ -755,7 +3519,7 @@ function phraseRow(phrase) {
   const capture = !phrase.text.trim();
   const best = library.bestScore(phrase.id);
   return `
-    <div class="row">
+    <div class="row striped hue-${deckColour(phrase.deck)}">
       ${starButton(phrase)}
       <button class="row-open" ${capture ? `data-edit="${esc(phrase.id)}"` : `data-phrase="${esc(phrase.id)}"`}>
         <span class="row-main">
@@ -789,6 +3553,12 @@ function queueFor(deck) {
   // is both a family and a deck in it.
   if (deck.startsWith(FAMILY_PREFIX))
     return shuffle(library.inFamily(deck.slice(FAMILY_PREFIX.length), settings.language));
+  // A whole tile: every drillable card behind it, shuffled, whichever of its
+  // families the card lives in.
+  if (deck.startsWith(SECTION_PREFIX)) {
+    const key = deck.slice(SECTION_PREFIX.length);
+    return shuffle(library.drillable(settings.language).filter((p) => sectionOf(p.deck) === key));
+  }
   return library.inDeck(deck, settings.language);
 }
 
@@ -806,6 +3576,7 @@ function startDeck(deck, phraseID = null) {
   const queue = queueFor(deck);
   const at = phraseID ? queue.findIndex((p) => p.id === phraseID) : 0;
   state.about = false;
+  state.lesson = null;
   state.deck = deck;
   state.queue = queue;
   state.index = Math.max(0, at);
@@ -868,44 +3639,28 @@ function renderAbout() {
   let making = false;
   let armed = false;
 
+  /* The way home sits in the banner, where every other page keeps it. It was
+     a topbar above the banner — the drill's shape, on a page that isn't the
+     drill — and read as a different control from the one on Quick or Grammar.
+     Same id, same handler; and the banner carries the tile's own mark now
+     rather than Practice's waveform. */
   view.innerHTML = `
-    <div class="topbar">
-      <button class="link" id="about-back">‹ Practice</button>
-    </div>
-
     ${pageHead(
-      "practise",
+      "about",
       ABOUT_DECK,
       cards.length
         ? `${cards.length} card${cards.length === 1 ? "" : "s"} in ${language.name}, written from what you've told it`
-        : `Cards about your own life, in ${language.name}`
+        : `Cards about your own life, in ${language.name}`,
+      `<button class="link" id="about-back">‹ Home</button>`
     )}
 
     ${
-      cards.length
-        ? `<button class="btn btn-primary" id="about-practise" style="width:100%">Practise these ${cards.length}</button>
-           <div class="section-label">Your cards</div>
-           <div class="rows rows-spaced">
-             ${cards
-               .map(
-                 (phrase) => `
-                   <div class="row">
-                     ${starButton(phrase)}
-                     <button class="row-open" data-drill="${esc(phrase.id)}">
-                       <span class="row-main">
-                         <span class="row-title">${esc(phrase.text)}</span>
-                         <span class="row-sub">${esc(phrase.translation)}</span>
-                       </span>
-                       <span class="chev">›</span>
-                     </button>
-                   </div>`
-               )
-               .join("")}
-           </div>`
-        : ""
-    }
-
-    ${
+      /* The interview goes first and the cards it wrote go under it, the way
+         Quick keeps its ask box on top and lists what it made underneath. The
+         page is the workshop, and the box you talk to is what it is for; the
+         cards are the record of what it has made so far. With thirty cards
+         the box was a screen and a half down, which is the wrong place for
+         the thing you came to do. */
       settings.hasAssistant
         ? `<div class="section-label">${cards.length ? "Tell it more" : "Tell it about you"}</div>
            <div class="card chat-card">
@@ -927,7 +3682,31 @@ function renderAbout() {
            tell it more whenever you like.</p>`
         : `<div class="section-label">Heads up</div>
            <div class="notice">This deck is written by the card assistant, so it needs the assistant's address and
-           passcode. Add them in Settings and come back.</div>`
+           passcode. <button class="link" id="open-settings-notice">Add them in Settings</button> and come back.</div>`
+    }
+
+    ${
+      cards.length
+        ? `<div class="section-label">Your cards</div>
+           <button class="btn btn-primary" id="about-practise" style="width:100%;margin-bottom:12px">Practise these ${cards.length}</button>
+           <div class="rows rows-spaced">
+             ${cards
+               .map(
+                 (phrase) => `
+                   <div class="row striped hue-green">
+                     ${starButton(phrase)}
+                     <button class="row-open" data-drill="${esc(phrase.id)}">
+                       <span class="row-main">
+                         <span class="row-title">${esc(phrase.text)}</span>
+                         <span class="row-sub">${esc(phrase.translation)}</span>
+                       </span>
+                       <span class="chev">›</span>
+                     </button>
+                   </div>`
+               )
+               .join("")}
+           </div>`
+        : ""
     }`;
 
   const log = document.getElementById("about-log");
@@ -1193,7 +3972,10 @@ function quietNow() {
 function typedWords(value) {
   return String(value ?? "")
     .split(/\s+/)
-    .map((raw) => ({ raw, norm: normaliseSentence(raw) }))
+    /* `clean` is the word as written with the punctuation round it taken off —
+       what to print when naming one of theirs, since "ballarina." with the
+       full stop is not the word. */
+    .map((raw) => ({ raw, clean: raw.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, ""), norm: normaliseSentence(raw) }))
     .filter((word) => word.norm)
     .map((word) => ({ ...word, bare: foldAccents(word.norm) }));
 }
@@ -1202,28 +3984,71 @@ function foldAccents(value) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/·/g, "");
 }
 
+/* A slip of one letter is a slip, not a different word. `ballerina` for
+   `ballarina` was struck through as wrong *and* listed as left out — two marks
+   for one vowel, which is the mode being harsher than a teacher would be and
+   was reported as exactly that. So a word within a letter of the one meant is
+   *close*: it pairs with its word, so nothing is "left out", and it is shown
+   beside the spelling it should have had.
+
+   Optimal string alignment distance — insert, delete, substitute, or swap two
+   neighbours, since `muisc` is a typo and not a different word either. One
+   edit is allowed from four letters, two from eight; nothing shorter, because
+   `i` is one edit from `a` and both are words. Measured on the accent-folded
+   forms, so an accent lost on the same word isn't charged twice. */
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return d[a.length][b.length];
+}
+
+function closeEnough(a, b) {
+  const longest = Math.max(a.length, b.length);
+  if (longest < 4) return false;
+  return editDistance(a, b) <= (longest >= 8 ? 2 : 1);
+}
+
 /* Which of your words landed, and which of theirs never turned up. Straight
    longest-common-subsequence over the accent-folded words: comparing position
    by position would mark every word after a missed one as wrong, which is the
    opposite of naming the one you got wrong. Phrases are a handful of words, so
-   the quadratic table costs nothing. */
+   the quadratic table costs nothing.
+
+   Weighted, so that an exact word is worth two and a close one is worth one:
+   the alignment then never pairs a near miss where an exact match was there to
+   be had, and a close word only ever stands in for the word it is nearest to. */
 function alignWords(mine, theirs) {
+  const worth = (a, b) => (a.bare === b.bare ? 2 : closeEnough(a.bare, b.bare) ? 1 : 0);
   const table = Array.from({ length: mine.length + 1 }, () => new Array(theirs.length + 1).fill(0));
   for (let i = mine.length - 1; i >= 0; i--) {
     for (let j = theirs.length - 1; j >= 0; j--) {
-      table[i][j] =
-        mine[i].bare === theirs[j].bare
-          ? table[i + 1][j + 1] + 1
-          : Math.max(table[i + 1][j], table[i][j + 1]);
+      const pair = worth(mine[i], theirs[j]);
+      table[i][j] = Math.max(
+        table[i + 1][j],
+        table[i][j + 1],
+        pair ? table[i + 1][j + 1] + pair : 0
+      );
     }
   }
   const marks = mine.map(() => "miss");
+  const meant = mine.map(() => null);
   const landed = theirs.map(() => false);
   let i = 0;
   let j = 0;
   while (i < mine.length && j < theirs.length) {
-    if (mine[i].bare === theirs[j].bare) {
-      marks[i] = mine[i].norm === theirs[j].norm ? "ok" : "accent";
+    const pair = worth(mine[i], theirs[j]);
+    if (pair && table[i][j] === table[i + 1][j + 1] + pair) {
+      marks[i] = pair === 2 ? (mine[i].norm === theirs[j].norm ? "ok" : "accent") : "close";
+      if (pair === 1) meant[i] = theirs[j].clean;
       landed[j] = true;
       i++;
       j++;
@@ -1233,7 +4058,7 @@ function alignWords(mine, theirs) {
       j++;
     }
   }
-  return { marks, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.raw) };
+  return { marks, meant, missing: theirs.filter((_, at) => !landed[at]).map((word) => word.clean) };
 }
 
 /* The whole of what a typed go produces, and it is deliberately not persisted
@@ -1250,12 +4075,23 @@ function alignWords(mine, theirs) {
 function checkTyped(typed, phrase) {
   const mine = typedWords(typed);
   const theirs = typedWords(phrase.text);
-  const same = (key) => mine.map((w) => w[key]).join(" ") === theirs.map((w) => w[key]).join(" ");
-  const verdict = same("norm") ? "right" : same("bare") ? "accents" : "wrong";
-  const { marks, missing } = alignWords(mine, theirs);
+  const { marks, meant, missing } = alignWords(mine, theirs);
+  /* Four verdicts, worst mark wins. A word that is simply not there, or a word
+     of yours that matches nothing, is wrong; a slip of a letter is close; an
+     accent is a keyboard problem; and the rest is right. Every word right and
+     nothing missing is the same sequence, which is what "right" used to be
+     checked as directly. */
+  const verdict =
+    missing.length || marks.includes("miss")
+      ? "wrong"
+      : marks.includes("close")
+      ? "close"
+      : marks.includes("accent")
+      ? "accents"
+      : "right";
   return {
     verdict,
-    words: mine.map((word, at) => ({ raw: word.raw, mark: marks[at] })),
+    words: mine.map((word, at) => ({ raw: word.raw, clean: word.clean, mark: marks[at], meant: meant[at] })),
     missing,
   };
 }
@@ -1320,13 +4156,22 @@ async function loadPhrase() {
   state.roadRevealed = false;
   state.aspectChoice = null;
   state.typed = null;
+  state.pictured = false;
   scoring.lastError = null;
   if (!phrase) return render();
 
   state.loadingModel = settings.hasAzure && !(await speech.isCached(phrase, settings));
   render();
 
-  const blob = await speech.modelAudio(phrase, settings);
+  /* Guarded even though modelAudio now swallows its own failures: this is the
+     one await between showing the spinner and taking it away, and a throw here
+     leaves "Generating audio…" on the screen for as long as the card is. */
+  let blob = null;
+  try {
+    blob = await speech.modelAudio(phrase, settings);
+  } catch {
+    blob = null;
+  }
   state.loadingModel = false;
   if (currentPhrase()?.id !== phrase.id) return; // moved on while we waited
   state.modelBlob = blob;
@@ -1387,7 +4232,7 @@ function renderDrill() {
 
   const topbar = `
     <div class="topbar">
-      <button class="link" id="back">‹ Practice</button>
+      <button class="link" id="back">‹ ${esc(state.section ? TILE_BY_KEY[state.section]?.title ?? "Home" : "Home")}</button>
       <span class="topbar-end">
         <span class="progress-pill">${state.index + 1}/${state.queue.length}</span>
         ${starButton(phrase, "star drill-star")}
@@ -1472,6 +4317,8 @@ function renderDrill() {
              }`
       }
     </div>`}
+
+    ${road ? "" : drillPicture(phrase, questioned)}
 
     ${
       asking
@@ -1566,6 +4413,8 @@ function renderDrill() {
 
   document.getElementById("back").onclick = () => {
     stopEverything();
+    // Leaving a lesson early leaves it unticked; the node is where you left it.
+    state.lesson = null;
     state.deck = null;
     render();
   };
@@ -1576,6 +4425,13 @@ function renderDrill() {
   document.getElementById("listen")?.addEventListener("click", () => playModel(1));
   document.getElementById("slow")?.addEventListener("click", () => playModel(settings.slowRate));
   document.getElementById("record")?.addEventListener("click", toggleRecording);
+  /* The picture, asked for rather than shown. Re-rendering is safe here for the
+     same reason it is safe on the shape gate: while the question is standing
+     there is no attempt on the screen for a render() to throw away. */
+  document.getElementById("picture-hint")?.addEventListener("click", () => {
+    state.pictured = true;
+    render();
+  });
   document.getElementById("show-me")?.addEventListener("click", () => {
     state.revealed = true;
     state.peeked = true;
@@ -1589,6 +4445,8 @@ function renderDrill() {
   });
   document.getElementById("done")?.addEventListener("click", () => {
     stopEverything();
+    // The end of a lesson ticks its node; the end of anything else just leaves.
+    if (state.lesson) return finishLesson();
     state.deck = null;
     render();
   });
@@ -1631,6 +4489,19 @@ function renderDrill() {
     if (state.recall) state.peeked = true;
     render();
     playModel(1);
+  });
+  /* Another go at the same card. Clearing `typed` is what puts the question
+     back at level one; at level two the reveal has to be undone as well, so
+     the model audio is withheld again and level two's own Show me returns.
+     `peeked` is left as it was — a card you looked at before writing it was
+     still looked at, and the line under the card should go on saying so. The
+     verdict goes with the box coming back: what stands is the go in front of
+     you, not the last one. */
+  document.getElementById("quiet-again")?.addEventListener("click", () => {
+    state.typed = null;
+    if (state.recall) state.revealed = false;
+    render();
+    document.getElementById("quiet-input")?.focus();
   });
 
   /* One switch, flipped from where you are using it. It writes the setting, so
@@ -1713,7 +4584,9 @@ function renderDrill() {
     });
   });
 
-  wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language);
+  wirePicture(view, phrase);
+
+  wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language, () => phrase);
 
   /* Fetching them mid-drill. The card is repainted in place rather than through
      render(), which would take the attempt you're looking at off the screen —
@@ -1738,7 +4611,7 @@ function renderDrill() {
         return;
       }
       card.innerHTML = repliesBlock(replies);
-      wireReplies(card, replies, phrase.language);
+      wireReplies(card, replies, phrase.language, () => phrase);
     } catch (error) {
       errorBox.className = "notice bad";
       errorBox.textContent = error.message;
@@ -1790,19 +4663,23 @@ function renderDrill() {
    every single time, so the grammar-book word arrives attached to something
    you actually have a feel for. */
 function aspectGateBody(phrase) {
-  const choices = aspectChoices(state.queue);
-  /* "Dot in a box, or line?" is the whole idea asked as a question, and it is
-     the right one right up until a deck puts a perfect on the table — at which
-     point it is literally the wrong one, because neither answer is on offer.
-     So the three-shape decks keep the phrase and the wider ones ask the wider
-     question. */
-  const question = choices.length > 3 ? "Which shape?" : "Dot in a box, or line?";
+  const choices = aspectChoices(state.queue, phrase);
+  /* The question is the card's group's — dot or line for the past decks,
+     will-would-or-fixed ahead of now, fact-wish-doubt-or-not-yet for the
+     subjunctive. "Dot in a box, or line?" is the whole idea asked as a
+     question, and it is the right one right up until a deck puts a perfect on
+     the table — at which point it is literally the wrong one, because neither
+     answer is on offer. So a group whose deck has put more than its base
+     shapes on the table asks its wider question instead. */
+  const group = ASPECT_GROUPS[ASPECTS[phrase.aspect].group];
+  const base = choices.filter((key) => ASPECTS[key].base).length;
+  const question = choices.length > base ? group.wide ?? group.question : group.question;
   return `
     <p class="instruction">${question}</p>
 
     <div class="card">
       <p class="drill-text recall-prompt">${esc(phrase.translation)}</p>
-      <p class="tiny muted" style="margin:10px 0 0">Decide the shape first. The sentence comes after.</p>
+      <p class="tiny muted" style="margin:10px 0 0">${esc(group.prompt)}</p>
     </div>
 
     <div class="aspect-choices">
@@ -1854,11 +4731,21 @@ function aspectVerdict(shape, choice, asking) {
   const picked = ASPECTS[choice];
   const mine = picked?.label.toLowerCase() ?? "something else";
   const theirs = shape.label.toLowerCase();
+  /* Three of the mood shapes are the subjunctive, and picking one of them for
+     another is the mood right and the reason wrong — which is most of what
+     the deck exists to teach, so it earns its own verdict rather than a plain
+     red: the form you would have said is the right form. */
+  const near = !right && Boolean(shape.sub && picked?.sub);
+  const verdict = right
+    ? `Yes — ${esc(theirs)}`
+    : near
+    ? `Subjunctive, yes — but ${esc(theirs)}, not ${esc(mine)}`
+    : `Not quite — ${esc(theirs)}, not ${esc(mine)}`;
   return `
-    <div class="card aspect-verdict ${right ? "right" : "wrong"}">
+    <div class="card aspect-verdict ${right ? "right" : near ? "near" : "wrong"}">
       <span class="aspect-mark">${shape.mark}</span>
       <span class="aspect-verdict-body">
-        <strong>${right ? `Yes — ${esc(theirs)}` : `Not quite — ${esc(theirs)}, not ${esc(mine)}`}</strong>
+        <strong>${verdict}</strong>
         <span class="aspect-term">${termLine(shape)}</span>
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
@@ -1895,6 +4782,33 @@ function drillReplies(phrase, asking) {
       <button class="btn btn-primary" id="drill-get-replies" style="width:100%">What might they say back?</button>
       <div id="drill-replies-error" class="notice bad" hidden></div>
     </div>`;
+}
+
+/* The picture, and which side of the level-two line it falls on — which is
+   neither of the sides everything else in the drill takes.
+
+   At level one it is reference material like the situation card, so it waits
+   behind the meaning: the scene names the English, and hiding the translation
+   and then printing "a fork with keys for prongs" would be pointless.
+
+   While a question is standing it is the whole point of the method. The
+   Catalan is being withheld and the picture is the road back to it, so it is
+   offered as a button rather than shown — and reaching for it is NOT peeking.
+   Show me hands over the answer; the picture makes you produce it, which is
+   the technique working exactly as intended. So it leaves `peeked` alone, and
+   once you have asked it stays on the card for the rest of the go.
+
+   The question it answers is a written one either way — level two's, or quiet
+   mode's — which is why it reads `questioned` rather than `asking`. Road mode
+   takes it off entirely: it is a paragraph to read, which is the whole of what
+   that mode is for not having on the screen. */
+function drillPicture(phrase, questioned) {
+  if (!phrase.picture?.trim()) return "";
+  if (questioned && !state.pictured) {
+    return `<button class="btn btn-picture" id="picture-hint" style="width:100%;margin-bottom:12px">Show me the picture</button>`;
+  }
+  if (!questioned && !state.showTranslation && !state.pictured) return "";
+  return `<div class="card picture-card">${pictureBlock(phrase)}</div>`;
 }
 
 /* Answers you kept from a chat, printed back under the card you kept them on.
@@ -1975,12 +4889,20 @@ function typeBox(phrase, asking) {
    ones in the same app and read as though it meant the same thing. */
 function typedVerdict() {
   const answer = state.typed;
-  if (!answer || answer.shown) return "";
+  if (!answer) return "";
+  /* After Show me there is no verdict to print — nothing was marked — but there
+     is still a way back into the question. You have just read the answer, and
+     writing it from memory now is the one thing that makes reading it worth
+     anything. */
+  if (answer.shown) return `<p class="center" style="margin:16px 0 0">${againButton("Now write it from memory")}</p>`;
+  const slips = answer.words.filter((word) => word.mark === "close");
   const head =
     answer.verdict === "right"
       ? "That's it."
       : answer.verdict === "accents"
       ? "Right — mind the accents."
+      : answer.verdict === "close"
+      ? `Nearly — ${slips.length === 1 ? "one letter" : "a letter or two"} off.`
       : "Not quite.";
   return `
     <div class="card quiet-verdict ${answer.verdict}">
@@ -1989,24 +4911,61 @@ function typedVerdict() {
         .map((word) => `<span class="typed-word ${word.mark}">${esc(word.raw)}</span>`)
         .join(" ")}</p>
       ${
+        /* The spelling it should have had, one line per slip. A struck-through
+           word says only that it was wrong; a dotted one with its answer beside
+           it says what to fix, which is the whole of what a typo needs. */
+        slips.length
+          ? `<p class="tiny muted typed-fixes">${slips
+              .map((word) => `<span class="typed-fix"><s>${esc(word.clean)}</s> ${esc(word.meant)}</span>`)
+              .join(" · ")}</p>`
+          : ""
+      }
+      ${
         answer.missing.length
           ? `<p class="tiny muted">Left out: ${esc(answer.missing.join(" · "))}</p>`
           : ""
       }
       <p class="tiny muted">Not scored or kept — the ${RECALL_AFTER} good goes to level two are spoken ones.</p>
+      ${againButton("Write it again")}
     </div>`;
 }
 
+/* The way back into a quiet card's question. Until this existed the only way
+   to have another go at a card you had just got wrong was Next, and round the
+   whole deck again — which is the moment you least want to leave it. It
+   re-asks the same card: the box comes back, the phrase is withheld again, and
+   a fresh answer is marked the same way. One id whichever wording it wears, so
+   one listener serves both. */
+function againButton(label) {
+  return `<button class="btn" id="quiet-again" style="width:100%;margin-top:12px">${label}</button>`;
+}
+
+/* Listen. Azure's clip if we have it, the browser's voice if we don't — and a
+   word either way when nothing comes out, which is the part that was missing.
+   A button that plays no sound and says nothing is indistinguishable from a
+   broken one, and on iOS the browser voice fails exactly that way. */
 function playModel(rate) {
   const phrase = currentPhrase();
   if (!phrase) return;
   if (state.modelBlob) {
     player.play(state.modelBlob, { rate }).catch(() => toast("Couldn't play that clip."));
   } else if (browserSpeech.available(phrase.language)) {
-    browserSpeech.speak(phrase.text, phrase.language, { rate });
+    browserSpeech.speak(phrase.text, phrase.language, { rate, onSilent: noVoice });
   } else {
-    toast("No voice available for Catalan on this device.");
+    noVoice();
   }
+}
+
+/* Said when the device has no voice it will actually use. It names the fix,
+   because the fix is nearly always the same one: with an Azure key this never
+   reaches the browser voice at all. */
+function noVoice() {
+  toast(
+    settings.hasAzure
+      ? "No sound came out. Check the ringer switch and the volume."
+      : "The browser voice didn't play. Add an Azure key in Settings for the real voices.",
+    4000
+  );
 }
 
 async function toggleRecording() {
@@ -2527,6 +5486,12 @@ function showPhrase(phrase) {
      ${phrase.situation ? `<div class="phrase-context" style="margin-bottom:10px"><strong>Situation</strong><span>${esc(phrase.situation)}</span></div>` : ""}
      ${phrase.usageNote ? `<div class="phrase-context" style="margin-bottom:10px"><strong>How it's used</strong><span>${esc(phrase.usageNote)}</span></div>` : ""}
      ${phrase.focusNote ? `<div class="focus-note" style="margin-bottom:14px"><strong>Listen for</strong><span>${esc(phrase.focusNote)}</span></div>` : ""}
+     ${
+       /* The sheet is where you look a card up rather than being tested on it,
+          so the picture is simply printed — no hint button, no gate — and it
+          is the one place a drawing can be thrown away and asked for again. */
+       pictureBlock(phrase, "margin-bottom:14px")
+     }
      <div class="btn-row" style="margin-bottom:14px">
        <button class="btn btn-primary" id="p-practise">Practise now</button>
        <button class="btn" id="p-edit">Edit</button>
@@ -2567,6 +5532,8 @@ function showPhrase(phrase) {
      }
      <button class="btn btn-danger" id="p-delete" style="width:100%;margin-top:14px">Delete phrase</button>`
   );
+
+  wirePicture(sheetBody, phrase, { controls: true });
 
   /* Moving a card is a property of the card, so it is here rather than behind
      Edit: this is also the only place that says which deck the card is in, and
@@ -2613,6 +5580,7 @@ function showPhrase(phrase) {
     closeSheet();
     stopEverything();
     state.tab = "practise";
+    state.lesson = null;
     state.deck = phrase.deck;
     const deck = library.inDeck(phrase.deck, phrase.language);
     const at = deck.findIndex((p) => p.id === phrase.id);
@@ -2626,7 +5594,7 @@ function showPhrase(phrase) {
     editPhrase(phrase);
   };
 
-  wireReplies(document.getElementById("p-replies"), phrase.replies ?? [], phrase.language);
+  wireReplies(document.getElementById("p-replies"), phrase.replies ?? [], phrase.language, () => phrase);
 
   document.getElementById("p-get-replies")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -2646,7 +5614,7 @@ function showPhrase(phrase) {
       }
       const section = document.getElementById("p-replies");
       section.innerHTML = repliesBlock(replies);
-      wireReplies(section, replies, phrase.language);
+      wireReplies(section, replies, phrase.language, () => phrase);
       button.remove();
     } catch (error) {
       errorBox.className = "notice bad";
@@ -2737,7 +5705,7 @@ function renderAdd() {
   let before = null;
 
   view.innerHTML = `
-    ${pageHead("add", "Add", `Create a corrected ${language.englishName} card`)}
+    ${pageHead("add", "Add a phrase", `Create a corrected ${language.englishName} card`, homeLink())}
     <p class="muted add-intro">Say where you'd be using it, then whatever you remember in ${esc(language.englishName)} or English. The assistant will correct it and build the rest of the card.</p>
 
     ${
@@ -2977,6 +5945,10 @@ function renderAdd() {
          through the rest of the deck instead of ending on arrival. */
       stopEverything();
       state.tab = "practise";
+      // You came here from Add, so Back belongs on the tiles rather than in
+      // whichever section you happened to be in before — which may well not be
+      // the one this card just landed in.
+      state.section = null;
       toast(`Added to ${deck}.`);
       startDeck(deck, saved.id);
       return;
@@ -3016,7 +5988,10 @@ function renderAdd() {
         current.innerHTML = replies.length
           ? repliesBlock(replies)
           : `<p class="tiny muted">Nothing much gets said back to this one.</p>`;
-        wireReplies(current, replies, settings.language);
+        wireReplies(current, replies, settings.language, () => ({
+          deck: document.getElementById("add-deck")?.value,
+          text: document.getElementById("add-target")?.value,
+        }));
       })
       .catch(() => {
         if (token !== repliesToken || !document.getElementById("result-replies")) return;
@@ -3041,6 +6016,328 @@ function renderAdd() {
 /* What the assistant is told about the card it's being asked about. The drill
    and the phrase sheet ask about a saved phrase, so they share this; the Add
    tab reads its half-built card out of the form fields instead. */
+/* Add a word — the vocabulary composer, and the thing the app could not do
+   until now.
+
+   `/complete-card` writes a *phrase*: a situation, a usage note, a
+   pronunciation tip, replies. There was no way to author `sounds` and
+   `picture` at all — they arrived with the seed content, or you added a phrase
+   and then reached for the editor's "Invent a picture for me" on a card that
+   already existed. So the Words section was read-only in practice, which is a
+   strange thing for a section to be in an app whose whole point is that you
+   add what you personally keep losing.
+
+   It is deliberately not a second Add tab with a type picker at the top. You
+   press "Add a word" from inside Words, so the kind is already decided by the
+   time the form opens, and the form asks only what a word needs.
+
+   Almost all of it is parts that already existed: `composerField`,
+   `genderField`, `deckField`, and the editor's own picture call. It uses the
+   editor's field ids (`f-text`, `f-translation`, `f-sounds`, `f-picture`) so
+   `wirePictureAI` works here verbatim rather than being copied — which is why
+   that function now optional-chains the boxes a word hasn't got. */
+function renderAddWord() {
+  const language = LANGUAGES[settings.language];
+  const defaultDeck = myWordsDeck(settings.language);
+
+  view.innerHTML = `
+    ${pageHead("vocab", "Add a word", `One word, and something ridiculous to hang it on`, homeLink())}
+    <p class="muted add-intro">Put in the word <em>or</em> the English — whichever you have — and the rest can be
+      filled in for you: the other side, the gender, the sound it hides, and a scene to hang it on. Write your own
+      picture if you have a better one.</p>
+
+    ${
+      settings.hasAssistant
+        ? ""
+        : `<div class="notice add-setup">Without the card assistant you can still add the word and write your own
+             picture — the invent button needs the Worker address and passcode.
+             <button class="link" id="open-assistant-settings">Set it up</button></div>`
+    }
+
+    <div class="card add-card">
+      <div class="field">
+        <div class="field-head">
+          <label for="f-text">The word</label>
+        </div>
+        <textarea id="f-text" rows="1" lang="${settings.language}" autocapitalize="none"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="f-translation">English</label>
+        </div>
+        <textarea id="f-translation" rows="1" lang="en-GB" autocapitalize="none"></textarea>
+      </div>
+
+      ${genderField(null, "f-gender")}
+
+      ${
+        settings.hasAssistant
+          ? `<button class="btn btn-primary" id="word-fill" style="width:100%;margin-bottom:10px">Fill in the rest for me</button>`
+          : ""
+      }
+      <div id="f-picture-note" class="notice" hidden></div>
+
+      <label class="field"><span>Sounds like</span>
+        <textarea id="f-sounds" rows="2"></textarea></label>
+      <label class="field"><span>Picture</span>
+        <textarea id="f-picture" rows="3"></textarea></label>
+      <p class="tiny muted" style="margin:-6px 0 12px">Describe your own scene here and it will be kept — a picture
+        you invented outlasts one you were handed. Leave it empty and one will be made for you.</p>
+
+      ${deckField("word-deck", defaultDeck)}
+
+      <div class="btn-row">
+        <button class="btn" id="word-save">Save and add another</button>
+        <button class="btn btn-primary" id="word-practise">Save and practise now</button>
+      </div>
+      <div id="word-error" class="notice bad" hidden></div>
+    </div>`;
+
+  document.getElementById("open-assistant-settings")?.addEventListener("click", () => {
+    stopEverything();
+    state.tab = "settings";
+    render();
+  });
+
+  wireDeckField("word-deck");
+  wireWordFill();
+
+  /* "Fill in the rest for me" — one press for the whole card.
+
+     It replaced a picture-only button, which could not run until both language
+     boxes were filled and so made you do the app's job before it would help.
+     Two calls, in order, because they answer different questions and the second
+     needs the first's answer:
+
+     1. `/complete-card` for the missing side. Whichever box you left empty is
+        what it fills — the word from the English, or the English from the word.
+        Skipped entirely when both are already there, so a card you typed out in
+        full costs one call rather than two.
+     2. `/chat` for the sound bridge and the scene, exactly as the editor asks
+        for them, using the *completed* word rather than what was in the box —
+        a bridge built from a blank is nothing.
+
+     **A picture you wrote yourself is never overwritten.** Only `sounds` is
+     taken in that case, which is the one thing you cannot reasonably work out
+     and the reason the whole call still runs. The gender needs no call at all:
+     it is read off the article once the word is in the box. */
+  function wireWordFill() {
+    const button = document.getElementById("word-fill");
+    if (!button) return;
+    const noteBox = document.getElementById("f-picture-note");
+    const soundsField = document.getElementById("f-sounds");
+    const pictureField = document.getElementById("f-picture");
+    const englishField = document.getElementById("f-translation");
+    /* What we last put in each box, so a second press can tell its own
+       handiwork from yours. Per screen — a fresh Add a word starts empty.
+
+       The picture was the first field to need this, and the word was the next:
+       skipping the completion "because both boxes are full" meant that once we
+       had filled the word in, changing the English never changed it back. Every
+       box the app writes to needs the same question asked of it, and **the
+       answer is never "is it non-empty"**. */
+    const lastMade = { word: "", english: "", sounds: "", picture: "" };
+
+    button.onclick = async () => {
+      const had = { text: textField.value.trim(), english: englishField.value.trim() };
+      if (!had.text && !had.english) {
+        noteBox.className = "notice bad";
+        noteBox.textContent = `Put in the ${language.englishName} word or its English first — either will do.`;
+        noteBox.hidden = false;
+        return;
+      }
+      /* Whether the scene in the box is one you wrote or one we last wrote.
+
+         "Never overwrite yours" was measured by "is the box empty", so the
+         moment we filled it, the next press treated our own sentence as
+         yours and kept it — change the English, press again, and every field
+         refilled except the picture, which went on describing the old word.
+         Reported exactly that way.
+
+         So we remember what we put there. Untouched since, it is ours to
+         replace; edited at all, it is yours and it stays. */
+      const inBox = pictureField.value.trim();
+      const mine = inBox && inBox !== lastMade.picture ? inBox : "";
+      button.disabled = true;
+      button.innerHTML = `<span class="spinner"></span> Working on it…`;
+      noteBox.hidden = true;
+      try {
+        let word = had.text;
+        let english = had.english;
+
+        /* Which side is *yours*: typed or edited by you, rather than left as we
+           last wrote it. Whichever side is yours is the brief; the other is
+           dropped so the completion writes it again from what you changed.
+
+           Same judgement the editor's AI rebuild makes about which side to
+           send — change the phrase but not the English and sending both would
+           ask the assistant to reconcile a contradiction. */
+        const yoursWord = word && word !== lastMade.word ? word : "";
+        const yoursEnglish = english && english !== lastMade.english ? english : "";
+        // Nothing of ours left to refresh, and nothing missing: no call needed.
+        const settled = yoursWord && yoursEnglish;
+
+        if (!settled) {
+          const result = await cardAssistant.complete(
+            {
+              target: yoursWord || (yoursEnglish ? "" : word),
+              english: yoursEnglish || (yoursWord ? "" : english),
+              /* It is a vocabulary card, not a phrase, and /complete-card
+                 writes phrases by default — it came back with "Un gos." for
+                 "dog", full stop and all. That matters beyond looking odd:
+                 `genderOf` refuses any text carrying punctuation, so a trailing
+                 full stop silently costs the card its gender. */
+              /* The article is asked for on a noun and only on a noun. It was
+                 "given with its article" flat, and the model obeyed: "ahora"
+                 came back as "el ahora", which is not a word anybody says —
+                 and `genderOf` then read the invented article and painted an
+                 adverb blue. */
+              situation: SINGLE_WORD_SITUATION,
+              deck: document.getElementById("word-deck").value,
+              languageCode: settings.language,
+              languageName: language.englishName,
+            },
+            settings
+          );
+          // The page can be gone by now — you left while it was thinking.
+          if (!document.getElementById("f-text")) return;
+          // Belt and braces on the same point: a word never ends in a stop.
+          word = stripTrailingStop(result.text) || word;
+          english = stripTrailingStop(result.translation) || english;
+          textField.value = word;
+          englishField.value = english;
+          lastMade.word = word;
+          lastMade.english = english;
+          textField.dispatchEvent(new Event("input"));
+        }
+
+        const { reply } = await cardAssistant.chat(
+          {
+            /* `language` and `deck` are what chatContext turns into
+               languageCode/languageName, and the Worker refuses the call
+               without them — "Choose a language first." The editor's picture
+               button always passed them; this one did not, so every press got
+               as far as filling the word and then failed. */
+            ...chatContext({
+              text: word,
+              translation: english,
+              language: settings.language,
+              deck: document.getElementById("word-deck")?.value ?? "",
+              replies: [],
+            }),
+            history: [{ role: "user", text: mine ? reimagineRequest({ sounds: "", picture: mine }) : PICTURE_REQUEST }],
+          },
+          settings
+        );
+        if (!document.getElementById("f-picture")) return;
+        const made = parsePicture(reply);
+        // Same question of the sounds box: ours to replace, yours to leave.
+        const inSounds = soundsField.value.trim();
+        const yoursSounds = inSounds && inSounds !== lastMade.sounds;
+        if (made.sounds && !yoursSounds) {
+          soundsField.value = made.sounds;
+          lastMade.sounds = made.sounds;
+        }
+        // Yours stays yours; ours is replaced, and an empty box is filled.
+        if (!mine && made.picture) {
+          pictureField.value = made.picture;
+          lastMade.picture = made.picture;
+        }
+        autosize(soundsField);
+        autosize(pictureField);
+        autosizeAll(view);
+        noteBox.className = "notice";
+        noteBox.textContent = mine
+          ? "Have a look — your picture was kept, and it only counts once you Save."
+          : "Have a look — change anything that isn't yours, and it only counts once you Save.";
+        noteBox.hidden = false;
+      } catch (error) {
+        noteBox.className = "notice bad";
+        noteBox.textContent = error.message;
+        noteBox.hidden = false;
+      } finally {
+        button.disabled = false;
+        button.textContent = "Fill in the rest for me";
+      }
+    };
+  }
+
+  /* The gender select's first option reads the article off the word, so it has
+     to follow the box rather than being decided once at render — you have not
+     typed the word yet when this is drawn. */
+  const textField = document.getElementById("f-text");
+  const genderSelect = document.getElementById("f-gender");
+  textField.addEventListener("input", () => {
+    paintGenderHint();
+  });
+
+  genderSelect.addEventListener("change", paintGenderHint);
+
+  function paintGenderHint() {
+    const hint = view.querySelector('[data-gender-hint="f-gender"]');
+    if (hint) hint.textContent = genderHint(textField.value, genderSelect.value);
+  }
+
+  document.getElementById("word-save").onclick = () => saveWord({ practise: false });
+  document.getElementById("word-practise").onclick = () => saveWord({ practise: true });
+
+  function saveWord({ practise }) {
+    const errorBox = document.getElementById("word-error");
+    const text = textField.value.trim();
+    const translation = document.getElementById("f-translation").value.trim();
+    const picture = document.getElementById("f-picture").value.trim();
+    const deck = document.getElementById("word-deck").value;
+
+    const fail = (message) => {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    };
+    errorBox.hidden = true;
+
+    /* One side is enough. The scene needs both, but *filling in* the missing
+       one is what the assistant is for — insisting on both up front made you do
+       the app's job before it would take the card. A picture is optional too:
+       file the word now, hang something on it later. */
+    if (!text && !translation) {
+      return fail(`Put in the ${language.englishName} word or its English — either will do.`);
+    }
+    const duplicate = library
+      .forLanguage(settings.language)
+      .some((phrase) => normaliseSentence(phrase.text) === normaliseSentence(text));
+    if (duplicate) return fail("That word is already in the library.");
+
+    const saved = library.add({
+      text,
+      translation,
+      deck,
+      gender: genderSelect.value || null,
+      sounds: document.getElementById("f-sounds").value.trim() || null,
+      picture: picture || null,
+    });
+
+    if (practise) {
+      stopEverything();
+      state.tab = "practise";
+      state.addKind = null;
+      state.section = null;
+      toast(`Added to ${deck}.`);
+      startDeck(deck, saved.id);
+      return;
+    }
+    renderAddWord();
+    toast(`Added to ${deck}. Next one?`);
+  }
+}
+
+/* A word is not a sentence, and `genderOf` refuses text with punctuation in
+   it — so a trailing full stop on a completed word costs the card its gender
+   silently. Only the end is touched: "l'os" and "d'aigua" keep their
+   apostrophes, and an interior comma would mean it was a phrase after all. */
+function stripTrailingStop(value) {
+  return String(value ?? "").trim().replace(/[.!?;:,]+$/, "").trim();
+}
+
 function chatContext(phrase) {
   return {
     languageCode: phrase.language,
@@ -3193,6 +6490,21 @@ function editPhrase(phrase, onSaved = null) {
        <textarea id="f-usage">${esc(phrase?.usageNote ?? "")}</textarea></label>
      <label class="field"><span>Pronunciation note (optional)</span>
        <textarea id="f-note">${esc(phrase?.focusNote ?? "")}</textarea></label>
+     <label class="field"><span>Sounds like (optional)</span>
+       <textarea id="f-sounds" placeholder="The English hiding inside it">${esc(phrase?.sounds ?? "")}</textarea></label>
+     <label class="field"><span>Picture it (optional)</span>
+       <textarea id="f-picture" placeholder="One daft scene with the sound AND the meaning in it">${esc(
+         phrase?.picture ?? ""
+       )}</textarea></label>
+     ${genderField(phrase)}
+     ${
+       settings.hasAssistant
+         ? `<button class="btn" id="f-picture-ai" style="width:100%;margin-bottom:10px">${
+             phrase?.picture?.trim() ? "Imagine another one" : "Invent a picture for me"
+           }</button>`
+         : ""
+     }
+     <div id="f-picture-note" class="notice" hidden></div>
      ${
        settings.hasAssistant
          ? `<button class="btn" id="f-ai" style="width:100%;margin-bottom:10px">Rebuild the rest with AI</button>
@@ -3212,6 +6524,7 @@ function editPhrase(phrase, onSaved = null) {
 
   // Holds the replies a rebuild produced, so Save can carry them across.
   const rebuild = wireEditorAI(phrase, language);
+  wirePictureAI();
 
   document.getElementById("f-save").onclick = () => {
     const text = document.getElementById("f-text").value.trim();
@@ -3227,6 +6540,9 @@ function editPhrase(phrase, onSaved = null) {
       situation: document.getElementById("f-situation").value.trim() || null,
       usageNote: document.getElementById("f-usage").value.trim() || null,
       focusNote: document.getElementById("f-note").value.trim() || null,
+      sounds: document.getElementById("f-sounds").value.trim() || null,
+      picture: document.getElementById("f-picture").value.trim() || null,
+      gender: document.getElementById("f-gender").value || null,
       // A rebuild replaces them; an ordinary edit leaves whatever was there.
       replies: rebuild.replies ?? phrase?.replies ?? [],
     };
@@ -3241,6 +6557,143 @@ function editPhrase(phrase, onSaved = null) {
      Edit button in the drill topbar opens — so it goes through the shared one,
      which takes the card out of the queue on the way. */
   document.getElementById("f-delete")?.addEventListener("click", () => deletePhrase(phrase));
+}
+
+/* The situation the Add-a-word screen sends to /complete-card. It is a brief
+   for a single vocabulary word, and the article is conditional on purpose:
+   said flat, "with its article" makes the model bolt one onto anything —
+   "el ahora", "la siempre" — and the word is then wrong on the card and
+   wrongly gendered underneath it. */
+const SINGLE_WORD_SITUATION =
+  "A single vocabulary word for a flashcard, not a sentence. If the word is a noun, give it with its definite article. If it is anything else — an adverb, a verb, an adjective, a question word — give the bare word and never invent an article for it.";
+
+/* "Invent a picture for me" — the one call in the app that asks for something
+   the Worker was never taught about, and gets it through /chat rather than
+   through an endpoint of its own. That is deliberate: /picture draws a scene,
+   it doesn't write one, and a new endpoint for this would mean a Worker deploy
+   that serves all three apps. This needs nothing — it is one turn of the same
+   conversation the card chat panel already has, with the question written for
+   you instead of by you.
+
+   The answer is asked for as two labelled lines and parsed back into the two
+   boxes, but a model that ignores the format costs only the split: the whole
+   reply lands in Picture and can be cut about by hand. Nothing is saved until
+   Save, as everywhere else in this editor. */
+const PICTURE_BRIEF = `Invent a keyword mnemonic for this card, for an English speaker learning it.
+
+Find English words or sounds hiding inside the target-language phrase, then build ONE absurd, vivid scene that contains both that sound and the English meaning, so that remembering the scene hands the word back. Strange, rude or violent is better than sensible. Never bridge to a sound the word does not actually have — a picture that teaches the wrong pronunciation is worse than none.
+
+If the card is a noun, its gender is already carried by the colour the object is painted in the drawing — blue for masculine, pink for feminine. So keep the article (el, la, un, una, il, lo) out of both lines entirely: bridge from the noun itself, and build the scene around the noun itself. Do not spend the mnemonic on something the colour already says.`;
+
+const PICTURE_FORMAT = `Answer in exactly two lines, with nothing before or after them:
+SOUNDS LIKE: <the English sound bridge, a few words>
+PICTURE: <one sentence>`;
+
+const PICTURE_REQUEST = `${PICTURE_BRIEF}
+
+${PICTURE_FORMAT}`;
+
+/* The same brief with the rejected scene named in the middle of it, rather than
+   appended after the format lines — an instruction that arrives after "nothing
+   before or after them" is an instruction inviting a third line.
+
+   It is told what didn't work and asked for a different bridge *where the word
+   offers one*: on a word with only one honest English sound in it, insisting on
+   a new bridge is insisting on a wrong one, and this repo's rule is that a
+   mnemonic teaching the wrong mouth is worse than no mnemonic at all. */
+function reimagineRequest(phrase) {
+  return `${PICTURE_BRIEF}
+
+This card already has a mnemonic, and it did not stick for this learner:
+SOUNDS LIKE: ${phrase.sounds?.trim() || "(none)"}
+PICTURE: ${phrase.picture?.trim() || "(none)"}
+
+Write a different one. Build a different scene — do not restate the one above in
+other words. Use a different sound bridge if the word honestly offers one; if it
+does not, keep the bridge and hang a completely new scene off it.
+
+${PICTURE_FORMAT}`;
+}
+
+function parsePicture(reply) {
+  const text = String(reply ?? "").trim();
+  const sounds = text.match(/sounds\s*like\s*:\s*(.+)/i)?.[1]?.trim() ?? "";
+  const picture = text.match(/picture\s*:\s*([\s\S]+)/i)?.[1]?.trim() || text;
+  return { sounds: sounds.replace(/^["\u201c\u2018']+|["\u201d\u2019']+$/g, ""), picture };
+}
+
+function wirePictureAI() {
+  const button = document.getElementById("f-picture-ai");
+  if (!button) return;
+  const noteBox = document.getElementById("f-picture-note");
+
+  let label = button.textContent;
+
+  button.onclick = async () => {
+    const text = document.getElementById("f-text").value.trim();
+    const translation = document.getElementById("f-translation").value.trim();
+    /* Read out of the boxes rather than off the phrase, because the boxes are
+       what the card is about to become — a scene edited by hand and then sent
+       back is the one you want it not to hand you again. */
+    const scene = {
+      sounds: document.getElementById("f-sounds").value.trim(),
+      picture: document.getElementById("f-picture").value.trim(),
+    };
+    /* Both sides, and not for tidiness: the scene has to hold the sound of the
+       phrase and the English meaning at once, so half a card can't make one. */
+    if (!text || !translation) {
+      toast("Fill in both sides first — a picture needs the sound and the meaning.");
+      return;
+    }
+
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Thinking…`;
+    noteBox.hidden = true;
+    try {
+      const { reply } = await cardAssistant.chat(
+        {
+          ...chatContext({
+            text,
+            translation,
+            language: settings.language,
+            /* Optional-chained because this is wired from two forms now: the
+               editor, which has all of these, and Add a word, which has only
+               the word and its English. A word has no situation to be used in
+               and no deck field of the editor's name. */
+            deck: document.getElementById("f-deck")?.value ?? "",
+            situation: document.getElementById("f-situation")?.value.trim() ?? "",
+            usageNote: document.getElementById("f-usage")?.value.trim() ?? "",
+            focusNote: document.getElementById("f-note")?.value.trim() ?? "",
+            replies: [],
+          }),
+          history: [{ role: "user", text: scene.picture ? reimagineRequest(scene) : PICTURE_REQUEST }],
+        },
+        settings
+      );
+      const made = parsePicture(reply);
+      if (!made.picture) throw new Error("Nothing came back. Try again.");
+      const soundsField = document.getElementById("f-sounds");
+      const pictureField = document.getElementById("f-picture");
+      // The sheet can be gone by now — Cancel was tapped while it thought.
+      if (!pictureField) return;
+      if (made.sounds) soundsField.value = made.sounds;
+      pictureField.value = made.picture;
+      autosize(soundsField);
+      autosize(pictureField);
+      // There is a scene in the box now, so the next press is another one.
+      label = "Imagine another one";
+      noteBox.className = "notice";
+      noteBox.textContent = "Have a look — change anything that isn't yours, and it only counts once you Save.";
+      noteBox.hidden = false;
+    } catch (error) {
+      noteBox.className = "notice bad";
+      noteBox.textContent = error.message;
+      noteBox.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  };
 }
 
 /* "Rebuild the rest with AI" — the same /complete-card call the Add tab makes,
@@ -3359,29 +6812,76 @@ function wireEditorAI(phrase, language) {
    It was a Delete on every row, armed by a first tap — which put a dozen live
    delete buttons on a settings page and made you read each one to work out
    what it would take with it. Reported as frightening, which is the right
-   response to it. So the rows only *select* now, one at a time; the single
-   button that can destroy anything sits under the list, greyed out until you
-   have picked something and naming the deck it would delete; and the last
-   step is a question with a Cancel beside it, not another tap on the control
-   that started it. */
+   response to it. So the rows only *select* now; the single button that can
+   destroy anything sits under the list, greyed out until you have picked
+   exactly one deck and naming the deck it would delete; and the last step is
+   a question with a Cancel beside it, not another tap on the control that
+   started it.
+
+   **The rows tick, and more than one can be ticked**, because the list now
+   feeds two buttons that want different things. Print wants a set — three
+   decks on one sheet is the whole point of choosing — and Delete wants one,
+   for the reason above: "Delete 3 decks" is a button that takes a lot with it
+   in one tap, so with several ticked it stays disabled and says why. The tick
+   is a checkbox drawn by us, on the same `data-deck-pick` / `aria-pressed`
+   row it always was.
+
+   **Each row folds open to its cards**, the way a deck row does under All
+   Phrases — same triangle, same `fold` class — so you can see what you are
+   about to print or delete without leaving the page. The open set is local
+   to this wiring rather than `state.openDecks`: that set is where you are
+   looking on the phrase list, and opening a deck here to check its contents
+   should not open it over there. It does outlive `paint()`, which redraws
+   the rows on every tick. */
 function deckManagerPanel() {
+  /* Folded shut by default. The panel lists every deck and is the longest
+     thing on the page, and Version — the one thing you check after every
+     deploy — sits under it; a list you want about once a week was a screen
+     and a half to scroll past every time. The fold is a header inside the
+     card rather than a row in a list, so what opens is visibly the same card.
+     Opening it flips `hidden` in place rather than re-rendering, since the
+     ticks live in `wireDeckManager`'s closure and a render would drop them. */
+  const names = library.deckNames(settings.language);
+  const cards = names.reduce((total, deck) => total + deckContents(deck).cards, 0);
+  const open = !!state.decksOpen;
   return `
     <div class="section-label">Decks</div>
-    <div class="card">
+    <div class="card card-fold">
+      <button class="card-fold-head" id="decks-fold" type="button" aria-expanded="${open}"
+              aria-controls="decks-body">
+        <span class="row-main">
+          <span class="row-title">Manage, print or delete decks</span>
+          <span class="row-sub">${names.length} deck${names.length === 1 ? "" : "s"} · ${cards} card${
+            cards === 1 ? "" : "s"
+          }</span>
+        </span>
+        <span class="tri">${open ? "▼" : "▶"}</span>
+      </button>
+      <div class="card-fold-body" id="decks-body" ${open ? "" : "hidden"}>
       <div class="new-deck">
         <input type="text" id="s-new-deck" placeholder="New deck name" autocomplete="off"
                enterkeyhint="done" maxlength="${DECK_NAME_MAX}">
         <button class="btn" id="s-new-deck-save" type="button">Create</button>
       </div>
-      <div class="rows deck-rows" id="deck-rows">${deckManagerRows(null)}</div>
-      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:12px" disabled>
+      <div class="deck-tools">
+        <button class="link" id="deck-select-all" type="button">Select all</button>
+        <button class="link" id="deck-select-none" type="button">None</button>
+      </div>
+      <div class="rows deck-rows" id="deck-rows">${deckManagerRows(new Set(), new Set())}</div>
+      <button class="btn btn-primary" id="deck-print" style="width:100%;margin-top:12px" disabled>
+        Print selected
+      </button>
+      <button class="btn btn-danger" id="deck-delete" style="width:100%;margin-top:10px" disabled>
         Delete a deck
       </button>
       <p class="tiny muted" style="margin:10px 0 0">
-        A new deck is a name waiting for cards — pick it on the Add tab and it appears on Practice
-        once something is in it. To delete one, choose it above; you'll be asked to confirm, and its
-        cards, scores and recordings go with it.
+        Tick decks to print them to PDF — the phrase, its English, what to listen for, any grammar
+        point and any picture, as many to a sheet of A4 as will still read. A new deck is a name
+        waiting for cards — pick it on the Add tab and it appears on Practice once something is in
+        it. To delete one, tick it on its own; you'll be asked to confirm, and its cards, scores and
+        recordings go with it.
       </p>
+      </div>
     </div>`;
 }
 
@@ -3392,7 +6892,17 @@ function deckContents(deck) {
   return { cards: cards.length, recordings };
 }
 
-function deckManagerRows(selected) {
+/* The cards in a deck, in the order the library holds them — the order the
+   deck was written in, which is the order Practice drills it in. A capture
+   with nothing on it at all is left out; one with only its English still
+   prints, since it is the thing you meant to look up. */
+function deckCards(deck) {
+  return library
+    .forLanguage(settings.language)
+    .filter((p) => p.deck === deck && (p.text.trim() || p.translation?.trim()));
+}
+
+function deckManagerRows(selected, open) {
   const decks = library.deckNames(settings.language);
   if (!decks.length)
     return `<div class="row"><span class="row-main"><span class="row-sub">No decks yet.</span></span></div>`;
@@ -3405,15 +6915,41 @@ function deckManagerRows(selected) {
             recordings ? ` · ${recordings} recording${recordings === 1 ? "" : "s"}` : ""
           }`
         : "Empty — nothing filed here yet";
-      const on = deck === selected;
+      const on = selected.has(deck);
+      const shown = open.has(deck);
       return `
-        <button class="row deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
-          <span class="row-main">
-            <span class="row-title">${esc(deck)}</span>
-            <span class="row-sub">${esc(count)}</span>
-          </span>
-          <span class="pick">${on ? "✓" : ""}</span>
-        </button>`;
+        <div class="row deck-row deck-manage${on ? " picked" : ""}">
+          <button class="row-open deck-pick" data-deck-pick="${esc(deck)}" aria-pressed="${on}">
+            <span class="pick" aria-hidden="true">${on ? "✓" : ""}</span>
+            <span class="row-main">
+              <span class="row-title">${esc(deck)}</span>
+              <span class="row-sub">${esc(count)}</span>
+            </span>
+          </button>
+          ${
+            cards
+              ? `<button class="fold" data-deck-show="${esc(deck)}" aria-expanded="${shown}"
+                         aria-label="${shown ? "Hide" : "Show"} the cards in ${esc(deck)}">
+                   <span class="tri">${shown ? "▼" : "▶"}</span>
+                 </button>`
+              : ""
+          }
+        </div>
+        ${
+          shown
+            ? deckCards(deck)
+                .map(
+                  (phrase) => `
+                    <div class="row nested deck-manage-card">
+                      <span class="row-main">
+                        <span class="row-title">${esc(phrase.text || "—")}</span>
+                        <span class="row-sub">${esc(phrase.translation || "")}</span>
+                      </span>
+                    </div>`
+                )
+                .join("")
+            : ""
+        }`;
     })
     .join("");
 }
@@ -3422,7 +6958,20 @@ function wireDeckManager() {
   const rows = document.getElementById("deck-rows");
   const input = document.getElementById("s-new-deck");
   const deleteButton = document.getElementById("deck-delete");
-  let selected = null;
+  const printButton = document.getElementById("deck-print");
+  /* Coming back from the print page keeps the choice: the commonest next
+     thing after printing three decks is printing them again with one more. */
+  const selected = new Set(state.print?.decks ?? []);
+  const open = new Set();
+
+  const foldHead = document.getElementById("decks-fold");
+  const foldBody = document.getElementById("decks-body");
+  foldHead.addEventListener("click", () => {
+    state.decksOpen = !state.decksOpen;
+    foldHead.setAttribute("aria-expanded", String(state.decksOpen));
+    foldHead.querySelector(".tri").textContent = state.decksOpen ? "▼" : "▶";
+    foldBody.hidden = !state.decksOpen;
+  });
 
   document.getElementById("s-new-deck-save").addEventListener("click", create);
   input.addEventListener("keydown", (event) => {
@@ -3430,8 +6979,31 @@ function wireDeckManager() {
     event.preventDefault();
     create();
   });
-  deleteButton.addEventListener("click", () => selected && confirmDeleteDeck(selected, paint));
-  wireRows();
+  document.getElementById("deck-select-all").addEventListener("click", () => {
+    library.deckNames(settings.language).forEach((deck) => selected.add(deck));
+    paint();
+  });
+  document.getElementById("deck-select-none").addEventListener("click", () => {
+    selected.clear();
+    paint();
+  });
+  deleteButton.addEventListener("click", () => {
+    if (selected.size !== 1) return;
+    const [deck] = selected;
+    confirmDeleteDeck(deck, () => {
+      selected.delete(deck);
+      paint();
+    });
+  });
+  printButton.addEventListener("click", () => {
+    if (!selected.size) return;
+    state.print = {
+      decks: library.deckNames(settings.language).filter((deck) => selected.has(deck)),
+      showing: true,
+    };
+    render();
+  });
+  paint();
 
   function create() {
     const name = input.value.trim();
@@ -3442,30 +7014,54 @@ function wireDeckManager() {
     }
     customDecks.add(name, settings.language);
     input.value = "";
-    paint(null);
+    paint();
     toast(`Deck "${name}" created. Choose it on the Add tab.`);
   }
 
-  /* One repaint for both halves: the tick in the list and the button under it
-     are two views of one choice, and letting them be set separately is how a
-     button ends up offering to delete a deck nothing is pointing at. The name
-     is re-checked against the list each time, so a deck that has just been
-     deleted can't leave the button armed. */
-  function paint(next = null) {
-    selected = next && library.deckNames(settings.language).includes(next) ? next : null;
-    rows.innerHTML = deckManagerRows(selected);
+  /* One repaint for all three: the ticks in the list and the two buttons
+     under it are views of one choice, and letting them be set separately is
+     how a button ends up offering to delete a deck nothing is pointing at.
+     The set is re-checked against the list each time, so a deck that has
+     just been deleted can't leave either button armed. */
+  function paint() {
+    const names = library.deckNames(settings.language);
+    for (const deck of [...selected]) if (!names.includes(deck)) selected.delete(deck);
+    rows.innerHTML = deckManagerRows(selected, open);
     wireRows();
-    deleteButton.disabled = !selected;
-    deleteButton.textContent = selected ? `Delete "${selected}"` : "Delete a deck";
+
+    const cards = [...selected].reduce((total, deck) => total + deckCards(deck).length, 0);
+    printButton.disabled = !selected.size;
+    printButton.textContent = selected.size
+      ? `Print ${selected.size === 1 ? `"${[...selected][0]}"` : `${selected.size} decks`} · ${cards} card${cards === 1 ? "" : "s"}`
+      : "Print selected";
+
+    deleteButton.disabled = selected.size !== 1;
+    deleteButton.textContent =
+      selected.size === 1
+        ? `Delete "${[...selected][0]}"`
+        : selected.size
+        ? "Tick one deck on its own to delete it"
+        : "Delete a deck";
   }
 
   function wireRows() {
     rows.querySelectorAll("[data-deck-pick]").forEach((button) =>
-      // Tapping the deck you already picked puts the choice down again, so
-      // there is always a way to disarm the button without deleting anything.
-      button.addEventListener("click", () =>
-        paint(button.dataset.deckPick === selected ? null : button.dataset.deckPick)
-      )
+      // Tapping a ticked deck unticks it, so there is always a way to disarm
+      // both buttons without deleting or printing anything.
+      button.addEventListener("click", () => {
+        const deck = button.dataset.deckPick;
+        if (selected.has(deck)) selected.delete(deck);
+        else selected.add(deck);
+        paint();
+      })
+    );
+    rows.querySelectorAll("[data-deck-show]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const deck = button.dataset.deckShow;
+        if (open.has(deck)) open.delete(deck);
+        else open.add(deck);
+        paint();
+      })
     );
   }
 }
@@ -3515,8 +7111,151 @@ function confirmDeleteDeck(deck, onDone) {
         ? `Deleted "${deck}" and ${gone.cards} card${gone.cards === 1 ? "" : "s"}.`
         : `Deleted "${deck}".`
     );
-    onDone(null);
+    onDone();
   };
+}
+
+
+/* Print: the chosen decks on paper.
+
+   The app is built for a phone, and there are still times a sheet of paper
+   wins — a page of café phrases in a pocket, the Paraules words stuck on the
+   fridge, a grammar deck to read on a train with no battery. So the ticked
+   decks become one printable page, and the browser's own print engine turns
+   it into a PDF (on an iPhone: Print, then pinch the preview open and share
+   it to Files).
+
+   **It is a page of the app, not a new window.** A home-screen PWA on iOS
+   opens `window.open` in Safari proper, which has its *own* localStorage —
+   the new tab would find an empty library. So the sheet is rendered into
+   `#view` like every other page, previewed on screen as a plain white card,
+   and `@media print` in app.css strips the chrome, lays it out in two columns
+   and sizes it for A4. One markup, two stylesheets.
+
+   **What an entry carries is three lines: the phrase, its English, and the
+   focusNote as *Listen for*.** It carried everything the drill shows minus
+   the audio for one release — the usage note, the grammar shape, the sound
+   bridge, the scene and a thumbnail of the drawing — and was asked back down
+   to this: *"the PDF just needs both languages and the listen for bit."* The
+   sheet is a crib for saying the phrases, and the one note that helps with
+   that is the one naming what to listen for. The gender dot stays on the
+   word, since it is part of the word. Type is 11pt for the phrase and 9pt
+   for the note — two points up from where it started, once three lines a
+   card left the room for it.
+
+   **The sheet sits in a one-cell table, and that is what takes the print
+   engine's footer off.** Safari and Chrome print the URL, the date and the
+   page number into the page margin, and the only way a page can refuse
+   them is to have no margin: `@page { margin: 0 }` in app.css. That leaves
+   the sheet to carry its own margins, and a padding on the sheet would
+   only hold at the top of the first page and the foot of the last — inner
+   pages would run to the paper's edge. A table's `thead` and `tfoot` are
+   repeated on every printed page, so an empty row in each is a margin the
+   pages all get, and the cell's own side padding is the left and right.
+   On screen the table is invisible: the edge rows are zero-height and the
+   cell has no padding. */
+/* The deck colours as ink on paper — the light-theme `-ink` values, since
+   the PDF has no theme. Keyed by what `deckColour` answers. */
+const DECK_INK = { green: "#3d8b02", blue: "#0d7db4", purple: "#8e4ec6", orange: "#a35f00", gold: "#cd9d00" };
+
+function renderPrint() {
+  const language = LANGUAGES[settings.language];
+  const decks = state.print.decks.filter((deck) => library.deckNames(settings.language).includes(deck));
+  const sections = decks.map((deck) => ({ deck, cards: deckCards(deck) }));
+  const total = sections.reduce((count, section) => count + section.cards.length, 0);
+
+  view.innerHTML = `
+    ${pageHead(
+      "settings",
+      "Print",
+      `${decks.length} deck${decks.length === 1 ? "" : "s"} · ${total} card${total === 1 ? "" : "s"}`,
+      `<button class="link" id="print-back">‹ Settings</button>`
+    )}
+    <div class="print-chrome">
+      <button class="btn btn-primary" id="print-go" style="width:100%">Save as PDF</button>
+      <div class="notice bad" id="print-error" hidden></div>
+      <p class="tiny muted" style="margin:10px 0 0">
+        A4, two columns, the sheet below — with no browser footer on it. On an iPhone the share
+        sheet opens: Save to Files, or Print from there.
+        <button class="link" id="print-browser">Print from the browser instead</button>
+      </p>
+    </div>
+    <table class="print-page">
+      <thead><tr><td class="print-edge"></td></tr></thead>
+      <tfoot><tr><td class="print-edge"></td></tr></tfoot>
+      <tbody><tr><td class="print-body">
+    <article class="print-sheet" lang="${esc(settings.language)}">
+      ${sections
+        .map(
+          ({ deck, cards }) => `
+            <section class="print-deck hue-${deckColour(deck)}">
+              <h2 class="print-deck-name">${esc(deck)} <span>${cards.length}</span></h2>
+              ${cards.map(printEntry).join("")}
+            </section>`
+        )
+        .join("")}
+    </article>
+      </td></tr></tbody>
+    </table>`;
+
+  document.getElementById("print-back").onclick = () => {
+    state.print.showing = false;
+    render();
+  };
+  document.getElementById("print-browser").onclick = () => window.print();
+
+  /* The PDF is the app's own — see print-pdf.js for why the print dialog
+     can't be it on the phone. The writer is fetched as the page opens so the
+     press has nothing to wait for: on iOS the share sheet only opens inside
+     the tap, and a script load in between would lose it. */
+  preloadPDF().catch(() => null);
+  document.getElementById("print-go").onclick = async (event) => {
+    const button = event.currentTarget;
+    const error = document.getElementById("print-error");
+    button.disabled = true;
+    error.hidden = true;
+    try {
+      const blob = await buildPrintPDF(
+        sections.map(({ deck, cards }) => ({
+          name: deck,
+          ink: DECK_INK[deckColour(deck)],
+          cards: cards.map((phrase) => ({
+            text: phrase.text,
+            translation: phrase.translation,
+            note: phrase.focusNote,
+            gender: genderOf(phrase),
+          })),
+        })),
+        { title: `fin·o·lingo · ${language.name}` }
+      );
+      await deliverPDF(blob, `fin-o-lingo ${language.name}.pdf`);
+    } catch (problem) {
+      error.textContent = `Couldn't make the PDF: ${problem?.message ?? problem}`;
+      error.hidden = false;
+    }
+    button.disabled = false;
+  };
+}
+
+/* One card on the page: the phrase, its English, and what to listen for.
+   `break-inside: avoid` on the entry keeps each one whole across a column or
+   page break. The label is lettered in the link blue, the colour *Listen for*
+   wears in the app; the phrase itself takes its deck's colour from the
+   section it sits in. */
+function printEntry(phrase) {
+  const gender = genderOf(phrase);
+  return `
+    <div class="print-card">
+      <span class="print-text">${
+        gender ? `<i class="gender-dot gender-${gender}" title="${esc(GENDERS[gender].label)}"></i>` : ""
+      }${esc(phrase.text || "—")}</span>
+      ${phrase.translation ? `<span class="print-translation">${esc(phrase.translation)}</span>` : ""}
+      ${
+        phrase.focusNote
+          ? `<span class="print-note print-listen"><b>Listen for</b> ${esc(phrase.focusNote)}</span>`
+          : ""
+      }
+    </div>`;
 }
 
 
@@ -3568,7 +7307,7 @@ function renderSettings() {
   const language = LANGUAGES[settings.language];
 
   view.innerHTML = `
-    ${pageHead("settings", "Settings", `Voice, scoring and backup · ${language.name}`)}
+    ${pageHead("settings", "Settings", `Voice, scoring and backup · ${language.name}`, homeLink())}
 
     <div class="card">
       <label class="field"><span>Language</span>
@@ -3598,13 +7337,15 @@ function renderSettings() {
         showing it: you get the English and have to produce the ${esc(language.englishName)} yourself. There's a
         "Show me" for when it has gone completely.</p>
       <div class="switch-row">
-        <span>Dot or line — name the shape first</span>
+        <span>Grammar — name the shape first</span>
         <input type="checkbox" id="s-aspect" ${settings.aspectGate ? "checked" : ""}>
       </div>
-      <p class="tiny muted" style="margin:8px 0 0">On the past-tense decks, the drill shows you the English and asks
-        which shape it is — a dot in a box (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the
-        perfects — before it will show you the sentence. It only offers the shapes the deck you're in actually uses.
-        Cards outside those decks never carry a shape, so this does nothing to the rest of the library.</p>
+      <p class="tiny muted" style="margin:8px 0 0">On the Grammar decks, the drill shows you the English and asks a
+        question before it will show you the sentence: on the past decks, which shape it is — a dot in a box
+        (<em>preterite</em>), a line across it (<em>imperfect</em>), or one of the perfects; on the future and
+        conditional decks, whether it will, it would, or it's already fixed; on the subjunctive decks, whether it's a
+        fact, a wish, a doubt, or not yet. It only offers the shapes the deck you're in actually uses. Cards outside
+        those decks never carry a shape, so this does nothing to the rest of the library.</p>
       <div class="switch-row">
         <span>Road mode — listen and repeat</span>
         <input type="checkbox" id="s-road" ${settings.roadMode ? "checked" : ""}>
@@ -3708,8 +7449,11 @@ function renderSettings() {
 
   document.getElementById("s-language").onchange = (event) => {
     settings.language = event.target.value;
+    // A new language means a new voice, and the one it opens on is the male
+    // one — see defaultVoice in store.js. A voice this language already has
+    // (the select can't offer one, but an export can carry one) is kept.
     const voices = LANGUAGES[settings.language].voices;
-    if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = voices[0].id;
+    if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = defaultVoice(settings.language);
     settings.save();
     render();
   };
@@ -3918,6 +7662,9 @@ settings.load();
 library.load();
 aboutMe.load();
 aiLog.load();
+progress.load();
+messages.load();
+chats.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

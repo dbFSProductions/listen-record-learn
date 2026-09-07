@@ -18,7 +18,15 @@ OUT = ROOT / "docs/js/content.js"
 LANGUAGES = {"catalan": "ca-ES", "spanish": "es-ES", "italian": "it-IT"}
 # Keep in step with `Aspect` in Xerra/Models/Phrase.swift and `ASPECTS` in
 # docs/js/store.js — these strings are the key the drill looks the shape up by.
-ASPECTS = {"dot", "line", "both", "pastPerfect", "presentPerfect"}
+ASPECTS = {
+    "dot", "line", "both", "pastPerfect", "presentPerfect",  # the past
+    "will", "would", "now",                                  # ahead of now
+    "fact", "wish", "doubt", "notYet",                       # the mood
+}
+# Blue or pink on the object the word names. Written through as the one-letter
+# key `genderOf` in docs/js/store.js reads, and written at all only on the cards
+# whose article elides — everything else is worked out from the article.
+GENDERS = {"masculine": "m", "feminine": "f"}
 
 def field(block, name):
     m = re.search(name + r':\s*"((?:[^"\\]|\\.)*)"', block, re.S)
@@ -56,8 +64,26 @@ def main():
             phrase["situation"] = situation
         if usage_note:
             phrase["usageNote"] = usage_note
-        # Dot / line / both, and why this sentence is that shape. Only the
-        # past-tense decks carry them; everything else omits the keys entirely.
+        # The keyword mnemonic. `picture` is the scene and is what renders;
+        # `sounds` is the bridge into it and prints nothing on its own, so a
+        # card carrying only the bridge is a mistake worth stopping for rather
+        # than a field to write through.
+        sounds = field(block, "sounds")
+        picture = field(block, "picture")
+        if picture:
+            phrase["picture"] = picture
+            if sounds:
+                phrase["sounds"] = sounds
+        elif sounds:
+            sys.exit(f"sounds with no picture on {text!r}")
+        gender = enum_field(block, "gender")
+        if gender:
+            if gender not in GENDERS:
+                sys.exit(f"unknown gender .{gender} on {text!r}")
+            phrase["gender"] = GENDERS[gender]
+        # Dot / line / both, will / would / now, fact / wish / doubt / not yet
+        # — and why this sentence is that shape. Only the Grammar decks carry
+        # them; everything else omits the keys entirely.
         if aspect:
             if aspect not in ASPECTS:
                 sys.exit(f"unknown aspect .{aspect} on {text!r}")
@@ -68,7 +94,7 @@ def main():
             sys.exit(f"aspectNote with no aspect on {text!r}")
         phrases.append(phrase)
 
-    if len(phrases) < 190:
+    if len(phrases) < 220:
         sys.exit(f"only parsed {len(phrases)} phrases — the Swift format probably changed")
 
     OUT.write_text(

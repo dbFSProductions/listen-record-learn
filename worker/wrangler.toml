@@ -19,7 +19,32 @@ GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
 # mnemonic ("a ten-pound note pinned to a door with a fork") into an image.
 # It has no fallback — nothing else in the chain can draw — so a wrong id here
 # is a 404 naming this variable rather than a silent downgrade.
+#
+# Only used when REPLICATE_API_TOKEN is NOT set. The drawings go through
+# Replicate now; this is the path back if that account ever goes away.
 GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+
+# /picture draws through Replicate. Needs one secret, which is not in this file
+# and must never be:
+#
+#     wrangler secret put REPLICATE_API_TOKEN --cwd worker
+#
+# Unset the secret and /picture falls back to GEMINI_IMAGE_MODEL above. Note
+# that the Gemini image path has never actually drawn anything — it was written
+# from the API docs and could not be exercised without a Gemini key — whereas
+# this one was checked end to end on the real Palabras cards before it shipped.
+#
+# nano-banana-2 is Gemini's own image model reached through Replicate, chosen
+# over flux-schnell, ideogram-v3-turbo and seedream-4 after drawing the same
+# cards on all four. The diffusion models ignore "no lettering" and write the
+# Spanish word onto the card — flux spelled it "el tenddor" — which is the one
+# failure this unit cannot carry. See DEFAULT_REPLICATE_MODEL in src/index.js.
+REPLICATE_MODEL = "google/nano-banana-2"
+# Model-specific input fields, as JSON. Replicate 422s on a field the model
+# does not declare, so these travel with the model id above rather than being
+# hardcoded. Empty or invalid falls back to sending only the prompt, which
+# every model tried accepts.
+REPLICATE_INPUT = '{"aspect_ratio":"1:1","resolution":"1K","output_format":"jpg"}'
 ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]
