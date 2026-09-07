@@ -201,10 +201,12 @@ When generation does fail, the error names the cause and the model, so it is
 worth reading rather than just retrying:
 
 - *"isn't in this key's plan"* — a 429 whose quota is literally zero, which is
-  not a rate limit and will not clear by waiting. **Image generation is not on
-  the Gemini free tier**, so an unbilled key gets zero requests for
-  `GEMINI_IMAGE_MODEL` and gets the same zero tomorrow. Turn billing on for the
-  key's Google Cloud project (that is Tier 1) and it starts working.
+  not a rate limit and will not clear by waiting: the plan does not include the
+  model the message names, and it will say the same tomorrow. Turn billing on
+  for the key's Google Cloud project (that is Tier 1) and it starts working.
+  The case this was found on is image generation, which is **not on the Gemini
+  free tier** at all — though with `REPLICATE_API_TOKEN` set the drawing does
+  not go to Gemini in the first place.
 - *"free-tier allowance … is used up for today"* — 429 with a real number
   behind it. That one does come back, at midnight Pacific.
 - *"quota or rate limit is used up"* — 429. The ordinary per-minute limit;
