@@ -4,7 +4,7 @@ import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
-  messages, messagesDeck, chats, chatsDeck,
+  messages, messagesDeck, chats, chatsDeck, REVIEW_DECK, feeds,
 } from "./store.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring, transcription } from "./speech.js";
@@ -69,6 +69,13 @@ const state = {
      phrase you asked for and the message you read — and cleared by every way
      out of it, like `message`. */
   chat: null,
+
+  /* Whether the reader — Escolta i llegeix, the fourth face of Real life —
+     is open behind the Real life tile. A message opened from it (an article,
+     an episode's blurb, a story) goes back to it rather than to the Real life
+     page, which is why it is a flag beside `message` rather than a value of
+     it. Cleared by every way out, like `message` and `chat`. */
+  reader: false,
 
   /* Which of the four tiles you are behind: "decks", "grammar", "vocab",
      "quick", or null for the tiles themselves. It is deliberately *not*
@@ -195,6 +202,13 @@ const FAMILY_PREFIX = "family:";
    actually called "section:grammar" would drill the sentinel instead of
    itself. */
 const SECTION_PREFIX = "section:";
+/* And the fifth: `review:due`, the phrases whose spaced review has come
+   round. `REVIEW_DECK` in store.js is the one value; the prefix is refused
+   wholesale so nothing else can be named into that space either. */
+const REVIEW_PREFIX = "review:";
+/* A review session is finishable or it is not done: the thirty most overdue
+   cards, and the rest come round tomorrow. */
+const REVIEW_CAP = 30;
 
 /* A deck name is a string on a phrase and a key in a list, and the app already
    spends three strings of its own in that space: "*" is shuffle-all,
@@ -212,7 +226,8 @@ function deckNameProblem(name) {
     name === "*" ||
     name === FAVOURITES_DECK ||
     name.startsWith(FAMILY_PREFIX) ||
-    name.startsWith(SECTION_PREFIX)
+    name.startsWith(SECTION_PREFIX) ||
+    name.startsWith(REVIEW_PREFIX)
   )
     return "That name is spoken for — try another.";
   // A leading or trailing "·" would make a family with no name or a deck with
@@ -881,6 +896,7 @@ function goHome() {
   state.chat = null;
   state.section = null;
   state.message = null;
+  state.reader = false;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -1035,7 +1051,7 @@ const TILES = [
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
   { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
   { key: "quick", title: "Real life", blurb: "A phrase, a message, a chat", colour: "orange" },
-  { key: "grammar", title: "Grammar", blurb: "Past, future, would, subjunctive", colour: "gold" },
+  { key: "grammar", title: "Grammar", blurb: "Tenses, mood, the little words", colour: "gold" },
   { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
 
@@ -1075,6 +1091,7 @@ function render() {
   else if (state.tab === "practise" && state.deck) renderDrill();
   else if (state.tab === "practise" && state.section === "quick" && state.chat) renderChat();
   else if (state.tab === "practise" && state.section === "quick" && state.message) renderMessage();
+  else if (state.tab === "practise" && state.section === "quick" && state.reader) renderReader();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
   else if (state.tab === "practise") renderPractice(state.section);
   else if (state.tab === "add") state.addKind === "word" ? renderAddWord() : renderAdd();
@@ -1310,7 +1327,8 @@ function renderPractice(section = null) {
        </header>
        <p class="muted section-intro">${esc(language.name)} · ${
          library.drillable(settings.language).length
-       } phrases ready</p>`;
+       } phrases ready</p>
+       ${dueStrip()}`;
 
   /* On the tiles the search box goes *under* them: the four squares are what
      the tab is for, and a box above them would push them down the page and read
@@ -1341,7 +1359,28 @@ function renderPractice(section = null) {
     state.search = search.value;
     paint();
   });
+  // The review strip sits outside the list, so it is wired here rather than
+  // in wire(); it starts the same queue the Review node on the path does.
+  view.querySelector("[data-review]")?.addEventListener("click", () => startDeck(REVIEW_DECK));
   paint();
+
+  /* Spaced repetition's one visible surface on the home page: how many
+     phrases have come round, and a way to start on them. Nothing when nothing
+     is due — a strip reading "0 due" would be a nag — and purple, because
+     purple is what memory looks like in this app (the level-two badge). */
+  function dueStrip() {
+    const due = library.due(settings.language).length;
+    if (!due) return "";
+    return `
+      <button class="due-strip" data-review="1">
+        <span class="due-mark" aria-hidden="true">${CLOCK_SVG}</span>
+        <span class="due-main">
+          <span class="due-title">Review</span>
+          <span class="due-sub">${due} phrase${due === 1 ? "" : "s"} due today</span>
+        </span>
+        <span class="due-go">Start ›</span>
+      </button>`;
+  }
 
   function sectionSub() {
     if (!drillable.length) return `Nothing here yet in ${language.name}`;
@@ -1436,6 +1475,7 @@ function renderPractice(section = null) {
       })
       .join("");
     const favourites = starred();
+    const due = library.due(settings.language);
     const mix = `
       <section class="unit">
         <div class="unit-banner" style="--unit:var(--blue);--unit-dark:var(--blue-dark)">
@@ -1443,6 +1483,20 @@ function renderPractice(section = null) {
           <div class="unit-sub">Practise across all your decks</div>
         </div>
         <div class="path">
+          ${
+            /* What has come round for review, as the first node of the last
+               unit: the path is where you go to practise, and the review is
+               the practice that is actually owed today. Absent when nothing
+               is due, like the strip on the home page. */
+            due.length
+              ? `<div class="node-slot" style="--offset:${favourites.length ? 1 : 0}">
+                   <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--purple);--node-dark:var(--purple-dark)" aria-label="Review what is due">
+                     ${CLOCK_SVG}
+                   </button>
+                   <div class="node-title">Review · <strong>${due.length}</strong> due</div>
+                 </div>`
+              : ""
+          }
           <div class="node-slot" style="--offset:${favourites.length ? -1 : 0}">
             <button class="node open" data-deck="*" style="--node:var(--blue);--node-dark:var(--blue-dark)" aria-label="Shuffle all decks">
               <svg viewBox="0 0 24 24"><path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
@@ -1484,12 +1538,15 @@ function renderPractice(section = null) {
      messages read and chats had. "3 asked for · 2 messages · 1 chat",
      whichever of them there are, and the invitation when there are none. */
   function quickCount(asked) {
-    const read = messages.forLanguage(settings.language).length;
+    const all = messages.forLanguage(settings.language);
+    const read = all.filter(isMessage).length;
+    const readings = all.length - read;
     const had = chats.forLanguage(settings.language).length;
     const parts = [];
     if (asked) parts.push(`${asked} asked for`);
     if (read) parts.push(`${read} message${read === 1 ? "" : "s"}`);
     if (had) parts.push(`${had} chat${had === 1 ? "" : "s"}`);
+    if (readings) parts.push(`${readings} read`);
     return parts.length ? parts.join(" · ") : "Ask for a phrase";
   }
 
@@ -1857,7 +1914,8 @@ function renderQuick() {
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
              <div class="notice bad" id="msg-error" hidden></div>
            </div>
-           ${chatStarter()}`
+           ${chatStarter()}
+           ${readerRow()}`
         : ""
     }
     <div id="quick-recent"></div>
@@ -1868,10 +1926,15 @@ function renderQuick() {
     state.section = null;
     state.message = null;
     state.chat = null;
+    state.reader = false;
     render();
   };
   document.getElementById("quick-go")?.addEventListener("click", ask);
   document.getElementById("msg-go")?.addEventListener("click", readMessage);
+  document.getElementById("quick-reader")?.addEventListener("click", () => {
+    state.reader = true;
+    render();
+  });
   wireChatStarter();
   paintAnswer();
   paintRecent();
@@ -1926,7 +1989,9 @@ function renderQuick() {
      own page with the translation, the phrases and the reply still there. */
   function paintMessages() {
     const box = document.getElementById("quick-messages");
-    const read = messages.forLanguage(settings.language).slice(-8).reverse();
+    // Messages people sent you. What you read in the reader — an article, a
+    // story, an episode's blurb — is listed over there instead.
+    const read = messages.forLanguage(settings.language).filter(isMessage).slice(-8).reverse();
     if (!read.length) {
       box.innerHTML = "";
       return;
@@ -2250,10 +2315,33 @@ function renderMessage() {
   const revealed = item.gist !== null;
   const segments = glossSegments(item.text, item.read?.glossary, item.language);
   const opened = new Set();
+  /* What kind of text this is. A message is the original: somebody wrote it
+     to you, and it wants a reply. The reader's three — an article, an
+     episode's blurb, a story the app wrote — are read the same way, with
+     the English withheld until you have said what you made of it, but nobody
+     is waiting for an answer, so the reply composer stays off the page. A
+     story brings its own questions instead. */
+  const kind = item.kind || "message";
+  const reading = kind !== "message";
+  const heading = {
+    message: ["Message", "Read it, keep the good bits, reply"],
+    article: [item.title || "An article", `From ${item.source?.name || "Sàpiens"}`],
+    episode: [item.title || "An episode", `From ${item.source?.name || "En guàrdia!"}`],
+    story: [item.title || "A story", "Read it, then check yourself"],
+  }[kind] ?? ["Message", ""];
+  const back = state.reader ? READER_TITLE : TILE_BY_KEY.quick.title;
 
   view.innerHTML = `
-    ${pageHead("quick", "Message", "Read it, keep the good bits, reply", `<button class="link" id="msg-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`)}
-    <div class="card message-card striped hue-orange">
+    ${pageHead("quick", heading[0], heading[1], `<button class="link" id="msg-back">‹ ${esc(back)}</button>`)}
+    ${
+      item.source?.audio
+        ? `<div class="card msg-audio">
+             <audio controls preload="none" src="${esc(item.source.audio)}"></audio>
+             <p class="tiny muted" style="margin:6px 0 0">${esc(item.source.duration ? `${item.source.duration} · ` : "")}Listen while you read the blurb, or on the walk.</p>
+           </div>`
+        : ""
+    }
+    <div class="card message-card striped hue-${reading ? "purple" : "orange"}">
       <p class="msg-text" lang="${esc(item.language)}">${segments
         .map((seg, i) =>
           seg.gloss !== undefined
@@ -2264,15 +2352,29 @@ function renderMessage() {
         )
         .join("")}</p>
       <p class="small muted msg-hint">${
-        revealed ? "" : "Tap a word you are stuck on. Then say what it is telling you, in the box below."
+        revealed
+          ? ""
+          : kind === "story"
+          ? "Tap a word you are stuck on. Then say what happened, in the box below."
+          : reading
+          ? "Tap a word you are stuck on. Then say what it is about, in the box below."
+          : "Tap a word you are stuck on. Then say what it is telling you, in the box below."
       }</p>
+      ${
+        item.source?.link
+          ? `<p class="small msg-source"><a class="link" href="${esc(item.source.link)}" target="_blank" rel="noopener">Open on ${esc(
+              item.source.name || "the site"
+            )} ›</a></p>`
+          : ""
+      }
     </div>
     <div id="msg-gist-card"></div>
     <div id="msg-reveal"></div>
+    <div id="msg-questions"></div>
     <div id="msg-keep"></div>
     <div id="msg-reply-card"></div>
     <div class="btn-row" style="margin-top:18px">
-      <button class="link btn-danger" id="msg-forget">Forget this message</button>
+      <button class="link btn-danger" id="msg-forget">${reading ? "Forget this" : "Forget this message"}</button>
     </div>`;
 
   document.getElementById("msg-back").onclick = () => {
@@ -2303,6 +2405,7 @@ function renderMessage() {
 
   paintGist();
   paintReveal();
+  paintQuestions();
   paintKeep();
   paintReply();
 
@@ -2314,7 +2417,9 @@ function renderMessage() {
     }
     box.innerHTML = `
       <div class="card">
-        <label class="field"><span>What is it telling you, or asking you to do?</span>
+        <label class="field"><span>${
+          kind === "story" ? "What happened?" : reading ? "What is it about?" : "What is it telling you, or asking you to do?"
+        }</span>
           <textarea id="msg-gist" lang="en-GB" rows="2"></textarea></label>
         <button class="btn btn-primary" id="msg-check" style="width:100%">Check</button>
         <button class="link" id="msg-show" style="width:100%;margin-top:6px">I can't tell — just show me</button>
@@ -2344,9 +2449,43 @@ function renderMessage() {
     document.querySelector(".msg-hint").textContent = "";
     paintGist();
     paintReveal();
+    paintQuestions();
     paintKeep();
     paintReply();
     document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* A story's questions, after the reveal: each in the language with its
+     English under it, and the answer behind a tap — so the checking is more
+     reading rather than a quiz. Only a story carries them. */
+  function paintQuestions() {
+    const box = document.getElementById("msg-questions");
+    const questions = item.questions ?? [];
+    if (item.gist === null || !questions.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Check yourself</div>
+      <div class="card">
+        ${questions
+          .map(
+            (q, i) => `
+          <div class="msg-q">
+            <p class="msg-q-text" lang="${esc(item.language)}">${esc(q.question)}</p>
+            ${q.translation ? `<p class="tiny muted msg-q-en">${esc(q.translation)}</p>` : ""}
+            <button class="link msg-q-show" data-answer="${i}">Show the answer</button>
+            <p class="msg-a" lang="${esc(item.language)}" hidden>${esc(q.answer)}</p>
+          </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-answer]").forEach((button) =>
+      button.addEventListener("click", () => {
+        button.nextElementSibling.hidden = false;
+        button.hidden = true;
+      })
+    );
   }
 
   function paintReveal() {
@@ -2427,7 +2566,8 @@ function renderMessage() {
      screenful. */
   function paintReply() {
     const box = document.getElementById("msg-reply-card");
-    if (item.gist === null) {
+    // Nobody is waiting for an answer to an article or a story.
+    if (item.gist === null || reading) {
       box.innerHTML = "";
       return;
     }
@@ -2545,6 +2685,368 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
   toast(`Added to ${deck}.`);
 }
 
+/* Is this a message somebody sent, rather than something read in the reader? */
+function isMessage(item) {
+  return !item.kind || item.kind === "message";
+}
+
+// -------------------------------------------------------------------- reader
+
+/* Escolta i llegeix — the input half of learning, and the fourth face of
+   Real life.
+
+   Everything else in the app is output: you say the phrase, you write the
+   line, you name the shape. A conversation fails the other way round, when
+   you cannot parse what comes back, and the fix for that is volume — hours of
+   listening and reading — which no drill supplies. So this page brings the
+   two things this learner will actually sit through in-house: En guàrdia!,
+   Catalunya Ràdio's history hour, playable here with its blurb read the way a
+   message is read; Sàpiens, the history magazine, each piece read the same
+   way; and a story the app writes for you, at your level, on whatever you
+   ask, with three questions to check you followed it. Stories are the one
+   kind of input a beginner can read at volume: the plot carries you past the
+   words you do not know, and they come round again in new sentences.
+
+   All three land on the message page (`renderMessage`) with a `kind`, because
+   reading a text with a tap on every word and the English withheld is exactly
+   what that page already does; what it does not do for these is offer a
+   reply, since nobody is waiting for one. The feeds come through the Worker's
+   /feed, which reads two allowlisted RSS feeds and nothing else, and the last
+   fetch is kept in `feeds` so the page opens on something in a tunnel. */
+const READER_TITLE = "Escolta i llegeix";
+const FEED_STALE_MS = 30 * 60 * 1000;
+const FEED_SHOW = 10;
+const READER_SOURCES = [
+  {
+    key: "en-guardia",
+    name: "En guàrdia!",
+    blurb: "Catalunya Ràdio's history hour, since 2003. Play an episode here; open it to read the blurb with a tap on any word.",
+    kind: "episode",
+  },
+  {
+    key: "sapiens",
+    name: "Sàpiens",
+    blurb: "The history magazine. Open a piece to read it the way you read a message.",
+    kind: "article",
+  },
+];
+const STORY_IDEAS = ["A moment from Catalan history", "How castells began", "Horta a hundred years ago", "A Saturday at the market"];
+
+/* The row on the Real life page that opens the reader. Counts what you have
+   read there, since the tile's own count is already three things long. */
+function readerRow() {
+  const read = messages.forLanguage(settings.language).filter((m) => !isMessage(m)).length;
+  return `
+    <div class="rows rows-spaced quick-reader-row">
+      <div class="row filled hue-purple">
+        <button class="row-open" id="quick-reader">
+          <span class="row-main">
+            <span class="row-title">${esc(READER_TITLE)}</span>
+            <span class="row-sub">En guàrdia!, Sàpiens, and a story written for you${read ? ` · ${read} read` : ""}</span>
+          </span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+/* Phrases you have said well at least once — what a story can lean on. */
+function knownPhrases(language) {
+  return library
+    .drillable(language)
+    .filter((phrase) => library.goodAttempts(phrase.id) >= 1)
+    .slice(-60)
+    .map((phrase) => phrase.text.slice(0, 80));
+}
+
+function formatFeedDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+}
+
+/* "00:55:12" or "3300" → "55 min". */
+function formatDuration(value) {
+  if (!value) return "";
+  const parts = String(value).split(":").map(Number);
+  if (parts.some((n) => Number.isNaN(n))) return "";
+  const seconds = parts.length === 1 ? parts[0] : parts.reduce((total, n) => total * 60 + n, 0);
+  const minutes = Math.round(seconds / 60);
+  return minutes ? `${minutes} min` : "";
+}
+
+function renderReader() {
+  const language = LANGUAGES[settings.language];
+  const expanded = new Set();
+
+  view.innerHTML = `
+    ${pageHead(
+      "quick",
+      READER_TITLE,
+      "Listen and read — the input half of learning",
+      `<button class="link" id="reader-back">‹ ${esc(TILE_BY_KEY.quick.title)}</button>`
+    )}
+    <div class="card">
+      <label class="field"><span>A story written for you, in ${esc(language.englishName)}. What about?</span>
+        <textarea id="story-topic" lang="en-GB" rows="1"></textarea></label>
+      <div class="ideas">${STORY_IDEAS.map((idea) => `<button class="idea" data-idea="${esc(idea)}">${esc(idea)}</button>`).join("")}</div>
+      <button class="btn btn-primary" id="story-go" style="width:100%">Write me a story</button>
+      <div class="notice bad" id="story-error" hidden></div>
+    </div>
+    <div id="reader-read"></div>
+    <div class="card reader-player" id="reader-player" hidden>
+      <p class="reader-now" id="reader-now"></p>
+      <audio id="reader-audio" controls preload="none"></audio>
+    </div>
+    ${READER_SOURCES.map(
+      (source) => `
+      <div class="section-label">${esc(source.name)}</div>
+      <p class="small muted reader-blurb">${esc(source.blurb)}</p>
+      <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
+    ).join("")}`;
+
+  document.getElementById("reader-back").onclick = () => {
+    stopEverything();
+    state.reader = false;
+    render();
+  };
+  document.querySelectorAll("[data-idea]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const box = document.getElementById("story-topic");
+      box.value = button.dataset.idea;
+      autosize(box);
+      box.focus();
+    })
+  );
+  document.getElementById("story-go").addEventListener("click", writeStory);
+
+  paintRead();
+  for (const source of READER_SOURCES) {
+    paintFeed(source, feeds.get(source.key));
+    loadFeed(source);
+  }
+
+  /* What you have read here before, newest first, each reopening on its page
+     with the translation and the questions still there. */
+  function paintRead() {
+    const box = document.getElementById("reader-read");
+    const read = messages.forLanguage(settings.language).filter((m) => !isMessage(m)).slice(-8).reverse();
+    if (!read.length) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="section-label">Read before</div>
+      <div class="rows rows-spaced">
+        ${read
+          .map(
+            (item) => `
+          <div class="row striped hue-purple">
+            <button class="row-open" data-read-open="${esc(item.id)}">
+              <span class="row-main">
+                <span class="row-title">${esc(item.title || firstLine(item.text, 64))}</span>
+                <span class="row-sub">${esc(
+                  `${item.kind === "story" ? "A story" : item.source?.name || "Read"} · ${item.gist === null ? "not read yet" : "read"}`
+                )}</span>
+              </span>
+              <span class="chev">›</span>
+            </button>
+          </div>`
+          )
+          .join("")}
+      </div>`;
+    box.querySelectorAll("[data-read-open]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.message = button.dataset.readOpen;
+        render();
+      })
+    );
+  }
+
+  /* The cached list first, then a fresh one if the cache is older than half
+     an hour. A fetch that fails leaves the cached list standing; only a page
+     with nothing to show says so. */
+  async function loadFeed(source) {
+    const cached = feeds.get(source.key);
+    if (cached && Date.now() - new Date(cached.fetchedAt).getTime() < FEED_STALE_MS) return;
+    try {
+      const data = await cardAssistant.feed(source.key, settings);
+      if (!Array.isArray(data?.items)) throw new Error("Nothing came back.");
+      feeds.set(source.key, data);
+      if (state.reader) paintFeed(source, data);
+    } catch (error) {
+      if (!state.reader || cached) return;
+      const box = document.getElementById(`feed-${source.key}`);
+      if (box) box.innerHTML = `<div class="notice bad">${esc(error.message)}</div>`;
+    }
+  }
+
+  function paintFeed(source, data) {
+    const box = document.getElementById(`feed-${source.key}`);
+    if (!box) return;
+    if (!data?.items?.length) {
+      if (!data) return; // still loading
+      box.innerHTML = `<div class="empty small"><p>Nothing here just now.</p></div>`;
+      return;
+    }
+    const items = expanded.has(source.key) ? data.items : data.items.slice(0, FEED_SHOW);
+    box.innerHTML = `
+      <div class="rows rows-spaced">${items.map((item, i) => feedRow(source, item, i)).join("")}</div>
+      ${
+        data.items.length > FEED_SHOW && !expanded.has(source.key)
+          ? `<button class="link reader-more" data-more-feed="${esc(source.key)}">Show older</button>`
+          : ""
+      }`;
+    box.querySelector("[data-more-feed]")?.addEventListener("click", () => {
+      expanded.add(source.key);
+      paintFeed(source, data);
+    });
+    box.querySelectorAll("[data-play]").forEach((button) =>
+      button.addEventListener("click", () => play(data.items[Number(button.dataset.play)]))
+    );
+    box.querySelectorAll("[data-read]").forEach((button) =>
+      button.addEventListener("click", () => readItem(source, data.items[Number(button.dataset.read)], button))
+    );
+  }
+
+  function feedRow(source, item, i) {
+    const meta =
+      source.kind === "episode"
+        ? [formatFeedDate(item.date), formatDuration(item.duration)].filter(Boolean).join(" · ")
+        : firstLine(item.summary, 90) || formatFeedDate(item.date);
+    const opened = messages.items.some((m) => m.source?.link && m.source.link === item.link);
+    return `
+      <div class="row striped hue-purple reader-item">
+        ${
+          item.audio
+            ? `<button class="star reader-play" data-play="${i}" aria-label="Play ${esc(item.title)}">▶</button>`
+            : ""
+        }
+        <button class="row-open" data-read="${i}">
+          <span class="row-main">
+            <span class="row-title">${esc(item.title)}</span>
+            <span class="row-sub">${esc(meta)}${opened ? " · read" : ""}</span>
+          </span>
+          <span class="chev">›</span>
+        </button>
+      </div>`;
+  }
+
+  /* Play here, in a card that stays above the lists. The audio is the
+     broadcaster's own file, streamed — nothing is stored — and it keeps
+     playing while you scroll; opening the blurb puts the same player on that
+     page. */
+  async function play(item) {
+    if (!item?.audio) return;
+    stopEverything();
+    const card = document.getElementById("reader-player");
+    const audio = document.getElementById("reader-audio");
+    document.getElementById("reader-now").textContent = item.title;
+    card.hidden = false;
+    if (audio.src !== item.audio) audio.src = item.audio;
+    try {
+      await audio.play();
+    } catch {
+      /* The controls are right there. */
+    }
+  }
+
+  /* An item into the message reader. The text is the title and the blurb (or
+     the body, where the feed carries one), glossed by /message like a pasted
+     text; an item you have opened before reopens without a second call. */
+  async function readItem(source, item, button) {
+    if (!item) return;
+    const already = messages.items.find((m) => m.source?.link && m.source.link === item.link);
+    if (already) {
+      state.message = already.id;
+      render();
+      return;
+    }
+    const text = [item.title, item.body || item.summary].filter(Boolean).join("\n\n").slice(0, 2500);
+    button.disabled = true;
+    const sub = button.querySelector(".row-sub");
+    const was = sub?.textContent;
+    if (sub) sub.innerHTML = `<span class="spinner"></span> Reading…`;
+    try {
+      const read = await cardAssistant.readMessage(
+        { message: text, languageCode: settings.language, languageName: language.englishName },
+        settings
+      );
+      if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+      const saved = messages.add({
+        kind: source.kind,
+        title: item.title,
+        text,
+        source: { name: source.name, link: item.link, audio: item.audio || "", duration: formatDuration(item.duration) },
+        read: {
+          translation: read.translation,
+          register: "",
+          glossary: Array.isArray(read.glossary) ? read.glossary : [],
+          keep: Array.isArray(read.keep) ? read.keep : [],
+        },
+      });
+      if (!state.reader) return;
+      state.message = saved.id;
+      render();
+    } catch (error) {
+      if (!state.reader) return;
+      toast(error.message);
+      button.disabled = false;
+      if (sub) sub.textContent = was;
+    }
+  }
+
+  /* One call, one story, straight onto the message page with its questions.
+     Saved as it arrives, like a message, so it is there to reread. */
+  async function writeStory() {
+    const box = document.getElementById("story-topic");
+    const button = document.getElementById("story-go");
+    const errorBox = document.getElementById("story-error");
+    const topic = box.value.trim();
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Writing…`;
+    try {
+      const result = await cardAssistant.story(
+        {
+          languageCode: settings.language,
+          languageName: language.englishName,
+          topic,
+          facts: learnerFacts(settings.language),
+          known: knownPhrases(settings.language),
+        },
+        settings
+      );
+      if (!result.text?.trim()) throw new Error("Nothing came back. Try again.");
+      const saved = messages.add({
+        kind: "story",
+        title: result.title || "",
+        text: result.text,
+        source: null,
+        questions: Array.isArray(result.questions) ? result.questions : [],
+        read: {
+          translation: result.translation || "",
+          register: "",
+          glossary: Array.isArray(result.glossary) ? result.glossary : [],
+          keep: Array.isArray(result.keep) ? result.keep : [],
+        },
+      });
+      if (!state.reader) return;
+      state.message = saved.id;
+      render();
+    } catch (error) {
+      if (!state.reader) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.reader && document.getElementById("story-go")) {
+        button.disabled = false;
+        button.textContent = "Write me a story";
+      }
+    }
+  }
+}
+
 // ------------------------------------------------------------------ xerrada
 
 /* Rehearsing the conversation before you have it.
@@ -2602,6 +3104,8 @@ const CHAT_SCENES = [
   },
 ];
 
+const PLAY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>`;
+const CLOCK_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 7.5V12l3.2 2.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 /* The way into a chat, on the Real life page: a scene to pick and a Start
@@ -2707,13 +3211,17 @@ function startChat(scene, voice = partnerVoice(settings.language)) {
    answers — capped together at the forty the Worker reads, cards first,
    because a card is a fact already boiled down. Same 24k-body reasoning as
    interviewPayload. */
-function chatPayload(item) {
-  const facts = [
-    ...library.inDeck(ABOUT_DECK, item.language).map((phrase) => phrase.translation?.slice(0, 120)),
+function learnerFacts(language) {
+  return [
+    ...library.inDeck(ABOUT_DECK, language).map((phrase) => phrase.translation?.slice(0, 120)),
     ...aboutMe.turns.filter((turn) => turn.role === "learner").slice(-12).map((turn) => turn.text.slice(0, 160)),
   ]
     .filter(Boolean)
     .slice(0, 40);
+}
+
+function chatPayload(item) {
+  const facts = learnerFacts(item.language);
   return {
     languageCode: item.language,
     languageName: LANGUAGES[item.language]?.englishName ?? item.language,
@@ -2842,6 +3350,11 @@ function renderChat() {
   /* The learner line being edited in place, by index, or null. Only the last
      one is offered — a change further back would orphan everything after it. */
   let editing = null;
+  /* Which partner lines have their second row of tools open. The row under a
+     line is Listen, English and a ··· — five uppercase links under every
+     bubble was reported as too many small options — and Help me answer, Say
+     it back and Keep as a card wait behind the ···. Local, like `english`. */
+  const more = new Set();
 
   view.innerHTML = `
     ${pageHead(
@@ -2916,6 +3429,15 @@ function renderChat() {
   log.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    /* A glossed word in a partner line: its English in place, on and off. Not
+       counted — there is no question standing on this page — and local to the
+       repaint, like the message page's opened glosses. */
+    if (button.classList.contains("msg-word")) {
+      const gloss = button.querySelector(".msg-g");
+      gloss.hidden = !gloss.hidden;
+      button.classList.toggle("open", !gloss.hidden);
+      return;
+    }
     if (button.id === "xat-move-on") return moveOn();
     if (button.id === "xat-practice-say") return togglePractice();
     if (button.id === "xat-practice-listen") {
@@ -2936,6 +3458,11 @@ function renderChat() {
     const at = Number(button.dataset.at);
     const turn = item.turns[at];
     if (!turn) return;
+    if (button.hasAttribute("data-more")) {
+      more.has(at) ? more.delete(at) : more.add(at);
+      paintLog();
+      return;
+    }
     if (button.hasAttribute("data-edit")) {
       if (busy) return;
       editing = at;
@@ -3064,30 +3591,54 @@ function renderChat() {
     setBusy();
   }
 
+  /* The partner's line with every glossed word tappable — the message page's
+     reading, in a bubble. A line from before the glossary existed, or one the
+     model came back without, is plain text and costs nothing else. */
+  function glossedLine(turn) {
+    if (!turn.glossary?.length) return esc(turn.text);
+    return glossSegments(turn.text, turn.glossary, item.language)
+      .map((seg, i) =>
+        seg.gloss !== undefined
+          ? `<button class="msg-word" data-word="${i}"><span class="msg-w">${esc(seg.text)}</span><span class="msg-g" hidden>${esc(
+              seg.gloss
+            )}</span></button>`
+          : esc(seg.text)
+      )
+      .join("");
+  }
+
+  /* Under each partner line: Listen, English, and a ··· that opens the rest.
+     The tap-a-word gloss on the line itself is what makes English a second
+     resort rather than the first — you look up the word you missed, not the
+     sentence. */
   function partnerBubble(turn, at) {
     const showEnglish = item.ended || english.has(at);
     const showHint = hinted.has(at);
+    const showMore = more.has(at);
     const kept = replyKept({ text: turn.text });
+    const canHint = Boolean(turn.hint?.text) && !item.ended;
+    const canSay = hold === null;
     return `
       <div class="xat-turn partner">
-        <div class="chat-msg assistant" lang="${esc(item.language)}">${esc(turn.text)}</div>
+        <div class="chat-msg assistant xat-line" lang="${esc(item.language)}">${glossedLine(turn)}</div>
         <div class="xat-tools">
-          <button class="link" data-say data-at="${at}">Listen</button>
+          <button class="xat-tool xat-play" data-say data-at="${at}" aria-label="Listen">${PLAY_SVG}</button>
           ${
             turn.translation
-              ? `<button class="link" data-english data-at="${at}" aria-expanded="${showEnglish}">English</button>`
+              ? `<button class="xat-tool" data-english data-at="${at}" aria-expanded="${showEnglish}">English</button>`
               : ""
           }
-          ${
-            turn.hint?.text && !item.ended
-              ? `<button class="link" data-hint data-at="${at}" aria-expanded="${showHint}">Help me answer</button>`
-              : ""
-          }
-          <button class="link" data-keep data-at="${at}" ${kept ? "disabled" : ""}>${
-            kept ? "Kept as a card ✓" : "Keep as a card"
-          }</button>
-          ${hold === null ? `<button class="link" data-practise data-at="${at}" aria-expanded="${saying === at}">Say it</button>` : ""}
+          <button class="xat-tool xat-more" data-more data-at="${at}" aria-expanded="${showMore}" aria-label="More">···</button>
         </div>
+        ${
+          showMore
+            ? `<div class="xat-tools xat-tools-more">
+                 ${canHint ? `<button class="xat-tool" data-hint data-at="${at}" aria-expanded="${showHint}">Help me answer</button>` : ""}
+                 ${canSay ? `<button class="xat-tool" data-practise data-at="${at}" aria-expanded="${saying === at}">Say it back</button>` : ""}
+                 <button class="xat-tool" data-keep data-at="${at}" ${kept ? "disabled" : ""}>${kept ? "Kept ✓" : "Keep as a card"}</button>
+               </div>`
+            : ""
+        }
         ${showEnglish && turn.translation ? `<p class="xat-english">${esc(turn.translation)}</p>` : ""}
         ${saying === at ? practiceCard(turn.text, false) : ""}
         ${
@@ -3123,7 +3674,7 @@ function renderChat() {
     return `
       <div class="xat-turn learner">
         <div class="chat-msg user" lang="${esc(item.language)}">${esc(turn.text)}</div>
-        ${editable ? `<div class="xat-tools"><button class="link" data-edit data-at="${at}">Edit</button></div>` : ""}
+        ${editable ? `<div class="xat-tools"><button class="xat-tool" data-edit data-at="${at}">Edit</button></div>` : ""}
         ${
           !fix
             ? ""
@@ -3133,10 +3684,12 @@ function renderChat() {
                  <p class="xat-fixed" lang="${esc(item.language)}">${esc(fix.fixed)}</p>
                  ${fix.translation ? `<p class="xat-fix-english">${esc(fix.translation)}</p>` : ""}
                  ${fix.note ? `<p class="xat-fix-note">${esc(fix.note)}</p>` : ""}
-                 <button class="link" data-say-fix data-at="${at}">Listen</button>
-                 <button class="link" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
-                   kept ? "Kept as a card ✓" : "Keep as a card"
-                 }</button>
+                 <div class="xat-tools">
+                   <button class="xat-tool xat-play" data-say-fix data-at="${at}" aria-label="Listen">${PLAY_SVG}</button>
+                   <button class="xat-tool" data-keep-fix data-at="${at}" ${kept ? "disabled" : ""}>${
+                     kept ? "Kept ✓" : "Keep as a card"
+                   }</button>
+                 </div>
                </div>`
             : `<p class="xat-ok">✓ ${esc(fix.note || "That was fine.")}</p>`
         }
@@ -3391,6 +3944,10 @@ function renderChat() {
         text: result.reply.trim(),
         translation: result.replyTranslation || "",
         hint: result.hint?.text ? { text: result.hint.text, translation: result.hint.translation || "" } : null,
+        // A gloss per word of the line, matched onto it by glossSegments the
+        // way a message's is, so the one word you missed is a tap away and
+        // the whole line's English stays behind its own button.
+        glossary: Array.isArray(result.glossary) ? result.glossary : [],
       });
       chats.save();
       busy = false;
@@ -3548,6 +4105,8 @@ function phraseRow(phrase) {
 function queueFor(deck) {
   if (deck === "*") return shuffle([...library.drillable(settings.language)]);
   if (deck === FAVOURITES_DECK) return starred();
+  // What is due for review, most overdue first — see `library.due`.
+  if (deck === REVIEW_DECK) return library.due(settings.language).slice(0, REVIEW_CAP);
   // A family header drills everything under it, shuffled — the castells decks
   // are one rehearsal, not five separate ones. The prefix matters: "Castells"
   // is both a family and a deck in it.
@@ -4743,6 +5302,15 @@ function plainLine(shape) {
   return `<span class="aspect-plain"><b>${esc(sub)}</b> is the subjunctive — as a fact it'd be <b>${esc(ind)}</b></span>`;
 }
 
+/* On a pronoun card, what the little word is standing in for — "a l'assaig"
+   under Hi vaig — so the substitution is on the screen rather than left to be
+   worked out. Behind the same gate as the note: it names the phrase the
+   pronoun replaced, which is halfway to the sentence. */
+function standsLine(shape) {
+  if (!shape.stands) return "";
+  return `<span class="aspect-plain">Standing in for <b>${esc(shape.stands)}</b></span>`;
+}
+
 function aspectVerdict(shape, choice, asking) {
   if (!shape || !choice) return "";
   const right = choice === shape.key;
@@ -4765,7 +5333,7 @@ function aspectVerdict(shape, choice, asking) {
       <span class="aspect-verdict-body">
         <strong>${verdict}</strong>
         <span class="aspect-term">${termLine(shape)}</span>
-        ${asking ? "" : plainLine(shape)}
+        ${asking ? "" : plainLine(shape) + standsLine(shape)}
         ${asking || !shape.note ? "" : `<span class="aspect-why">${esc(shape.note)}</span>`}
       </span>
     </div>`;
@@ -5497,7 +6065,7 @@ function showPhrase(phrase) {
               <span class="aspect-verdict-body">
                 <strong>${esc(aspectOf(phrase).label)}</strong>
                 <span class="aspect-term">${termLine(aspectOf(phrase))}</span>
-                ${plainLine(aspectOf(phrase))}
+                ${plainLine(aspectOf(phrase))}${standsLine(aspectOf(phrase))}
                 ${aspectOf(phrase).note ? `<span class="aspect-why">${esc(aspectOf(phrase).note)}</span>` : ""}
               </span>
             </div>`
@@ -7685,6 +8253,7 @@ aiLog.load();
 progress.load();
 messages.load();
 chats.load();
+feeds.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

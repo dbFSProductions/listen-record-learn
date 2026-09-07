@@ -32,6 +32,12 @@ enum Aspect: String, Codable, CaseIterable, Hashable {
     case wish
     case doubt
     case notYet
+    // The little words — which weak pronoun stands in. Catalan-only.
+    case hi
+    case en
+    case ho
+    case el
+    case li
 }
 
 /// Which gender a noun is, and therefore which colour its keyword picture
@@ -84,6 +90,10 @@ struct Phrase: Identifiable, Codable, Hashable {
     /// difference is on the screen every time rather than left to be worked
     /// out. The conditional decks' si-clauses carry it too (tingués → tinc).
     var indicative: String?
+    /// On a pronoun card, what the little word is standing in for — `"a
+    /// l'assaig"` under *Hi vaig* — so the substitution is on the screen
+    /// with the verdict rather than left to be guessed.
+    var standsFor: String?
     var createdAt: Date = Date()
     /// Set when the phrase was jotted down in the moment and still needs
     /// its target-language text filled in.

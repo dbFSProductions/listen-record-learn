@@ -22,6 +22,7 @@ ASPECTS = {
     "dot", "line", "both", "pastPerfect", "presentPerfect",  # the past
     "will", "would", "now",                                  # ahead of now
     "fact", "wish", "doubt", "notYet",                       # the mood
+    "hi", "en", "ho", "el", "li",                            # the little words
 }
 # Blue or pink on the object the word names. Written through as the one-letter
 # key `genderOf` in docs/js/store.js reads, and written at all only on the cards
@@ -95,6 +96,11 @@ def main():
             indicative = field(block, "indicative")
             if indicative:
                 phrase["indicative"] = indicative
+            # What a pronoun stands in for, "a l'assaig" under "Hi vaig", on
+            # the Pronoms cards.
+            stands_for = field(block, "standsFor")
+            if stands_for:
+                phrase["standsFor"] = stands_for
         elif aspect_note:
             sys.exit(f"aspectNote with no aspect on {text!r}")
         phrases.append(phrase)
