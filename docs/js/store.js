@@ -1775,6 +1775,11 @@ const DEFAULT_SETTINGS = {
      on, folded otherwise — so the one open unit walks down the path with you
      until you say otherwise. Same shape as openFamilies, for the same reason. */
   openUnits: {},
+  /* The reader's sections — your books, what you have read, each feed,
+     Viquipèdia — folded open or shut by key. All shut by default: the page is
+     the two boxes you act on and then five headers, and a list you opened
+     stays open, as a family fold does. */
+  readerOpen: {},
 };
 
 export const settings = {

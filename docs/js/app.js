@@ -2789,6 +2789,31 @@ function readerRow() {
     </div>`;
 }
 
+/* One folded section of the reader: a header row that is the button, the
+   body hidden until opened, the choice remembered in `settings.readerOpen`.
+   Settings → Decks' `.card-fold`, reused. */
+function readerFold(key, title, sub, body) {
+  const open = Boolean(settings.readerOpen?.[key]);
+  return `
+    <div class="card card-fold reader-fold">
+      <button class="card-fold-head" type="button" data-reader-fold="${esc(key)}" aria-expanded="${open}" aria-controls="fold-${esc(key)}">
+        <span class="row-main">
+          <span class="row-title">${esc(title)}</span>
+          <span class="row-sub" id="fold-sub-${esc(key)}">${esc(sub)}</span>
+        </span>
+        <span class="tri">${open ? "▼" : "▶"}</span>
+      </button>
+      <div class="card-fold-body" id="fold-${esc(key)}" ${open ? "" : "hidden"}>${body}</div>
+    </div>`;
+}
+
+function feedSub(source, data) {
+  if (!data) return "Loading…";
+  const n = data.items?.length ?? 0;
+  const what = source.kind === "episode" ? "episode" : "article";
+  return n ? `${n} ${what}${n === 1 ? "" : "s"}` : "Nothing just now";
+}
+
 /* Phrases you have said well at least once — what a story can lean on. */
 function knownPhrases(language) {
   return library
@@ -2839,13 +2864,43 @@ function renderReader() {
       <p class="reader-now" id="reader-now"></p>
       <audio id="reader-audio" controls preload="none"></audio>
     </div>
-    ${READER_SOURCES.map(
-      (source) => `
-      <div class="section-label">${esc(source.name)}</div>
-      <p class="small muted reader-blurb">${esc(source.blurb)}</p>
-      <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
+    ${READER_SOURCES.map((source) =>
+      readerFold(
+        source.key,
+        source.name,
+        feedSub(source, feeds.get(source.key)),
+        `<p class="small muted reader-blurb">${esc(source.blurb)}</p>
+         <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
+      )
     ).join("")}
-    ${wikiSection()}`;
+    ${
+      WIKI[settings.language]
+        ? readerFold(
+            "wiki",
+            WIKI[settings.language].name,
+            `${(WIKI_SHELVES[settings.language] ?? []).length || "No"} shelves · search`,
+            wikiSection()
+          )
+        : ""
+    }`;
+
+  /* Every list on this page folds behind its header — asked for as an
+     accordion for the long lists. Delegated, because Your books and Read
+     before are painted after the page is, and repainted. Flipped in place
+     rather than re-rendered so a feed still loading keeps loading. */
+  view.addEventListener("click", (event) => {
+    const head = event.target.closest("[data-reader-fold]");
+    if (!head) return;
+    const key = head.dataset.readerFold;
+    const body = document.getElementById(`fold-${key}`);
+    if (!body) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.querySelector(".tri").textContent = open ? "▼" : "▶";
+    settings.readerOpen = { ...settings.readerOpen, [key]: open };
+    settings.save();
+  });
 
   document.getElementById("reader-back").onclick = () => {
     stopEverything();
@@ -2884,9 +2939,12 @@ function renderReader() {
       box.innerHTML = "";
       return;
     }
-    box.innerHTML = `
-      <div class="section-label">Read before</div>
-      <div class="rows rows-spaced">
+    const all = messages.forLanguage(settings.language).filter((m) => !isMessage(m) && m.kind !== "book").length;
+    box.innerHTML = readerFold(
+      "read",
+      "Read before",
+      `${all} read${all > read.length ? ` · last ${read.length}` : ""}`,
+      `<div class="rows rows-spaced">
         ${read
           .map(
             (item) => `
@@ -2903,7 +2961,8 @@ function renderReader() {
           </div>`
           )
           .join("")}
-      </div>`;
+      </div>`
+    );
     box.querySelectorAll("[data-read-open]").forEach((button) =>
       button.addEventListener("click", () => {
         state.message = button.dataset.readOpen;
@@ -2921,9 +2980,11 @@ function renderReader() {
       box.innerHTML = "";
       return;
     }
-    box.innerHTML = `
-      <div class="section-label">Your books</div>
-      <div class="rows rows-spaced">
+    box.innerHTML = readerFold(
+      "books",
+      "Your books",
+      `${books.length} book${books.length === 1 ? "" : "s"}`,
+      `<div class="rows rows-spaced">
         ${books
           .map(
             (book) => `
@@ -2940,7 +3001,8 @@ function renderReader() {
           </div>`
           )
           .join("")}
-      </div>`;
+      </div>`
+    );
     box.querySelectorAll("[data-book]").forEach((button) =>
       button.addEventListener("click", () => {
         state.book = button.dataset.book;
@@ -2970,6 +3032,8 @@ function renderReader() {
   function paintFeed(source, data) {
     const box = document.getElementById(`feed-${source.key}`);
     if (!box) return;
+    const sub = document.getElementById(`fold-sub-${source.key}`);
+    if (sub) sub.textContent = feedSub(source, data);
     if (!data?.items?.length) {
       if (!data) return; // still loading
       box.innerHTML = `<div class="empty small"><p>Nothing here just now.</p></div>`;
@@ -3180,7 +3244,6 @@ function wikiSection() {
   if (!wiki) return "";
   const shelves = WIKI_SHELVES[settings.language] ?? [];
   return `
-    <div class="section-label">${esc(wiki.name)}</div>
     <p class="small muted reader-blurb">The introduction to any article, read like a message. The Romans, the counts, the battles, the empire — or look anything up.</p>
     <div class="card" id="wiki-card">
       <label class="field"><span>Look something up</span>

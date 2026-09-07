@@ -780,6 +780,16 @@ its blurb read the way a message is read; **Sàpiens**, the history magazine,
 each piece read the same way; and **a story written for you** at your level
 on whatever you ask, with three questions to check you followed it.
 
+- **Every list on the page folds behind its header.** Asked for as *"add an
+  accordion to the long lists"*: the page had grown to your books, what you
+  had read, two feeds and four shelves of Viquipèdia, and it was a screen and
+  a half of scrolling to reach any of them. `readerFold` is Settings → Decks'
+  `.card-fold` reused — the header row is the button, with a count in its
+  sub, the body hidden until opened — and `settings.readerOpen` remembers
+  the choice by key, all shut by default, so the page is the two boxes you
+  act on (a story, a book page) and then five headers. One delegated
+  listener flips a fold in place, so a feed still loading keeps loading, and
+  `paintFeed` writes the count into the header when it lands.
 - **It is a page behind a row on Real life, not a seventh tile.** The grid
   is two by three and stays so; `readerRow()` is a filled purple row under
   the chat starter, and `state.reader` is the page, cleared by every way out

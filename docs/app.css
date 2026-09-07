@@ -2121,3 +2121,11 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .wiki-shelf-title { margin: 0 0 6px; font-weight: 800; color: var(--text-2); }
 .wiki-shelf { margin-bottom: 12px; }
 .idea:disabled { opacity: 0.5; cursor: default; }
+
+/* The reader's folded sections. The body keeps the card's own padding, so
+   the rows inside sit flush with the header's text. */
+.reader-fold .card-fold-body { padding: 0 12px 12px; }
+.reader-fold .reader-blurb { margin: 0 0 10px; }
+.reader-fold .reader-feed { margin-bottom: 0; }
+.reader-fold #wiki-card { margin-bottom: 12px; }
+.reader-fold .wiki-shelf:last-child { margin-bottom: 0; }
