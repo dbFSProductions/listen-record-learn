@@ -2105,4 +2105,4 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .book-word-gloss::before { content: "· "; }
 .book-keep { flex: none; font-size: 0.8rem; }
 .book-keep:disabled { color: var(--text-3); cursor: default; }
-#book-card input[list] { width: 100%; }
+.msg-listen-row { margin-top: 12px; }

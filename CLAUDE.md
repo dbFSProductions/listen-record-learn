@@ -788,7 +788,13 @@ on whatever you ask, with three questions to check you followed it.
   `reading` — since nobody is waiting for one; the gist box asks *What is it
   about?* or, for a story, *What happened?*; the back link goes to the
   reader; the card is striped purple; and an episode carries its `<audio>`
-  above the text so you can listen while you read. `isMessage` is the one
+  above the text so you can listen while you read. **Every text on this page
+  has Listen and Slow under it** — `#msg-listen`, `#msg-slow`, the drill's
+  two speeds through `sayAloud`, which took a `rate` for this — offered
+  before the reveal as well as after, because the audio is the input and
+  not the answer, and a page heard while it is read is half of the
+  shadowing this app has been missing. Azure caches the synthesis by text,
+  so a page is fetched once. `isMessage` is the one
   reader of the kind, and *From your messages* on Real life and the tile's
   count use it: a story is not a message somebody sent. The reader lists
   them under *Read before*, and an item opened before reopens by its
@@ -808,9 +814,16 @@ on whatever you ask, with three questions to check you followed it.
   cannot be matched onto *Cat&ograve;lic*. **The two URLs were found from
   documentation, not fetched**: the development sandbox could not reach
   either host, so each source carries a second spelling and the first that
-  parses wins. If the En guàrdia list is empty on the phone, the URL in
-  `FEEDS` is the first thing to check, and `worker/tools/feed-test.mjs`
-  shows the shape the parser expects. `feeds` in store.js keeps the last
+  parses wins. **On the phone, En guàrdia came through and Sàpiens did
+  not** — the site's feed is not at any of the guessed paths — so a source
+  may carry `discover` and `hosts`: once every guess has failed, the Worker
+  fetches that page, reads its `<link rel="alternate" type="application/
+  rss+xml">` the way a feed reader does, and follows it only if it stays on
+  one of the named hosts. Still an allowlist, one step longer. `parseFeed`
+  reads Atom `<entry>`s as well as RSS `<item>`s for the same reason. If
+  Sàpiens is still empty, the site has no feed to find, and the next move
+  is a different history source rather than another guess.
+  `worker/tools/feed-test.mjs` shows the shapes the parser expects. `feeds` in store.js keeps the last
   fetch per source so the page opens on something in a tunnel; not in
   export/import, since the Worker hands the same list back.
 - **The audio is the broadcaster's own file, streamed.** `<audio controls>`

@@ -119,5 +119,32 @@ console.log("\nWhat is refused");
   ok("an empty feed falls through to the next URL", (await post({ source: "sapiens" })).status === 200);
 }
 
+console.log("\nAutodiscovery and Atom");
+{
+  const HOME = `<!doctype html><html><head><title>Sàpiens</title>
+<link rel="alternate" type="application/rss+xml" title="Evil" href="https://evil.example/feed">
+<link rel="alternate" type="application/atom+xml" title="Sàpiens" href="/noticies/atom.xml">
+</head><body></body></html>`;
+  const ATOM = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Sàpiens — Notícies</title>
+<entry><title>El setge de 1714</title><link rel="alternate" href="https://www.sapiens.cat/setge"/><published>2026-09-02T08:00:00Z</published>
+<summary type="html"><![CDATA[<p>Com va caure Barcelona l&#39;11 de setembre.</p>]]></summary></entry>
+<entry><title>Sense enlla&ccedil;</title><updated>2026-09-01T08:00:00Z</updated><content>Text sencer.</content></entry>
+</feed>`;
+  const asked = stub({ "https://www.sapiens.cat/": HOME, "https://www.sapiens.cat/noticies/atom.xml": ATOM });
+  const res = await post({ source: "sapiens" });
+  const body = await res.json();
+  ok("200 through discovery", res.status === 200, JSON.stringify(body).slice(0, 200));
+  ok("the guesses were tried first, then the home page", asked[0] === "https://www.sapiens.cat/feed" && asked.includes("https://www.sapiens.cat/"), asked.join(" "));
+  ok("the off-host link was never fetched", !asked.includes("https://evil.example/feed"));
+  ok("the on-host link was, resolved against the page", asked.at(-1) === "https://www.sapiens.cat/noticies/atom.xml", asked.at(-1));
+  ok("the Atom feed's title", body.title === "Sàpiens — Notícies", body.title);
+  ok("two entries", body.items?.length === 2);
+  ok("entry link from href, date from published", body.items?.[0].link === "https://www.sapiens.cat/setge" && body.items[0].date.startsWith("2026-09-02"));
+  ok("summary stripped and decoded", body.items?.[0].summary === "Com va caure Barcelona l'11 de setembre.", body.items?.[0].summary);
+  ok("an entity in an Atom title", body.items?.[1].title === "Sense enllaç" && body.items[1].body === "Text sencer.");
+  ok("no audio on an Atom entry", body.items?.every((i) => i.audio === ""));
+  ok("the discovered URL is reported", body.url === "https://www.sapiens.cat/noticies/atom.xml");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

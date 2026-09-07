@@ -463,7 +463,7 @@ function wireReplies(root, replies, language, source = null) {
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
    than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null) {
+async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null, rate = 1) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -473,8 +473,9 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.", 
   try {
     // `voice` is the chat partner's; everything else speaks in the drill voice.
     const blob = await speech.modelAudio({ text, language, voice }, settings);
-    if (blob) await player.play(blob);
-    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
+    // `rate` is the drill's Slow, for a page of a book or a story read aloud.
+    if (blob) await player.play(blob, { rate });
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { rate, onSilent: noVoice });
     else noVoice();
   } catch {
     toast(failed);
@@ -2376,6 +2377,10 @@ function renderMessage() {
             )} ›</a></p>`
           : ""
       }
+      <div class="btn-row msg-listen-row">
+        <button class="btn btn-primary" id="msg-listen">Listen</button>
+        <button class="btn" id="msg-slow">Slow</button>
+      </div>
     </div>
     <div id="msg-gist-card"></div>
     <div id="msg-reveal"></div>
@@ -2390,6 +2395,13 @@ function renderMessage() {
     state.message = null;
     render();
   };
+  /* The text read aloud, in the drill voice, at the drill's two speeds. It is
+     the input, not the answer, so it is offered before the reveal too: a page
+     heard while it is read is the shadowing this app has been missing half of. */
+  const listen = document.getElementById("msg-listen");
+  const slow = document.getElementById("msg-slow");
+  listen.addEventListener("click", () => sayAloud(listen, item.text, language, "Couldn't play that."));
+  slow.addEventListener("click", () => sayAloud(slow, item.text, language, "Couldn't play that.", null, settings.slowRate));
   document.getElementById("msg-forget").onclick = () => {
     messages.remove(item.id);
     state.message = null;
@@ -3181,7 +3193,7 @@ function bookCard(title = null) {
       ${
         title === null
           ? `<label class="field"><span>Reading a book? Which one?</span>
-               <input id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
+               <input type="text" id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
                <datalist id="book-titles">${titles.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist></label>`
           : ""
       }
