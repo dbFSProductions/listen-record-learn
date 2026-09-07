@@ -1805,6 +1805,15 @@ export const SEED_PHRASES = [
     "aspectNote": "Having time is a moment that hasn't come, so quan takes tingui. Tenir → tingui, with the same -ngu- as vingui."
   },
   {
+    "text": "Quan vulguis.",
+    "translation": "Whenever you like.",
+    "deck": "Subjuntiu · Quan arribi",
+    "focusNote": "kwan BUL-guis: the v is a b, the g is hard, and the stress is on the first syllable. Quan is one syllable.",
+    "usageNote": "The stock answer to 'when shall we…?' — on its own, or hung on a verb: vine quan vulguis, truca'm quan vulguis.",
+    "aspect": "notYet",
+    "aspectNote": "A moment left for the other person to pick, so it hasn't come: quan takes the subjunctive. Voler → vulgui, vulguis, with the same -gu- as puguis and vinguis."
+  },
+  {
     "text": "Vull que ho sàpiga.",
     "translation": "I want him to know.",
     "deck": "Subjuntiu · Tot junt",
@@ -2807,6 +2816,16 @@ export const SEED_PHRASES = [
     "language": "es-ES",
     "aspect": "notYet",
     "aspectNote": "Having time is a moment that hasn't come, so cuando takes tenga. Tener → tenga, with the same -ng- as venga."
+  },
+  {
+    "text": "Cuando quieras.",
+    "translation": "Whenever you like.",
+    "deck": "Subjuntivo · Cuando llegue",
+    "focusNote": "CUAN-do QUIE-ras: two glides, both front-stressed, and the r a single tap.",
+    "language": "es-ES",
+    "usageNote": "The stock answer to 'when shall we…?' — on its own, or hung on a verb: ven cuando quieras, llámame cuando quieras.",
+    "aspect": "notYet",
+    "aspectNote": "A moment left for the other person to pick, so it hasn't come: cuando takes the subjunctive. Querer → quiera, quieras."
   },
   {
     "text": "Quiero que lo sepa.",

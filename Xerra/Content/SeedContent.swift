@@ -2050,6 +2050,18 @@ enum SeedContent {
             aspect: .notYet,
             aspectNote: "Having time is a moment that hasn't come, so quan takes tingui. Tenir → tingui, with the same -ngu- as vingui."
         ),
+        /// Asked for from the phone — "I hear this a lot" — and the ninth card
+        /// in a deck of eight, because it is the one not-yet you hear most:
+        /// the stock answer to "when shall we…?".
+        Phrase(
+            text: "Quan vulguis.",
+            translation: "Whenever you like.",
+            deck: "Subjuntiu · Quan arribi",
+            focusNote: "kwan BUL-guis: the v is a b, the g is hard, and the stress is on the first syllable. Quan is one syllable.",
+            usageNote: "The stock answer to 'when shall we…?' — on its own, or hung on a verb: vine quan vulguis, truca'm quan vulguis.",
+            aspect: .notYet,
+            aspectNote: "A moment left for the other person to pick, so it hasn't come: quan takes the subjunctive. Voler → vulgui, vulguis, with the same -gu- as puguis and vinguis."
+        ),
     ]
 
     /// All four at once, two of each, in no order the name gives away. The deck
@@ -3162,6 +3174,16 @@ enum SeedContent {
             focusNote: "ha-RÉ with a silent h; TEN-ga with a hard g.",
             aspect: .notYet,
             aspectNote: "Having time is a moment that hasn't come, so cuando takes tenga. Tener → tenga, with the same -ng- as venga."
+        ),
+        Phrase(
+            text: "Cuando quieras.",
+            translation: "Whenever you like.",
+            deck: "Subjuntivo · Cuando llegue",
+            language: .spanish,
+            focusNote: "CUAN-do QUIE-ras: two glides, both front-stressed, and the r a single tap.",
+            usageNote: "The stock answer to 'when shall we…?' — on its own, or hung on a verb: ven cuando quieras, llámame cuando quieras.",
+            aspect: .notYet,
+            aspectNote: "A moment left for the other person to pick, so it hasn't come: cuando takes the subjunctive. Querer → quiera, quieras."
         ),
     ]
 

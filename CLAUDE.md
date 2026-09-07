@@ -200,7 +200,7 @@ squares now, with About me the fifth and the sixth blank; see below.
   actually fold — Passat and Subjuntiu do, the two-deck families stay open —
   and a fold the user has actually set still wins, in both directions.
 - **`section:` is the fourth string in deck-key space**, after `*`, `★` and
-  `family:`. `section:grammar` drills all 112 grammar cards whatever
+  `family:`. `section:grammar` drills all 113 grammar cards whatever
   family they are in, which is what *Shuffle all of Grammar* starts, so
   `deckNameProblem` has to refuse it like the other three.
 - **★ Favourites and Shuffle all belong to Decks and show nowhere else.**
@@ -1952,7 +1952,7 @@ answers its own question, and the drill asks before it shows.
   past gate's machinery untouched.
 - **`aspectChoices(queue, phrase)` now offers the *card's* group**, base
   shapes plus whatever of that group the queue holds. That is what makes
-  *Shuffle all of Grammar* work: 112 cards from three groups, and each one
+  *Shuffle all of Grammar* work: 113 cards from three groups, and each one
   asks its own question with its own three, four or five buttons rather than
   twelve. `ahead` and `mood` are all `base`, so those decks always ask the
   whole question; the past group is the only one with extras.
@@ -1986,6 +1986,11 @@ answers its own question, and the drill asks before it shows.
   if takes the present and the future, an unreal one the past subjunctive and
   the conditional). `Futur · Ja està decidit` is four such pairs and nothing
   else, present against future, the way `Avui o ahir` is.
+- **`Quan arribi` has nine cards, not eight**, and the ninth is *Quan
+  vulguis* / *Cuando quieras* — asked for from the phone as the not-yet heard
+  most often, the stock answer to "when shall we…?". It is the one card in
+  these decks that is a reply rather than a sentence, and it carries a
+  `usageNote` saying so.
 - **The Catalan is Central Catalan and the focusNotes say v as b**, as the
   past decks' *batch* already did: BULL, BIN-guis, BUIT. The infinitive's r
   comes back before an enclitic (*anar-hi* is ə-NAR-i, *quedar-me* keeps its
@@ -2001,7 +2006,7 @@ answers its own question, and the drill asks before it shows.
   alphabetical too, so this is the convention rather than a decision to
   revisit here.
 
-Worth asserting, headless: the Grammar tile counts 112; behind it four
+Worth asserting, headless: the Grammar tile counts 113; behind it four
 `[data-fold]` rows in that order with Passat and Subjuntiu `aria-expanded=
 "false"` and the two-deck families open; `Subjuntiu · Vull que` opens on
 *Fact, wish, doubt — or not yet?* with four `.aspect-choice` buttons in the
@@ -2013,12 +2018,12 @@ picking doubt on the first card paints `.aspect-verdict.near` reading
 quite — a fact, not a wish or a push*; `Futur · Demà` asks *Will, would, or
 already fixed?* with three buttons and never paints `.near`; `Passat · La
 línia` still asks *Dot in a box, or line?* with three and `Passat · Tot
-junt` *Which shape?* with five; `section:grammar` queues `1/112` and every
+junt` *Which shape?* with five; `section:grammar` queues `1/113` and every
 card's question matches its button count; the phrase sheet for *sàpigues*
 reads *Not yet*; an opened Subjuntiu fold survives a reload; in `content.js`
 *Potser està tancat* is `fact` while *Quizá esté cerrado* is `doubt`, and
 *Deuen ser les deu* is `now` while *Serán las diez* is `will`; the Spanish
-library shows the same four families and 112 cards; and Salutacions is still
+library shows the same four families and 113 cards; and Salutacions is still
 ungated. Deb-o-lingo has the past gate in a three-shape cut; the groups would
 port with it, and the content would not — its sentences are Deb's.
 
@@ -3200,7 +3205,7 @@ Vocab, About me, Quick, Grammar and All Phrases, in that order, and no
 `[data-deck]` at all; `.home-head .wordmark` reads *fin·o·lingo*, `.crest` has
 loaded (`naturalWidth > 0`), `#open-settings` is inside `.home-head`, there is
 no `.page-head` on the home page, and `.section-intro` carries the language and
-the count; the counts come from the library (112 behind Grammar, 36 behind
+the count; the counts come from the library (113 behind Grammar, 36 behind
 Vocab, 243 behind All Phrases, and the Practice count leaves About me cards
 out); typing into `#search` from the tiles still finds *la clau* and an About
 me card alike, and clearing it brings the tiles back; `[data-section="decks"]`
@@ -3376,7 +3381,7 @@ the parser losing a block to a formatting change.
   `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
   in the palette. **Draw it again** now sits under every drawing rather than
   only on the phrase sheet.
-- 419 phrases: 307 Catalan across thirty-one decks, and 112 Spanish across fourteen.
+- 421 phrases: 308 Catalan across thirty-one decks, and 113 Spanish across fourteen.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -3398,7 +3403,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v91 / `xerra-v91` — `js/version.js` first, `sw.js` second, as ever.
+- v92 / `xerra-v92` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.
