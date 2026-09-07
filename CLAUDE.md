@@ -200,7 +200,7 @@ squares now, with About me the fifth and the sixth blank; see below.
   actually fold — Passat and Subjuntiu do, the two-deck families stay open —
   and a fold the user has actually set still wins, in both directions.
 - **`section:` is the fourth string in deck-key space**, after `*`, `★` and
-  `family:`. `section:grammar` drills all 112 grammar cards whatever
+  `family:`. `section:grammar` drills all 113 grammar cards whatever
   family they are in, which is what *Shuffle all of Grammar* starts, so
   `deckNameProblem` has to refuse it like the other three.
 - **★ Favourites and Shuffle all belong to Decks and show nowhere else.**
@@ -1833,15 +1833,27 @@ actually speaking, where the decision comes before the words every time.
   re-renders the whole drill, which is safe here in a way it isn't lower down
   the page: the gate stands before you have recorded anything, so there is no
   attempt on screen for a `render()` to throw away.
-- **The choices are deliberately not coloured.** Every strong colour is already
-  saying something in the drill — green is the primary and the model, blue is
-  you, purple is level two, gold is road mode, red is recording — and a
-  coloured choice reads as a recommended one. The only colour on that screen
-  arrives with the verdict, and it is the border-and-tint idiom `.notice.good`
-  and `.notice.bad` already use. **There is no `--green-ink` or `--red-ink` to
-  letter a verdict in, and that is not an oversight** — the `-dark` twins are
-  the underside of a pressable control, not a shade that clears contrast as
-  text on the page — so the lettering stays the ordinary text colour.
+- **Every shape wears a colour, and the sentence is the loudest thing on the
+  gate.** The choices were deliberately uncoloured for a long while — every
+  strong colour is already saying something in the drill, and *one* coloured
+  choice reads as a recommended one. Then two things were reported from the
+  phone at once: the bold question line stood out more than the English it
+  was asking about, and *"people think grammar is dull as it is without
+  doing it all in black and white"*. So each `ASPECTS` entry carries a `hue`
+  (dot orange, line blue, both purple, the pluperfect and not-yet teal, the
+  present perfect gold; will blue, would purple, now orange; fact blue, wish
+  orange, doubt purple) and wears it as a `.hue-*` class on its choice
+  button (the striped-row idiom: colour down the edge, a wash behind, the
+  mark and the title in the ink), on its verdict and on the phrase sheet, so
+  a shape looks like itself wherever it turns up. Every choice coloured is
+  not one choice recommended. No shape wears green or red, which stay the
+  verdict's border-and-tint; `.hue-teal` is new for this and `deckColour`
+  never hands teal to a row. The gate card is `.striped.hue-gold` —
+  Grammar's colour — with the question as a small gold uppercase label
+  (`.aspect-question`) and the English in full ink at 1.5rem
+  (`.aspect-sentence`), so the sentence is the card and the question its
+  caption. **There is still no `--green-ink` or `--red-ink`**, for the
+  reason there never was.
 - **The phrase sheet states the shape flat**, with no gate and no verdict, and
   shows it even when the drill's question is switched off: the sheet is where
   you look a card up rather than being tested on it.
@@ -1953,7 +1965,7 @@ answers its own question, and the drill asks before it shows.
   past gate's machinery untouched.
 - **`aspectChoices(queue, phrase)` now offers the *card's* group**, base
   shapes plus whatever of that group the queue holds. That is what makes
-  *Shuffle all of Grammar* work: 112 cards from three groups, and each one
+  *Shuffle all of Grammar* work: 113 cards from three groups, and each one
   asks its own question with its own three, four or five buttons rather than
   twelve. `ahead` and `mood` are all `base`, so those decks always ask the
   whole question; the past group is the only one with extras.
@@ -1978,6 +1990,20 @@ answers its own question, and the drill asks before it shows.
   `aspectNote` on each side names the other. Because of the second one,
   `potser` is on neither language's trigger line and `quizá` is on Spanish's
   only — putting potser on the Catalan doubt line would teach a castellanism.
+- **Every subjunctive card names its plain form.** Asked for as *"always put
+  the non-subjunctive version of the verb somewhere, just so I can see the
+  difference"*. `indicative` on the phrase is the pair written as
+  `"vinguis → vens"` — the form in the sentence and what it would be as a
+  fact — and `plainLine` in app.js prints it as *vinguis is the subjunctive
+  — as a fact it'd be vens* on the verdict and on the phrase sheet, the two
+  forms in the shape's ink. It is behind the level-two gate with the
+  `aspectNote`, since it quotes the form you are being asked to produce.
+  Every wish, doubt and not-yet card carries one, the four si-clauses in
+  Condicional (tingués → tinc) and the two negative commands in Futur do too,
+  and the fact cards carry none — the verb on those *is* the plain form.
+  `aspectOf` flattens it to `plain`. It arrived after the decks were on the
+  phone, so `installNewSeedContent` backfills it beside `gender`, filling
+  only blanks.
 - **The odd cards are the indicative counterparts, in pairs where they can
   be**: *vull venir* beside *vull que vinguis* (same person, so the
   infinitive and no que), *crec que té raó* beside *no crec que vingui* (take
@@ -1987,6 +2013,11 @@ answers its own question, and the drill asks before it shows.
   if takes the present and the future, an unreal one the past subjunctive and
   the conditional). `Futur · Ja està decidit` is four such pairs and nothing
   else, present against future, the way `Avui o ahir` is.
+- **`Quan arribi` has nine cards, not eight**, and the ninth is *Quan
+  vulguis* / *Cuando quieras* — asked for from the phone as the not-yet heard
+  most often, the stock answer to "when shall we…?". It is the one card in
+  these decks that is a reply rather than a sentence, and it carries a
+  `usageNote` saying so.
 - **The Catalan is Central Catalan and the focusNotes say v as b**, as the
   past decks' *batch* already did: BULL, BIN-guis, BUIT. The infinitive's r
   comes back before an enclitic (*anar-hi* is ə-NAR-i, *quedar-me* keeps its
@@ -2002,24 +2033,29 @@ answers its own question, and the drill asks before it shows.
   alphabetical too, so this is the convention rather than a decision to
   revisit here.
 
-Worth asserting, headless: the Grammar tile counts 112; behind it four
+Worth asserting, headless: the Grammar tile counts 113; behind it four
 `[data-fold]` rows in that order with Passat and Subjuntiu `aria-expanded=
 "false"` and the two-deck families open; `Subjuntiu · Vull que` opens on
 *Fact, wish, doubt — or not yet?* with four `.aspect-choice` buttons in the
 order fact, wish, doubt, notYet and no `#listen`, `#record` or `#drill-edit`;
-picking doubt on the first card paints `.aspect-verdict.near` reading
-*Subjunctive, yes — but a wish or a push, not a doubt or a feeling* with the
-*vull que · cal que* endings line and the `.aspect-why`; picking wish on
+picking doubt on the first card paints `.aspect-verdict.near.hue-orange`
+reading *Subjunctive, yes — but a wish or a push, not a doubt or a feeling*
+with the *vull que · cal que* endings line, an `.aspect-plain` reading
+*vinguis is the subjunctive — as a fact it'd be vens*, and the `.aspect-why`;
+the gate card is `.striped.hue-gold` with `.aspect-question` smaller than
+`.aspect-sentence` and each `.aspect-choice` wearing its shape's `.hue-*`;
+a fact card has no `.aspect-plain` anywhere; a seed card planted without
+`indicative` has it after a reload; picking wish on
 *I want to come to the rehearsal* paints `.aspect-verdict.wrong` reading *Not
 quite — a fact, not a wish or a push*; `Futur · Demà` asks *Will, would, or
 already fixed?* with three buttons and never paints `.near`; `Passat · La
 línia` still asks *Dot in a box, or line?* with three and `Passat · Tot
-junt` *Which shape?* with five; `section:grammar` queues `1/112` and every
+junt` *Which shape?* with five; `section:grammar` queues `1/113` and every
 card's question matches its button count; the phrase sheet for *sàpigues*
 reads *Not yet*; an opened Subjuntiu fold survives a reload; in `content.js`
 *Potser està tancat* is `fact` while *Quizá esté cerrado* is `doubt`, and
 *Deuen ser les deu* is `now` while *Serán las diez* is `will`; the Spanish
-library shows the same four families and 112 cards; and Salutacions is still
+library shows the same four families and 113 cards; and Salutacions is still
 ungated. Deb-o-lingo has the past gate in a three-shape cut; the groups would
 port with it, and the content would not — its sentences are Deb's.
 
@@ -3262,7 +3298,7 @@ Vocab, About me, Quick, Grammar and All Phrases, in that order, and no
 `[data-deck]` at all; `.home-head .wordmark` reads *fin·o·lingo*, `.crest` has
 loaded (`naturalWidth > 0`), `#open-settings` is inside `.home-head`, there is
 no `.page-head` on the home page, and `.section-intro` carries the language and
-the count; the counts come from the library (112 behind Grammar, 36 behind
+the count; the counts come from the library (113 behind Grammar, 36 behind
 Vocab, 243 behind All Phrases, and the Practice count leaves About me cards
 out); typing into `#search` from the tiles still finds *la clau* and an About
 me card alike, and clearing it brings the tiles back; `[data-section="decks"]`
@@ -3438,7 +3474,7 @@ the parser losing a block to a formatting change.
   `genderCue` / `genderField` in app.js, `genderLine` in the Worker, `--pink`
   in the palette. **Draw it again** now sits under every drawing rather than
   only on the phrase sheet.
-- 419 phrases: 307 Catalan across thirty-one decks, and 112 Spanish across fourteen.
+- 421 phrases: 308 Catalan across thirty-one decks, and 113 Spanish across fourteen.
   The eleven everyday Catalan decks are Sounds, Salutacions, Cafès i sortir,
   Tapes, El mercat, Feina, Castells, and four castells decks for a real
   rehearsal — Arribada, Pinya, Segon, Ordres. The four everyday decks came over
@@ -3460,7 +3496,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v93 / `xerra-v93` — `js/version.js` first, `sw.js` second, as ever.
+- v94 / `xerra-v94` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition and listening/dictation
   drills are deliberately **not** built yet. AI-generated content from life
   context now is — see About me above.

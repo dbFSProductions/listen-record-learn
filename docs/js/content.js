@@ -1396,7 +1396,8 @@ export const SEED_PHRASES = [
     "deck": "Futur · Demà",
     "focusNote": "ə-ni-RÀ: anar keeps its whole shape in the future. pə-TÉ-shis — the x is the sh of 'shoe'.",
     "aspect": "will",
-    "aspectNote": "Anirà is the future — ahead, and promised. (No pateixis is a subjunctive doing the negative command; the Subjuntiu decks come back to it.)"
+    "aspectNote": "Anirà is the future — ahead, and promised. (No pateixis is a subjunctive doing the negative command; the Subjuntiu decks come back to it.)",
+    "indicative": "no pateixis → no pateixes"
   },
   {
     "text": "M'encantaria venir, però no puc.",
@@ -1550,7 +1551,8 @@ export const SEED_PHRASES = [
     "deck": "Condicional · Si tingués",
     "focusNote": "tin-GUÉS with a hard g and the stress on the end. ə-prən-DRI-ə — aprendre shortens to aprendr-.",
     "aspect": "would",
-    "aspectNote": "An unreal if: the si-clause takes the past subjunctive (tingués) and the answer takes the conditional. That pairing is the whole deck."
+    "aspectNote": "An unreal if: the si-clause takes the past subjunctive (tingués) and the answer takes the conditional. That pairing is the whole deck.",
+    "indicative": "tingués → tinc"
   },
   {
     "text": "Si plogués, no sortiríem.",
@@ -1558,7 +1560,8 @@ export const SEED_PHRASES = [
     "deck": "Condicional · Si tingués",
     "focusNote": "plu-GUÉS: the o rises to u, the g is hard. sur-ti-RI-əm, stressed on the RI.",
     "aspect": "would",
-    "aspectNote": "The unreal twin of si plou, no sortirem. Plogués in the if, sortiríem in the answer: two endings that always travel together."
+    "aspectNote": "The unreal twin of si plou, no sortirem. Plogués in the if, sortiríem in the answer: two endings that always travel together.",
+    "indicative": "plogués → plou"
   },
   {
     "text": "Si vens d'hora, farem un cafè.",
@@ -1574,7 +1577,8 @@ export const SEED_PHRASES = [
     "deck": "Condicional · Si tingués",
     "focusNote": "kum-prə-RI-ə: the o rises to u. 'Fos' is one short syllable, FOS. bə-RAT ends on a hard t.",
     "aspect": "would",
-    "aspectNote": "Fos is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows."
+    "aspectNote": "Fos is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows.",
+    "indicative": "fos → és"
   },
   {
     "text": "Què faries al meu lloc?",
@@ -1590,7 +1594,8 @@ export const SEED_PHRASES = [
     "deck": "Condicional · Si tingués",
     "focusNote": "si FOS TU, i ə-ni-RI-ə: the hi is a bare i in front of aniria.",
     "aspect": "would",
-    "aspectNote": "The if that can never be true, so the past subjunctive — fos — and the conditional after it."
+    "aspectNote": "The if that can never be true, so the past subjunctive — fos — and the conditional after it.",
+    "indicative": "fos → ets"
   },
   {
     "text": "Podríem anar a la platja si fa sol.",
@@ -1614,7 +1619,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "BULL kə BIN-guis: vull ends on the palatal ll, vinguis has a hard g and is front-stressed. Both v's are b.",
     "aspect": "wish",
-    "aspectNote": "You want it and it's someone else's to do: vull que, then the subjunctive. Venir → vingui, vinguis."
+    "aspectNote": "You want it and it's someone else's to do: vull que, then the subjunctive. Venir → vingui, vinguis.",
+    "indicative": "vinguis → vens"
   },
   {
     "text": "Vull venir a l'assaig.",
@@ -1630,7 +1636,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "əs-PÈ-ru kət rə-ku-PÉ-ris: stressed on the PÉ, with the unstressed vowels softened. 'Aviat' is ə-vi-AT, ending on a hard t.",
     "aspect": "wish",
-    "aspectNote": "A hope is a wish about someone else's body: espero que + subjunctive. Recuperar-se → et recuperis."
+    "aspectNote": "A hope is a wish about someone else's body: espero que + subjunctive. Recuperar-se → et recuperis.",
+    "indicative": "et recuperis → et recuperes"
   },
   {
     "text": "Cal que siguis aquí a les vuit.",
@@ -1638,7 +1645,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "KAL kə SI-guis: sigui is ser's subjunctive and takes a hard g. ə-KÍ lands on the í, and vuit is BUIT.",
     "aspect": "wish",
-    "aspectNote": "Cal que is a push — 'it's necessary that' — and pushes take the subjunctive. Ser → sigui, siguis."
+    "aspectNote": "Cal que is a push — 'it's necessary that' — and pushes take the subjunctive. Ser → sigui, siguis.",
+    "indicative": "siguis → ets"
   },
   {
     "text": "M'agradaria que sopéssim junts.",
@@ -1646,7 +1654,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "su-PÉ-sim: the past subjunctive's -éssim, stressed on the É. 'Junts' loses its t between the n and the s — JUNS, with the j of 'measure'.",
     "aspect": "wish",
-    "aspectNote": "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (m'agradaria), the subjunctive steps back a tense with it: sopéssim, not sopem."
+    "aspectNote": "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (m'agradaria), the subjunctive steps back a tense with it: sopéssim, not sopem.",
+    "indicative": "sopéssim → sopem"
   },
   {
     "text": "Tant de bo plogui.",
@@ -1655,7 +1664,8 @@ export const SEED_PHRASES = [
     "focusNote": "TAN də BÒ: the t of tant is swallowed before de. PLÒ-gui with a hard g.",
     "usageNote": "'Tant de bo' is the Catalan for ojalá — literally 'so much of good'.",
     "aspect": "wish",
-    "aspectNote": "A wish flung at the weather: tant de bo takes the subjunctive on its own, no que needed. Ploure → plogui."
+    "aspectNote": "A wish flung at the weather: tant de bo takes the subjunctive on its own, no que needed. Ploure → plogui.",
+    "indicative": "plogui → plou"
   },
   {
     "text": "Digues-li que em truqui.",
@@ -1663,7 +1673,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "DI-gəz-li: digues is the imperative of dir. Then kəm TRU-ki, where the qu keeps the hard k in front of the i.",
     "aspect": "wish",
-    "aspectNote": "A message you push through someone: 'tell him to' is dir + que + subjunctive. Trucar → truqui, spelled with qu to keep the k."
+    "aspectNote": "A message you push through someone: 'tell him to' is dir + que + subjunctive. Trucar → truqui, spelled with qu to keep the k.",
+    "indicative": "truqui → truca"
   },
   {
     "text": "No crec que sigui bona idea.",
@@ -1671,7 +1682,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Vull que",
     "focusNote": "nu KRÈK kə SI-gui: the o of no rises to u, crec ends on a hard c. BÒ-nə i-DÈ-ə.",
     "aspect": "doubt",
-    "aspectNote": "The odd one out here — a doubt, not a wish. No crec que pulls the subjunctive as hard as vull que does, but for the other reason: you're not sure it's so."
+    "aspectNote": "The odd one out here — a doubt, not a wish. No crec que pulls the subjunctive as hard as vull que does, but for the other reason: you're not sure it's so.",
+    "indicative": "sigui → és"
   },
   {
     "text": "No crec que vingui.",
@@ -1679,7 +1691,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · No crec que",
     "focusNote": "nu KRÈK kə BIN-gui: the o of no rises to u before the stressed word, and crec ends on a hard c.",
     "aspect": "doubt",
-    "aspectNote": "Denied belief is a doubt, so the subjunctive: no crec que vingui. The sentence is about the future and the subjunctive is still the present one."
+    "aspectNote": "Denied belief is a doubt, so the subjunctive: no crec que vingui. The sentence is about the future and the subjunctive is still the present one.",
+    "indicative": "vingui → ve"
   },
   {
     "text": "Crec que té raó.",
@@ -1695,7 +1708,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · No crec que",
     "focusNote": "mə-LÉ-gru kə A-jis bin-GUT: the h is silent, the g of hagis before i is the soft j of 'measure', and vingut ends on a hard t.",
     "aspect": "doubt",
-    "aspectNote": "A feeling about something that has happened: the subjunctive, one step back — hagis vingut, the perfect subjunctive. The fact isn't in doubt; you're reacting to it."
+    "aspectNote": "A feeling about something that has happened: the subjunctive, one step back — hagis vingut, the perfect subjunctive. The fact isn't in doubt; you're reacting to it.",
+    "indicative": "hagis vingut → has vingut"
   },
   {
     "text": "És una llàstima que no puguis quedar-te.",
@@ -1703,7 +1717,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · No crec que",
     "focusNote": "LLÀS-ti-mə opens on the palatal ll; PU-guis has a hard g. 'Quedar-te' keeps its r — kə-DAR-tə — because -te hangs off it.",
     "aspect": "doubt",
-    "aspectNote": "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pugui, puguis."
+    "aspectNote": "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pugui, puguis.",
+    "indicative": "puguis → pots"
   },
   {
     "text": "Potser està tancat.",
@@ -1719,7 +1734,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · No crec que",
     "focusNote": "nur-MAL kəs-TI-guis: estar's subjunctive has a hard g in it. nər-vi-ÓS lands on the ó; kun-SÈRT says its final t.",
     "aspect": "doubt",
-    "aspectNote": "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: estigui, estiguis."
+    "aspectNote": "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: estigui, estiguis.",
+    "indicative": "estiguis → estàs"
   },
   {
     "text": "Dubto que els quedin taules.",
@@ -1727,7 +1743,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · No crec que",
     "focusNote": "DUP-tu: the b is unvoiced to a p before the t, and the o rises to u. KÉ-din is front-stressed; TÀW-ləs.",
     "aspect": "doubt",
-    "aspectNote": "Dubtar is doubt by name: dubto que + subjunctive. Quedar → quedi, quedin."
+    "aspectNote": "Dubtar is doubt by name: dubto que + subjunctive. Quedar → quedi, quedin.",
+    "indicative": "quedin → queden"
   },
   {
     "text": "Estic segur que anirà bé.",
@@ -1743,7 +1760,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Quan arribi",
     "focusNote": "kwən ə-RRI-bi: arribi is stressed on the RRI, with a rolled rr. 'Casa' is KA-zə. Then tru-kə-RÉ.",
     "aspect": "notYet",
-    "aspectNote": "The getting home hasn't happened yet, so quan takes the subjunctive: arribi. The calling is a plain future. English hides all of this in 'when I get'."
+    "aspectNote": "The getting home hasn't happened yet, so quan takes the subjunctive: arribi. The calling is a plain future. English hides all of this in 'when I get'.",
+    "indicative": "arribi → arribo"
   },
   {
     "text": "Quan arribo a casa, sopo.",
@@ -1759,7 +1777,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Quan arribi",
     "focusNote": "TRU-kəm, then ə-BANS kə MAR-shis — the x is the sh of 'shoe'.",
     "aspect": "notYet",
-    "aspectNote": "The leaving is still ahead, so abans que takes the subjunctive: marxar → marxis. Abans que always does; there's no fact version of it."
+    "aspectNote": "The leaving is still ahead, so abans que takes the subjunctive: marxar → marxis. Abans que always does; there's no fact version of it.",
+    "indicative": "marxis → marxes"
   },
   {
     "text": "Et deixaré una nota perquè ho sàpigues.",
@@ -1768,7 +1787,8 @@ export const SEED_PHRASES = [
     "focusNote": "də-shə-RÉ: the x is the sh of 'shoe'. 'Ho sàpigues' is u SÀ-pi-gəs — a bare u, then saber's subjunctive stressed on the SÀ.",
     "usageNote": "Perquè with the subjunctive means 'so that'; with the indicative it means 'because'. Same word, two moods, two meanings.",
     "aspect": "notYet",
-    "aspectNote": "Purpose is always not-yet — the knowing is what the note is for — so perquè takes the subjunctive: sàpigues. Perquè + indicative would mean 'because'."
+    "aspectNote": "Purpose is always not-yet — the knowing is what the note is for — so perquè takes the subjunctive: sàpigues. Perquè + indicative would mean 'because'.",
+    "indicative": "sàpigues → saps"
   },
   {
     "text": "No surto fins que no pari de ploure.",
@@ -1777,7 +1797,8 @@ export const SEED_PHRASES = [
     "focusNote": "nu SUR-tu, then FINS kə nu PA-ri — the second no is said, quietly. PLÒW-rə.",
     "usageNote": "The second no is Catalan's expletive no after fins que — it isn't a negative, and people say it.",
     "aspect": "notYet",
-    "aspectNote": "The stopping hasn't come, so fins que takes the subjunctive: parar → pari."
+    "aspectNote": "The stopping hasn't come, so fins que takes the subjunctive: parar → pari.",
+    "indicative": "pari → para"
   },
   {
     "text": "Hi anirem així que acabi l'assaig.",
@@ -1785,7 +1806,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Quan arribi",
     "focusNote": "i ə-ni-RÉM ə-SHÍ kə ə-KA-bi: així has the sh sound and lands on the í; acabi is stressed on the KA.",
     "aspect": "notYet",
-    "aspectNote": "As soon as points at a moment that hasn't arrived, so acabar → acabi. The going is the future."
+    "aspectNote": "As soon as points at a moment that hasn't arrived, so acabar → acabi. The going is the future.",
+    "indicative": "acabi → acaba"
   },
   {
     "text": "Vindré tret que plogui.",
@@ -1794,7 +1816,8 @@ export const SEED_PHRASES = [
     "focusNote": "bin-DRÉ: venir shortens to vindr-, and the v is a b. 'Tret que' is TRÈT kə, both t's crisp. PLÒ-gui.",
     "usageNote": "'Tret que' and 'llevat que' are both 'unless'; 'si no plou' is the everyday way round it.",
     "aspect": "notYet",
-    "aspectNote": "Unless is a door that hasn't shut yet — tret que takes the subjunctive: ploure → plogui."
+    "aspectNote": "Unless is a door that hasn't shut yet — tret que takes the subjunctive: ploure → plogui.",
+    "indicative": "plogui → plou"
   },
   {
     "text": "Ho faré quan tingui temps.",
@@ -1802,7 +1825,18 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Quan arribi",
     "focusNote": "u fə-RÉ kwən TIN-gui TÉMS: tingui is front-stressed with a hard g, and temps swallows its p.",
     "aspect": "notYet",
-    "aspectNote": "Having time is a moment that hasn't come, so quan takes tingui. Tenir → tingui, with the same -ngu- as vingui."
+    "aspectNote": "Having time is a moment that hasn't come, so quan takes tingui. Tenir → tingui, with the same -ngu- as vingui.",
+    "indicative": "tingui → tinc"
+  },
+  {
+    "text": "Quan vulguis.",
+    "translation": "Whenever you like.",
+    "deck": "Subjuntiu · Quan arribi",
+    "focusNote": "kwan BUL-guis: the v is a b, the g is hard, and the stress is on the first syllable. Quan is one syllable.",
+    "usageNote": "The stock answer to 'when shall we…?' — on its own, or hung on a verb: vine quan vulguis, truca'm quan vulguis.",
+    "aspect": "notYet",
+    "aspectNote": "A moment left for the other person to pick, so it hasn't come: quan takes the subjunctive. Voler → vulgui, vulguis, with the same -gu- as puguis and vinguis.",
+    "indicative": "vulguis → vols"
   },
   {
     "text": "Vull que ho sàpiga.",
@@ -1810,7 +1844,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Tot junt",
     "focusNote": "BULL kə u SÀ-pi-gə: ho is a bare u, and sàpiga is stressed on the SÀ.",
     "aspect": "wish",
-    "aspectNote": "A push: you want the knowing, and it's his to do. Saber → sàpiga."
+    "aspectNote": "A push: you want the knowing, and it's his to do. Saber → sàpiga.",
+    "indicative": "sàpiga → sap"
   },
   {
     "text": "Sé que vindrà.",
@@ -1827,7 +1862,8 @@ export const SEED_PHRASES = [
     "focusNote": "əm SAP GRÈW: sap ends on a hard p, greu is one syllable with an open e. PU-guis, then bə-NI with the r gone.",
     "usageNote": "'Em sap greu' is the everyday Catalan 'I'm sorry' — literally 'it tastes bad to me'.",
     "aspect": "doubt",
-    "aspectNote": "A feeling about a fact: em sap greu que + subjunctive. Poder → puguis."
+    "aspectNote": "A feeling about a fact: em sap greu que + subjunctive. Poder → puguis.",
+    "indicative": "puguis → pots"
   },
   {
     "text": "En parlarem quan arribis.",
@@ -1835,7 +1871,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Tot junt",
     "focusNote": "əm pər-lə-RÉM: the en is a bare schwa-m before the p. kwən ə-RRI-bis with a rolled rr.",
     "aspect": "notYet",
-    "aspectNote": "Arriving hasn't happened yet, so quan takes arribis. The talking is the future."
+    "aspectNote": "Arriving hasn't happened yet, so quan takes arribis. The talking is the future.",
+    "indicative": "arribis → arribes"
   },
   {
     "text": "És evident que és el millor.",
@@ -1851,7 +1888,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Tot junt",
     "focusNote": "nə-sə-SI-tu kə mə-JU-dis: the j is the voiced sound of 'measure', and ajudis is stressed on the JU.",
     "aspect": "wish",
-    "aspectNote": "A push: the helping is someone else's to do. Ajudar → ajudi, ajudis."
+    "aspectNote": "A push: the helping is someone else's to do. Ajudar → ajudi, ajudis.",
+    "indicative": "m'ajudis → m'ajudes"
   },
   {
     "text": "No crec que sigui tan lluny.",
@@ -1859,7 +1897,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Tot junt",
     "focusNote": "SI-gui with a hard g; LLUNY opens on the palatal ll and shuts on the ny of 'canyon'.",
     "aspect": "doubt",
-    "aspectNote": "A doubt: no crec que, and ser → sigui. Take the no off and it's crec que és."
+    "aspectNote": "A doubt: no crec que, and ser → sigui. Take the no off and it's crec que és.",
+    "indicative": "sigui → és"
   },
   {
     "text": "Avisa'm abans que decideixis.",
@@ -1867,7 +1906,8 @@ export const SEED_PHRASES = [
     "deck": "Subjuntiu · Tot junt",
     "focusNote": "ə-VI-zəm: the s between vowels is a z. də-si-DÉ-shis, with the sh of 'shoe' at the end.",
     "aspect": "notYet",
-    "aspectNote": "Deciding is still ahead, so abans que takes the subjunctive: decidir → decideixis."
+    "aspectNote": "Deciding is still ahead, so abans que takes the subjunctive: decidir → decideixis.",
+    "indicative": "decideixis → decideixes"
   },
   {
     "text": "Antes trabajaba desde casa.",
@@ -2355,7 +2395,8 @@ export const SEED_PHRASES = [
     "focusNote": "i-RÁ is two syllables landing on the á. pre-o-CU-pes, four of them, the c a hard k.",
     "language": "es-ES",
     "aspect": "will",
-    "aspectNote": "Irá is the future — ahead, and promised. (No te preocupes is a subjunctive doing the negative command; the Subjuntivo decks come back to it.)"
+    "aspectNote": "Irá is the future — ahead, and promised. (No te preocupes is a subjunctive doing the negative command; the Subjuntivo decks come back to it.)",
+    "indicative": "no te preocupes → no te preocupas"
   },
   {
     "text": "Me encantaría ir, pero no puedo.",
@@ -2527,7 +2568,8 @@ export const SEED_PHRASES = [
     "focusNote": "tu-VIE-ra with a soft b; a-pren-de-RÍ-a lands on the í. 'Piano' is PIA-no.",
     "language": "es-ES",
     "aspect": "would",
-    "aspectNote": "An unreal if: the si-clause takes the past subjunctive (tuviera) and the answer takes the conditional. That pairing is the whole deck."
+    "aspectNote": "An unreal if: the si-clause takes the past subjunctive (tuviera) and the answer takes the conditional. That pairing is the whole deck.",
+    "indicative": "tuviera → tengo"
   },
   {
     "text": "Si lloviera, no saldríamos.",
@@ -2536,7 +2578,8 @@ export const SEED_PHRASES = [
     "focusNote": "llo-VIE-ra; sal-DRÍ-a-mos with the stress on DRÍ.",
     "language": "es-ES",
     "aspect": "would",
-    "aspectNote": "The unreal twin of si llueve, no saldremos. Lloviera in the if, saldríamos in the answer: two endings that always travel together."
+    "aspectNote": "The unreal twin of si llueve, no saldremos. Lloviera in the if, saldríamos in the answer: two endings that always travel together.",
+    "indicative": "lloviera → llueve"
   },
   {
     "text": "Si vienes temprano, tomaremos un café.",
@@ -2554,7 +2597,8 @@ export const SEED_PHRASES = [
     "focusNote": "com-pra-RÍ-a on the í. FUE-ra, one glide; ba-RA-to with a soft b.",
     "language": "es-ES",
     "aspect": "would",
-    "aspectNote": "Fuera is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows."
+    "aspectNote": "Fuera is ser in the past subjunctive — the if lives in a world where it's cheaper, and the buying is the would that follows.",
+    "indicative": "fuera → es"
   },
   {
     "text": "¿Qué harías en mi lugar?",
@@ -2572,7 +2616,8 @@ export const SEED_PHRASES = [
     "focusNote": "FUE-ra TÚ, then i-RÍ-a on the í.",
     "language": "es-ES",
     "aspect": "would",
-    "aspectNote": "The if that can never be true, so the past subjunctive — fuera — and the conditional after it."
+    "aspectNote": "The if that can never be true, so the past subjunctive — fuera — and the conditional after it.",
+    "indicative": "fuera → eres"
   },
   {
     "text": "Podríamos ir a la playa si hace sol.",
@@ -2599,7 +2644,8 @@ export const SEED_PHRASES = [
     "focusNote": "QUIE-ro, then VEN-gas with a hard g. en-SA-yo.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "You want it and it's someone else's to do: quiero que, then the subjunctive. Venir → venga, vengas."
+    "aspectNote": "You want it and it's someone else's to do: quiero que, then the subjunctive. Venir → venga, vengas.",
+    "indicative": "vengas → vienes"
   },
   {
     "text": "Quiero venir al ensayo.",
@@ -2617,7 +2663,8 @@ export const SEED_PHRASES = [
     "focusNote": "es-PE-ro; re-cu-PE-res is stressed on the PE. PRON-to.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A hope is a wish about someone else's body: espero que + subjunctive. Recuperarse → te recuperes."
+    "aspectNote": "A hope is a wish about someone else's body: espero que + subjunctive. Recuperarse → te recuperes.",
+    "indicative": "te recuperes → te recuperas"
   },
   {
     "text": "Hace falta que estés aquí a las ocho.",
@@ -2626,7 +2673,8 @@ export const SEED_PHRASES = [
     "focusNote": "A-ce FAL-ta with the th of 'thin'; es-TÉS lands on the é.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "Hace falta que is a push — 'it's necessary that' — and pushes take the subjunctive. Estar → esté, estés."
+    "aspectNote": "Hace falta que is a push — 'it's necessary that' — and pushes take the subjunctive. Estar → esté, estés.",
+    "indicative": "estés → estás"
   },
   {
     "text": "Me gustaría que cenáramos juntos.",
@@ -2635,7 +2683,8 @@ export const SEED_PHRASES = [
     "focusNote": "gus-ta-RÍ-a; ce-NÁ-ra-mos with the th of 'thin' and the stress on NÁ.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (me gustaría), the subjunctive steps back a tense with it: cenáramos, not cenemos."
+    "aspectNote": "A wish for someone else's doing, so the subjunctive — and because the wanting is a would (me gustaría), the subjunctive steps back a tense with it: cenáramos, not cenemos.",
+    "indicative": "cenáramos → cenamos"
   },
   {
     "text": "Ojalá llueva.",
@@ -2644,7 +2693,8 @@ export const SEED_PHRASES = [
     "focusNote": "o-ja-LÁ with the throaty j and the stress on the end. LLUE-va, one glide.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A wish flung at the weather: ojalá takes the subjunctive on its own, no que needed. Llover → llueva."
+    "aspectNote": "A wish flung at the weather: ojalá takes the subjunctive on its own, no que needed. Llover → llueva.",
+    "indicative": "llueva → llueve"
   },
   {
     "text": "Dile que me llame.",
@@ -2653,7 +2703,8 @@ export const SEED_PHRASES = [
     "focusNote": "DI-le, then me LLA-me — the ll is a light j.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A message you push through someone: 'tell him to' is decir + que + subjunctive. Llamar → llame."
+    "aspectNote": "A message you push through someone: 'tell him to' is decir + que + subjunctive. Llamar → llame.",
+    "indicative": "llame → llama"
   },
   {
     "text": "No creo que sea buena idea.",
@@ -2662,7 +2713,8 @@ export const SEED_PHRASES = [
     "focusNote": "no CRE-o que SE-a: two clean vowels each. BUE-na i-DE-a.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "The odd one out here — a doubt, not a wish. No creo que pulls the subjunctive as hard as quiero que does, but for the other reason: you're not sure it's so."
+    "aspectNote": "The odd one out here — a doubt, not a wish. No creo que pulls the subjunctive as hard as quiero que does, but for the other reason: you're not sure it's so.",
+    "indicative": "sea → es"
   },
   {
     "text": "No creo que venga.",
@@ -2671,7 +2723,8 @@ export const SEED_PHRASES = [
     "focusNote": "no CRE-o que VEN-ga: the g is hard.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "Denied belief is a doubt, so the subjunctive: no creo que venga. The sentence is about the future and the subjunctive is still the present one."
+    "aspectNote": "Denied belief is a doubt, so the subjunctive: no creo que venga. The sentence is about the future and the subjunctive is still the present one.",
+    "indicative": "venga → viene"
   },
   {
     "text": "Creo que tiene razón.",
@@ -2689,7 +2742,8 @@ export const SEED_PHRASES = [
     "focusNote": "me a-LE-gro de que A-yas ve-NI-do: hayas has a silent h and a light j.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "A feeling about something that has happened: the subjunctive, one step back — hayas venido, the perfect subjunctive. The fact isn't in doubt; you're reacting to it."
+    "aspectNote": "A feeling about something that has happened: the subjunctive, one step back — hayas venido, the perfect subjunctive. The fact isn't in doubt; you're reacting to it.",
+    "indicative": "hayas venido → has venido"
   },
   {
     "text": "Es una pena que no puedas quedarte.",
@@ -2698,7 +2752,8 @@ export const SEED_PHRASES = [
     "focusNote": "PE-na; PUE-das, one glide and a soft d. que-DAR-te rolls the r.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pueda, puedas."
+    "aspectNote": "A feeling — a shame — about a fact, and feelings take the subjunctive: poder → pueda, puedas.",
+    "indicative": "puedas → puedes"
   },
   {
     "text": "Quizá esté cerrado.",
@@ -2707,7 +2762,8 @@ export const SEED_PHRASES = [
     "focusNote": "qui-ZÁ with the th of 'thin', landing on the á. es-TÉ on the é; ce-RRA-do with a rolled rr.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "Quizá can go either way in Spanish, and the subjunctive says you really aren't sure: esté. Catalan's potser never does this — potser està."
+    "aspectNote": "Quizá can go either way in Spanish, and the subjunctive says you really aren't sure: esté. Catalan's potser never does this — potser està.",
+    "indicative": "esté → está"
   },
   {
     "text": "Es normal que estés nervioso antes de un concierto.",
@@ -2716,7 +2772,8 @@ export const SEED_PHRASES = [
     "focusNote": "es-TÉS on the é; ner-VIO-so with a soft b; con-CIER-to with the th of 'thin'.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: esté, estés."
+    "aspectNote": "A judgement on a fact — 'it's normal that' — and judgements take the subjunctive: esté, estés.",
+    "indicative": "estés → estás"
   },
   {
     "text": "Dudo que les queden mesas.",
@@ -2725,7 +2782,8 @@ export const SEED_PHRASES = [
     "focusNote": "DU-do with a soft d; QUE-den is front-stressed. ME-sas.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "Dudar is doubt by name: dudo que + subjunctive. Quedar → quede, queden."
+    "aspectNote": "Dudar is doubt by name: dudo que + subjunctive. Quedar → quede, queden.",
+    "indicative": "queden → quedan"
   },
   {
     "text": "Estoy seguro de que irá bien.",
@@ -2743,7 +2801,8 @@ export const SEED_PHRASES = [
     "focusNote": "CUAN-do LLE-gue: the gu is a hard g, the u silent. lla-ma-RÉ.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "The getting home hasn't happened yet, so cuando takes the subjunctive: llegue. The calling is a plain future. English hides all of this in 'when I get'."
+    "aspectNote": "The getting home hasn't happened yet, so cuando takes the subjunctive: llegue. The calling is a plain future. English hides all of this in 'when I get'.",
+    "indicative": "llegue → llego"
   },
   {
     "text": "Cuando llego a casa, ceno.",
@@ -2761,7 +2820,8 @@ export const SEED_PHRASES = [
     "focusNote": "LLÁ-ma-me is stressed on the first; AN-tes; te VA-yas with a soft b.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "The leaving is still ahead, so antes de que takes the subjunctive: irse → te vayas. Antes de que always does; there's no fact version of it."
+    "aspectNote": "The leaving is still ahead, so antes de que takes the subjunctive: irse → te vayas. Antes de que always does; there's no fact version of it.",
+    "indicative": "te vayas → te vas"
   },
   {
     "text": "Te dejaré una nota para que lo sepas.",
@@ -2770,7 +2830,8 @@ export const SEED_PHRASES = [
     "focusNote": "de-ja-RÉ with the throaty j. SE-pas is front-stressed.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "Purpose is always not-yet — the knowing is what the note is for — so para que takes the subjunctive: sepas."
+    "aspectNote": "Purpose is always not-yet — the knowing is what the note is for — so para que takes the subjunctive: sepas.",
+    "indicative": "sepas → sabes"
   },
   {
     "text": "No salgo hasta que deje de llover.",
@@ -2779,7 +2840,8 @@ export const SEED_PHRASES = [
     "focusNote": "SAL-go with a hard g; AS-ta, the h silent; DE-je with the throaty j.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "The stopping hasn't come, so hasta que takes the subjunctive: dejar → deje."
+    "aspectNote": "The stopping hasn't come, so hasta que takes the subjunctive: dejar → deje.",
+    "indicative": "deje → deja"
   },
   {
     "text": "Iremos en cuanto acabe el ensayo.",
@@ -2788,7 +2850,8 @@ export const SEED_PHRASES = [
     "focusNote": "i-RE-mos on the RE; en CUAN-to a-CA-be, both front-stressed.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "As soon as points at a moment that hasn't arrived, so acabar → acabe. The going is the future."
+    "aspectNote": "As soon as points at a moment that hasn't arrived, so acabar → acabe. The going is the future.",
+    "indicative": "acabe → acaba"
   },
   {
     "text": "Vendré a menos que llueva.",
@@ -2797,7 +2860,8 @@ export const SEED_PHRASES = [
     "focusNote": "ven-DRÉ on the é; a ME-nos; LLUE-va, one glide.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "Unless is a door that hasn't shut yet — a menos que takes the subjunctive: llover → llueva."
+    "aspectNote": "Unless is a door that hasn't shut yet — a menos que takes the subjunctive: llover → llueva.",
+    "indicative": "llueva → llueve"
   },
   {
     "text": "Lo haré cuando tenga tiempo.",
@@ -2806,7 +2870,19 @@ export const SEED_PHRASES = [
     "focusNote": "ha-RÉ with a silent h; TEN-ga with a hard g.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "Having time is a moment that hasn't come, so cuando takes tenga. Tener → tenga, with the same -ng- as venga."
+    "aspectNote": "Having time is a moment that hasn't come, so cuando takes tenga. Tener → tenga, with the same -ng- as venga.",
+    "indicative": "tenga → tengo"
+  },
+  {
+    "text": "Cuando quieras.",
+    "translation": "Whenever you like.",
+    "deck": "Subjuntivo · Cuando llegue",
+    "focusNote": "CUAN-do QUIE-ras: two glides, both front-stressed, and the r a single tap.",
+    "language": "es-ES",
+    "usageNote": "The stock answer to 'when shall we…?' — on its own, or hung on a verb: ven cuando quieras, llámame cuando quieras.",
+    "aspect": "notYet",
+    "aspectNote": "A moment left for the other person to pick, so it hasn't come: cuando takes the subjunctive. Querer → quiera, quieras.",
+    "indicative": "quieras → quieres"
   },
   {
     "text": "Quiero que lo sepa.",
@@ -2815,7 +2891,8 @@ export const SEED_PHRASES = [
     "focusNote": "QUIE-ro que lo SE-pa, all front-stressed.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A push: you want the knowing, and it's his to do. Saber → sepa."
+    "aspectNote": "A push: you want the knowing, and it's his to do. Saber → sepa.",
+    "indicative": "sepa → sabe"
   },
   {
     "text": "Sé que vendrá.",
@@ -2833,7 +2910,8 @@ export const SEED_PHRASES = [
     "focusNote": "SIEN-to, one glide; PUE-das with a soft d; ve-NIR rolls its r.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "A feeling about a fact: siento que + subjunctive. Poder → puedas."
+    "aspectNote": "A feeling about a fact: siento que + subjunctive. Poder → puedas.",
+    "indicative": "puedas → puedes"
   },
   {
     "text": "Hablaremos cuando llegues.",
@@ -2842,7 +2920,8 @@ export const SEED_PHRASES = [
     "focusNote": "a-bla-RE-mos with the h silent; LLE-gues with a hard g and a silent u.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "Arriving hasn't happened yet, so cuando takes llegues. The talking is the future."
+    "aspectNote": "Arriving hasn't happened yet, so cuando takes llegues. The talking is the future.",
+    "indicative": "llegues → llegas"
   },
   {
     "text": "Está claro que es el mejor.",
@@ -2860,7 +2939,8 @@ export const SEED_PHRASES = [
     "focusNote": "ne-ce-SI-to with the th of 'thin'; a-YU-des with a light j.",
     "language": "es-ES",
     "aspect": "wish",
-    "aspectNote": "A push: the helping is someone else's to do. Ayudar → ayude, ayudes."
+    "aspectNote": "A push: the helping is someone else's to do. Ayudar → ayude, ayudes.",
+    "indicative": "me ayudes → me ayudas"
   },
   {
     "text": "No creo que esté tan lejos.",
@@ -2869,7 +2949,8 @@ export const SEED_PHRASES = [
     "focusNote": "es-TÉ on the é; LE-jos with the throaty j.",
     "language": "es-ES",
     "aspect": "doubt",
-    "aspectNote": "A doubt: no creo que, and estar → esté. Take the no off and it's creo que está."
+    "aspectNote": "A doubt: no creo que, and estar → esté. Take the no off and it's creo que está.",
+    "indicative": "esté → está"
   },
   {
     "text": "Avísame antes de que decidas.",
@@ -2878,7 +2959,8 @@ export const SEED_PHRASES = [
     "focusNote": "a-VÍ-sa-me is stressed on the VÍ, with a soft b; de-CI-das with the th of 'thin'.",
     "language": "es-ES",
     "aspect": "notYet",
-    "aspectNote": "Deciding is still ahead, so antes de que takes the subjunctive: decidir → decidas."
+    "aspectNote": "Deciding is still ahead, so antes de que takes the subjunctive: decidir → decidas.",
+    "indicative": "decidas → decides"
   },
   {
     "text": "la forquilla",
