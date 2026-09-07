@@ -527,8 +527,9 @@ have said it.
   the page head and every back link print, so the name lives in one place.
   The sister apps' fourth tile is still called Quick; that is a divergence in
   a title, not in a key. `chatStarter` is one card under the message box (a
-  select of scenes and a Start button, not six rows — the ask box has to stay
-  on top and the page already had two boxes), `paintChats` lists the chats
+  select of scenes, the character box and a Start button, not six rows — the
+  ask box has to stay on top and the page already had two boxes — and no
+  explanatory paragraph: there was one, *"we don't need this text"*), `paintChats` lists the chats
   you have had under the messages, `quickCount` reads *3 asked for · 2
   messages · 1 chat*, and `state.chat` is the chat open behind the page —
   cleared by `goHome`, by `#quick-home` and by *‹ Real life*, exactly as
@@ -2420,6 +2421,17 @@ v2 list.
   there is a transcript — answering a question only repaints the log, so
   rendering it conditionally meant the way out didn't appear until you left the
   page and came back, which is when you are least likely to look for it.
+
+- **The interview sits above the cards, the way Quick's ask box sits above
+  what it made.** Asked for as *"put the about me chat above the about me
+  cards … a similar layout to quick"*. The page opened on the practise
+  button and every card, with the box you talk to underneath — so on a deck
+  of thirty the thing the page is *for* was a screen and a half down. Now
+  it reads: the chat card and Create, then *Your cards* with its Practise
+  button and the rows. Nothing else moved — same ids, same handlers, same
+  `paintLog` — so the assertions below hold as they were, plus one on the
+  order: `#about-form` above `#about-make` above `#about-practise` above
+  the first `.row`. In all three apps.
 
 Deb-o-lingo has this as **Sobre mí** — same two endpoints, same persisted
 transcript, same guards, no Worker change needed. The one divergence is
