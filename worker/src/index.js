@@ -249,6 +249,64 @@ const DEFAULT_TOPIC = "a moment from the history of Catalonia";
    Both are for a learner who loves history and needs input he will actually
    sit through. */
 const FEEDS = {
+  /* The everyday sources, asked for once the history ones were in: "it
+     doesn't represent things I will see and hear day to day". Easy Catalan is
+     two hosts chatting at natural speed, made for learners; betevé is
+     Barcelona's own channel, with a podcast feed for its radio and a site
+     feed for its news — the district page covers Horta. None of these URLs
+     could be checked from the sandbox that wrote them, which is what the
+     spare guesses and the discovery step are for: each source names the
+     page a feed reader would start from and the hosts a discovered feed may
+     live on, podcast hosts included, since a podcast's feed is often on its
+     host's domain rather than the programme's own. */
+  "easy-catalan": {
+    title: "Easy Catalan",
+    kind: "podcast",
+    audioOnly: true,
+    urls: [
+      "https://www.easycatalan.org/feed/podcast/",
+      "https://www.easycatalan.org/feed/podcast",
+      "https://easycatalan.org/feed/podcast/",
+      "https://www.easycatalan.org/podcast/feed/",
+      "https://feeds.transistor.fm/easy-catalan-podcast",
+      "https://feeds.buzzsprout.com/easycatalan.rss",
+    ],
+    discover: "https://www.easycatalan.org/podcast/",
+    hosts: [
+      "easycatalan.org",
+      "www.easycatalan.org",
+      "feeds.transistor.fm",
+      "feeds.buzzsprout.com",
+      "anchor.fm",
+      "feeds.simplecast.com",
+      "feeds.acast.com",
+      "feed.podbean.com",
+      "easycatalan.podbean.com",
+      "feeds.libsyn.com",
+      "www.ivoox.com",
+    ],
+  },
+  "beteve-radio": {
+    title: "betevé ràdio",
+    kind: "podcast",
+    audioOnly: true,
+    urls: [
+      "https://beteve.cat/feed/podcast/",
+      "https://beteve.cat/feed/podcast",
+      "https://www.beteve.cat/feed/podcast/",
+      "https://beteve.cat/podcast/feed/",
+      "https://beteve.cat/radio/feed/",
+    ],
+    discover: "https://beteve.cat/radio/",
+    hosts: ["beteve.cat", "www.beteve.cat", "www.ivoox.com", "feeds.ivoox.com", "anchor.fm", "feeds.simplecast.com"],
+  },
+  beteve: {
+    title: "betevé",
+    kind: "articles",
+    urls: ["https://beteve.cat/feed/", "https://beteve.cat/feed", "https://www.beteve.cat/feed/", "https://beteve.cat/rss/", "https://beteve.cat/feed.xml"],
+    discover: "https://beteve.cat/",
+    hosts: ["beteve.cat", "www.beteve.cat"],
+  },
   "en-guardia": {
     title: "En guàrdia!",
     kind: "podcast",
@@ -1409,6 +1467,12 @@ async function fetchFeed(source) {
     if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
     const parsed = parseFeed(await decodeBody(response));
     if (!parsed.items.length) throw new Error(`no items at ${url}`);
+    /* A listening source has to carry audio. Discovery on a WordPress site
+       finds the posts feed first, and for betevé that is the news — the same
+       list the reading source shows — so a podcast source that lands on a
+       feed with no enclosures is treated as not found rather than served as
+       articles twice over. */
+    if (feed.audioOnly && !parsed.items.some((item) => item.audio)) throw new Error(`no audio at ${url}`);
     const result = {
       source,
       title: parsed.title || feed.title,
