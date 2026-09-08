@@ -3993,7 +3993,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v97 / `xerra-v97` — `js/version.js` first, `sw.js` second, as ever.
+- v98 / `xerra-v98` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
