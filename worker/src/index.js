@@ -260,7 +260,19 @@ const FEEDS = {
   sapiens: {
     title: "Sàpiens",
     kind: "articles",
-    urls: ["https://www.sapiens.cat/feed", "https://www.sapiens.cat/rss", "https://www.sapiens.cat/feed/"],
+    urls: [
+      "https://www.sapiens.cat/feed",
+      "https://www.sapiens.cat/rss",
+      "https://www.sapiens.cat/feed/",
+      "https://www.sapiens.cat/feed.xml",
+      "https://www.sapiens.cat/rss.xml",
+    ],
+    /* When none of the guesses answers, the site itself is asked where its
+       feed is — the `<link rel="alternate" type="application/rss+xml">` every
+       feed reader looks for — and the answer is followed only if it stays on
+       one of these hosts. Still an allowlist, one step longer. */
+    discover: "https://www.sapiens.cat/",
+    hosts: ["sapiens.cat", "www.sapiens.cat"],
   },
 };
 const FEED_ITEMS = 30;
@@ -1386,49 +1398,112 @@ async function fetchFeed(source) {
     if (hit) return hit.json();
   }
   let lastError = null;
+  const attempt = async (url) => {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Xerra/1.0 (+https://dbfsproductions.github.io/listen-record-learn/)",
+        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+      },
+      signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
+    const parsed = parseFeed(await decodeBody(response));
+    if (!parsed.items.length) throw new Error(`no items at ${url}`);
+    const result = {
+      source,
+      title: parsed.title || feed.title,
+      kind: feed.kind,
+      url,
+      fetchedAt: new Date().toISOString(),
+      items: parsed.items,
+    };
+    if (cache) {
+      await cache
+        .put(
+          key,
+          new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${FEED_TTL_S}` },
+          })
+        )
+        .catch(() => {});
+    }
+    return result;
+  };
   for (const url of feed.urls) {
     try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "Xerra/1.0 (+https://dbfsproductions.github.io/listen-record-learn/)",
-          Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
-        },
-        signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
-      });
-      if (!response.ok) {
-        lastError = new Error(`HTTP ${response.status} from ${url}`);
-        continue;
-      }
-      const parsed = parseFeed(await response.text());
-      if (!parsed.items.length) {
-        lastError = new Error(`no items at ${url}`);
-        continue;
-      }
-      const result = {
-        source,
-        title: parsed.title || feed.title,
-        kind: feed.kind,
-        url,
-        fetchedAt: new Date().toISOString(),
-        items: parsed.items,
-      };
-      if (cache) {
-        await cache
-          .put(
-            key,
-            new Response(JSON.stringify(result), {
-              headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${FEED_TTL_S}` },
-            })
-          )
-          .catch(() => {});
-      }
-      return result;
+      return await attempt(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  // Only once every guess has failed: ask the site where its feed is.
+  if (feed.discover) {
+    try {
+      const found = await discoverFeed(feed);
+      if (!feed.urls.includes(found)) return await attempt(found);
     } catch (error) {
       lastError = error;
     }
   }
   console.error("Feed fetch failed", source, lastError instanceof Error ? lastError.message : String(lastError));
   throw new PublicError(`Couldn't reach ${feed.title} just now. Try again in a minute.`, 502);
+}
+
+/* The body as text, in the charset the feed actually uses. `response.text()`
+   assumes UTF-8, and Catalunya Ràdio's feed is ISO-8859-1 — so every accented
+   letter in every title came through as U+FFFD, and the phone printed
+   *cr�niques*. The charset is read from the Content-Type header, then from
+   the XML declaration; a body that declares nothing and still fails to
+   decode as UTF-8 is tried as Latin-1, since that is the only other thing a
+   Catalan feed has ever been. Latin-1 is decoded by hand when the runtime's
+   TextDecoder does not know it: one byte, one code point. */
+async function decodeBody(response) {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const head = String.fromCharCode(...bytes.slice(0, 300));
+  const declared =
+    /charset=["']?([\w-]+)/i.exec(response.headers.get("Content-Type") ?? "")?.[1] ??
+    /^<\?xml[^>]*encoding=["']([\w-]+)["']/i.exec(head)?.[1] ??
+    "";
+  const charset = declared.toLowerCase();
+  if (charset && !/^utf-?8$/.test(charset)) return decodeAs(bytes, charset);
+  const utf8 = new TextDecoder("utf-8").decode(bytes);
+  return !charset && utf8.includes("\uFFFD") ? decodeAs(bytes, "iso-8859-1") : utf8;
+}
+
+function decodeAs(bytes, charset) {
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return text;
+  }
+}
+
+/* Feed autodiscovery: the page's own `<link rel="alternate">` to its RSS or
+   Atom feed, followed only when it points at one of the feed's own hosts. */
+async function discoverFeed(feed) {
+  const response = await fetch(feed.discover, {
+    headers: { "User-Agent": "Xerra/1.0 (+https://dbfsproductions.github.io/listen-record-learn/)", Accept: "text/html" },
+    signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status} from ${feed.discover}`);
+  const html = (await decodeBody(response)).slice(0, 200_000);
+  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+  for (const tag of links) {
+    if (!/type=["']application\/(rss|atom)\+xml["']/i.test(tag)) continue;
+    const href = /\bhref=["']([^"']+)["']/i.exec(tag)?.[1];
+    if (!href) continue;
+    let url;
+    try {
+      url = new URL(decodeEntities(href), feed.discover);
+    } catch {
+      continue;
+    }
+    if (!/^https?:$/.test(url.protocol) || !(feed.hosts ?? []).includes(url.hostname)) continue;
+    return url.href;
+  }
+  throw new Error(`no feed link on ${feed.discover}`);
 }
 
 /* RSS by regex, because a Worker has no DOMParser and a feed is a flat list
@@ -1468,7 +1543,34 @@ function parseFeed(xml) {
       duration: tag("itunes:duration").slice(0, 20),
     });
   }
-  return { title: channelTitle, items };
+  if (items.length) return { title: channelTitle, items };
+  /* Atom, for a site that publishes that instead: <entry> with a <link href>
+     and a summary or content. No audio — a podcast is always RSS. */
+  const feedTitle = textOf(/<feed\b[^>]*>[\s\S]*?<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i.exec(source)?.[1] ?? "");
+  const entryRe = /<entry\b[^>]*>([\s\S]*?)<\/entry>/gi;
+  while ((match = entryRe.exec(source)) && items.length < FEED_ITEMS) {
+    const block = match[1];
+    const tag = (name) => {
+      const found = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i").exec(block);
+      return found ? textOf(found[1]) : "";
+    };
+    const title = tag("title");
+    if (!title) continue;
+    const linkTag = /<link\b[^>]*rel=["']alternate["'][^>]*>/i.exec(block)?.[0] ?? /<link\b[^>]*>/i.exec(block)?.[0] ?? "";
+    const link = decodeEntities(/\bhref=["']([^"']*)["']/i.exec(linkTag)?.[1] ?? "");
+    const summary = tag("summary");
+    const content = tag("content");
+    items.push({
+      title: title.slice(0, 300),
+      link: link.slice(0, 600),
+      date: tag("published") || tag("updated"),
+      summary: (summary || content).slice(0, FEED_SUMMARY_CHARS),
+      body: (content.length > summary.length ? content : summary).slice(0, FEED_BODY_CHARS),
+      audio: "",
+      duration: "",
+    });
+  }
+  return { title: channelTitle || feedTitle, items };
 }
 
 function textOf(raw) {

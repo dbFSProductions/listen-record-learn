@@ -344,6 +344,15 @@ you are inside it, which includes coming back from the print page with the
 ticks still on. Opening flips `hidden` in place rather than re-rendering,
 because the ticks live in `wireDeckManager`'s closure.
 
+### A long title drops the banner's mark
+
+An episode's title — *Les cròniques de Kaminski a la Guerra Civil* — landed
+in the column the back link left it and wrapped one word to a line, seven
+lines of banner. Reported with a screenshot. Over `LONG_TITLE` (24)
+characters `pageHead` adds `long`: the mark goes, the title sets at 1.05rem
+and the back link yields a little. Short titles are exactly as they were,
+mark included.
+
 ### The way home is in the banner everywhere
 
 About me printed its *‹ Home* in a `.topbar` above the page head — the
@@ -771,6 +780,16 @@ its blurb read the way a message is read; **Sàpiens**, the history magazine,
 each piece read the same way; and **a story written for you** at your level
 on whatever you ask, with three questions to check you followed it.
 
+- **Every list on the page folds behind its header.** Asked for as *"add an
+  accordion to the long lists"*: the page had grown to your books, what you
+  had read, two feeds and four shelves of Viquipèdia, and it was a screen and
+  a half of scrolling to reach any of them. `readerFold` is Settings → Decks'
+  `.card-fold` reused — the header row is the button, with a count in its
+  sub, the body hidden until opened — and `settings.readerOpen` remembers
+  the choice by key, all shut by default, so the page is the two boxes you
+  act on (a story, a book page) and then five headers. One delegated
+  listener flips a fold in place, so a feed still loading keeps loading, and
+  `paintFeed` writes the count into the header when it lands.
 - **It is a page behind a row on Real life, not a seventh tile.** The grid
   is two by three and stays so; `readerRow()` is a filled purple row under
   the chat starter, and `state.reader` is the page, cleared by every way out
@@ -788,7 +807,13 @@ on whatever you ask, with three questions to check you followed it.
   `reading` — since nobody is waiting for one; the gist box asks *What is it
   about?* or, for a story, *What happened?*; the back link goes to the
   reader; the card is striped purple; and an episode carries its `<audio>`
-  above the text so you can listen while you read. `isMessage` is the one
+  above the text so you can listen while you read. **Every text on this page
+  has Listen and Slow under it** — `#msg-listen`, `#msg-slow`, the drill's
+  two speeds through `sayAloud`, which took a `rate` for this — offered
+  before the reveal as well as after, because the audio is the input and
+  not the answer, and a page heard while it is read is half of the
+  shadowing this app has been missing. Azure caches the synthesis by text,
+  so a page is fetched once. `isMessage` is the one
   reader of the kind, and *From your messages* on Real life and the tile's
   count use it: a story is not a message somebody sent. The reader lists
   them under *Read before*, and an item opened before reopens by its
@@ -805,12 +830,26 @@ on whatever you ask, with three questions to check you followed it.
   image is not offered as an episode — and `itunes:duration`. Every text
   field is CDATA-unwrapped, tag-stripped and entity-decoded, with the
   accented Latin-1 entities a Catalan feed actually uses, since a gloss
-  cannot be matched onto *Cat&ograve;lic*. **The two URLs were found from
+  cannot be matched onto *Cat&ograve;lic*. **The bytes are decoded in the
+  charset the feed declares** (`decodeBody`): Catalunya Ràdio's feed is
+  ISO-8859-1, `response.text()` assumes UTF-8, and the first build printed
+  *cr�niques* on every title — reported from the phone with a screenshot.
+  The charset is read from the Content-Type header, then the XML
+  declaration, and a body that declares nothing and still will not decode
+  as UTF-8 is read as Latin-1, by hand if the runtime's TextDecoder does not
+  know it. **The two URLs were found from
   documentation, not fetched**: the development sandbox could not reach
   either host, so each source carries a second spelling and the first that
-  parses wins. If the En guàrdia list is empty on the phone, the URL in
-  `FEEDS` is the first thing to check, and `worker/tools/feed-test.mjs`
-  shows the shape the parser expects. `feeds` in store.js keeps the last
+  parses wins. **On the phone, En guàrdia came through and Sàpiens did
+  not** — the site's feed is not at any of the guessed paths — so a source
+  may carry `discover` and `hosts`: once every guess has failed, the Worker
+  fetches that page, reads its `<link rel="alternate" type="application/
+  rss+xml">` the way a feed reader does, and follows it only if it stays on
+  one of the named hosts. Still an allowlist, one step longer. `parseFeed`
+  reads Atom `<entry>`s as well as RSS `<item>`s for the same reason. If
+  Sàpiens is still empty, the site has no feed to find, and the next move
+  is a different history source rather than another guess.
+  `worker/tools/feed-test.mjs` shows the shapes the parser expects. `feeds` in store.js keeps the last
   fetch per source so the page opens on something in a tunnel; not in
   export/import, since the Worker hands the same list back.
 - **The audio is the broadcaster's own file, streamed.** `<audio controls>`
@@ -859,6 +898,26 @@ on whatever you ask, with three questions to check you followed it.
     reading, which no seed deck can supply. The page's keep list goes to
     Llibres too, with the page number. *Your books* on the reader lists each
     book with its pages and lookups; book pages stay out of *Read before*.
+- **Viquipèdia, for the Romans, the counts, the battles and the empire.**
+  Asked for as *"there might be other sources of Catalan history.
+  Particularly Roman and principalities and battles and empires."* The
+  feeds give you this week; an encyclopaedia gives you Tàrraco. The Catalan
+  Wikipedia's REST API is open, keyless and answers cross-origin, so
+  `wikiSummary` / `wikiSearch` / `wikiFullText` are client-side fetches
+  and **no Worker change**: the article's introduction (the summary
+  endpoint's `extract`, or the whole article capped at a paragraph break
+  when the intro is under 300 characters) is the reading, glossed through
+  `/message` and opened as a `kind: "article"` with *From Viquipèdia* and a
+  link to the entry. `WIKI_SHELVES` are four shelves of titles — Roma,
+  Comtats i Corona, Batalles, L'imperi mediterrani — as chips under a
+  search box (`#wiki-query`, `#wiki-go`). The summary endpoint follows
+  redirects, and a title it still cannot find is searched for and the top
+  hit taken, so a shelf title spelled a little differently from the
+  article's own still lands; a disambiguation page is treated as not
+  found. `WIKI` is keyed by language, so the Spanish and Italian libraries
+  get their Wikipedias' search box and no shelves. **The shelf titles were
+  written from memory, not checked against the wiki** — the sandbox could
+  not reach it — which is what the search fallback is for.
 - **Nothing the sister apps call changed shape.** `/feed` and `/story` are
   new routes, `kind` on `/message` is optional and off by default; `card-test.mjs` with `BEFORE` set is still byte-identical.
   `worker/**` is on the deploy trigger, so merging ships them. The reader
@@ -893,7 +952,13 @@ word listed and no `#book-title`; a second page is *Page 2*, the same word
 tapped again reads *2 pages*, pages list newest first, and
 `[data-keep-word]` files *el comte* in `Llibres` and flips to *Kept ✓*;
 *Your books* reads *2 pages · 2 words looked up*, *Read before* leaves the
-pages out, the datalist offers the title, and the tile counts *5 read*.
+pages out, the datalist offers the title, and the tile counts *5 read*. For Viquipèdia, with `ca.wikipedia.org` routed: four `.wiki-shelf-title`s
+under the feeds; a chip fetches `/api/rest_v1/page/summary/<title>` and
+makes one `/message` call whose text starts with the title and the extract,
+heads the page with the title and *From Viquipèdia*, carries a `.msg-source`
+link to the entry, and reopens without a second call; a 404 title is
+searched for and the top hit opened; Enter in `#wiki-query` lists
+`[data-wiki-hit]` rows with markup-stripped snippets, and a hit opens.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -3755,7 +3820,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v95 / `xerra-v95` — `js/version.js` first, `sw.js` second, as ever.
+- v96 / `xerra-v96` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

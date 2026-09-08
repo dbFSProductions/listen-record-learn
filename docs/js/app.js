@@ -463,7 +463,7 @@ function wireReplies(root, replies, language, source = null) {
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
    than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null) {
+async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null, rate = 1) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -473,8 +473,9 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.", 
   try {
     // `voice` is the chat partner's; everything else speaks in the drill voice.
     const blob = await speech.modelAudio({ text, language, voice }, settings);
-    if (blob) await player.play(blob);
-    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { onSilent: noVoice });
+    // `rate` is the drill's Slow, for a page of a book or a story read aloud.
+    if (blob) await player.play(blob, { rate });
+    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { rate, onSilent: noVoice });
     else noVoice();
   } catch {
     toast(failed);
@@ -1063,10 +1064,17 @@ const TILES = [
 
 const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
 
+/* A long title — an episode's, a book's — would otherwise be squeezed into
+   the column the back link leaves it and wrap one word to a line. Over about
+   two dozen characters the banner drops its mark and sets the title smaller,
+   so it reads as a title rather than a list. */
+const LONG_TITLE = 24;
+
 function pageHead(section, title, subtitle, trailing = "") {
+  const long = String(title ?? "").length > LONG_TITLE;
   return `
-    <header class="page-head">
-      <span class="page-mark" aria-hidden="true">${SECTIONS[section].mark}</span>
+    <header class="page-head${long ? " long" : ""}">
+      ${long ? "" : `<span class="page-mark" aria-hidden="true">${SECTIONS[section].mark}</span>`}
       <div class="page-head-main">
         <h1>${esc(title)}</h1>
         ${subtitle ? `<p class="page-sub">${esc(subtitle)}</p>` : ""}
@@ -2376,6 +2384,10 @@ function renderMessage() {
             )} ›</a></p>`
           : ""
       }
+      <div class="btn-row msg-listen-row">
+        <button class="btn btn-primary" id="msg-listen">Listen</button>
+        <button class="btn" id="msg-slow">Slow</button>
+      </div>
     </div>
     <div id="msg-gist-card"></div>
     <div id="msg-reveal"></div>
@@ -2390,6 +2402,13 @@ function renderMessage() {
     state.message = null;
     render();
   };
+  /* The text read aloud, in the drill voice, at the drill's two speeds. It is
+     the input, not the answer, so it is offered before the reveal too: a page
+     heard while it is read is the shadowing this app has been missing half of. */
+  const listen = document.getElementById("msg-listen");
+  const slow = document.getElementById("msg-slow");
+  listen.addEventListener("click", () => sayAloud(listen, item.text, language, "Couldn't play that."));
+  slow.addEventListener("click", () => sayAloud(slow, item.text, language, "Couldn't play that.", null, settings.slowRate));
   document.getElementById("msg-forget").onclick = () => {
     messages.remove(item.id);
     state.message = null;
@@ -2770,6 +2789,31 @@ function readerRow() {
     </div>`;
 }
 
+/* One folded section of the reader: a header row that is the button, the
+   body hidden until opened, the choice remembered in `settings.readerOpen`.
+   Settings → Decks' `.card-fold`, reused. */
+function readerFold(key, title, sub, body) {
+  const open = Boolean(settings.readerOpen?.[key]);
+  return `
+    <div class="card card-fold reader-fold">
+      <button class="card-fold-head" type="button" data-reader-fold="${esc(key)}" aria-expanded="${open}" aria-controls="fold-${esc(key)}">
+        <span class="row-main">
+          <span class="row-title">${esc(title)}</span>
+          <span class="row-sub" id="fold-sub-${esc(key)}">${esc(sub)}</span>
+        </span>
+        <span class="tri">${open ? "▼" : "▶"}</span>
+      </button>
+      <div class="card-fold-body" id="fold-${esc(key)}" ${open ? "" : "hidden"}>${body}</div>
+    </div>`;
+}
+
+function feedSub(source, data) {
+  if (!data) return "Loading…";
+  const n = data.items?.length ?? 0;
+  const what = source.kind === "episode" ? "episode" : "article";
+  return n ? `${n} ${what}${n === 1 ? "" : "s"}` : "Nothing just now";
+}
+
 /* Phrases you have said well at least once — what a story can lean on. */
 function knownPhrases(language) {
   return library
@@ -2820,12 +2864,43 @@ function renderReader() {
       <p class="reader-now" id="reader-now"></p>
       <audio id="reader-audio" controls preload="none"></audio>
     </div>
-    ${READER_SOURCES.map(
-      (source) => `
-      <div class="section-label">${esc(source.name)}</div>
-      <p class="small muted reader-blurb">${esc(source.blurb)}</p>
-      <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
-    ).join("")}`;
+    ${READER_SOURCES.map((source) =>
+      readerFold(
+        source.key,
+        source.name,
+        feedSub(source, feeds.get(source.key)),
+        `<p class="small muted reader-blurb">${esc(source.blurb)}</p>
+         <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
+      )
+    ).join("")}
+    ${
+      WIKI[settings.language]
+        ? readerFold(
+            "wiki",
+            WIKI[settings.language].name,
+            `${(WIKI_SHELVES[settings.language] ?? []).length || "No"} shelves · search`,
+            wikiSection()
+          )
+        : ""
+    }`;
+
+  /* Every list on this page folds behind its header — asked for as an
+     accordion for the long lists. Delegated, because Your books and Read
+     before are painted after the page is, and repainted. Flipped in place
+     rather than re-rendered so a feed still loading keeps loading. */
+  view.addEventListener("click", (event) => {
+    const head = event.target.closest("[data-reader-fold]");
+    if (!head) return;
+    const key = head.dataset.readerFold;
+    const body = document.getElementById(`fold-${key}`);
+    if (!body) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.querySelector(".tri").textContent = open ? "▼" : "▶";
+    settings.readerOpen = { ...settings.readerOpen, [key]: open };
+    settings.save();
+  });
 
   document.getElementById("reader-back").onclick = () => {
     stopEverything();
@@ -2842,6 +2917,7 @@ function renderReader() {
   );
   document.getElementById("story-go").addEventListener("click", writeStory);
   wireBookCard();
+  wireWiki();
 
   paintBooks();
   paintRead();
@@ -2863,9 +2939,12 @@ function renderReader() {
       box.innerHTML = "";
       return;
     }
-    box.innerHTML = `
-      <div class="section-label">Read before</div>
-      <div class="rows rows-spaced">
+    const all = messages.forLanguage(settings.language).filter((m) => !isMessage(m) && m.kind !== "book").length;
+    box.innerHTML = readerFold(
+      "read",
+      "Read before",
+      `${all} read${all > read.length ? ` · last ${read.length}` : ""}`,
+      `<div class="rows rows-spaced">
         ${read
           .map(
             (item) => `
@@ -2882,7 +2961,8 @@ function renderReader() {
           </div>`
           )
           .join("")}
-      </div>`;
+      </div>`
+    );
     box.querySelectorAll("[data-read-open]").forEach((button) =>
       button.addEventListener("click", () => {
         state.message = button.dataset.readOpen;
@@ -2900,9 +2980,11 @@ function renderReader() {
       box.innerHTML = "";
       return;
     }
-    box.innerHTML = `
-      <div class="section-label">Your books</div>
-      <div class="rows rows-spaced">
+    box.innerHTML = readerFold(
+      "books",
+      "Your books",
+      `${books.length} book${books.length === 1 ? "" : "s"}`,
+      `<div class="rows rows-spaced">
         ${books
           .map(
             (book) => `
@@ -2919,7 +3001,8 @@ function renderReader() {
           </div>`
           )
           .join("")}
-      </div>`;
+      </div>`
+    );
     box.querySelectorAll("[data-book]").forEach((button) =>
       button.addEventListener("click", () => {
         state.book = button.dataset.book;
@@ -2949,6 +3032,8 @@ function renderReader() {
   function paintFeed(source, data) {
     const box = document.getElementById(`feed-${source.key}`);
     if (!box) return;
+    const sub = document.getElementById(`fold-sub-${source.key}`);
+    if (sub) sub.textContent = feedSub(source, data);
     if (!data?.items?.length) {
       if (!data) return; // still loading
       box.innerHTML = `<div class="empty small"><p>Nothing here just now.</p></div>`;
@@ -3112,6 +3197,232 @@ function renderReader() {
   }
 }
 
+// -------------------------------------------------------------- viquipèdia
+
+/* Viquipèdia, for the Romans, the counts, the battles and the empire.
+
+   The feeds give you what was published this week; a learner who wants
+   Tàrraco, the Crown of Aragon or the almogàvers wants an encyclopaedia, and
+   the Catalan Wikipedia is the biggest body of Catalan prose there is on
+   exactly that ground. Its REST API is open, keyless and answers cross-origin,
+   so this is client-side and needs no Worker change: the page summary — the
+   article's introduction, one to three paragraphs — is the reading, glossed
+   through /message like a pasted text and opened as an article with a link
+   to the whole entry. Four shelves of titles that are the learner's own
+   interests, and a search box for everything else. The summary endpoint
+   follows redirects; a title it still cannot find is searched for and the
+   top hit taken, so a shelf entry spelled a little differently from the
+   article's own title still lands. Per language, since the Spanish and
+   Italian Wikipedias answer the same calls. */
+const WIKI = {
+  "ca-ES": { host: "ca.wikipedia.org", name: "Viquipèdia" },
+  "es-ES": { host: "es.wikipedia.org", name: "Wikipedia" },
+  "it-IT": { host: "it.wikipedia.org", name: "Wikipedia" },
+};
+const WIKI_SHELVES = {
+  "ca-ES": [
+    { title: "Roma", items: ["Tàrraco", "Empúries", "Bàrcino", "Via Augusta", "Aqüeducte de les Ferreres", "Hispània Citerior"] },
+    {
+      title: "Comtats i Corona",
+      items: ["Guifré el Pilós", "Comtat de Barcelona", "Corona d'Aragó", "Jaume el Conqueridor", "Pere el Gran", "Usatges de Barcelona", "Compromís de Casp"],
+    },
+    {
+      title: "Batalles",
+      items: ["Batalla de Muret", "Batalla de les Navas de Tolosa", "Guerra dels Segadors", "Corpus de Sang", "Batalla d'Almansa", "Setge de Barcelona (1713-1714)", "Onze de Setembre de 1714"],
+    },
+    {
+      title: "L'imperi mediterrani",
+      items: ["Almogàvers", "Roger de Flor", "Companyia Catalana d'Orient", "Ducat d'Atenes", "Conquesta de Mallorca", "Regne de Sicília", "Consolat de Mar", "Ramon Llull"],
+    },
+  ],
+};
+const WIKI_CHARS = 2500;
+const WIKI_MIN_INTRO = 300;
+
+function wikiSection() {
+  const wiki = WIKI[settings.language];
+  if (!wiki) return "";
+  const shelves = WIKI_SHELVES[settings.language] ?? [];
+  return `
+    <p class="small muted reader-blurb">The introduction to any article, read like a message. The Romans, the counts, the battles, the empire — or look anything up.</p>
+    <div class="card" id="wiki-card">
+      <label class="field"><span>Look something up</span>
+        <input type="text" id="wiki-query" lang="${esc(settings.language)}" autocapitalize="sentences" autocomplete="off"></label>
+      <button class="btn btn-primary" id="wiki-go" style="width:100%">Search ${esc(wiki.name)}</button>
+      <div id="wiki-results"></div>
+      <div class="notice bad" id="wiki-error" hidden></div>
+    </div>
+    ${shelves
+      .map(
+        (shelf) => `
+      <p class="small wiki-shelf-title">${esc(shelf.title)}</p>
+      <div class="ideas wiki-shelf">${shelf.items.map((title) => `<button class="idea" data-wiki="${esc(title)}">${esc(title)}</button>`).join("")}</div>`
+      )
+      .join("")}`;
+}
+
+function wireWiki() {
+  const wiki = WIKI[settings.language];
+  if (!wiki || !document.getElementById("wiki-card")) return;
+  const query = document.getElementById("wiki-query");
+  const go = document.getElementById("wiki-go");
+  const results = document.getElementById("wiki-results");
+  const errorBox = document.getElementById("wiki-error");
+  document.querySelectorAll("[data-wiki]").forEach((button) =>
+    button.addEventListener("click", () => openWiki(button.dataset.wiki, button))
+  );
+  const search = async () => {
+    const q = query.value.trim();
+    if (!q) {
+      query.focus();
+      return;
+    }
+    errorBox.hidden = true;
+    go.disabled = true;
+    go.innerHTML = `<span class="spinner"></span> Searching…`;
+    try {
+      const hits = await wikiSearch(q);
+      results.innerHTML = hits.length
+        ? `<div class="rows rows-spaced" style="margin-top:12px">${hits
+            .map(
+              (hit) => `
+          <div class="row striped hue-purple">
+            <button class="row-open" data-wiki-hit="${esc(hit.title)}">
+              <span class="row-main"><span class="row-title">${esc(hit.title)}</span><span class="row-sub">${esc(hit.snippet)}</span></span>
+              <span class="chev">›</span>
+            </button>
+          </div>`
+            )
+            .join("")}</div>`
+        : `<p class="small muted" style="margin:10px 0 0">Nothing on ${esc(wiki.name)} by that name.</p>`;
+      results.querySelectorAll("[data-wiki-hit]").forEach((button) =>
+        button.addEventListener("click", () => openWiki(button.dataset.wikiHit, button))
+      );
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (document.getElementById("wiki-go")) {
+        go.disabled = false;
+        go.textContent = `Search ${wiki.name}`;
+      }
+    }
+  };
+  go.addEventListener("click", search);
+  query.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      search();
+    }
+  });
+}
+
+async function wikiFetch(url) {
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout?.(15_000) });
+  } catch {
+    throw new Error(`Couldn't reach ${WIKI[settings.language]?.name ?? "Wikipedia"}. Check your connection.`);
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`${WIKI[settings.language]?.name ?? "Wikipedia"} answered ${response.status}.`);
+  return response.json();
+}
+
+/* The article's introduction: title, extract and the page's own URL, or null
+   when there is no such page. */
+async function wikiSummary(title) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(`https://${wiki.host}/api/rest_v1/page/summary/${encodeURIComponent(title.trim().replace(/ /g, "_"))}`);
+  if (!data || data.type === "disambiguation" || !data.extract) return null;
+  return { title: data.title, extract: data.extract, link: data.content_urls?.desktop?.page ?? `https://${wiki.host}/wiki/${encodeURIComponent(title)}` };
+}
+
+/* The whole article as plain text, for an introduction too short to read —
+   a stub, or a page that is all sections. Capped to what /message takes,
+   at a paragraph break where there is one. */
+async function wikiFullText(title) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(
+    `https://${wiki.host}/w/api.php?action=query&prop=extracts&explaintext=1&exsectionformat=plain&redirects=1&format=json&origin=*&titles=${encodeURIComponent(title)}`
+  );
+  const page = Object.values(data?.query?.pages ?? {})[0];
+  return page?.extract ?? "";
+}
+
+async function wikiSearch(query) {
+  const wiki = WIKI[settings.language];
+  const data = await wikiFetch(
+    `https://${wiki.host}/w/api.php?action=query&list=search&srlimit=6&format=json&origin=*&srsearch=${encodeURIComponent(query)}`
+  );
+  return (data?.query?.search ?? []).map((hit) => ({
+    title: hit.title,
+    snippet: String(hit.snippet ?? "").replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&"),
+  }));
+}
+
+function capAtParagraph(text, max) {
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf("\n", max);
+  return (cut > max / 2 ? text.slice(0, cut) : text.slice(0, max)).trim();
+}
+
+/* A shelf title or a search hit into the reader: the summary (or the top
+   search hit's, when the title is not quite the article's), glossed and
+   opened as an article from Viquipèdia. An article opened before reopens
+   without a second call, by its link. */
+async function openWiki(title, button) {
+  const wiki = WIKI[settings.language];
+  const language = LANGUAGES[settings.language];
+  const errorBox = document.getElementById("wiki-error");
+  if (button) button.disabled = true;
+  try {
+    let page = await wikiSummary(title);
+    if (!page) {
+      const hit = (await wikiSearch(title))[0];
+      if (hit) page = await wikiSummary(hit.title);
+    }
+    if (!page) throw new Error(`Nothing on ${wiki.name} called «${title}».`);
+    const already = messages.items.find((m) => m.source?.link && m.source.link === page.link);
+    if (already) {
+      state.message = already.id;
+      render();
+      return;
+    }
+    let body = page.extract;
+    if (body.length < WIKI_MIN_INTRO) body = (await wikiFullText(page.title)) || body;
+    const text = capAtParagraph(`${page.title}\n\n${body}`, WIKI_CHARS);
+    const read = await cardAssistant.readMessage(
+      { message: text, languageCode: settings.language, languageName: language.englishName },
+      settings
+    );
+    if (!read.translation?.trim()) throw new Error("Nothing came back. Try again.");
+    const saved = messages.add({
+      kind: "article",
+      title: page.title,
+      text,
+      source: { name: wiki.name, link: page.link, audio: "", duration: "" },
+      read: {
+        translation: read.translation,
+        register: read.register || "",
+        glossary: Array.isArray(read.glossary) ? read.glossary : [],
+        keep: Array.isArray(read.keep) ? read.keep : [],
+      },
+    });
+    if (!state.reader) return;
+    state.message = saved.id;
+    render();
+  } catch (error) {
+    if (!state.reader) return;
+    if (errorBox) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } else toast(error.message);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
 // ------------------------------------------------------------------- books
 
 /* Your own books, a page at a time.
@@ -3181,7 +3492,7 @@ function bookCard(title = null) {
       ${
         title === null
           ? `<label class="field"><span>Reading a book? Which one?</span>
-               <input id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
+               <input type="text" id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
                <datalist id="book-titles">${titles.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist></label>`
           : ""
       }

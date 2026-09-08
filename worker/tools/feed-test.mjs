@@ -119,5 +119,55 @@ console.log("\nWhat is refused");
   ok("an empty feed falls through to the next URL", (await post({ source: "sapiens" })).status === 200);
 }
 
+console.log("\nA Latin-1 feed");
+{
+  // Catalunya Ràdio's feed is ISO-8859-1. Built as bytes so that a UTF-8
+  // read would have turned every ò into U+FFFD, as it did on the phone.
+  const latin1 = (text) => Uint8Array.from([...text].map((ch) => ch.charCodeAt(0)));
+  const XML = `<?xml version="1.0" encoding="ISO-8859-1"?><rss version="2.0"><channel><title>En guàrdia!</title>
+<item><title>Les cròniques de Kaminski a la Guerra Civil</title><link>https://x/1</link><description>Capítol 1296. La resistència amb què Catalunya va respondre a l'alçament.</description>
+<enclosure url="https://mp3.x/1.mp3" type="audio/mpeg"/></item></channel></rss>`;
+  globalThis.fetch = async () => new Response(latin1(XML), { status: 200, headers: { "Content-Type": "application/xml" } });
+  const body = await (await post({ source: "en-guardia" })).json();
+  ok("the accents survive a Latin-1 feed", body.items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil", body.items?.[0].title);
+  ok("in the summary too", body.items?.[0].summary === "Capítol 1296. La resistència amb què Catalunya va respondre a l'alçament.", body.items?.[0].summary);
+  // Declared in the header instead of the XML.
+  globalThis.fetch = async () => new Response(latin1(XML.replace(' encoding="ISO-8859-1"', "")), { status: 200, headers: { "Content-Type": "text/xml; charset=iso-8859-1" } });
+  ok("or in the Content-Type", (await (await post({ source: "en-guardia" })).json()).items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil");
+  // Declared nowhere: sniffed from the failed UTF-8 decode.
+  globalThis.fetch = async () => new Response(latin1(XML.replace(' encoding="ISO-8859-1"', "")), { status: 200, headers: { "Content-Type": "text/xml" } });
+  ok("or nowhere, and still read right", (await (await post({ source: "en-guardia" })).json()).items?.[0].title === "Les cròniques de Kaminski a la Guerra Civil");
+  // A UTF-8 feed with no declaration is still UTF-8.
+  globalThis.fetch = async () => new Response(PODCAST.replace(' encoding="UTF-8"', ""), { status: 200, headers: { "Content-Type": "text/xml" } });
+  ok("a UTF-8 feed is untouched", (await (await post({ source: "en-guardia" })).json()).items?.[1].title === "1010 - Els almogàvers");
+}
+
+console.log("\nAutodiscovery and Atom");
+{
+  const HOME = `<!doctype html><html><head><title>Sàpiens</title>
+<link rel="alternate" type="application/rss+xml" title="Evil" href="https://evil.example/feed">
+<link rel="alternate" type="application/atom+xml" title="Sàpiens" href="/noticies/atom.xml">
+</head><body></body></html>`;
+  const ATOM = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Sàpiens — Notícies</title>
+<entry><title>El setge de 1714</title><link rel="alternate" href="https://www.sapiens.cat/setge"/><published>2026-09-02T08:00:00Z</published>
+<summary type="html"><![CDATA[<p>Com va caure Barcelona l&#39;11 de setembre.</p>]]></summary></entry>
+<entry><title>Sense enlla&ccedil;</title><updated>2026-09-01T08:00:00Z</updated><content>Text sencer.</content></entry>
+</feed>`;
+  const asked = stub({ "https://www.sapiens.cat/": HOME, "https://www.sapiens.cat/noticies/atom.xml": ATOM });
+  const res = await post({ source: "sapiens" });
+  const body = await res.json();
+  ok("200 through discovery", res.status === 200, JSON.stringify(body).slice(0, 200));
+  ok("the guesses were tried first, then the home page", asked[0] === "https://www.sapiens.cat/feed" && asked.includes("https://www.sapiens.cat/"), asked.join(" "));
+  ok("the off-host link was never fetched", !asked.includes("https://evil.example/feed"));
+  ok("the on-host link was, resolved against the page", asked.at(-1) === "https://www.sapiens.cat/noticies/atom.xml", asked.at(-1));
+  ok("the Atom feed's title", body.title === "Sàpiens — Notícies", body.title);
+  ok("two entries", body.items?.length === 2);
+  ok("entry link from href, date from published", body.items?.[0].link === "https://www.sapiens.cat/setge" && body.items[0].date.startsWith("2026-09-02"));
+  ok("summary stripped and decoded", body.items?.[0].summary === "Com va caure Barcelona l'11 de setembre.", body.items?.[0].summary);
+  ok("an entity in an Atom title", body.items?.[1].title === "Sense enllaç" && body.items[1].body === "Text sencer.");
+  ok("no audio on an Atom entry", body.items?.every((i) => i.audio === ""));
+  ok("the discovered URL is reported", body.url === "https://www.sapiens.cat/noticies/atom.xml");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

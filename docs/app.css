@@ -1112,6 +1112,16 @@ button { font: inherit; }
    which on these bright fills would leave it barely there. */
 .page-sub { margin: 1px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--sec-on); opacity: 0.92; }
 .page-head .link { flex: none; color: var(--sec-on); font-weight: 900; }
+.page-head h1 { overflow-wrap: anywhere; }
+/* A long title: no mark, smaller type, and a back link that yields a little. */
+.page-head.long h1 { font-size: 1.05rem; line-height: 1.25; }
+.page-head.long .link { font-size: 0.9rem; padding-left: 0; padding-right: 0; }
+/* The book-title box is a text input with a datalist, which iOS draws as a
+   white combo with its own chevron whatever the input rule above says.
+   `appearance: none` gives it back the field styling; the suggestions still
+   come up in the keyboard bar. */
+input[list] { appearance: none; -webkit-appearance: none; }
+input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 
 /* ------------------------------------------------------- level two (recall) */
 
@@ -2105,4 +2115,17 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .book-word-gloss::before { content: "· "; }
 .book-keep { flex: none; font-size: 0.8rem; }
 .book-keep:disabled { color: var(--text-3); cursor: default; }
-#book-card input[list] { width: 100%; }
+.msg-listen-row { margin-top: 12px; }
+
+/* Viquipèdia's shelves: a small title over a run of chips. */
+.wiki-shelf-title { margin: 0 0 6px; font-weight: 800; color: var(--text-2); }
+.wiki-shelf { margin-bottom: 12px; }
+.idea:disabled { opacity: 0.5; cursor: default; }
+
+/* The reader's folded sections. The body keeps the card's own padding, so
+   the rows inside sit flush with the header's text. */
+.reader-fold .card-fold-body { padding: 0 12px 12px; }
+.reader-fold .reader-blurb { margin: 0 0 10px; }
+.reader-fold .reader-feed { margin-bottom: 0; }
+.reader-fold #wiki-card { margin-bottom: 12px; }
+.reader-fold .wiki-shelf:last-child { margin-bottom: 0; }
