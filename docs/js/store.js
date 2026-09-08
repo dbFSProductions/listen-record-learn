@@ -675,6 +675,21 @@ export function myWordsDeck(language) {
   return `${vocabFamily(language)}${SUBDECK}${MY_WORDS_LEAF}`;
 }
 
+/* Where a word you looked up while reading is filed — a tap on a gloss in a
+   story, an article, a message or a page of a book, kept from the list the
+   page prints afterwards. Under the Vocab family rather than in Llibres or
+   Missatges, because a single word is what the keyword pictures are for: the
+   card lands where *Invent a picture for me* is one tap away, beside the
+   Paraules decks, and drills with them. The phrases kept from the same text
+   still go to the text's own deck — a set expression is a phrase, not a word
+   to hang a picture on. Asked for as "unknown words from reading go into
+   vocab for adding pictures later". */
+export const READING_WORDS_LEAF = "From reading";
+
+export function readingWordsDeck(language) {
+  return `${vocabFamily(language)}${SUBDECK}${READING_WORDS_LEAF}`;
+}
+
 /* About me is a section of one deck. It used to be the top row inside Decks —
    the one row there that opened the interview rather than drilling — and it is
    its own square on the home screen now, so its cards leave Decks with it: a
@@ -1775,11 +1790,20 @@ const DEFAULT_SETTINGS = {
      on, folded otherwise — so the one open unit walks down the path with you
      until you say otherwise. Same shape as openFamilies, for the same reason. */
   openUnits: {},
-  /* The reader's sections — your books, what you have read, each feed,
-     Viquipèdia — folded open or shut by key. All shut by default: the page is
-     the two boxes you act on and then five headers, and a list you opened
-     stays open, as a family fold does. */
-  readerOpen: {},
+  /* Folded lists, open or shut by key: the reader's sections (your books,
+     what you have read, each feed, Viquipèdia), Real life's *Asked for
+     before* and *From your messages*, Xerrada's chats, About me's cards. All
+     shut by default — a page is the boxes you act on and then a few headers
+     — and a list you opened stays open, as a family fold does. The keys are
+     namespaced by page (`reader:sapiens`, `quick:asked`, `about:cards`).
+     This was `readerOpen` while only the reader folded; `load` carries an
+     old blob's choices across. */
+  folds: {},
+  /* The voice a text on the message page — a story, an article, a page of a
+     book, a message — is read aloud in. Empty means the drill voice. One
+     setting rather than a field on each text, for the chat voice's reason:
+     it is how you are listening today, not a fact about one story. */
+  readerVoice: "",
 };
 
 export const settings = {
@@ -1795,6 +1819,17 @@ export const settings = {
     const voices = LANGUAGES[this.language]?.voices ?? [];
     if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
     if (this.chatVoice && !voices.some((v) => v.id === this.chatVoice)) this.chatVoice = "";
+    if (this.readerVoice && !voices.some((v) => v.id === this.readerVoice)) this.readerVoice = "";
+    /* The reader's folds were `readerOpen`, keyed by section, before every
+       long list in the app folded. Carried across once, under the reader's
+       namespace, so a feed you had open stays open across the rename. */
+    if (this.readerOpen && typeof this.readerOpen === "object") {
+      const carried = Object.fromEntries(Object.entries(this.readerOpen).map(([key, open]) => [`reader:${key}`, open]));
+      this.folds = { ...carried, ...(this.folds ?? {}) };
+      delete this.readerOpen;
+      this.save();
+    }
+    if (!this.folds || typeof this.folds !== "object") this.folds = {};
   },
 
   save() {
