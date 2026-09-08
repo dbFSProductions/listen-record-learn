@@ -783,17 +783,22 @@ on whatever you ask, with three questions to check you followed it.
 - **Every list on the page folds behind its header.** Asked for as *"add an
   accordion to the long lists"*: the page had grown to your books, what you
   had read, two feeds and four shelves of Viquipèdia, and it was a screen and
-  a half of scrolling to reach any of them. `readerFold` is Settings → Decks'
-  `.card-fold` reused — the header row is the button, with a count in its
-  sub, the body hidden until opened — and `settings.readerOpen` remembers
-  the choice by key, all shut by default, so the page is the two boxes you
-  act on (a story, a book page) and then five headers. One delegated
-  listener flips a fold in place, so a feed still loading keeps loading, and
-  `paintFeed` writes the count into the header when it lands.
-- **It is a page behind a row on Real life, not a seventh tile.** The grid
-  is two by three and stays so; `readerRow()` is a filled purple row under
-  the chat starter, and `state.reader` is the page, cleared by every way out
-  like `message` and `chat`. Purple because purple is memory's colour here
+  a half of scrolling to reach any of them. `readerFold` is `foldCard` under
+  the reader's namespace — Settings → Decks' `.card-fold` reused: the header
+  row is the button, with a count in its sub, the body hidden until opened —
+  and `settings.folds` remembers the choice by key (`reader:sapiens`; it was
+  `readerOpen`, carried across on load), all shut by default, so the page is
+  the two boxes you act on (a story, a book page) and then five headers. The
+  one delegated listener on `view` flips a fold in place, so a feed still
+  loading keeps loading, and `paintFeed` writes the count into the header
+  when it lands. **It has to be that listener and no other** — see *Eight
+  squares* below for the bug the reader's own listener was.
+- **It was a page behind a row on Real life, and is a tile now** — see
+  *Eight squares* below. The grid was two by three then, `readerRow()` was a
+  filled purple row under the chat starter, and `state.reader` was the page;
+  the row and the flag are gone, and the reader is `state.section ===
+  "reader"`, cleared by every way out like `message` and `chat`. Purple
+  because purple is memory's colour here
   and this is the input that feeds it — and because Real life's orange rows
   are the things you asked for, which these aren't. `READER_TITLE` is what
   the page head and the message page's back link print.
@@ -959,6 +964,104 @@ heads the page with the title and *From Viquipèdia*, carries a `.msg-source`
 link to the entry, and reopens without a second call; a 404 title is
 searched for and the top hit opened; Enter in `#wiki-query` lists
 `[data-wiki-hit]` rows with markup-stripped snippets, and a hit opens.
+
+### Eight squares: Listen & read and Xerrada leave Real life
+
+Reported from the phone as five things at once: *"There's no stop button for
+the listen function on the long stories/text. I'd like to select different
+voices for stories too. In the story section the accordion function on the
+tiles sometimes doesn't close then everything locks up. The listen and read
+section feels like it should be top level tile. The about me is tiny, real
+life has loads in it. Maybe rename and spread out. Maybe unknown words from
+reading go into vocab for adding pictures later. And however the split turns
+out accordion/folder the phrases in about me and top level of real life."*
+
+- **The accordion bug was a listener that multiplied.** `renderReader` added
+  its fold handler with `view.addEventListener`, and `view` is the one
+  element a render does not replace — so the second visit to the reader had
+  two handlers, each tap flipped the fold twice, and it "didn't close"; the
+  fourth visit had four. Every fold in the app is a `foldCard` now, flipped
+  by the one delegated listener at the top of app.js, beside the way home.
+  **A listener on `view` is added exactly once, there, or on an element the
+  render just created**; the headless run visits the reader three times and
+  asserts one tap still opens and one tap still closes.
+- **Real life had four faces and About me had a third of one.** The grid is
+  two by four: the sister apps' six in their order, then **Listen & read**
+  (purple, the reader's own colour, and the Catalan name *Escolta i llegeix*
+  is its subtitle now) and **Xerrada** (green). Real life keeps the ask box
+  and the message box and says so — *A phrase you need, a message you got* —
+  with the key still `quick` and the deck still `Quick`, on the usual
+  precedent. `state.reader` is gone: the reader is `state.section ===
+  "reader"`, the chat is behind `"xerrada"`, and `render()` routes a text
+  (`state.message`) from behind either Real life or the reader, a book only
+  from behind the reader, a chat only from behind Xerrada. `inReader()` is
+  what the reader's async calls ask before painting. Both new tiles open
+  pages rather than lists, like About me, so `renderPractice` never sees
+  their keys and `sectionOf` still hands every deck they file to Practice.
+  The message page's back link and page mark read `state.section`, so a
+  message backs to Real life and a story to Listen & read.
+- **Stop, and a voice, for a text read aloud.** `sayAloud` is a tap and a
+  line; a page of a book is a minute of audio and the only way to stop it
+  was to leave. `readAloudControls` owns the message page's row: Listen and
+  Slow hide themselves and *■ Stop* stands in their place while it reads —
+  with a spinner while Azure synthesises, and a Stop pressed then is
+  honoured by a token, so the blob that arrives is dropped. The reading
+  ending on its own puts the row back, through the player's `onEnded` or
+  `browserSpeech.speak`'s new `onEnd` (a cancel fires `onend` or an
+  *interrupted* error, and both now hand back rather than toasting *no
+  voice*). Leaving the page calls `stopEverything`. `.btn` is inline-flex,
+  so the row carries a `[hidden] { display: none }` — the `.sheet` trap
+  once more. **Read it in** is `voiceField` with a label of its own, writing
+  `settings.readerVoice` (validated in `load` like `chatVoice`; empty means
+  the drill voice) and read at each Listen by `readerVoiceNow`; a change
+  halts a reading under way, since the cache is keyed by voice and the next
+  Listen wants the new one. On every text the page shows, not only stories,
+  because the row is one row.
+- **The words you looked up go to Vocab.** `looked` was already written on
+  every kind of text, and only the book page read it. After the reveal the
+  message page lists the distinct words tapped (`lookedWords`, folded the
+  way `bookWords` folds), each with a play button and a Keep that files it
+  in **`Paraules · From reading`** (`readingWordsDeck` in store.js; *Palabras
+  · From reading*, *Parole · From reading*) with where you read it as the
+  situation — so it lands under the Vocab tile beside the Paraules decks,
+  where *Invent a picture for me* is one tap away. The book page's word
+  list files there too now, instead of in Llibres. The **phrases** kept from
+  a text still go to Missatges or Llibres: a set expression is a phrase,
+  not a word to hang a picture on.
+- **The long lists fold.** *Asked for before* and *From your messages* on
+  Real life, *Your chats* on Xerrada, and *The cards it wrote* on About me
+  are `foldCard`s under `settings.folds` (`quick:asked`, `quick:messages`,
+  `xerrada:chats`, `about:cards`), shut by default with the count on the
+  header (*9 phrases · last 8*). About me's Practise button stays outside
+  the fold, being what the page is for.
+
+Worth asserting, with `/feed` and `/message` stubbed and `speech.modelAudio`
+overridden to record `phrase.voice` and hand back a two-second clip: eight
+`.tile`s titled Practice, Vocab, About me, Real life, Grammar, All Phrases,
+Listen & read, Xerrada; a settings blob carrying `readerOpen: { sapiens:
+true }` loads as `folds["reader:sapiens"]` with the key gone and the fold
+open; on the reader `[data-fold-card="reader:en-guardia"]` is
+`aria-expanded="false"` with `#fold-reader_en-guardia` hidden, one tap
+opens and one closes, **and the same after leaving and coming back twice**;
+the feed header reads *1 episode* once it lands; a story from *Read before*
+backs to *‹ Listen & read*, has `#msg-stop` hidden and `display: none`,
+`#msg-voice` on the drill voice, and Listen hides `#msg-listen` and shows
+`#msg-stop` — the first reading records `null`, Stop puts Listen back, a
+Slow reading puts it back by itself when the clip ends, Joana picked writes
+`readerVoice` and the next Listen records Joana, and a Stop during the
+spinner leaves the row idle; `#msg-words` is empty before the reveal, lists
+two `[data-keep-word]` after two distinct words were tapped, the note names
+*Paraules · From reading*, Keep files one card there with *From a story* in
+its situation and flips to *Kept ✓*, the Vocab tile counts one more and the
+deck is a `[data-deck]` row behind it; Real life has `#quick-ask` and
+`#msg-text` and no `#chat-scene` or `#quick-reader`, `quick:asked` reads
+*9 phrases · last 8* shut and opens to eight rows, a message backs to
+*‹ Real life* with its looked-up word listed and its reply box present, and
+the fold is remembered open; Xerrada has `#chat-scene` and `#chat-voice`,
+`xerrada:chats` opens to the chat and the chat backs to *‹ Xerrada*; About
+me's `about:cards` reads *3 cards* shut with `#about-practise` outside it;
+and the home page does not scroll sideways at 390. Neither sister fork has
+the reader or the chat; the folds and the Stop would port whole.
 
 ### There is no tab bar, and adding belongs to a section
 
@@ -3674,9 +3777,11 @@ the parser losing a block to a formatting change.
   Check whether that's actually switched on before telling the user it's live.
 - Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
   rows accordion open to the cards inside them and carry no score of their own.
-- **Home is the brand header — the colla's crest and *fin·o·lingo* — over six
-  squares in the sister apps' order**: Practice, Vocab, About me, Quick,
-  Grammar, All Phrases. **Practice is the forks' winding path**, built from the
+- **Home is the brand header — the colla's crest and *fin·o·lingo* — over
+  eight squares**: the sister apps' six in their order — Practice, Vocab,
+  About me, Real life, Grammar, All Phrases — then Listen & read and
+  Xerrada, which grew out of Real life (see *Eight squares*). **Practice is
+  the forks' winding path**, built from the
   everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
   completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
   `renderComplete` in app.js; `progress` in store.js); the deck list is behind
@@ -3697,10 +3802,11 @@ the parser losing a block to a formatting change.
   corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
   (additive; `worker/tools/message-test.mjs`).
-- **Xerrada** is the conversation had before it is had for real, and the
-  third face of **Real life** — the tile that was Quick, renamed because a
-  phrase to say, a message to read and a chat to have are all the language
-  meeting real people; key and deck are still `quick` / `Quick`. Pick a scene
+- **Xerrada** is the conversation had before it is had for real, and a tile
+  of its own (key `xerrada`) since *Eight squares*; it was the third face of
+  **Real life** — the tile that was Quick, renamed because a phrase to say,
+  a message to read and a chat to have are all the language meeting real
+  people; Real life's key and deck are still `quick` / `Quick`. Pick a scene
   — the intercanvi, a café, the market, an assaig, a neighbour, or one of your
   own, and say who the other person is — and the assistant plays them in
   Catalan, corrects each line you say and holds its reply until you have said
@@ -3820,7 +3926,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v96 / `xerra-v96` — `js/version.js` first, `sw.js` second, as ever.
+- v97 / `xerra-v97` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

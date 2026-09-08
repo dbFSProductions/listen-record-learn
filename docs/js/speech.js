@@ -169,7 +169,7 @@ export const browserSpeech = {
      queued a beat later, nothing is going to come out and the caller can say
      so. Deliberately a callback rather than a promise — speaking is fire and
      forget, and only the failure is worth waiting around for. */
-  speak(text, language, { rate = 1, onSilent = null } = {}) {
+  speak(text, language, { rate = 1, onSilent = null, onEnd = null } = {}) {
     if (!window.speechSynthesis) return false;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -184,7 +184,15 @@ export const browserSpeech = {
     utterance.rate = rate;
     let started = false;
     utterance.onstart = () => (started = true);
-    utterance.onerror = () => onSilent?.();
+    /* `onEnd` is for a long text with a Stop button beside it: the page has
+       to know when the reading finished on its own so the button can go back
+       to Listen. A cancel fires `onend` too on most engines (and `onerror`
+       on some), so both hand back to the caller, which is what a Stop wants. */
+    utterance.onend = () => onEnd?.();
+    utterance.onerror = (event) => {
+      if (event?.error === "interrupted" || event?.error === "canceled") onEnd?.();
+      else onSilent?.();
+    };
     window.speechSynthesis.speak(utterance);
     if (onSilent) {
       setTimeout(() => {

@@ -164,6 +164,11 @@ body {
 .sec-vocab   { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
 .sec-quick   { --sec: var(--orange); --sec-dark: var(--orange-dark); --sec-on: #ffffff; --sec-ink: var(--add-ink);      --sec-soft: color-mix(in srgb, var(--orange) 16%, transparent); }
 .sec-phrases { --sec: var(--phrases-accent); --sec-dark: var(--phrases-dark); --sec-on: var(--phrases-on); --sec-ink: var(--phrases-ink); --sec-soft: var(--phrases-soft); }
+/* The two squares that grew out of Real life: Listen & read wears the purple
+   its row wore there (memory's colour, and the input that feeds it), Xerrada
+   the green of the speaking half of the app. */
+.sec-reader  { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
+.sec-xerrada { --sec: var(--green);  --sec-dark: var(--green-dark);  --sec-on: #ffffff; --sec-ink: var(--practise-ink); --sec-soft: color-mix(in srgb, var(--green) 16%, transparent); }
 
 h1 { font-size: 1.6rem; font-weight: 800; margin: 6px 0 16px; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; font-weight: 800; margin: 0; }
@@ -2082,7 +2087,6 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .msg-audio { border-left: 4px solid var(--purple); }
 .msg-source { margin: 10px 0 0; }
 .msg-source .link { padding: 0; }
-.quick-reader-row { margin-bottom: 12px; }
 .ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
 .idea {
   padding: 5px 11px;
@@ -2124,8 +2128,23 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 /* The reader's folded sections. The body keeps the card's own padding, so
    the rows inside sit flush with the header's text. */
-.reader-fold .card-fold-body { padding: 0 12px 12px; }
-.reader-fold .reader-blurb { margin: 0 0 10px; }
-.reader-fold .reader-feed { margin-bottom: 0; }
-.reader-fold #wiki-card { margin-bottom: 12px; }
-.reader-fold .wiki-shelf:last-child { margin-bottom: 0; }
+/* Every folded list — the reader's sections, Real life's, Xerrada's, About
+   me's — is a `.list-fold`. The `.rows` inside sit flush with the header. */
+.list-fold .card-fold-body { padding: 0 12px 12px; }
+.list-fold .card-fold-body > .rows { margin-top: 0; }
+.list-fold .reader-blurb { margin: 0 0 10px; }
+.list-fold .reader-feed { margin-bottom: 0; }
+.list-fold #wiki-card { margin-bottom: 12px; }
+.list-fold .wiki-shelf:last-child { margin-bottom: 0; }
+
+/* A long text read aloud: Listen and Slow, and a Stop that stands in while
+   anything is playing. The voice select sits under the row. */
+.msg-listen-row { align-items: center; }
+.msg-listen-row .btn { flex: 1; }
+/* Stop stands alone in the row while it reads, so it takes the whole row — a
+   thumb reaching for it mid-sentence wants a big target. */
+.msg-listen-row .msg-stop { flex: 1; }
+/* `.btn` is inline-flex, which beats `hidden` — the `.sheet` trap again. */
+.msg-listen-row .btn[hidden] { display: none; }
+.msg-voice { margin-top: 10px; }
+.msg-voice .field { margin-bottom: 0; }
