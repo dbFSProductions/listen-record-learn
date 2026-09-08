@@ -1681,6 +1681,54 @@ standing — the situation alone is the clue.
 Deb-o-lingo's drill card has never shown situation or usage, so there is
 nothing to keep in step here.
 
+#### Next under the score, and the rest folded
+
+Reported from the phone, after the tiles: *"When practicing I find I am
+scrolling a lot. I never use the listen again button (the listen button is
+right there). The model waveform is only occasionally useful and I don't
+know what the intonation thing tells me about how to improve. The score is
+useful and an occasional drill down into what word I am getting wrong. I
+rarely listen to myself or the slow version. The what they might say back
+and ask sections are amazing but even if I don't use them I still have to
+scroll past them to get to Next."* What an attempt puts on the screen now,
+top to bottom: the score card, then **Compare**, then History and Next, and
+only then the situation, the replies, the kept notes and the ask box.
+
+- **Listen again is gone.** It played the model exactly as Listen does, two
+  inches up. `#play-model` no longer exists.
+- **The score card is the dial, the verdict and the weakest word**, named in
+  the head. The chips, the sub-scores and *Heard:* wait behind **Word by
+  word** (`#word-details`), a native `<details>` inside the card, shut by
+  default and remembered in `settings.folds` as `drill:words`.
+- **Compare** (`#compare-details`) holds *Play what you said* (`#play-you`),
+  both waveforms, the timing note and the intonation plot, shut by default
+  and remembered as `drill:compare`. `wireComparison` redraws the canvases
+  on toggle, since `prepare` declines to draw at zero width; `drawCanvases`
+  on render still covers a fold that opens remembered. The intonation note
+  now says what to do with the two lines. Slow stays beside Listen: there it
+  costs no scrolling.
+- **Next and History sit under the score and above the reference cards.**
+  Before an attempt that puts them under the record button, which is fine.
+  Road mode is unchanged in shape: You in the open, no folds, Next full
+  width.
+- **`.fold-details`** is the summary styling for a native `<details>` used
+  as a fold; the `.card-fold` button-and-body shape is for lists that are
+  repainted in place, which nothing in the drill is.
+
+Worth asserting, with `Recorder` stubbed through a route on `js/audio.js`
+and `scoring.score` on `js/speech.js` returning two words at 92 and 71:
+before an attempt `#next` precedes `.drill-context` (where there is one),
+`#drill-get-replies` and `#drill-chat` and there is no `#compare-details`;
+after one there is no `#play-model` and no button reading *Listen again*,
+`.dial-value` reads 71 with *“dia”* named in `.score-head`, `.score-head`
+precedes `#compare-details`, both folds are shut with `#play-you`,
+`#wave-model`, `#wave-you` and `#pitch` inside Compare and two `.chip`s and
+the `.subscores` inside Word by word, and `#next` sits after `.dial-value`
+and before the reference cards; opening Compare gives `#wave-you` a width
+and writes `drill:compare`, a chip opens its `.phoneme`s and writes
+`drill:words`, and on the next card Compare opens as remembered with the
+waveform drawn; road mode keeps `#play-you` and has neither fold.
+
 ### Road mode: the drill with the reading taken off it
 
 The drill is mostly writing, and some of the practice this app gets happens
@@ -3531,7 +3579,7 @@ drillable still finds that deck in the list and isn't refiled by saving. For roa
 never fires): with it on, the drill has `#listen`, `#record`, `#play-you`,
 `.dial-value` and `#road-reveal` and has no `.drill-text`, `.focus-note`,
 `.drill-context`, `#drill-chat`, `#drill-edit`, `#history`, `#wave-you`,
-`#pitch-details` or `.chip`; `#road-reveal` puts all of those back for that card
+`#compare-details` or `.chip`; `#road-reveal` puts all of those back for that card
 and offers `#road-hide`; `#next` goes bare again; `#road-toggle` flips
 `aria-pressed`, writes `roadMode` to `xerra.settings` and survives a reload; and
 a phrase with four good attempts behind it drills listen-and-repeat with no

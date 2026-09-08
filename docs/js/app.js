@@ -5864,20 +5864,16 @@ function renderDrill() {
         : ""
     }
 
-    ${road ? "" : drillContext(phrase, questioned)}
-    ${road ? "" : drillReplies(phrase, questioned)}
-    <div id="drill-notes">${road ? "" : drillNotes(phrase, questioned)}</div>
     ${
-      /* Asking about the phrase you have just said is half of practising it —
-         you get it right, and then want to know why it's `tingui`. The box
-         shows nothing until you type, but the answer it fetches is built from
-         the card, so it stays out while a level-two question is standing: it
-         would be a way round the question. Road mode takes it too — it is a
-         text box, and it prints the phrase in the answer. */
-      settings.hasAssistant && !questioned && !road ? `<section id="drill-chat" hidden></section>` : ""
+      /* Next sits under the score, above the reference material, and that is
+         the whole answer to "I still have to scroll past them to get to
+         Next". The situation, the replies, the kept notes and the ask box
+         are reference — good, and reported as good — but on a card you have
+         just said well the next thing you want is the next card, and the
+         way to it should not be under three cards of reading. */
+      ""
     }
-
-    <div class="btn-row" style="margin-top:18px">
+    <div class="btn-row drill-next" style="margin-top:18px">
       ${
         // History is a sheet full of small print, so road mode leaves it out
         // and Next takes the whole width — a bigger target for a moving thumb.
@@ -5890,7 +5886,20 @@ function renderDrill() {
           ? `<button class="btn btn-primary" id="done">Done ✓</button>`
           : `<button class="btn btn-primary" id="next">Next ›</button>`
       }
-    </div>`;
+    </div>
+
+    ${road ? "" : drillContext(phrase, questioned)}
+    ${road ? "" : drillReplies(phrase, questioned)}
+    <div id="drill-notes">${road ? "" : drillNotes(phrase, questioned)}</div>
+    ${
+      /* Asking about the phrase you have just said is half of practising it —
+         you get it right, and then want to know why it's `tingui`. The box
+         shows nothing until you type, but the answer it fetches is built from
+         the card, so it stays out while a level-two question is standing: it
+         would be a way round the question. Road mode takes it too — it is a
+         text box, and it prints the phrase in the answer. */
+      settings.hasAssistant && !questioned && !road ? `<section id="drill-chat" hidden></section>` : ""
+    }`;
 
   view.innerHTML = topbar + body;
   view.classList.toggle("road", road);
@@ -6586,15 +6595,24 @@ function announceLevelUp(phrase) {
   toast("Level 2 — next time you'll say this one from memory.", 3600);
 }
 
+/* What an attempt puts on the screen: the score first, and the comparison —
+   your recording, the two waveforms, the pitch lines — folded under it.
+
+   It was the other way round, and every one of the pieces in between was
+   reported as something to scroll past: *"I never use the listen again
+   button (the listen button is right there). The model waveform is only
+   occasionally useful and I don't know what the intonation thing tells me
+   about how to improve. The score is useful and an occasional drill down
+   into what word I am getting wrong. I rarely listen to myself or the slow
+   version."* So Listen again is gone — Listen is two inches up — and You,
+   the waveforms, the timing note and the intonation plot are one `<details>`
+   under the score, shut by default and remembered in `settings.folds`. The
+   canvases draw when it opens (`prepare` returns null at zero width, so a
+   draw into a shut fold is a no-op, and the toggle redraws). Slow stays
+   beside Listen: it costs no scrolling there. */
 function renderComparison(road = false) {
   const attempt = state.attempt;
   const timing = timingSummary();
-
-  const buttons = `
-    <div class="btn-row">
-      <button class="btn btn-primary" id="play-model" ${state.modelBlob ? "" : "disabled"}>Listen again</button>
-      <button class="btn btn-you" id="play-you">You</button>
-    </div>`;
 
   const verdict = state.scoringNow
     ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
@@ -6604,40 +6622,46 @@ function renderComparison(road = false) {
     ? `<div class="notice bad">${esc(scoring.lastError)}</div>`
     : "";
 
-  /* Road mode keeps the two buttons and the dial and drops the pictures. A
-     waveform and a pitch line are the two things on this page that are no use
-     at all unless you are looking at it, and the timing note goes with them:
-     it lives on the wave card because it is about the same drawing. */
+  /* Road mode keeps You and the dial and drops the pictures. A waveform and
+     a pitch line are the two things on this page that are no use at all
+     unless you are looking at it, and the timing note goes with them: it
+     lives on the wave card because it is about the same drawing. You stays
+     out in the open here because there is nothing else on the screen to
+     fold it under, and a moving thumb wants a big target. */
   if (road) {
     return `
       <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
-      ${buttons}
+      <div class="btn-row">
+        <button class="btn btn-you" id="play-you">You</button>
+      </div>
       <div style="margin-top:14px">${verdict}</div>`;
   }
 
+  const open = Boolean(settings.folds?.["drill:compare"]);
   return `
     <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
 
-    ${buttons}
+    ${verdict}
 
-    <div class="card" style="margin-top:14px">
-      <div class="wave-label" style="color:var(--accent)">Model</div>
+    <details class="card fold-details" id="compare-details" ${open ? "open" : ""}>
+      <summary><span class="fold-details-main">Compare<span class="fold-details-sub">Your recording, the waveforms, the intonation</span></span></summary>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-you" id="play-you">Play what you said</button>
+      </div>
+      <div class="wave-label" style="color:var(--accent);margin-top:14px">Model</div>
       <canvas id="wave-model" height="56"></canvas>
       <div class="wave-label" style="color:var(--you-ink);margin-top:12px">You</div>
       <canvas id="wave-you" height="56"></canvas>
       ${timing ? `<p class="tiny muted" style="margin:10px 0 0">${esc(timing)}</p>` : ""}
-    </div>
-
-    <details class="card" id="pitch-details">
-      <summary style="cursor:pointer;font-weight:800">Intonation</summary>
-      <canvas id="pitch" height="130" style="margin-top:12px"></canvas>
+      <div class="wave-label" style="margin-top:16px">Intonation</div>
+      <canvas id="pitch" height="130" style="margin-top:8px"></canvas>
       <p class="tiny muted" style="margin:8px 0 0">
         Both lines are in semitones relative to each speaker's own median, so the
         comparison is about melody rather than how high or low the voice sits.
+        Where your line goes flat and the model's rises or falls, that is the
+        word to say with more of a tune in it.
       </p>
-    </details>
-
-    ${verdict}`;
+    </details>`;
 }
 
 function timingSummary() {
@@ -6729,40 +6753,59 @@ function renderScore(attempt, bare = false) {
     .filter((word) => typeof word.score === "number" || word.errorType === "Omission")
     .sort((a, b) => (a.errorType === "Omission" ? 0 : a.score) - (b.errorType === "Omission" ? 0 : b.score))[0];
 
+  /* The dial, the verdict and the weakest word are the score; the chips, the
+     sub-scores and what Azure heard are the drill-down, and it was reported
+     as an occasional one — so they wait behind Word by word, shut by default
+     and remembered in `settings.folds`. The weakest word is named on the
+     card either way, since that is the one word the number is about. */
+  const open = Boolean(settings.folds?.["drill:words"]);
   return `
     <div class="card">
       <div class="score-head">
         ${scoreDial(score)}
         <div>
           <div style="font-weight:600">${verdict}</div>
-          <div class="subscores">${sub}</div>
+          <p class="tiny muted" style="margin:6px 0 0">${
+            weakest
+              ? `Your weakest word${
+                  weakest.errorType === "Omission"
+                    ? ` — “${esc(weakest.word)}” didn't come out at all`
+                    : `: “${esc(weakest.word)}”`
+                }.`
+              : ""
+          } Scored by ${esc(attempt.engine)}</p>
         </div>
       </div>
 
-      ${chips ? `<div class="section-label" style="margin:16px 4px 8px">Word by word</div><div class="chips">${chips}</div>` : ""}
-      <div id="phoneme-detail"></div>
-
-      ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
-      <p class="tiny muted" style="margin-top:6px">${
-        weakest
-          ? `The score is your weakest word${
-              weakest.errorType === "Omission"
-                ? ` — “${esc(weakest.word)}” didn't come out at all`
-                : `, “${esc(weakest.word)}”`
-            }. Tap a chip for its sounds. `
+      ${
+        chips || sub
+          ? `<details class="fold-details fold-details-inner" id="word-details" ${open ? "open" : ""}>
+               <summary><span class="fold-details-main">Word by word<span class="fold-details-sub">Tap a word for its sounds</span></span></summary>
+               ${chips ? `<div class="chips" style="margin-top:10px">${chips}</div>` : ""}
+               <div id="phoneme-detail"></div>
+               ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
+               ${sub ? `<div class="subscores" style="margin-top:10px">${sub}</div>` : ""}
+             </details>`
           : ""
-      }Scored by ${esc(attempt.engine)}</p>
+      }
     </div>`;
 }
 
 function wireComparison() {
-  document.getElementById("play-model")?.addEventListener("click", () => {
-    if (state.modelBlob) player.play(state.modelBlob);
-  });
   document.getElementById("play-you")?.addEventListener("click", () => {
     if (state.attemptBlob) player.play(state.attemptBlob);
   });
-  document.getElementById("pitch-details")?.addEventListener("toggle", drawCanvases);
+  /* The two folds under the score remember themselves like every other fold
+     in the app, and the comparison's canvases draw when it opens — they are
+     zero wide while it is shut, and `prepare` declines to draw at zero. */
+  const remember = (id, key) =>
+    document.getElementById(id)?.addEventListener("toggle", (event) => {
+      settings.folds = { ...settings.folds, [key]: event.target.open };
+      settings.save();
+      if (id === "compare-details") drawCanvases();
+    });
+  remember("compare-details", "drill:compare");
+  remember("word-details", "drill:words");
 
   view.querySelectorAll("[data-word]").forEach((chip) =>
     chip.addEventListener("click", () => {

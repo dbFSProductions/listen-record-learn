@@ -2137,6 +2137,24 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .list-fold #wiki-card { margin-bottom: 12px; }
 .list-fold .wiki-shelf:last-child { margin-bottom: 0; }
 
+/* The drill's two folds under the score — Compare and Word by word — are
+   native <details>, since nothing in them is repainted in place. The summary
+   reads as a fold header: a title, a quiet line under it, the triangle. */
+.fold-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+.fold-details > summary::-webkit-details-marker { display: none; }
+.fold-details > summary::after { content: "▶"; margin-left: auto; flex: none; color: var(--text-3); font-size: 0.8rem; }
+.fold-details[open] > summary::after { content: "▼"; }
+.fold-details-sub { display: block; margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
+.fold-details-main { flex: 1; min-width: 0; }
+.fold-details-inner { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--line); }
+
 /* A long text read aloud: Listen and Slow, and a Stop that stands in while
    anything is playing. The voice select sits under the row. */
 .msg-listen-row { align-items: center; }
