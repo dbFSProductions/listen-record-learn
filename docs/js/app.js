@@ -7139,14 +7139,14 @@ function notesBlock(notes, { deletable = false } = {}) {
    It stands behind the same gate as the ask box, since the chips print every
    word of the phrase, and road mode takes it off. Only with a key: without
    one there is nothing to check. */
+/* Three sentences of explanation used to stand above the button, on every
+   card, whether or not you were ever going to press it — reported from the
+   phone as not being needed. The run itself says all of it and says it about
+   a real number rather than in the abstract ("that is the scorer, not you"),
+   so the button is on its own now. */
 function cardCheckBlock() {
   return `
     <div class="card card-check">
-      <p class="tiny muted" style="margin:0 0 10px">
-        Scores the model's own voice on this phrase through the same pipeline — no mic, no room.
-        Clear here, and a lower score on your take is the air between you and the phone. Low here,
-        and Azure's dictionary disagrees with the voice on that word — the number is about the dictionary, not you.
-      </p>
       <button class="btn" data-check-go style="width:100%">Check this card</button>
       <div data-check-runs></div>
     </div>`;
