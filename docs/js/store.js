@@ -17,7 +17,6 @@ const KEYS = {
   seeded: "xerra.seeded",
   aboutMe: "xerra.aboutMe",
   aiLog: "xerra.aiLog",
-  calibration: "xerra.calibration",
   decks: "xerra.decks",
   progress: "xerra.progress",
   messages: "xerra.messages",
@@ -920,103 +919,6 @@ function writeJSON(key, value) {
   }
 }
 
-/* What the scorer makes of the model's own voice, per phrase — the ceiling.
-
-   Azure's assessment is not a comparison with the model. It scores each sound
-   of a take against its own dictionary of Catalan, built from human speakers,
-   and the neural voice is a separate product with its own idea of the
-   language. On most words the two agree. On a few they do not, and it was
-   found from the phone with *Check this card*: Enric's own `Em` before
-   *lligues* scores 56 — its m at 0 — and his `entenc` scores 67, because he
-   drops the final k the way the Listen for note teaches and the dictionary
-   expects it. A learner who says the k scores 100 there and "beats" the model,
-   which is the scorer rewarding the less native pronunciation; a learner whose
-   `Em` is as short as Enric's is marked down for sounding like him.
-
-   So the model's own per-word scores are kept, one Azure call per phrase on
-   audio that is already cached, and **a word the model itself fails is not
-   counted on the dial**: the number on that word is about the dictionary, not
-   the mouth, and the dial moves to the next word. The word is still chipped
-   and still scored, greyed, with the model's number beside it — nothing is
-   hidden, it just stops being the verdict. Keyed by voice, since the
-   disagreement is between the dictionary and *this* voice; dropped when the
-   phrase's text is edited, since the words are then different words. Not in
-   export/import: it is derived, and rebuilds itself a phrase at a time.
-
-   `CALIBRATION_FLOOR` is app.js's `GOOD`. Under it, "90 means every word
-   cleared 90" is a bar the model cannot clear either. */
-export const CALIBRATION_FLOOR = 90;
-
-export const calibration = {
-  entries: {},
-
-  load() {
-    const stored = readJSON(KEYS.calibration, null);
-    this.entries = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
-  },
-
-  /** The entry for a phrase, if it was made for the voice in use (and, when
-   *  the text is given, for these words). */
-  of(phraseID, { text = null, voice = settings.azureVoice } = {}) {
-    const entry = this.entries[phraseID];
-    if (!entry || !Array.isArray(entry.words)) return null;
-    if (voice && entry.voice !== voice) return null;
-    if (text != null && entry.text !== text) return null;
-    return entry;
-  },
-
-  set(phrase, result, voice = settings.azureVoice) {
-    const words = (result?.words ?? [])
-      .filter((word) => word.errorType !== "Insertion")
-      .map((word) => ({
-        word: word.word,
-        score: word.errorType === "Omission" ? 0 : typeof word.score === "number" ? word.score : null,
-      }));
-    if (!words.length) return null;
-    const entry = { text: phrase.text, voice, words, at: new Date().toISOString() };
-    this.entries[phrase.id] = entry;
-    writeJSON(KEYS.calibration, this.entries);
-    return entry;
-  },
-
-  forget(phraseID) {
-    if (!(phraseID in this.entries)) return;
-    delete this.entries[phraseID];
-    writeJSON(KEYS.calibration, this.entries);
-  },
-};
-
-const foldWord = (word) =>
-  String(word ?? "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}'’·-]/gu, "");
-
-/* The words of an attempt the dial does not count, with the model's own score
-   on each: the calibration's words, walked beside the attempt's with the
-   insertions skipped, and matched by their folded text so a list the
-   recogniser reshaped never pairs the wrong two. */
-export function uncountedWords(attempt) {
-  const words = attempt?.words ?? [];
-  const entry = attempt?.phraseID ? calibration.of(attempt.phraseID) : null;
-  if (!entry || !words.length) return [];
-  const spare = entry.words.map((word) => ({ ...word, key: foldWord(word.word), used: false }));
-  const out = [];
-  let cursor = 0;
-  words.forEach((word, index) => {
-    if (word.errorType === "Insertion") return;
-    const key = foldWord(word.word);
-    let match = spare[cursor] && !spare[cursor].used && spare[cursor].key === key ? spare[cursor] : null;
-    if (!match) match = spare.find((candidate) => !candidate.used && candidate.key === key) ?? null;
-    if (!match) return;
-    match.used = true;
-    cursor = spare.indexOf(match) + 1;
-    if (typeof match.score === "number" && match.score < CALIBRATION_FLOOR) {
-      out.push({ index, word: word.word, modelScore: match.score });
-    }
-  });
-  return out;
-}
-
 /* The one number the app shows and judges by: your weakest word.
 
    Every aggregate Azure hands back is generous. PronScore is the worst of them
@@ -1037,14 +939,9 @@ export function uncountedWords(attempt) {
    aggregates are the fallback for an attempt that somehow has no words. */
 export function attemptScore(attempt) {
   const words = attempt?.words ?? [];
-  const wordScore = (word) => (word.errorType === "Omission" ? 0 : word.score);
-  /* Over the words the model itself clears — see `calibration`. A take whose
-     every word is uncounted is scored over all of them: a number that means
-     little beats no number, and the chips say which. */
-  const skip = new Set(uncountedWords(attempt).map((entry) => entry.index));
-  const counted = words.filter((word, index) => !skip.has(index)).map(wordScore).filter((score) => typeof score === "number");
-  if (counted.length) return Math.min(...counted);
-  const scores = words.map(wordScore).filter((score) => typeof score === "number");
+  const scores = words
+    .map((word) => (word.errorType === "Omission" ? 0 : word.score))
+    .filter((score) => typeof score === "number");
   if (scores.length) return Math.min(...scores);
   return attempt?.accuracy ?? attempt?.overall ?? null;
 }
@@ -1407,8 +1304,6 @@ export const library = {
   update(phrase) {
     const index = this.phrases.findIndex((p) => p.id === phrase.id);
     if (index === -1) return;
-    // Different words, different ceiling: the model's scores were for the old text.
-    if (this.phrases[index].text !== phrase.text) calibration.forget(phrase.id);
     this.phrases[index] = phrase;
     this.savePhrases();
   },
@@ -1419,7 +1314,6 @@ export const library = {
     }
     // The drawing of its keyword picture goes with it, like the recordings do.
     await audioStore.deletePicture(phraseID);
-    calibration.forget(phraseID);
     this.attempts = this.attempts.filter((a) => a.phraseID !== phraseID);
     this.phrases = this.phrases.filter((p) => p.id !== phraseID);
     this.savePhrases();
