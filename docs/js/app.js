@@ -1265,7 +1265,7 @@ const TILES = [
      pages rather than lists, like About me, so `renderPractice` never sees
      their keys. */
   { key: "reader", title: "Listen & read", blurb: "Radio, articles, stories, your books", colour: "purple" },
-  { key: "xerrada", title: "Xerrada", blurb: "Rehearse a conversation", colour: "green" },
+  { key: "xerrada", title: "Chat", blurb: "Rehearse a conversation", colour: "green" },
 ];
 
 const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
@@ -1988,20 +1988,35 @@ function renderPractice(section = null) {
       (phrase.sounds ?? "").toLowerCase().includes(query);
 
     const hits = phrases.filter(match);
-    if (!hits.length) return `<div class="empty"><p>Nothing matches.</p></div>`;
+    /* The way back out. Results replace whatever the page was showing — the
+       tiles on the home page, the deck list inside a section — and the only
+       thing that put them back was emptying the search box, which on the home
+       page sits *under* the results and is scrolled off the moment there are
+       more than a screenful. Reported as there being no way back from a
+       search. So the results lead with a back link naming where they came
+       from, the same `‹ Somewhere` shape every other page prints. */
+    const backOut = `
+      <div class="search-back">
+        <button class="link" data-search-clear="1">‹ ${esc(section ? TILE_BY_KEY[section].title : "Home")}</button>
+        <span class="tiny muted">${hits.length} match${hits.length === 1 ? "" : "es"}</span>
+      </div>`;
+    if (!hits.length) return `${backOut}<div class="empty"><p>Nothing matches.</p></div>`;
 
     const groups = new Map();
     for (const phrase of hits) {
       if (!groups.has(phrase.deck)) groups.set(phrase.deck, []);
       groups.get(phrase.deck).push(phrase);
     }
-    return [...groups]
-      .map(
-        ([deck, found]) => `
+    return (
+      backOut +
+      [...groups]
+        .map(
+          ([deck, found]) => `
           <div class="section-label inked hue-${deckColour(deck)}">${esc(deck)}</div>
           <div class="rows rows-spaced">${found.map(phraseRow).join("")}</div>`
-      )
-      .join("");
+        )
+        .join("")
+    );
   }
 
   function wire(list) {
@@ -2016,6 +2031,17 @@ function renderPractice(section = null) {
         render();
       })
     );
+
+    // Out of a search and back to whatever the page was showing. The box is
+    // emptied by hand as well as `state.search`, since paint() rewrites the
+    // list and not the box.
+    list.querySelector("[data-search-clear]")?.addEventListener("click", () => {
+      state.search = "";
+      search.value = "";
+      search.blur();
+      paint();
+      window.scrollTo(0, 0);
+    });
 
     list.querySelectorAll("[data-fold]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -2435,7 +2461,7 @@ function renderXerrada() {
     ${
       settings.hasAssistant
         ? chatStarter()
-        : `<div class="notice">Xerrada needs the card assistant. Set it up in Settings and this becomes a
+        : `<div class="notice">Chat needs the card assistant. Set it up in Settings and this becomes a
              conversation partner who speaks only ${esc(LANGUAGES[settings.language].englishName)} to you.</div>`
     }
     <div id="quick-chats"></div>`;
@@ -2466,7 +2492,7 @@ function renderXerrada() {
               <div class="row striped hue-green">
                 <button class="row-open" data-chat-open="${esc(item.id)}">
                   <span class="row-main">
-                    <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
+                    <span class="row-title">${esc(item.scene.title || TILE_BY_KEY.xerrada.title)}</span>
                     <span class="row-sub">${esc(
                       item.ended
                         ? `${said} line${said === 1 ? "" : "s"} · finished`
@@ -2553,6 +2579,44 @@ function glossSegments(text, glossary, language) {
   return segments;
 }
 
+/* The text on screen, shaped as the card the tutor expects, so the ask panel
+   at the foot of the message page is the same `/chat` the drill and the phrase
+   sheet use — no Worker change, and the sister apps share the endpoint.
+
+   `text` is the message itself; the Worker caps every card field at a thousand
+   characters, so a book page reaches it as its first thousand, which is where
+   the questions come from. The English goes in as the translation because by
+   the time this panel exists it is already on the screen — this is offered
+   after the reveal, and only then. The situation says what kind of text it is
+   and where it came from, which is what tells the tutor that «escric per
+   avisar-vos» is a notice and not something said to you across a table. */
+function messageAskContext(item) {
+  const kind = item.kind || "message";
+  const source = item.source?.name ? ` from ${item.source.name}` : "";
+  const where = {
+    message: "A message somebody sent the learner, read in the app.",
+    article: `An article${source}, read in the app.`,
+    episode: `The blurb of a radio episode${source}, read in the app.`,
+    story: "A short story the app wrote for the learner to read.",
+    book: `A page${item.source?.name ? ` of «${item.source.name}»` : ""}${
+      item.source?.page ? `, page ${item.source.page}` : ""
+    }, photographed and pasted in by the learner.`,
+  }[kind] ?? "A text read in the app.";
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    deck: item.kind === "book" ? booksDeck(item.language) : messagesDeck(item.language),
+    card: {
+      text: item.text.slice(0, 1000),
+      translation: (item.read?.translation ?? "").slice(0, 1000),
+      situation: `${where} The learner is reading it, not saying it, and may ask about any word or phrase in it.`,
+      usageNote: item.read?.register ?? "",
+      focusNote: "",
+      replies: [],
+    },
+  };
+}
+
 /* A received message, read rather than translated.
 
    Everything on this page is arranged around one rule: the English is not
@@ -2583,6 +2647,8 @@ function renderMessage() {
   const revealed = item.gist !== null;
   const segments = glossSegments(item.text, item.read?.glossary, item.language);
   const opened = new Set();
+  // Whether the ask panel has been built for this render — see paintAsk.
+  let askBuilt = false;
   /* What kind of text this is. A message is the original: somebody wrote it
      to you, and it wants a reply. The reader's three — an article, an
      episode's blurb, a story the app wrote — are read the same way, with
@@ -2658,6 +2724,7 @@ function renderMessage() {
     <div id="msg-keep"></div>
     <div id="msg-words"></div>
     <div id="msg-reply-card"></div>
+    <div id="msg-ask" hidden></div>
     <div class="btn-row" style="margin-top:18px">
       <button class="link btn-danger" id="msg-forget">${reading ? "Forget this" : "Forget this message"}</button>
     </div>`;
@@ -2725,6 +2792,7 @@ function renderMessage() {
   paintKeep();
   paintWords();
   paintReply();
+  paintAsk();
 
   function paintGist() {
     const box = document.getElementById("msg-gist-card");
@@ -2770,6 +2838,7 @@ function renderMessage() {
     paintKeep();
     paintWords();
     paintReply();
+    paintAsk();
     document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -2981,6 +3050,34 @@ function renderMessage() {
     document.getElementById("msg-reply-keep")?.addEventListener("click", (event) =>
       keepFromMessage(reply, item, event.currentTarget, "reply")
     );
+  }
+
+  /* Ask about it, at the foot of the page — the drill's panel, the phrase
+     sheet's and the chat's, on the text you are reading. Asked for as wanting
+     an ask section in the reading pages: the tap-a-word gloss answers "what
+     does this word mean" and nothing answered "why is it *vos* here" or "what
+     tense is escric".
+
+     It waits for the reveal, and that is the same line every other ask box in
+     this app is drawn on: the English is withheld until you have written what
+     you think the text says, and a box that will translate the whole thing for
+     you sitting under an unread message is the way round the only gate this
+     page has. Before the reveal you have the glosses, which are word-sized and
+     counted; after it you are checking, and the questions are the interesting
+     part. `I can't tell — just show me` is one tap away either way. */
+  function paintAsk() {
+    const box = document.getElementById("msg-ask");
+    if (item.gist === null || !settings.hasAssistant) {
+      box.innerHTML = "";
+      box.hidden = true;
+      askBuilt = false;
+      return;
+    }
+    // The panel holds its own conversation, so it is built once — a second
+    // call would throw away what has been asked.
+    if (askBuilt) return;
+    askBuilt = true;
+    cardChatPanel(box, "Ask about a word or a phrase", () => messageAskContext(item));
   }
 
   async function sendReply(draft) {
@@ -4300,7 +4397,7 @@ function renderChat() {
   view.innerHTML = `
     ${pageHead(
       "xerrada",
-      item.scene.title || "Xerrada",
+      item.scene.title || TILE_BY_KEY.xerrada.title,
       item.ended ? "How it went" : item.scene.character ? `With ${item.scene.character}` : `Rehearsing it in ${language.name}`,
       `<button class="link" id="chat-back">‹ ${esc(TILE_BY_KEY.xerrada.title)}</button>`
     )}
@@ -6773,11 +6870,32 @@ function renderScore(attempt, bare = false) {
     )
     .join("");
 
-  // Whichever chip is reddest is the dial — say so, so the number has somewhere
-  // to point rather than being a verdict from nowhere.
-  const weakest = attempt.words
-    .filter((word) => typeof word.score === "number" || word.errorType === "Omission")
-    .sort((a, b) => (a.errorType === "Omission" ? 0 : a.score) - (b.errorType === "Omission" ? 0 : b.score))[0];
+  /* Whichever chip is reddest is the dial — say so, so the number has somewhere
+     to point rather than being a verdict from nowhere. Two guards on that, both
+     reported from the phone as `Em` being named the weakest word over and over.
+
+     **A take with nothing weak in it names nothing.** Above `GOOD` every word
+     cleared 90, so there is no weak word to point at, and printing one under
+     *Every word landed* is the card contradicting itself in the next sentence —
+     which is exactly what a 100 with "Your weakest word: Em" under it was. The
+     verdict already says the right thing at that level. This is what the chat's
+     own practice card has always done; the drill was the odd one out.
+
+     **A tie is not a finding.** `sort` is stable, so several words on the same
+     score handed back the *first* of them — and the first of them is the first
+     word of the phrase, every time. On a library where half the phrases open on
+     a clitic, that named `Em` again and again on takes where `Em` was tied with
+     everything else at 100. Every word on the minimum is named now, or, when
+     more than three of them are, none: at that point the whole phrase is the
+     finding and the verdict is already saying so. */
+  const scored = attempt.words
+    .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+    .filter((word) => typeof word.score === "number");
+  const lowest = scored.length ? Math.min(...scored.map((word) => word.score)) : null;
+  const tied = lowest === null ? [] : scored.filter((word) => word.score === lowest);
+  const weakest = score >= GOOD || tied.length > 3 ? [] : tied;
+  const omitted = weakest.length > 0 && weakest.every((word) => word.errorType === "Omission");
+  const weakestNames = weakest.map((word) => `“${esc(word.word)}”`).join(" and ");
 
   /* The dial, the verdict and the weakest word are the score; the chips, the
      sub-scores and what Azure heard are the drill-down, and it was reported
@@ -6792,11 +6910,9 @@ function renderScore(attempt, bare = false) {
         <div>
           <div style="font-weight:600">${verdict}</div>
           <p class="tiny muted" style="margin:6px 0 0">${
-            weakest
-              ? `Your weakest word${
-                  weakest.errorType === "Omission"
-                    ? ` — “${esc(weakest.word)}” didn't come out at all`
-                    : `: “${esc(weakest.word)}”`
+            weakest.length
+              ? `Your weakest word${weakest.length > 1 ? "s" : ""}${
+                  omitted ? ` — ${weakestNames} didn't come out at all` : `: ${weakestNames}`
                 }.`
               : ""
           } Scored by ${esc(attempt.engine)}</p>
@@ -8885,6 +9001,40 @@ function assistantSpeedPanel() {
     </div>`;
 }
 
+/* The test the phone kept trying to run, without the room in it.
+
+   Playing the model out of a phone's speaker and back into its own microphone
+   is the obvious way to ask "is it me or the app?", and it is the one way that
+   cannot answer: iOS reroutes playback while a capture session is open, echo
+   cancellation is off by design here, and the level, the distance and the
+   clipping are different on every take. Three goes at it came back 46, 80 and
+   100 on identical source audio — which says the acoustic path is noisy, and
+   says nothing whatever about the pipeline.
+
+   This scores the model's own bytes against the model's own words: the same
+   `toWav16k`, the same resampler, the same padding, the same Azure call, with
+   no microphone, no speaker and no air anywhere in it. Three phrases rather
+   than one, because the question is really about *variance* — three numbers
+   that agree mean the pipeline is repeatable, and three that do not are a bug
+   in here worth reporting. It is the audio half of what `aiLog` is for the
+   assistant, and it is behind a button for the same reason: diagnostics are
+   asked for, not run at you. */
+function scorerCheckPanel() {
+  if (!settings.hasAzure) return "";
+  return `
+    <div class="section-label">Check the scorer</div>
+    <div class="card">
+      <p class="tiny muted" style="margin:0 0 10px">
+        Scores the model's own voice against its own words — no microphone, no speaker, no room.
+        Three high numbers that agree mean the scoring pipeline is sound, and a lower number on a
+        real take is the air between your mouth and the phone. Numbers that disagree here are the
+        app's fault and worth reporting.
+      </p>
+      <button class="btn" id="s-scorer-check" style="width:100%">Run the check</button>
+      <div id="s-scorer-result"></div>
+    </div>`;
+}
+
 function renderSettings() {
   const language = LANGUAGES[settings.language];
 
@@ -9006,6 +9156,8 @@ function renderSettings() {
       </p>
     </div>
 
+    ${scorerCheckPanel()}
+
     <div class="section-label">Version</div>
     <div class="card">
       <div class="version-row">
@@ -9027,6 +9179,63 @@ function renderSettings() {
   document.getElementById("s-speed-clear")?.addEventListener("click", () => {
     aiLog.clear();
     render();
+  });
+
+  /* Each phrase is painted as it lands rather than all three at the end: it is
+     three TTS fetches and three Azure round trips, and a button that spins for
+     ten seconds with nothing under it reads as a hang. */
+  document.getElementById("s-scorer-check")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const box = document.getElementById("s-scorer-result");
+    const phrases = library.drillable(settings.language).slice(0, 3);
+    if (!phrases.length) {
+      box.innerHTML = `<p class="tiny muted" style="margin:10px 0 0">Nothing to check — no phrases in this language yet.</p>`;
+      return;
+    }
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    box.innerHTML = "";
+    const got = [];
+    for (const phrase of phrases) {
+      const audio = await speech.modelAudio(phrase, settings);
+      const result = audio ? await scoring.score(audio, phrase, settings) : null;
+      const score = result ? attemptScore(result) : null;
+      if (score != null) got.push(score);
+      const weakest = (result?.words ?? [])
+        .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+        .filter((word) => typeof word.score === "number")
+        .sort((a, b) => a.score - b.score)[0];
+      box.insertAdjacentHTML(
+        "beforeend",
+        `<div class="version-row">
+           <span class="tiny">${esc(firstLine(phrase.text, 30))}</span>
+           <strong style="color:${score == null ? "var(--text-3)" : scoreColour(score)}">${
+             score == null ? "—" : Math.round(score)
+           }</strong>
+         </div>
+         ${
+           score != null && weakest && score < GOOD
+             ? `<p class="tiny muted" style="margin:0 0 6px">weakest: “${esc(weakest.word)}”</p>`
+             : ""
+         }`
+      );
+    }
+    /* The verdict on the three, which is the whole point of running three. */
+    const spread = got.length > 1 ? Math.max(...got) - Math.min(...got) : 0;
+    box.insertAdjacentHTML(
+      "beforeend",
+      `<p class="tiny muted" style="margin:10px 0 0">${
+        !got.length
+          ? esc(scoring.lastError || speech.lastError || "Nothing came back — check the key and the region above.")
+          : Math.min(...got) >= GOOD && spread <= 10
+          ? "The pipeline is sound. A lower score on a real take is the room, the distance or the mouth — not this."
+          : `These should all be high and within a few points of each other; this run spread <strong>${Math.round(
+              spread
+            )}</strong> with a low of <strong>${Math.round(Math.min(...got))}</strong>. That is worth reporting.`
+      }</p>`
+    );
+    button.disabled = false;
+    button.textContent = "Run the check again";
   });
 
   document.getElementById("s-language").onchange = (event) => {

@@ -13,6 +13,40 @@ up an Azure key; it isn't repeated here.
 
 ---
 
+## Work is not finished until it is on `main`
+
+**If you want the owner to try something, put it on `main`.** Not on a branch,
+not on a branch with a pull request open, not "pushed and ready to merge" —
+merged, so GitHub Pages rebuilds and the phone can be reloaded onto it.
+
+This is not a preference about tidiness. It is the whole shape of this project:
+the only device that matters runs the published Pages app from `main`, the
+`docs/` tree is served straight out of that branch with no build step, and the
+notes below spell out at length why the working tree *cannot* be served to the
+phone instead — `http://192.168.x.x` is not a secure context, so there is no
+microphone and no service worker, which is most of the app. So a branch is a
+thing nobody can test. Asking "does this fix it?" while the fix sits on a branch
+is asking a question that cannot be answered, and it has been asked more than
+once.
+
+What that means in practice, every time:
+
+- **Land it, then report it.** The turn that says "this is fixed, try it" is the
+  turn after the merge, not the turn after the push. Say the two version numbers
+  in that same message — they are what the phone is checked against.
+- **A pull request is a step, never the destination.** Open one if the repo's
+  workflow wants the record (it does — every change here has arrived through
+  one), and then *merge it*. A PR left open is work that has not shipped.
+- **Re-read `main`'s two version strings at the moment of merging** and bump
+  past them, as *Running it* below insists. That check is worth most exactly
+  when several branches are in flight, which is the situation this rule creates.
+- **The exception is work that was asked for as a draft**, or that is genuinely
+  unfinished and known to be. Say so out loud when leaving it on a branch, and
+  say what is missing — silence reads as "go and look", and there is nothing to
+  look at.
+
+---
+
 ## There are two apps in this repo
 
 | | | |
@@ -478,6 +512,31 @@ the message *for* you rather than *at* you, in a fixed order.
   shape — `card-test.mjs` with `BEFORE` set is still byte-identical — and
   `worker/tools/message-test.mjs` drives both with `globalThis.fetch`
   stubbed. `worker/**` is on the deploy trigger, so merging shipped them.
+- **Ask about it, at the foot of the page — and only after the reveal.**
+  Asked for as wanting an ask section in the reading pages: the tap-a-word
+  gloss answers *what does this word mean* and nothing answered *why is it
+  «avisar-vos» and not «avisar-te»*. It is `cardChatPanel`, the drill's and
+  the chat's, with the text shaped as the card by `messageAskContext` — the
+  message as `text`, its English as `translation` (already on the screen by
+  then), and a situation naming what kind of text it is and where it came
+  from, so the tutor knows a notice from a line said across a table. One turn
+  of `/chat`, which the sister apps share, so **no Worker change**; history
+  dies with the page, as it does everywhere else the panel is; the card fields
+  are capped at a thousand characters by the Worker, so a book page reaches it
+  as its first thousand.
+  - **It waits for the reveal, and that is the same line every other ask box
+    in this app is drawn on.** The drill's panel goes out while a level-two
+    question stands, because the answer it fetches is built from the card and
+    would otherwise be the way round the question — and the whole of this page
+    is that question. A box that will translate the message for you, sitting
+    under a message you have not read yet, is the gate with a door in it.
+    Before the reveal you have the glosses, which are word-sized and counted;
+    *I can't tell — just show me* is one tap away either way. It is painted by
+    `paintAsk` on render and again on the reveal, and `askBuilt` is what stops
+    the second call throwing away what you have already asked.
+  - It is on **every** kind the page shows — a message, an article, an
+    episode's blurb, a story, a book page — since they are one page and one
+    argument. The deck it names is the one that text's cards land in.
 - **`messages` in store.js is the record**: the text, what came back
   (`read`), your `gist`, the `taps`, and the `reply` with the draft it was
   made from. Persisted for the interview transcript's reason — *what did
@@ -512,6 +571,17 @@ Mum-o-lingo have none of this; it would port whole — the Worker is already
 serving it — with `messagesDeck` collapsing to one name.
 
 ### Xerrada: having the conversation before you have it
+
+**The tile says Chat.** Reported from the phone as simply wanting the word
+changed, and it is the Real life precedent exactly: `TILE_BY_KEY.xerrada.title`
+is what the page head, the back links and the fallback name of an untitled chat
+all print, so the name lives in one place and **the key is still `xerrada`** —
+`state.section`, `settings.folds["xerrada:chats"]` and the `Xerrades` deck are
+untouched, and nothing downstream reads the title. The Catalan word survives as
+the deck's name, which is where it belongs: a deck is content, a tile is a
+label. The two places that had it spelled out in prose — the no-assistant
+notice and an untitled chat's row — read the tile's title now rather than a
+second copy of the string.
 
 Asked for as *"I'm meeting people for language chats soon, I'd like to
 prepare. Can we run Catalan chat simulations?"* Everything else in the app is
@@ -1007,7 +1077,8 @@ out accordion/folder the phrases in about me and top level of real life."*
 - **Real life had four faces and About me had a third of one.** The grid is
   two by four: the sister apps' six in their order, then **Listen & read**
   (purple, the reader's own colour, and the Catalan name *Escolta i llegeix*
-  is its subtitle now) and **Xerrada** (green). Real life keeps the ask box
+  is its subtitle now) and **Chat** (green; it was titled *Xerrada* for two
+  releases — the key is still `xerrada`). Real life keeps the ask box
   and the message box and says so — *A phrase you need, a message you got* —
   with the key still `quick` and the deck still `Quick`, on the usual
   precedent. `state.reader` is gone: the reader is `state.section ===
@@ -1057,7 +1128,7 @@ out accordion/folder the phrases in about me and top level of real life."*
 Worth asserting, with `/feed` and `/message` stubbed and `speech.modelAudio`
 overridden to record `phrase.voice` and hand back a two-second clip: eight
 `.tile`s titled Practice, Vocab, About me, Real life, Grammar, All Phrases,
-Listen & read, Xerrada; a settings blob carrying `readerOpen: { sapiens:
+Listen & read, Chat; a settings blob carrying `readerOpen: { sapiens:
 true }` loads as `folds["reader:sapiens"]` with the key gone and the fold
 open; on the reader `[data-fold-card="reader:en-guardia"]` is
 `aria-expanded="false"` with `#fold-reader_en-guardia` hidden, one tap
@@ -1077,7 +1148,7 @@ deck is a `[data-deck]` row behind it; Real life has `#quick-ask` and
 *9 phrases · last 8* shut and opens to eight rows, a message backs to
 *‹ Real life* with its looked-up word listed and its reply box present, and
 the fold is remembered open; Xerrada has `#chat-scene` and `#chat-voice`,
-`xerrada:chats` opens to the chat and the chat backs to *‹ Xerrada*; About
+`xerrada:chats` opens to the chat and the chat backs to *‹ Chat*; About
 me's `about:cards` reads *3 cards* shut with `#about-practise` outside it;
 and the home page does not scroll sideways at 390. Neither sister fork has
 the reader or the chat; the folds and the Stop would port whole.
@@ -1110,8 +1181,14 @@ ground rather than on a banner.
   the photo it was handed over as and saved as `docs/icons/crest.png` at
   160px, which is enough for 34px at 3x. It is in the service worker's
   precache list, so it is on the phone offline like the parrot is over there.
-  It is the *header* logo only: the app icons in `docs/icons/` are still
-  Xerra's, and the `<title>`, the manifest and this file's heading still say
+  It is the header logo **and the tab icon**: `<link rel="icon">` points at
+  `icons/crest.png`, because the little bird was what showed on a Safari page
+  and the crest is what the app looks like everywhere else — reported that way
+  from the phone. One line and no new asset: the crest is 160px, which is
+  plenty for a favicon, it carries an alpha channel already, and it is in the
+  service worker's precache list. The *app* icons in `docs/icons/` are still
+  Xerra's bird — `apple-touch-icon` (the home screen) and the manifest's three
+  — and the `<title>`, the manifest and this file's heading still say
   Xerra. Renaming the app outright is a separate decision, and the manifest's
   `short_name` is what the phone's home screen prints.
 - **The language line went under the header.** *Català · 243 phrases ready*
@@ -1370,6 +1447,35 @@ box is empty and the matching phrases once it isn't. Three things had to come wi
 The search box writes `state.search`, so a full `render()` (a star toggled in
 the sheet, a phrase deleted) doesn't throw the query away. Folds are ignored
 while searching rather than opened — same invariant as before, less machinery.
+
+### A search has a way out of it
+
+Reported as *"once I've searched for a phrase there's no way to go back"*, and
+it was exactly that: results replace whatever the page was showing — the tiles
+on the home page, the deck list inside a section — and the only thing that put
+them back was emptying the box. On the home page the box sits *under* the
+results (the four squares are what the page is for, so they go on top), which
+means that after a search of any length the one control that undoes it has
+scrolled off the bottom.
+
+So `searchResults` leads with a **back link naming where the results came
+from** — *‹ Home* from the tiles, *‹ All Phrases* or *‹ Grammar* from inside a
+section — in the same `‹ Somewhere` shape every other page in the app prints,
+with the match count beside it. `[data-search-clear]` is wired in `wire(list)`
+with the tile and fold handlers, and it empties `state.search` **and the box by
+hand**, since `paint()` rewrites the list and not the input. It is printed on
+the empty result too: *Nothing matches* is the state you most want out of.
+
+Not a native `type="search"` clear button doing the job: iOS draws one, it is
+small, it is at the far end of a field you may not be looking at, and it says
+*clear this box* rather than *go back*. Both sister forks have the same search
+box under the same tiles and want this.
+
+Worth asserting: typing into `#search` from the tiles prints one `.search-back`
+whose link reads *‹ Home* and whose count reads *3 matches*, with no `.tile` on
+screen; `[data-search-clear]` puts the tiles back and empties `#search`; inside
+`[data-section="phrases"]` the link reads *‹ All Phrases* and clearing it brings
+the deck rows back; and a query matching nothing still carries the link.
 
 ### A deck row opens, and a card in it drills
 
@@ -3042,7 +3148,8 @@ context, and those are treated as secure. A `file://` open will not work.
 The phone runs the published GitHub Pages app
 (`https://dbfsproductions.github.io/listen-record-learn/`) — a proper secure
 context, so microphone and service worker just work. Merge to `main`, let
-Pages rebuild, reload on the phone.
+Pages rebuild, reload on the phone. **`main` is the only place anything can be
+tried from** — see *Work is not finished until it is on `main`* at the top.
 
 Don't try to serve the working tree to the phone over the LAN instead:
 `http://192.168.x.x` is **not** a secure context, so the app loads and plays
@@ -3244,7 +3351,8 @@ tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, and the
-two are **back in step on both halves** — the file is a verbatim copy there
+two are **out of step until the aliasing fix is ported** — see *What Azure
+hears was aliased* below; before that they were in step on both halves — the file is a verbatim copy there
 apart from two comments, where the tail-pad argument names a Spanish final -s
 rather than a Catalan final -t. Change either repo's copy and change the
 other's, then re-verify numerically.
@@ -3346,6 +3454,163 @@ line on everything speech-shaped and leaves the limiter catching transients
 rather than reshaping vowels, so 1.25 is what shipped. End to end at a
 speech-like crest it bends nothing at all: a take and a model clip land 0.04 dB
 apart, and the limiter never engages.
+
+### What Azure hears was aliased
+
+Reported from the phone with a screenshot: phrases beginning **Em** scored
+badly, and — the part that turned an opinion into a bug — *Azure's own voice,
+played back into the microphone, scored 58*, with `Em` the weakest word at
+54 and 33 on its two phonemes while the phrase read accuracy 94.
+
+`toWav16k` is the only place in the app that **down**samples, and it did it by
+linear interpolation with no low-pass first, which is the textbook way to alias
+a signal. The phone decodes a take at 44.1 or 48 kHz and this takes it to 16 kHz
+for Azure, so everything the microphone picked up above 8 kHz came back folded
+into the speech band. Measured, before and after:
+
+| | before | after |
+|---|---|---|
+| 11 kHz tone, folded to 5 kHz | **1.8 dB** under the 300 Hz voice beside it | 86 dB under |
+| hiss with nothing below 8.5 kHz, folded into 1–7.5 kHz | −34.6 dB | −106 dB |
+| 100 Hz – 6 kHz passband | flat | flat, 0.0 dB |
+| first and last 20 ms | full level | full level |
+| synthetic 150 Hz tone | 150 Hz | 150 Hz |
+
+- **Why it lands hardest on `Em`.** The folded noise does not get quieter with
+  the signal. An unstressed clitic at the head of a phrase — `Em`, `Et`, `Es`,
+  and Spanish's `Me`, `Te`, `Se` — is the least energetic thing in the sentence
+  and takes the same wash as a stressed vowel, so its signal-to-alias ratio is
+  the worst in the clip. Recording a phone's speaker back into its microphone
+  is the worst case of all: a speaker and a room put plenty above 8 kHz, and
+  every bit of it folded down onto exactly that clitic.
+- **`resampleTo` is a Blackman-windowed sinc**, cut off at 0.9 of the new
+  Nyquist and evaluated around each output position, so it filters and
+  resamples in one pass. Not an `OfflineAudioContext` at 16 kHz, for the reason
+  the comment above `toWav16k` has always given: Safari has been unreliable
+  about arbitrary rates, and the phone is the only device this runs on.
+- **The kernel is a table read by interpolation.** A `Math.sin` per tap per
+  output sample is a couple of million of them for a three-second take. The
+  whole conversion — decode, resample, encode — is 39 ms for three seconds
+  against an Azure round trip of seconds, so this is not a knob to trade
+  quality against.
+- **Each output sample is divided by the weight actually used**, not by a
+  constant. At the two ends half the kernel hangs off the clip, and a fixed
+  divisor would fade the take in and out — on the first word, which is the one
+  that started this.
+- **Only what Azure hears changed.** The waveforms, the pitch track, the trim
+  and `forPlayback` all read `monoSamples` at the device's own rate and never
+  come through here, which is why the 150 Hz tone still reads 150 Hz.
+- **What this does not explain**, and should not be claimed to: `attemptScore`
+  is the lowest word in the attempt, and a two-phoneme clitic has no other
+  phonemes to average against — so one imperfect sound drops the word, and the
+  word *is* the dial. That is the design working as written, not a defect, but
+  it does mean short function words will keep landing on the dial after this.
+  Whether the fix closes the gap on `Em` is a question for the phone and a real
+  Azure key; there is neither in here.
+
+**audio.js is shared verbatim with both forks and both have this bug** — a
+Spanish take is downsampled by the same function, and `Me`/`Te`/`Se` are the
+same clitics. Port it, and re-verify numerically rather than by ear.
+
+### And then the card said `Em` on a hundred
+
+The aliasing fix shipped as v98 and was reported back as *"still does this"*,
+with three takes from the phone. Read as data they say something different from
+the complaint: **100, every chip green, *Every word landed*** on one; **80 with
+`a` amber and `Em` green** on the next, five minutes later; and the 46 with `Em`
+red is the *earliest* of the three. So the pipeline was behaving. What was not
+behaving was the sentence under the dial, which on the 100 read **"Your weakest
+word: 'Em'"** — the card contradicting itself in its own next line, and the
+whole of why the phone said nothing had changed.
+
+Two faults in `renderScore`, both in the four lines that pick that word:
+
+- **It named one whatever the score.** There is no weak word in a take where
+  every word cleared `GOOD`; above that line the verdict already says the right
+  thing and the sentence is now just *Scored by Azure*. The chat's own
+  `practiceResult` has always had exactly this guard (`score >= GOOD` → *Every
+  word cleared 90*, no name) — the drill was the odd one out, so this is
+  bringing it into line rather than inventing a rule.
+- **A tie handed back the first word of the phrase.** `sort` is stable, so with
+  every word on 100 the "weakest" was whichever came first in `attempt.words` —
+  the first word, every time. On a library where a great many phrases open on a
+  clitic, that printed `Em` again and again on takes where `Em` was tied with
+  everything else at the top. It names **every** word on the minimum now (*your
+  weakest words: «a» and «la»*), or none when more than three of them tie, at
+  which point the whole phrase is the finding and the verdict is saying so. The
+  `Omission` wording survives for the group.
+
+**The deeper thing this exposed is not a bug**, and was not changed here: the
+dial is the lowest word, a one- or two-phoneme clitic has nothing to average
+against, and its score is therefore both the noisiest number in the attempt and
+the one the dial reports. `Em`, `a`, `la`, `si`, `us` will keep landing on the
+dial. That is *the score is your weakest word* working exactly as that section
+argues, and changing it is a decision for the owner, not a fix — the options, if
+it ever is wanted, are to weight a word by how many phonemes Azure scored in it,
+or to exempt one-phoneme function words from the dial while still chipping them.
+
+**The lesson is about reading the report against the screenshots.** "Still does
+this" named the audio, and the audio was fixed; what had never been fixed was
+the app agreeing out loud that `Em` was the problem. A number and a sentence
+that disagree will be believed as the sentence.
+
+Worth asserting, with `scoring.score` stubbed: every word at 100 reads 100,
+*Every word landed*, **no** *weakest word* naming and still *Scored by Azure*;
+92 and 97 name none either (the 90-band verdict still says *even your weakest
+word is close*, which names nothing); 95/71/90 names *«dia»* and not *«Em»*;
+71/71/95 reads *your weakest words: «Em» and «dia»*; an `Omission` still reads
+*didn't come out at all*; and four words tied at 40 name none.
+
+### A quarter-second of silence, and a way to ask whose fault it is
+
+The three takes above turned out to be **all three the model played back into
+the microphone** — the same source audio every time, scoring 46, 80 and 100.
+Identical input, a 54-point spread, and the low ones landing on the first word.
+That is not a learner being inconsistent; it is either the pipeline or the room,
+and the honest position is that the app had no way to tell them apart.
+
+**Azure gets silence at each end now.** `AZURE_PAD` (0.25 s) is added inside
+`toWav16k`, after the resample. A recogniser decides where speech *starts*
+before it decides what it is, and a clip that opens on the first phoneme gives
+its endpointer nothing to settle against — so the first word pays, which is the
+word this app kept being asked about. How much lead-in a take actually has is
+not the app's to control: it is the gap between the tap and the first sound,
+plus however long iOS takes to bring the capture session up, and it differs
+every time. Padding takes that variable out — every clip now reaches Azure with
+the same quiet run-up however quick the tap was. Silence at the ends is not a
+pause in the middle, so fluency is untouched; the samples between the pads are
+the same samples in the same order. The tail is padded for `TAIL_PAD`'s reason:
+these decks teach final consonants and the release of a final -t sits at the
+very edge of a clip that stopped when the speaker did.
+
+**And Settings can now run the test without the room in it.** `scorerCheckPanel`
+scores the model's own bytes against the model's own words — the same
+`toWav16k`, resampler, padding and Azure call, with no microphone, no speaker
+and no air anywhere. Three phrases rather than one, because the question is
+really about *variance*: three high numbers that agree mean the pipeline is
+repeatable and a lower score on a real take is the room; numbers that disagree
+are a bug in here. It prints the spread and the low, and names the weakest word
+on anything under `GOOD`. Behind a button and only with a key, and it is the
+audio half of what `aiLog` is for the assistant.
+
+**Why the speaker-into-microphone test cannot answer the question**, and should
+not be run again expecting it to: iOS reroutes playback while a capture session
+is open (usually to the earpiece, quieter), `echoCancellation` is off here by
+design, and the level, the distance and the clipping differ on every go. It is
+the noisiest possible input dressed up as a controlled one. The panel above is
+the same idea with the confound removed.
+
+Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
+`#s-scorer-check` without a key; with one it is offered and makes no call until
+pressed; pressing it makes three TTS fetches and three scoring calls, each
+phrase scored against its own text, and prints three `.version-row`s; 99/97/98
+reads *the pipeline is sound* and names no weakest word; 46/80/99 reads the
+spread and the low, says *worth reporting*, and names the weak word on the low
+ones; a scorer returning null prints dashes and the error rather than nothing;
+and the button comes back reading *again*. For the padding: a 1.0 s clip comes
+out 1.5 s at 16 kHz with the first and last 200 ms silent, the speech at its
+full level immediately after the pad, and the alias rejection and the 150 Hz
+tone exactly as they were. Both would port to the forks whole.
 
 ### One detector, used three times
 
@@ -3728,6 +3993,17 @@ produces the old prompt exactly, a non-array is ignored rather than fatal, and
 more than three are capped. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
 
+The resampler is checked the same way, and the assertions are: an 11 kHz tone
+in a 48 kHz WAV comes out at least 40 dB under the 300 Hz tone beside it rather
+than 1.8 dB under it, and lands nowhere near 5 kHz; hiss built with nothing
+below 8.5 kHz leaves under −80 dB across 1–7.5 kHz; 100 Hz, 300 Hz, 1 kHz,
+2.5 kHz, 4 kHz and 6 kHz all come through within half a decibel; the first and
+last 20 ms of a clip that starts and ends loud keep their level; the output is
+16 kHz and the same length in seconds as the input; and `analyse()` still reads
+150.0 Hz off the synthetic 150 Hz tone. Read the output WAV's bytes rather than
+`decodeAudioData`, which would resample it back to the context's rate before
+you could measure anything.
+
 The trim is the one thing worth checking numerically rather than by eye, and it
 can be done without a microphone: build synthetic clips — a lead-in of room
 noise at a given RMS, then a modulated tone, then a tail — encode them as WAVs
@@ -3847,7 +4123,7 @@ the parser losing a block to a formatting change.
 - **Home is the brand header — the colla's crest and *fin·o·lingo* — over
   eight squares**: the sister apps' six in their order — Practice, Vocab,
   About me, Real life, Grammar, All Phrases — then Listen & read and
-  Xerrada, which grew out of Real life (see *Eight squares*). **Practice is
+  Chat, which grew out of Real life (see *Eight squares*). **Practice is
   the forks' winding path**, built from the
   everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
   completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
@@ -3866,11 +4142,13 @@ the parser losing a block to a formatting change.
   it yourself with a tap on any word you are stuck on, write what you think it
   says, and only then see the English — then keep the stock phrases as cards
   in the language's `Missatges` deck and write your reply, which comes back
-  corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
+  corrected — with an Ask panel at the foot of every text the page shows, after
+  the reveal. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
   (additive; `worker/tools/message-test.mjs`).
-- **Xerrada** is the conversation had before it is had for real, and a tile
-  of its own (key `xerrada`) since *Eight squares*; it was the third face of
+- **Chat** is the conversation had before it is had for real, and a tile
+  of its own (key `xerrada`, titled *Xerrada* until it was renamed on request)
+  since *Eight squares*; it was the third face of
   **Real life** — the tile that was Quick, renamed because a phrase to say,
   a message to read and a chat to have are all the language meeting real
   people; Real life's key and deck are still `quick` / `Quick`. Pick a scene
@@ -3993,7 +4271,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v98 / `xerra-v98` — `js/version.js` first, `sw.js` second, as ever.
+- v101 / `xerra-v101` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
