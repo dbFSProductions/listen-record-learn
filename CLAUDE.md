@@ -3297,7 +3297,8 @@ tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, and the
-two are **back in step on both halves** — the file is a verbatim copy there
+two are **out of step until the aliasing fix is ported** — see *What Azure
+hears was aliased* below; before that they were in step on both halves — the file is a verbatim copy there
 apart from two comments, where the tail-pad argument names a Spanish final -s
 rather than a Catalan final -t. Change either repo's copy and change the
 other's, then re-verify numerically.
@@ -3399,6 +3400,63 @@ line on everything speech-shaped and leaves the limiter catching transients
 rather than reshaping vowels, so 1.25 is what shipped. End to end at a
 speech-like crest it bends nothing at all: a take and a model clip land 0.04 dB
 apart, and the limiter never engages.
+
+### What Azure hears was aliased
+
+Reported from the phone with a screenshot: phrases beginning **Em** scored
+badly, and — the part that turned an opinion into a bug — *Azure's own voice,
+played back into the microphone, scored 58*, with `Em` the weakest word at
+54 and 33 on its two phonemes while the phrase read accuracy 94.
+
+`toWav16k` is the only place in the app that **down**samples, and it did it by
+linear interpolation with no low-pass first, which is the textbook way to alias
+a signal. The phone decodes a take at 44.1 or 48 kHz and this takes it to 16 kHz
+for Azure, so everything the microphone picked up above 8 kHz came back folded
+into the speech band. Measured, before and after:
+
+| | before | after |
+|---|---|---|
+| 11 kHz tone, folded to 5 kHz | **1.8 dB** under the 300 Hz voice beside it | 86 dB under |
+| hiss with nothing below 8.5 kHz, folded into 1–7.5 kHz | −34.6 dB | −106 dB |
+| 100 Hz – 6 kHz passband | flat | flat, 0.0 dB |
+| first and last 20 ms | full level | full level |
+| synthetic 150 Hz tone | 150 Hz | 150 Hz |
+
+- **Why it lands hardest on `Em`.** The folded noise does not get quieter with
+  the signal. An unstressed clitic at the head of a phrase — `Em`, `Et`, `Es`,
+  and Spanish's `Me`, `Te`, `Se` — is the least energetic thing in the sentence
+  and takes the same wash as a stressed vowel, so its signal-to-alias ratio is
+  the worst in the clip. Recording a phone's speaker back into its microphone
+  is the worst case of all: a speaker and a room put plenty above 8 kHz, and
+  every bit of it folded down onto exactly that clitic.
+- **`resampleTo` is a Blackman-windowed sinc**, cut off at 0.9 of the new
+  Nyquist and evaluated around each output position, so it filters and
+  resamples in one pass. Not an `OfflineAudioContext` at 16 kHz, for the reason
+  the comment above `toWav16k` has always given: Safari has been unreliable
+  about arbitrary rates, and the phone is the only device this runs on.
+- **The kernel is a table read by interpolation.** A `Math.sin` per tap per
+  output sample is a couple of million of them for a three-second take. The
+  whole conversion — decode, resample, encode — is 39 ms for three seconds
+  against an Azure round trip of seconds, so this is not a knob to trade
+  quality against.
+- **Each output sample is divided by the weight actually used**, not by a
+  constant. At the two ends half the kernel hangs off the clip, and a fixed
+  divisor would fade the take in and out — on the first word, which is the one
+  that started this.
+- **Only what Azure hears changed.** The waveforms, the pitch track, the trim
+  and `forPlayback` all read `monoSamples` at the device's own rate and never
+  come through here, which is why the 150 Hz tone still reads 150 Hz.
+- **What this does not explain**, and should not be claimed to: `attemptScore`
+  is the lowest word in the attempt, and a two-phoneme clitic has no other
+  phonemes to average against — so one imperfect sound drops the word, and the
+  word *is* the dial. That is the design working as written, not a defect, but
+  it does mean short function words will keep landing on the dial after this.
+  Whether the fix closes the gap on `Em` is a question for the phone and a real
+  Azure key; there is neither in here.
+
+**audio.js is shared verbatim with both forks and both have this bug** — a
+Spanish take is downsampled by the same function, and `Me`/`Te`/`Se` are the
+same clitics. Port it, and re-verify numerically rather than by ear.
 
 ### One detector, used three times
 
@@ -3780,6 +3838,17 @@ replies: the text and its English both reach the prompt, a card without them
 produces the old prompt exactly, a non-array is ignored rather than fatal, and
 more than three are capped. Anything touching Azure can't be covered this way — there's no
 key in CI and no key in the repo.
+
+The resampler is checked the same way, and the assertions are: an 11 kHz tone
+in a 48 kHz WAV comes out at least 40 dB under the 300 Hz tone beside it rather
+than 1.8 dB under it, and lands nowhere near 5 kHz; hiss built with nothing
+below 8.5 kHz leaves under −80 dB across 1–7.5 kHz; 100 Hz, 300 Hz, 1 kHz,
+2.5 kHz, 4 kHz and 6 kHz all come through within half a decibel; the first and
+last 20 ms of a clip that starts and ends loud keep their level; the output is
+16 kHz and the same length in seconds as the input; and `analyse()` still reads
+150.0 Hz off the synthetic 150 Hz tone. Read the output WAV's bytes rather than
+`decodeAudioData`, which would resample it back to the context's rate before
+you could measure anything.
 
 The trim is the one thing worth checking numerically rather than by eye, and it
 can be done without a microphone: build synthetic clips — a lead-in of room
