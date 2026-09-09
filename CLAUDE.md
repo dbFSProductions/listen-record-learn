@@ -927,6 +927,25 @@ on whatever you ask, with three questions to check you followed it.
   `worker/tools/feed-test.mjs` shows the shapes the parser expects. `feeds` in store.js keeps the last
   fetch per source so the page opens on something in a tunnel; not in
   export/import, since the Worker hands the same list back.
+- **The everyday sources come first, and the history ones stayed.** Reported
+  as *"as much as I like the history listening and reading it doesn't
+  represent things I will see and hear day to day"*, and asked for as *"let's
+  try easy Catalan and beteve (listening and reading)"*. Three more `FEEDS`
+  entries: **Easy Catalan** (`easy-catalan`, a podcast — two hosts chatting
+  at natural speed, for learners), **betevé** (`beteve`, the city channel's
+  news as articles) and **betevé ràdio** (`beteve-radio`, its radio as a
+  podcast). `READER_SOURCES` lists them ahead of En guàrdia and Sàpiens.
+  **None of the URLs could be checked from the sandbox that added them**,
+  the same as the first two, so each carries several guesses, a `discover`
+  page and a `hosts` list that includes the podcast hosts a programme's
+  feed may live on. A listening source carries `audioOnly`: discovery on a
+  WordPress site finds the posts feed first, and for betevé that is the
+  news, so a podcast source that lands on a feed with no enclosures is a
+  502 rather than the same list of articles twice. `feed-test.mjs` drives
+  all three. The first thing to do after the deploy is open Listen & read
+  on the phone and see which of the five headers fill; a source that stays
+  at *Couldn't reach* has its feed at none of the guessed paths and none
+  linked from its discovery page, and wants the real URL typed in.
 - **The audio is the broadcaster's own file, streamed.** `<audio controls>`
   on the reader's player card and on the episode's page, `src` set to the
   enclosure URL, nothing stored: a podcast feed is built for exactly this.
@@ -4252,7 +4271,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v100 / `xerra-v100` — `js/version.js` first, `sw.js` second, as ever.
+- v101 / `xerra-v101` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

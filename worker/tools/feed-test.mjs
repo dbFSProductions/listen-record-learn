@@ -106,6 +106,35 @@ console.log("\nSàpiens, and the second URL");
   ok("an image enclosure is not audio", item?.audio === "");
 }
 
+console.log("\nThe everyday sources");
+{
+  const asked = stub({ "https://www.easycatalan.org/feed/podcast/": PODCAST });
+  const res = await post({ source: "easy-catalan" });
+  const body = await res.json();
+  ok("Easy Catalan is served as a podcast", res.status === 200 && body.kind === "podcast", String(res.status));
+  ok("from its first guess", asked.length === 1 && asked[0] === "https://www.easycatalan.org/feed/podcast/", asked.join(" "));
+  ok("with the audio on every item", body.items?.every((i) => i.audio));
+
+  stub({ "https://beteve.cat/feed/": ARTICLES });
+  const news = await (await post({ source: "beteve" })).json();
+  ok("betevé's site feed is served as articles", news.kind === "articles" && news.items?.length === 1, JSON.stringify(news).slice(0, 120));
+
+  /* The listening source must not be served the news. Every guess fails,
+     discovery on the radio page finds the site's posts feed — no audio —
+     and that is refused rather than shown as episodes without a play button. */
+  const HOME = `<html><head><link rel="alternate" type="application/rss+xml" href="https://beteve.cat/feed/"></head></html>`;
+  const tried = stub({ "https://beteve.cat/radio/": HOME, "https://beteve.cat/feed/": ARTICLES });
+  const radio = await post({ source: "beteve-radio" });
+  ok("a podcast source that finds a feed with no audio is a 502", radio.status === 502, String(radio.status));
+  ok("having followed discovery to the posts feed", tried.includes("https://beteve.cat/radio/") && tried.at(-1) === "https://beteve.cat/feed/", tried.join(" "));
+  stub({ "https://beteve.cat/feed/podcast/": ARTICLES, "https://beteve.cat/feed/podcast": PODCAST });
+  const fell = await (await post({ source: "beteve-radio" })).json();
+  ok("and an audio-less guess falls through to the next one", fell.kind === "podcast" && fell.url === "https://beteve.cat/feed/podcast", fell.url);
+  stub({ "https://beteve.cat/feed/": ARTICLES.replace('type="image/jpeg"', 'type="audio/mpeg"') });
+  const still = await (await post({ source: "beteve" })).json();
+  ok("the reading source is not held to audio", still.kind === "articles" && still.items?.length === 1);
+}
+
 console.log("\nWhat is refused");
 {
   stub({});

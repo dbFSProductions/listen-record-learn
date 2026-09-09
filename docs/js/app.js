@@ -3186,7 +3186,33 @@ function isMessage(item) {
 const READER_TITLE = TILE_BY_KEY.reader.title;
 const FEED_STALE_MS = 30 * 60 * 1000;
 const FEED_SHOW = 10;
+/* The everyday sources first, the history ones after them: "it doesn't
+   represent things I will see and hear day to day". Easy Catalan is two
+   hosts chatting at natural speed, made for learners; betevé is Barcelona's
+   own channel — its radio to listen to, its news to read, and it covers
+   Horta. The keys are the Worker's `FEEDS` allowlist; the URLs behind them
+   could not be checked from the sandbox that added them, so the first
+   thing to do after a deploy is open this page on the phone and see which
+   headers fill. */
 const READER_SOURCES = [
+  {
+    key: "easy-catalan",
+    name: "Easy Catalan",
+    blurb: "Two hosts chatting about everyday life, at natural speed, for learners. Play an episode here; open it to read the blurb with a tap on any word.",
+    kind: "episode",
+  },
+  {
+    key: "beteve",
+    name: "betevé",
+    blurb: "Barcelona's own news, a short piece at a time — the register of a notice on a wall. Open one to read it the way you read a message.",
+    kind: "article",
+  },
+  {
+    key: "beteve-radio",
+    name: "betevé ràdio",
+    blurb: "The city channel's radio: neighbourhood talk, unscripted. Play an episode here; open it to read the blurb.",
+    kind: "episode",
+  },
   {
     key: "en-guardia",
     name: "En guàrdia!",
