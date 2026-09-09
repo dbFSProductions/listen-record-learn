@@ -75,7 +75,7 @@ enum SeedContent {
             text: "Aquesta setmana",
             translation: "This week",
             deck: "Sounds",
-            focusNote: "Four vowels, three of them schwa: 'əˈkɛstə səˈmanə'. Only the stressed ones keep their colour."
+            focusNote: "Six vowels, four of them schwa: 'əˈkɛstə səˈmanə'. Only the stressed ones keep their colour."
         ),
         Phrase(
             text: "Vull anar a Girona.",
@@ -202,7 +202,7 @@ enum SeedContent {
             text: "Bon dia! Que em pot posar un tallat, si us plau?",
             translation: "Morning! Could you get me a cortado, please?",
             deck: "Cafès i sortir",
-            focusNote: "'si us plau' runs together as roughly 'si-us-plau' — don't over-separate it."
+            focusNote: "'Tallat' is tə-LLAT — the palatal ll of 'million', then a crisp final t. 'Si us plau' runs into one word: sius-PLAU."
         ),
         Phrase(
             text: "Una canya i unes olives, gràcies.",
@@ -238,7 +238,7 @@ enum SeedContent {
             text: "Quedem per fer un vermut diumenge?",
             translation: "Shall we meet for a vermouth on Sunday?",
             deck: "Cafès i sortir",
-            focusNote: "'diumenge' is di-u-MEN-jə, four syllables, soft final g."
+            focusNote: "'diumenge' is diu-MEN-jə, three syllables — the iu is one glide, not two beats — and the g is the soft j of 'measure'."
         ),
         Phrase(
             text: "Avui convido jo.",
@@ -547,7 +547,7 @@ enum SeedContent {
             text: "Plego a les sis.",
             translation: "I finish work at six.",
             deck: "Feina",
-            focusNote: "'plegar' for finishing work is very Catalan. Unstressed e is schwa: 'plə-GU'."
+            focusNote: "'plegar' for finishing work is very Catalan. This form is PLÈ-gu — stressed on the open è, with the final o a u."
         ),
         Phrase(
             text: "Ho deixem per la setmana vinent?",
@@ -764,7 +764,7 @@ enum SeedContent {
             text: "On em poso?",
             translation: "Where do I go?",
             deck: "Castells · Pinya",
-            focusNote: "Three quick syllables, rising at the end. Unstressed o in 'poso' rises toward u."
+            focusNote: "Four quick syllables, rising at the end: on-əm-PO-zu. The final o of 'poso' is a u."
         ),
         Phrase(
             text: "Aquí falta un contrafort.",
@@ -871,7 +871,7 @@ enum SeedContent {
             text: "Vaig tirant.",
             translation: "I'm getting along all right.",
             deck: "Castells · Arribada",
-            focusNote: "'Vaig' is 'batch' — v as b, final ig as tch. Two words, four sounds, very common."
+            focusNote: "'Vaig' is 'batch' — v as b, final ig as tch. Then ti-RAN, with the gerund's final t gone. Very common."
         ),
         Phrase(
             text: "Estic fet pols, molta feina aquesta setmana.",
@@ -1240,7 +1240,7 @@ enum SeedContent {
             text: "Què et va dir?",
             translation: "What did he say to you?",
             deck: "Passat · El punt",
-            focusNote: "'Què et' elides to KE-ət, and 'dir' loses its r — DI. Four words, three sounds.",
+            focusNote: "'Què et' elides into one syllable, KÈT, and 'dir' loses its r — DI. Four words, three syllables.",
             aspect: .dot,
             aspectNote: "One thing said, once."
         ),
@@ -1450,7 +1450,7 @@ enum SeedContent {
             text: "Ahir a la nit vaig parlar amb ella.",
             translation: "I spoke to her last night.",
             deck: "Passat · Avui o ahir",
-            focusNote: "pər-LA loses the t and the r both. 'Amb ella' runs as am-BE-llə.",
+            focusNote: "pər-LA: the infinitive's final r is silent, so it differs from the participle parlat by exactly that t. 'Amb ella' runs as am-BE-llə.",
             aspect: .dot,
             aspectNote: "Last night ended and today began. Outside the bracket."
         ),
@@ -1497,7 +1497,7 @@ enum SeedContent {
             text: "Estava llegint quan va marxar la llum.",
             translation: "I was reading when the power went out.",
             deck: "Passat · Tot junt",
-            focusNote: "llə-JINT opens on the palatal ll and has the soft j. 'Llum' ends on a hummed m.",
+            focusNote: "llə-JIN opens on the palatal ll and has the soft j, and the gerund's final t is silent. 'Llum' ends on a hummed m.",
             usageNote: "'Marxar la llum' is how a power cut is said out loud; the light left.",
             aspect: .both,
             aspectNote: "The reading is the line and the power cut is the dot across it. This is the past continuous case."
@@ -1531,7 +1531,7 @@ enum SeedContent {
             text: "Vam estar dues hores esperant.",
             translation: "We waited for two hours.",
             deck: "Passat · Tot junt",
-            focusNote: "'Dues hores' is DU-əz-O-rəs with the h silent. əs-pə-RANT ends on a hard t.",
+            focusNote: "'Dues hores' is DU-əz-Ò-rəs with the h silent. əs-pə-RAN — a gerund's final t goes, the way amunt's and evident's do.",
             aspect: .dot,
             aspectNote: "Two hours with both ends shut. Length never decides it — edges do."
         ),
@@ -1668,7 +1668,7 @@ enum SeedContent {
             text: "Un dia parlaré bé el català.",
             translation: "One day I'll speak Catalan properly.",
             deck: "Futur · Ja està decidit",
-            focusNote: "pər-lə-RÉ BÉ: two schwas and then the stressed é. kə-tə-LÀ, the final n gone.",
+            focusNote: "pər-lə-RÉ BÉ: two schwas and then the stressed é. kə-tə-LÀ — two schwas again, and all the weight on the last syllable.",
             aspect: .will,
             aspectNote: "A hope about a day with no date on it, so the future: parlar + é."
         ),
@@ -1990,7 +1990,7 @@ enum SeedContent {
             text: "Estic segur que anirà bé.",
             translation: "I'm sure it'll go well.",
             deck: "Subjuntiu · No crec que",
-            focusNote: "əs-TIK sə-GUR: estic ends on a hard k, segur keeps its r. ə-ni-RÀ BÉ.",
+            focusNote: "əs-TIK sə-GU: estic ends on a hard k, and segur drops its final r the way madur does. ə-ni-RÀ BÉ.",
             aspect: .fact,
             aspectNote: "The third odd one: certainty is a fact, so the indicative — and a future one, anirà. Being sure is the opposite of doubting, and the mood says so."
         ),
@@ -2277,7 +2277,7 @@ enum SeedContent {
             text: "El conec de la colla.",
             translation: "I know him from the colla.",
             deck: "Pronoms · Ho o el",
-            focusNote: "əl ku-NÈK də lə KO-ʎə: conec ends on a hard k, and colla has the lli of 'million'.",
+            focusNote: "əl ku-NÈK də lə KO-lyə: conec ends on a hard k, and colla has the lli of 'million'.",
             aspect: .el,
             aspectNote: "A particular person — en Pere — is el. Him, her, it, them: a thing you could point at takes el, la, els or les.",
             standsFor: "en Pere"
@@ -3698,7 +3698,7 @@ enum SeedContent {
             text: "la forquilla",
             translation: "the fork",
             deck: "Paraules · A taula",
-            focusNote: "fur-KEE-lya. The unstressed o is a u and the final a is a schwa. The ll is the palatal one — the lli of 'million', never the plain y of 'yes'.",
+            focusNote: "fur-KEE-lyə. The unstressed o is a u and the final a is a schwa. The ll is the palatal one — the lli of 'million', never the plain y of 'yes'.",
             sounds: "FORK-ee-ya",
             picture: "Every prong of the fork ends in a key, and it opens every door in the flat."
         ),
@@ -3789,7 +3789,7 @@ enum SeedContent {
             text: "els diners",
             translation: "the money",
             deck: "Paraules · Al carrer",
-            focusNote: "di-NES. The final -rs is silent, so the word ends on the s — never the English 'diners'.",
+            focusNote: "di-NÉS. The r is silent, so the word ends on the s — never the English 'diners'.",
             sounds: "dee-NESS",
             picture: "The Loch Ness monster — Dee Ness — surfaces with your wallet in her teeth, and the whole lake is paved with coins."
         ),
@@ -3867,7 +3867,7 @@ enum SeedContent {
             text: "quant?",
             translation: "how much?",
             deck: "Paraules · Preguntes",
-            focusNote: "The same as 'quan' with a t on the end, and that t is the only thing that tells them apart.",
+            focusNote: "Written with a t, but a final t after n is silent — on its own it sounds exactly like 'quan'. The t only comes back before a vowel: 'quant és?' is kwan-TES.",
             sounds: "KWANT (quantity)",
             picture: "'How much?' — the shopkeeper writes QUANTITY across the till in chalk and adds another zero."
         ),
@@ -4039,7 +4039,7 @@ enum SeedContent {
             text: "Què vol dir «pinya»?",
             translation: "What does 'pinya' mean?",
             deck: "Intercanvi",
-            focusNote: "kè BOL DI PI-nyə: què has an open è, the v of vol is a b, and dir keeps its r.",
+            focusNote: "kè BOL DI PI-nyə: què has an open è, the v of vol is a b, and dir drops its r like every other infinitive.",
             usageNote: "Swap in any word you didn't catch. The stress sits on vol."
         ),
         Phrase(

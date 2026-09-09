@@ -151,6 +151,50 @@ const SEED_RETIRED = new Set([
   "Hoy he visto a tu hermano.",
 ]);
 
+/* A focusNote that was wrong, and the note it was.
+
+   Reported from the phone as "some of the listen for bits are wrong", with a
+   card claiming three syllables for a four-syllable phrase on screen. Seventeen
+   of the 354 Catalan notes were, and a handful of them were wrong in the way
+   that matters most here: they named a sound the word has not got — «català,
+   the final n gone» on a word with no n in it, «parlar loses the t» on a word
+   with no t — or they contradicted a rule the app itself teaches three cards
+   away, like the final t after n that «quant» was said to keep while «amunt»,
+   «moment» and «evident» all lose theirs.
+
+   Fixing the Swift is not enough to fix the phone. `SEED_REPLACEMENTS` matches
+   on a card's *text* and this is a card whose text has not changed, and the
+   backfill below only ever fills a blank, so nothing here would have reached
+   an installed card. So this matches on the **old note**: a card still
+   carrying exactly the wrong wording takes the corrected one, and a note you
+   have edited yourself in the editor is yours and is left alone — the same
+   bargain the gender backfill makes, made against a value rather than against
+   emptiness.
+
+   Hand-maintained, like the two lists above and for the same reason: the
+   generator only ever sees the content that is there now, so it cannot know
+   what a note used to say. The way to build an entry is to take the old string
+   out of git. */
+const SEED_NOTE_FIXES = new Map([
+  ["On em poso?", "Three quick syllables, rising at the end. Unstressed o in 'poso' rises toward u."],
+  ["Aquesta setmana", "Four vowels, three of them schwa: 'əˈkɛstə səˈmanə'. Only the stressed ones keep their colour."],
+  ["Quedem per fer un vermut diumenge?", "'diumenge' is di-u-MEN-jə, four syllables, soft final g."],
+  ["Un dia parlaré bé el català.", "pər-lə-RÉ BÉ: two schwas and then the stressed é. kə-tə-LÀ, the final n gone."],
+  ["Ahir a la nit vaig parlar amb ella.", "pər-LA loses the t and the r both. 'Amb ella' runs as am-BE-llə."],
+  ["Què et va dir?", "'Què et' elides to KE-ət, and 'dir' loses its r — DI. Four words, three sounds."],
+  ["Vaig tirant.", "'Vaig' is 'batch' — v as b, final ig as tch. Two words, four sounds, very common."],
+  ["Plego a les sis.", "'plegar' for finishing work is very Catalan. Unstressed e is schwa: 'plə-GU'."],
+  ["quant?", "The same as 'quan' with a t on the end, and that t is the only thing that tells them apart."],
+  ["els diners", "di-NES. The final -rs is silent, so the word ends on the s — never the English 'diners'."],
+  ["Què vol dir «pinya»?", "kè BOL DI PI-nyə: què has an open è, the v of vol is a b, and dir keeps its r."],
+  ["Vam estar dues hores esperant.", "'Dues hores' is DU-əz-O-rəs with the h silent. əs-pə-RANT ends on a hard t."],
+  ["Estava llegint quan va marxar la llum.", "llə-JINT opens on the palatal ll and has the soft j. 'Llum' ends on a hummed m."],
+  ["El conec de la colla.", "əl ku-NÈK də lə KO-ʎə: conec ends on a hard k, and colla has the lli of 'million'."],
+  ["la forquilla", "fur-KEE-lya. The unstressed o is a u and the final a is a schwa. The ll is the palatal one — the lli of 'million', never the plain y of 'yes'."],
+  ["Bon dia! Que em pot posar un tallat, si us plau?", "'si us plau' runs together as roughly 'si-us-plau' — don't over-separate it."],
+  ["Estic segur que anirà bé.", "əs-TIK sə-GUR: estic ends on a hard k, segur keeps its r. ə-ni-RÀ BÉ."],
+]);
+
 // The deck anything you write yourself lands in. It sorts ahead of the seed
 // decks everywhere rather than alphabetically, because it's the one you came
 // to look at.
@@ -1089,6 +1133,13 @@ export const library = {
       }
       if (seed?.standsFor && !phrase.standsFor) {
         phrase.standsFor = seed.standsFor;
+        backfilled = true;
+      }
+      /* A corrected focusNote, matched on the wrong one rather than on a
+         blank — see SEED_NOTE_FIXES. A note you rewrote yourself is yours. */
+      const wasWrong = SEED_NOTE_FIXES.get(phrase.text);
+      if (wasWrong && seed?.focusNote && phrase.focusNote === wasWrong) {
+        phrase.focusNote = seed.focusNote;
         backfilled = true;
       }
     }

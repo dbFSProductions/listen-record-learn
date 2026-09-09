@@ -1174,6 +1174,65 @@ the gist still on it. Neither sister fork has any of this; it would port
 whole — the Worker is untouched, `/message`'s `kind: "book"` being already
 there.
 
+### Seventeen focusNotes were wrong, and one of them was on the screen
+
+Reported from the phone as *"I think some of the listen for bits are wrong"*,
+with two screenshots. One was a seed card — *On em poso?* over **Three quick
+syllables**, on a phrase with four. The other was a card the assistant had
+written, whose note taught *"the 'll' in «crossa» sounds like the 'lli' in
+'million'"* on a word with no ll anywhere in it. Two different faults, and
+both are fixed here.
+
+- **A note that names a sound the word has not got is the worst kind**, and
+  it turned out to be a whole class: *«català, the final n gone»* on a word
+  with no n, *«parlar loses the t»* on a word with no t, *«Two words, four
+  sounds»* twice, which means nothing. The learner practises whatever the
+  note says, so this is not cosmetic.
+- **The other class is a note that contradicts a rule the app teaches three
+  cards away.** *quant?* said the final t is *"the only thing that tells them
+  apart"* from *quan* — while *amunt*, *moment*, *igualment* and *evident* all
+  lose theirs in their own notes, and *Quant és?* says out loud that the t
+  only surfaces before a vowel. Same for *dir keeps its r* against two cards
+  that drop it, *llegint* and *esperant* keeping a gerund's final t, *segur*
+  keeping an r that *madur* drops, and *diumenge* as four syllables when the
+  app elsewhere teaches that *iu* is one glide. **Internal contradiction is
+  the cheapest evidence there is that one of the two is wrong**, and it is
+  worth grepping for before rewriting anything from first principles.
+- **Fixing `SeedContent.swift` does not fix the phone, and this is a third
+  delivery mechanism.** `SEED_REPLACEMENTS` matches on a card's *text* and
+  these texts have not changed; the `gender` backfill beside it only ever
+  fills a blank, and a wrong note is not blank. So `SEED_NOTE_FIXES` in
+  store.js matches on **the old note**: a card still carrying exactly the
+  wrong wording takes the corrected one, and a note you rewrote yourself in
+  the editor is yours and is left alone. Hand-maintained like the other two
+  lists and for the same reason — the generator only sees what is there now,
+  so the old string comes out of git.
+- **The Worker's card prompt was told the rule.** `/complete-card` now says
+  that every claim in a focusNote must be true of the phrase it actually
+  wrote — name only letters, digraphs and syllables that are in it, count
+  before stating a number, say less where unsure — and `/about-cards` says
+  the short form of it. This is the one change here that is **not** additive:
+  it changes the prompt the sister apps get, deliberately, because a Spanish
+  card can invent an *ll* exactly as easily. `card-test.mjs`'s byte-identity
+  check therefore **fails on this commit and passes again on the next**,
+  which is that check doing its job rather than a thing to route around.
+- **The Check this card block lost its three sentences.** They stood above the
+  button on every card whether or not you were going to press it, and the run
+  itself already says all of it about a real number — *that is the scorer, not
+  you*. Reported as not needing the text.
+
+**What was deliberately not changed**, since the point is accuracy: notes
+where Central Catalan genuinely varies. Final *-rt* and *-rd* (*tard*,
+*fort*, *surt*) are written as keeping the t, which is defensible in careful
+speech; *gràcies* as two syllables is the colloquial compression and the
+respelling matches it. If a note is reported wrong, check it against the
+app's own other notes first.
+
+Worth asserting: plant the old wording on an installed card and it is the
+corrected one after a load, while a note edited by hand is untouched and a
+second load is a no-op; no seed note claims a letter the phrase has not got;
+and `.card-check` has no `<p>` in it.
+
 ### The reader is two halves, and the story is at the bottom
 
 Reported from the phone as a list of things about Listen & read at once:
@@ -4625,7 +4684,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v107 / `xerra-v107` — `js/version.js` first, `sw.js` second, as ever.
+- v108 / `xerra-v108` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
