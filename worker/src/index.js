@@ -252,58 +252,40 @@ const FEEDS = {
   /* The everyday sources, asked for once the history ones were in: "it
      doesn't represent things I will see and hear day to day". Easy Catalan is
      two hosts chatting at natural speed, made for learners; betevé is
-     Barcelona's own channel, with a podcast feed for its radio and a site
-     feed for its news — the district page covers Horta. None of these URLs
-     could be checked from the sandbox that wrote them, which is what the
-     spare guesses and the discovery step are for: each source names the
-     page a feed reader would start from and the hosts a discovered feed may
-     live on, podcast hosts included, since a podcast's feed is often on its
-     host's domain rather than the programme's own. */
+     Barcelona's own channel, with its radio programmes as posts and a site
+     feed for its news — the district page covers Horta.
+
+     Every URL here was fetched from a machine with a network (2026-09-09),
+     and the first entry of each list is the one that answered. The earlier
+     lists were guesses written from a sandbox that could reach nothing, and
+     most of them were 404s: Easy Catalan's feed is on fireside.fm (the
+     programme's site links it only as a base64 parameter in a subscribe
+     button, which is why discovery never found it), Sàpiens publishes at
+     /uploads/feeds/ and says so in its <link rel="alternate">, and betevé's
+     WordPress feeds carry no enclosures at all — see `embeddedAudio`. The
+     spares after the first are conventional places a site moves a feed to,
+     and the discovery step is what covers everything else. */
   "easy-catalan": {
     title: "Easy Catalan",
     kind: "podcast",
     audioOnly: true,
-    urls: [
-      "https://www.easycatalan.org/feed/podcast/",
-      "https://www.easycatalan.org/feed/podcast",
-      "https://easycatalan.org/feed/podcast/",
-      "https://www.easycatalan.org/podcast/feed/",
-      "https://feeds.transistor.fm/easy-catalan-podcast",
-      "https://feeds.buzzsprout.com/easycatalan.rss",
-    ],
+    urls: ["https://feeds.fireside.fm/easycatalan/rss", "https://www.easycatalan.fm/rss"],
     discover: "https://www.easycatalan.org/podcast/",
-    hosts: [
-      "easycatalan.org",
-      "www.easycatalan.org",
-      "feeds.transistor.fm",
-      "feeds.buzzsprout.com",
-      "anchor.fm",
-      "feeds.simplecast.com",
-      "feeds.acast.com",
-      "feed.podbean.com",
-      "easycatalan.podbean.com",
-      "feeds.libsyn.com",
-      "www.ivoox.com",
-    ],
+    hosts: ["easycatalan.org", "www.easycatalan.org", "easycatalan.fm", "www.easycatalan.fm", "feeds.fireside.fm"],
   },
   "beteve-radio": {
     title: "betevé ràdio",
     kind: "podcast",
     audioOnly: true,
-    urls: [
-      "https://beteve.cat/feed/podcast/",
-      "https://beteve.cat/feed/podcast",
-      "https://www.beteve.cat/feed/podcast/",
-      "https://beteve.cat/podcast/feed/",
-      "https://beteve.cat/radio/feed/",
-    ],
+    embedded: "kaltura",
+    urls: ["https://beteve.cat/radio/feed/", "https://beteve.cat/podcast/feed/"],
     discover: "https://beteve.cat/radio/",
-    hosts: ["beteve.cat", "www.beteve.cat", "www.ivoox.com", "feeds.ivoox.com", "anchor.fm", "feeds.simplecast.com"],
+    hosts: ["beteve.cat", "www.beteve.cat"],
   },
   beteve: {
     title: "betevé",
     kind: "articles",
-    urls: ["https://beteve.cat/feed/", "https://beteve.cat/feed", "https://www.beteve.cat/feed/", "https://beteve.cat/rss/", "https://beteve.cat/feed.xml"],
+    urls: ["https://beteve.cat/feed/", "https://beteve.cat/rss/"],
     discover: "https://beteve.cat/",
     hosts: ["beteve.cat", "www.beteve.cat"],
   },
@@ -311,20 +293,14 @@ const FEEDS = {
     title: "En guàrdia!",
     kind: "podcast",
     urls: [
+      "https://dinamics.3cat.cat/public/podcast/catradio/xml/4/4/podprograma944.xml",
       "https://dinamics.ccma.cat/public/podcast/catradio/xml/4/4/podprograma944.xml",
-      "http://dinamics.ccma.cat/public/podcast/catradio/xml/4/4/podprograma944.xml",
     ],
   },
   sapiens: {
     title: "Sàpiens",
     kind: "articles",
-    urls: [
-      "https://www.sapiens.cat/feed",
-      "https://www.sapiens.cat/rss",
-      "https://www.sapiens.cat/feed/",
-      "https://www.sapiens.cat/feed.xml",
-      "https://www.sapiens.cat/rss.xml",
-    ],
+    urls: ["https://www.sapiens.cat/uploads/feeds/feed_sapiens_ca.xml", "https://www.sapiens.cat/feed", "https://www.sapiens.cat/rss"],
     /* When none of the guesses answers, the site itself is asked where its
        feed is — the `<link rel="alternate" type="application/rss+xml">` every
        feed reader looks for — and the answer is followed only if it stays on
@@ -1465,7 +1441,7 @@ async function fetchFeed(source) {
       signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
-    const parsed = parseFeed(await decodeBody(response));
+    const parsed = parseFeed(await decodeBody(response), { embedded: feed.embedded });
     if (!parsed.items.length) throw new Error(`no items at ${url}`);
     /* A listening source has to carry audio. Discovery on a WordPress site
        finds the posts feed first, and for betevé that is the news — the same
@@ -1577,7 +1553,7 @@ async function discoverFeed(feed) {
    enclosure with its duration for a podcast. Every text field is CDATA-
    unwrapped, tag-stripped and entity-decoded, so what reaches the phone is
    plain text it can gloss. */
-function parseFeed(xml) {
+function parseFeed(xml, { embedded = "" } = {}) {
   const source = String(xml ?? "");
   const channelTitle = textOf(/<channel\b[^>]*>[\s\S]*?<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i.exec(source)?.[1] ?? "");
   const items = [];
@@ -1597,13 +1573,16 @@ function parseFeed(xml) {
     if (!title) continue;
     const audio = attr(enclosure, "url");
     const type = attr(enclosure, "type");
+    const enclosed = /^https?:\/\//i.test(audio) && (!type || /^audio\//i.test(type)) ? audio : "";
+    // The markup itself, tags and all — the embed an audio URL is read from.
+    const markup = /<content:encoded(?:\s[^>]*)?>([\s\S]*?)<\/content:encoded>/i.exec(block)?.[1] ?? "";
     items.push({
       title: title.slice(0, 300),
       link: tag("link").slice(0, 600),
       date: tag("pubDate") || tag("dc:date"),
       summary: (description || content).slice(0, FEED_SUMMARY_CHARS),
       body: (content.length > description.length ? content : description).slice(0, FEED_BODY_CHARS),
-      audio: /^https?:\/\//i.test(audio) && (!type || /^audio\//i.test(type)) ? audio : "",
+      audio: enclosed || embeddedAudio(embedded, markup),
       duration: tag("itunes:duration").slice(0, 20),
     });
   }
@@ -1635,6 +1614,32 @@ function parseFeed(xml) {
     });
   }
   return { title: channelTitle || feedTitle, items };
+}
+
+/* betevé's radio programmes are not podcast enclosures. Each post embeds a
+   Kaltura player, and the audio is the Kaltura entry behind it: the feed's
+   own markup names the partner (`data-kaltura-wid="_2346171"`), the entry
+   (`data-kaltura-entry="1_kx3mizto"`) and flags the audio-only ones
+   (`data-kaltura-radio="1"`), and Kaltura's playManifest hands back the
+   entry's own file for that — AAC in an MP4 container, which an <audio>
+   element plays. So this is still the broadcaster's own file, streamed; the
+   URL is built from the embed rather than read from an enclosure. Only for a
+   source that says `embedded: "kaltura"`, so nothing else's parse changes,
+   and only where the radio flag is set: the entries without it are the
+   television programmes, and a 27-minute video is not something to hand to
+   an audio player. Checked from a machine with a network: the radio entry
+   is a 26 MB audio-only MP4, the flagless one a 96 MB h264 video. */
+function embeddedAudio(kind, html) {
+  if (kind !== "kaltura" || !html) return "";
+  for (const tag of html.match(/<div\b[^>]*data-kaltura-entry=[^>]*>/gi) ?? []) {
+    const attr = (name) => new RegExp(`\\bdata-kaltura-${name}=["']([^"']*)["']`, "i").exec(tag)?.[1] ?? "";
+    if (attr("radio") !== "1") continue;
+    const partner = /^_?(\d+)$/.exec(attr("wid"))?.[1];
+    const entry = /^[0-9]_[a-z0-9]+$/i.test(attr("entry")) ? attr("entry") : "";
+    if (!partner || !entry) continue;
+    return `https://cdnapi.kaltura.com/p/${partner}/sp/${partner}00/playManifest/entryId/${entry}/format/url/protocol/https/a.mp4`;
+  }
+  return "";
 }
 
 function textOf(raw) {
