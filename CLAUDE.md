@@ -3785,8 +3785,77 @@ stands behind the ask box's gate (the chips print the phrase) and road mode
 takes it off; without a key there is nothing to check, so it is not offered.
 The six *Em* phrases in the library all have Em before a consonant — four
 before *pot*, where the m and the p are one lip closure and the m has no
-release of its own — and the guess is that those are the ones that fail;
-this is the button that says.
+release of its own — and the guess was that those are the ones that fail.
+The button said something more useful; see the next section.
+
+### The dictionary and the voice disagree, so the dial is calibrated
+
+What *Check this card* found on the phone, two screenshots on the same
+afternoon: Enric's own **Em** in *Em lligues la faixa* scores 56, its two
+sounds 60 and 0 — Azure hears no m in it at all; and his **entenc** in *Ho
+entenc, però no sé com dir-ho* scores 67, its last three sounds 66, 21 and
+0, while the learner scored 93 on the same phrase with every word green.
+That second one is the key. Enric says *ən-TENG* with no released k, which
+is exactly what the card's Listen for note teaches; Azure's Catalan
+dictionary expects a k there; the learner reads the spelling and says one.
+So the learner "beats" the model by being *less* native, and a learner
+whose Em is as short as Enric's is marked down for sounding like him.
+
+The assessment is not a comparison with the model. It scores each sound of
+a take against Azure's own dictionary, and the neural voice is a separate
+product with its own idea of Catalan. On most words they agree; on a few
+they do not, and on those the number is about the dictionary, not the
+mouth. Nothing in the audio pipeline can change that, and this is the
+answer to *"is there anything we can do to make this more accurate?"*:
+
+- **`calibration` in store.js keeps the model's own per-word scores, per
+  phrase and per voice.** `calibratePhrase` in app.js fetches them once —
+  started in the background from `loadPhrase` on audio that is being
+  fetched anyway, and awaited in `handleRecording` before the take is
+  scored, so the first dial on a phrase is already calibrated and the two
+  Azure calls never race over `scoring.lastError`. One in-flight promise
+  per phrase. A *Check this card* run is the same call and writes the same
+  entry, so the button is also the way to recalibrate.
+- **A word the model itself fails is not counted on the dial.**
+  `uncountedWords(attempt)` walks the calibration's words beside the
+  attempt's, insertions skipped and matched by folded text, and names
+  every word the model scored under `CALIBRATION_FLOOR` (90, which is
+  app.js's `GOOD`). `attemptScore` — still the one reader of the dial —
+  takes its minimum over the rest; a take whose every word is uncounted is
+  scored over all of them, since a weak number beats none. Because it is
+  `attemptScore`, the history rows, `bestScore`, `goodAttempts` and so
+  level two, and Review all follow: an `Em` the dictionary cannot hear no
+  longer keeps a phrase at level one.
+- **Nothing is hidden.** The chip stays, greyed (`.chip.uncounted`), still
+  tappable for its sounds, and *Not counted: “Em” — the model itself scores
+  56 on it* is printed under the chips. The raw attempt keeps the raw word
+  scores; only the reading changes.
+- **Keyed by voice, dropped on edit, not exported.** The disagreement is
+  between the dictionary and *this* voice, so `calibration.of` answers only
+  for `settings.azureVoice`; `library.update` forgets the entry when the
+  text changes and `remove` forgets it with the card; it is derived, so
+  export/import leave it alone and it rebuilds a phrase at a time.
+- **Azure names no phonemes for Catalan.** The sounds line read *60 · 0*
+  with nothing in front of the numbers, and the drill's phoneme box had
+  the same gap. Both number the sounds now when the name is empty.
+
+What this does not do: it does not rescale a word to the model's score. A
+word the dictionary mishears is a word whose number is noise, and a ratio
+of noise is noise. It does not touch the words the model clears, so 90
+still means every word that means something cleared 90.
+
+Worth asserting, with `scoring.score` stubbed to score the model's Em 56
+and a take's Em 54 (the rest 100 and 97) and `Recorder` stubbed through a
+route on `js/audio.js`: opening *Em pot cobrar* writes one entry to
+`xerra.calibration` with Em at 56 and the voice, after one model call; a
+take makes one more call, the dial reads 97 and names no weakest word,
+`.chip.uncounted` is Em, the note gives 56, and the raw attempt keeps 54;
+a tap on the chip shows `.phoneme code` 1 and 2; three such takes read *1
+more good go* on the sheet, and the same three with Joana as the voice
+read *4 more*; saving the phrase with new words empties the store; a check
+run refills it and says *the dictionary and the voice disagree on “Em”*
+with *sound by sound: 1 60 · 2 0*; and *Bon dia* scores 97 with no
+uncounted chip.
 
 Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
 `#s-scorer-check` without a key; with one it is offered and makes no call

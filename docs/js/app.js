@@ -2,7 +2,7 @@
 
 import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
-  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
+  RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, calibration, uncountedWords, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
   books, bookStore,
@@ -6148,6 +6148,34 @@ async function deletePhrase(phrase) {
   else render();
 }
 
+/* The model's own score for a phrase, fetched once per phrase and voice —
+   see `calibration` in store.js for why the dial wants it. Started in the
+   background when the card loads, on audio that is being fetched anyway, and
+   awaited by `handleRecording` before the take is scored, so the first score
+   on a phrase is already calibrated and the two Azure calls never race over
+   `scoring.lastError`. One in-flight promise per phrase, shared. */
+const calibrating = new Map();
+function calibratePhrase(phrase) {
+  if (!settings.hasAzure || !phrase?.text?.trim()) return Promise.resolve(null);
+  const have = calibration.of(phrase.id, { text: phrase.text });
+  if (have) return Promise.resolve(have);
+  if (calibrating.has(phrase.id)) return calibrating.get(phrase.id);
+  const voice = settings.azureVoice;
+  const run = (async () => {
+    try {
+      const audio = await speech.modelAudio(phrase, settings);
+      const result = audio ? await scoring.score(audio, phrase, settings) : null;
+      return result ? calibration.set(phrase, result, voice) : null;
+    } catch {
+      return null;
+    } finally {
+      calibrating.delete(phrase.id);
+    }
+  })();
+  calibrating.set(phrase.id, run);
+  return run;
+}
+
 async function loadPhrase() {
   const phrase = currentPhrase();
   state.modelBlob = null;
@@ -6186,6 +6214,7 @@ async function loadPhrase() {
   state.loadingModel = false;
   if (currentPhrase()?.id !== phrase.id) return; // moved on while we waited
   state.modelBlob = blob;
+  if (blob) calibratePhrase(phrase); // not awaited: it is usually done before the take is
   if (blob) {
     try {
       state.modelAnalysis = await analyse(blob);
@@ -6915,7 +6944,7 @@ function cardCheckBlock() {
       <p class="tiny muted" style="margin:0 0 10px">
         Scores the model's own voice on this phrase through the same pipeline — no mic, no room.
         Clear here, and a lower score on your take is the air between you and the phone. Low here,
-        and Azure can't hear that word even from its own voice.
+        and Azure's dictionary disagrees with the voice on that word, so it stops counting on your dial.
       </p>
       <button class="btn" data-check-go style="width:100%">Check this card</button>
       <div data-check-runs></div>
@@ -6929,8 +6958,11 @@ function wireCardCheck(root, phrase) {
   button.addEventListener("click", async () => {
     button.disabled = true;
     button.innerHTML = `<span class="spinner"></span> Checking…`;
+    const voice = settings.azureVoice;
     const audio = await speech.modelAudio(phrase, settings);
     const result = audio ? await scoring.score(audio, phrase, settings) : null;
+    // A run is the calibration, freshly made — see `calibration` in store.js.
+    if (result) calibration.set(phrase, result, voice);
     if (!button.isConnected) return; // moved on while Azure was thinking
     runs.insertAdjacentHTML("afterbegin", cardCheckRun(result));
     button.disabled = false;
@@ -6955,17 +6987,20 @@ function cardCheckRun(result) {
   const sounds = weak
     .map((word) => {
       const phonemes = (word.phonemes ?? []).filter((p) => typeof p.score === "number");
-      return phonemes.length ? `${esc(word.word)}: ${phonemes.map((p) => `${esc(p.phoneme)} ${Math.round(p.score)}`).join(" · ")}` : "";
+      // Azure names no phonemes for Catalan, so the sounds are numbered.
+      return phonemes.length
+        ? `${esc(word.word)}, sound by sound: ${phonemes.map((p, i) => `${esc(p.phoneme || String(i + 1))} ${Math.round(p.score)}`).join(" · ")}`
+        : "";
     })
     .filter(Boolean)
     .join("; ");
   const names = weak.map((word) => `“${esc(word.word)}”`).join(" and ");
   const verdict =
     score >= GOOD
-      ? "Clear. The app and Azure hear this phrase — a lower score on a take of yours is the air between you and the phone."
+      ? "Clear. Every word counts on your dial — a lower score on a take of yours is the air between you and the phone."
       : weak.length
-      ? `Azure marks ${names} down on its own voice, so no take will score it reliably. That is the scorer, not you.`
-      : "Below the line on its own voice — that is the scorer, not you.";
+      ? `Azure's dictionary and the voice disagree on ${names}: the model itself scores ${Math.round(score)} there, so that word won't set your dial.`
+      : "Below the line on its own voice — the dictionary and the voice disagree somewhere here.";
   return `
     <div class="check-run">
       <div class="score-head">
@@ -7198,6 +7233,8 @@ async function handleRecording({ blob, duration }) {
     return;
   }
 
+  // Usually already done from loadPhrase; the first take on a phrase may wait.
+  await calibratePhrase(phrase);
   const result = await scoring.score(blob, phrase, settings);
   state.scoringNow = false;
   if (state.attempt?.id !== attempt.id) return;
@@ -7363,12 +7400,22 @@ function renderScore(attempt, bare = false) {
     )
     .join("");
 
+  /* The words the model itself fails are not the dial's — `calibration` in
+     store.js says why — so they are chipped grey with the model's own number
+     under the chips, and left out of the weakest-word line below. */
+  const uncounted = uncountedWords(attempt);
+  const skip = new Set(uncounted.map((entry) => entry.index));
   const chips = attempt.words
     .map(
       (word, i) =>
-        `<button class="chip ${scoreClass(word.score)}" data-word="${i}">${esc(word.word)}</button>`
+        `<button class="chip ${skip.has(i) ? "uncounted" : scoreClass(word.score)}" data-word="${i}">${esc(word.word)}</button>`
     )
     .join("");
+  const uncountedNote = uncounted.length
+    ? `<p class="tiny muted" style="margin:8px 0 0">Not counted: ${uncounted
+        .map((entry) => `“${esc(entry.word)}” — the model itself scores ${Math.round(entry.modelScore)} on it`)
+        .join("; ")}. Azure's dictionary and the voice disagree there, so that number is about the dictionary, not you.</p>`
+    : "";
 
   /* Whichever chip is reddest is the dial — say so, so the number has somewhere
      to point rather than being a verdict from nowhere. Two guards on that, both
@@ -7389,8 +7436,8 @@ function renderScore(attempt, bare = false) {
      more than three of them are, none: at that point the whole phrase is the
      finding and the verdict is already saying so. */
   const scored = attempt.words
-    .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
-    .filter((word) => typeof word.score === "number");
+    .map((word, i) => ({ ...word, index: i, score: word.errorType === "Omission" ? 0 : word.score }))
+    .filter((word) => typeof word.score === "number" && !skip.has(word.index));
   const lowest = scored.length ? Math.min(...scored.map((word) => word.score)) : null;
   const tied = lowest === null ? [] : scored.filter((word) => word.score === lowest);
   const weakest = score >= GOOD || tied.length > 3 ? [] : tied;
@@ -7424,6 +7471,7 @@ function renderScore(attempt, bare = false) {
           ? `<details class="fold-details fold-details-inner" id="word-details" ${open ? "open" : ""}>
                <summary><span class="fold-details-main">Word by word<span class="fold-details-sub">Tap a word for its sounds</span></span></summary>
                ${chips ? `<div class="chips" style="margin-top:10px">${chips}</div>` : ""}
+               ${uncountedNote}
                <div id="phoneme-detail"></div>
                ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
                ${sub ? `<div class="subscores" style="margin-top:10px">${sub}</div>` : ""}
@@ -7462,8 +7510,8 @@ function wireComparison() {
           <div class="tiny muted" style="margin-bottom:6px">Sounds in “${esc(word.word)}”</div>
           ${word.phonemes
             .map(
-              (p) =>
-                `<span class="phoneme"><code>${esc(p.phoneme)}</code><span style="color:${scoreColour(
+              (p, i) =>
+                `<span class="phoneme"><code>${esc(p.phoneme || String(i + 1))}</code><span style="color:${scoreColour(
                   p.score
                 )}">${p.score == null ? "" : Math.round(p.score)}</span></span>`
             )
@@ -9957,6 +10005,7 @@ settings.load();
 library.load();
 aboutMe.load();
 aiLog.load();
+calibration.load();
 progress.load();
 messages.load();
 chats.load();
