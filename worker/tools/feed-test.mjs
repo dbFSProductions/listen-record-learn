@@ -85,7 +85,7 @@ console.log("\nEn guàrdia!");
   const [first, second] = body.items ?? [];
   ok("CDATA title", first?.title === "1011 - La batalla de Muret", first?.title);
   ok("link and date", first?.link.endsWith("/1234/") && first?.date.startsWith("Sun, 31 Aug"));
-  ok("HTML is stripped and entities decoded in the summary", first?.summary === "El 12 de setembre de 1213, Pere el Catòlic va morir a Muret.\nAmb l'historiador & escriptor Josep Maria Solé.", JSON.stringify(first?.summary));
+  ok("HTML is stripped and entities decoded in the summary", first?.summary === "El 12 de setembre de 1213, Pere el Catòlic va morir a Muret.\n\nAmb l'historiador & escriptor Josep Maria Solé.", JSON.stringify(first?.summary));
   ok("the audio enclosure is read", first?.audio === "https://mp3.ccma.cat/en-guardia/1011.mp3", first?.audio);
   ok("and its duration", first?.duration === "00:55:12" && second?.duration === "3300");
   ok("an entity in a plain title is decoded", second?.title === "1010 - Els almogàvers", second?.title);
@@ -102,7 +102,7 @@ console.log("\nSàpiens, and the second URL");
   ok("it is articles", body.kind === "articles");
   const item = body.items?.[0];
   ok("the summary is the description", item?.summary === "El comte que la llegenda fa fundador de Catalunya.", item?.summary);
-  ok("the body is the longer content:encoded, stripped", item?.body === "El comte que la llegenda fa fundador de Catalunya.\nGuifré va governar entre el 870 i el 897.", JSON.stringify(item?.body));
+  ok("the body is the longer content:encoded, stripped", item?.body === "El comte que la llegenda fa fundador de Catalunya.\n\nGuifré va governar entre el 870 i el 897.", JSON.stringify(item?.body));
   ok("an image enclosure is not audio", item?.audio === "");
 }
 
@@ -225,6 +225,24 @@ console.log("\nAutodiscovery and Atom");
   ok("an entity in an Atom title", body.items?.[1].title === "Sense enllaç" && body.items[1].body === "Text sencer.");
   ok("no audio on an Atom entry", body.items?.every((i) => i.audio === ""));
   ok("the discovered URL is reported", body.url === "https://www.sapiens.cat/noticies/atom.xml");
+}
+
+/* Show notes are a document, and the parser keeps their shape: a heading is
+   followed by a blank line, a list item opens with a bullet, and neither runs
+   into the sentence after it. The reading page turns a blank line into a real
+   paragraph, which is what makes an Easy Catalan episode readable. */
+{
+  const NOTES = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Easy Catalan</title>
+<item><title>Episodi 100</title><link>https://x/100</link>
+<description><![CDATA[<p>Avui parlem de la Mercè.</p><h3>El que hi trobareu</h3><ul><li>La hist&ograve;ria</li><li>Els castells</li></ul><p>Fins la setmana vinent!</p>]]></description>
+<enclosure url="https://x/100.mp3" type="audio/mpeg"/></item></channel></rss>`;
+  stub({ "https://feeds.fireside.fm/easycatalan/rss": NOTES });
+  const body = await (await post({ source: "easy-catalan" })).json();
+  const text = body.items?.[0].body ?? "";
+  ok("a heading stands on its own", /Avui parlem de la Mercè\.\n\nEl que hi trobareu\n\n/.test(text), JSON.stringify(text));
+  ok("list items are bulleted lines", text.includes("• La història\n• Els castells"), JSON.stringify(text));
+  ok("nothing runs into the paragraph after it", text.endsWith("Fins la setmana vinent!"), JSON.stringify(text));
+  ok("no markup survives", !/[<>]/.test(text), text);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

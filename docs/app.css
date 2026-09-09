@@ -295,11 +295,25 @@ p { margin: 0 0 10px; }
    the gloss reads as part of the line rather than a tooltip floating over it. */
 .msg-text {
   margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
   font-size: 1.08rem;
   font-weight: 600;
   line-height: 1.85;
+}
+/* One paragraph of the text. A blank line in the source is a real paragraph
+   here, with air around it — a dozen of them run together was reported as
+   hard to read on a podcast's notes. Single newlines inside one are kept. */
+.msg-para {
+  margin: 0 0 0.95em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg-para:last-child { margin-bottom: 0; }
+/* The × that drops a looked-up word you are never going to keep. Quieter
+   than the Keep beside it: dropping is tidying up, not a decision. */
+.book-drop {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--text-3);
 }
 .msg-word {
   display: inline;
@@ -2035,14 +2049,17 @@ input[type="checkbox"] { accent-color: var(--accent); }
   padding: 10px 14px;
   border: 0;
   border-radius: var(--radius);
-  background: var(--purple);
+  /* Teal, not purple: this strip sits above the eight squares and two of
+     them are purple, so it read as a tile that had wandered up the page.
+     Teal is the one strong colour no tile wears. */
+  background: var(--teal);
   color: #fff;
-  box-shadow: 0 4px 0 var(--purple-dark);
+  box-shadow: 0 4px 0 var(--teal-dark);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.due-strip:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--purple-dark); }
+.due-strip:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--teal-dark); }
 .due-mark svg { width: 26px; height: 26px; display: block; }
 .due-main { flex: 1; min-width: 0; display: grid; }
 .due-title { font-weight: 900; font-size: 1.02rem; }

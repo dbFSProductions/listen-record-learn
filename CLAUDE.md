@@ -1174,6 +1174,106 @@ the gist still on it. Neither sister fork has any of this; it would port
 whole — the Worker is untouched, `/message`'s `kind: "book"` being already
 there.
 
+### The reader is two halves, and the story is at the bottom
+
+Reported from the phone as a list of things about Listen & read at once:
+*"The write a story is now not the best feature… move it to the bottom.
+There's no ability to delete a book and the which book drop down is weird.
+There's no separation of read and listen features. The looked up words stay
+in an endless list even if you don't keep them. The kept ones should go in a
+folder. They are also being saved in the messages deck. The book chapters
+should also go in a folder. And the read/not read seems not to be working.
+The listen should be above the reading. Everything seems to be purple. The
+format of the easy Catalan transcript could be easier to read."*
+
+- **The page runs Listen, then Read, then Books, then the story.** Listening
+  and reading are two different acts and the folds were interleaved — a
+  podcast, a news site, another podcast — with nothing saying which was
+  which. `listenSources()` and `readSources()` split `READER_SOURCES` on
+  `kind`, which is the real distinction (an episode has audio, an article
+  hasn't), so a source added to `FEEDS` cannot land in the wrong half.
+  Listening is first because it is the half you can do on a walk. The story
+  card is last and no longer the page's primary button: it was the first
+  thing on the page when it was the newest thing on the page, which is not
+  the same as being the best of them.
+- **`READER_HUE` is why it is not all purple.** Every row on that page wore
+  the reader's own hue, so a podcast, a news piece, a book and a word all
+  looked like the same kind of thing. Purple stays on what you *read*, since
+  that is the tile's colour; listening is blue, your books are orange, and
+  the words you looked up are green. The folds themselves are striped too
+  (`foldCard` already took a `hue`), so a shut section says which half it is
+  in. **The Review strip is teal now**, and that is the same argument one
+  page up: it sits above eight squares, two of which are purple, so the one
+  thing on the home page that is not a tile read as one. Teal is the only
+  strong colour no tile wears, and quiet mode's pill never shares a screen
+  with it. The Review node on the path went with it.
+- **Which book is a select, not a box with a datalist behind it.** iOS drew
+  its own suggestion popover over the field underneath (the screenshot that
+  came with the report), and worse, free text let «Pit i Amunt» and «PIT i
+  AMUNT» become two books — which is exactly what had happened. It is the
+  deck field's shape now: a select of the books you have, with one option
+  that opens a box for a book that isn't listed, and the box is what you get
+  when there are none. A select can't be misspelled, one level down from
+  where that sentence was first written.
+- **A pasted book can be forgotten.** An imported one has had *Forget this
+  book* since it shipped and a pasted one — which is only a run of `messages`
+  entries — had nothing at all. Same bargain as forgetting a message: the
+  record goes, the cards it made stay. Armed rather than confirmed, the
+  interview's two taps, because a book is a lot of pages to lose to one.
+- **Read means read.** `bookProgress` counted a page only if you had written
+  what happened on it, so a book you were eight pages into said *2 read* with
+  *page 8 of 173* beside it — the two numbers on one row disagreeing, which is
+  what "seems not to be working" was. A page you have opened and moved past
+  is read; the gist is the extra step, and `pageState` is where that
+  distinction still shows (*Read · 2 looked up*, *Read, not summed up*, *Not
+  opened*, *Where you are*).
+- **The pages are a fold and so are the words**, on the accordion argument
+  that already runs this page. `wordFolds` is the words in *two* folds: the
+  ones still to deal with, and the ones already kept, which names the deck
+  they went to. The first list also has a **×** per row that drops a word you
+  are never going to keep — it was an open list that only ever grew, and
+  keeping was the only way to take anything off it. Dropping shortens the
+  shortlist and **leaves the tap count alone**: how many words you needed on
+  the way is a fact about the reading, not a list you curate.
+- **What you keep from a text goes to the deck for that kind of text, and
+  there are three.** A book page to Llibres, a message somebody sent to
+  Missatges, and anything opened from the reader — an article, an episode's
+  blurb, a story — to **Lectures** (`readingDeck` in store.js; *Lecturas*,
+  *Letture*). That third one used to go to Missatges, which is wrong in the
+  one way a deck name can be: a stock phrase out of a Sàpiens piece is not a
+  message anybody sent. Single *words* are unchanged — they go to `Paraules ·
+  From reading`, where a picture can be hung on them.
+- **A long text reads as paragraphs.** `.msg-text` was one `<p>` with
+  `white-space: pre-wrap`, which is right for the three lines of a message and
+  wrong for an episode's show notes. `glossedParagraphs` splits the glossed
+  segments at blank lines into real `.msg-para` blocks — the segments
+  themselves are printed in order and untouched, since `glossSegments` matched
+  the glossary onto the text character for character, and only the whitespace
+  *between* paragraphs becomes markup. For that to have anything to split on,
+  the Worker's `textOf` now ends a paragraph, a heading and a list with a
+  blank line and opens a list item with a bullet: show notes are the one thing
+  that parser sees that is really a document. `/feed` is the only route that
+  uses it and the forks don't call it.
+- **A feed that fails says so on its header.** It read *Loading…* for ever on
+  a fetch that had already given up, which is invisible behind a shut fold.
+
+Worth asserting, with `/feed` and `/message` stubbed: the home tiles end
+Chat, About me, All Phrases; the reader's section labels run Listen, Read,
+Books; `#story-go` is the last card on the page and `reader:easy-catalan`
+comes before `reader:sapiens`; a listen row is `hue-blue` and a read row
+`hue-purple`; `#book-pick` is a select with the pasted books and *A book not
+listed…*, there is no `datalist`, and choosing that option opens `#book-new`;
+an article's text paints three `.msg-para`s carrying every paragraph with the
+`.msg-word`s still on them, and a kept phrase lands in `Lectures`; a book at
+`position: 3` with three pages opened reads *3 read*, its pages fold lists
+*Where you are* and *Read, not summed up*, keeping its one word empties
+`ibook:words` and fills `ibook:kept`, and the card lands in `Paraules · From
+reading`; on a pasted book two pages sharing a word list it once, × drops it
+and leaves `taps` alone, and *Forget this book* takes two taps, drops its
+pages from `xerra.messages` and leaves the cards. On the Worker,
+`feed-test.mjs` holds the note shaping and `card-test.mjs` with `BEFORE` set
+is still byte-identical, so the sister apps are untouched.
+
 ### Eight squares: Listen & read and Xerrada leave Real life
 
 Reported from the phone as five things at once: *"There's no stop button for
@@ -1247,8 +1347,9 @@ out accordion/folder the phrases in about me and top level of real life."*
 
 Worth asserting, with `/feed` and `/message` stubbed and `speech.modelAudio`
 overridden to record `phrase.voice` and hand back a two-second clip: eight
-`.tile`s titled Practice, Vocab, About me, Real life, Grammar, All Phrases,
-Listen & read, Chat; a settings blob carrying `readerOpen: { sapiens:
+`.tile`s titled Practice, Vocab, Real life, Grammar, Listen & read, Chat,
+About me, All Phrases (they shipped in the sister apps' order and were
+reordered later — see *The reader is two halves*); a settings blob carrying `readerOpen: { sapiens:
 true }` loads as `folds["reader:sapiens"]` with the key gone and the fold
 open; on the reader `[data-fold-card="reader:en-guardia"]` is
 `aria-expanded="false"` with `#fold-reader_en-guardia` hidden, one tap
@@ -4362,9 +4463,10 @@ the parser losing a block to a formatting change.
 - Three tabs: Practice, Add, Settings. Phrases was merged into Practice. Deck
   rows accordion open to the cards inside them and carry no score of their own.
 - **Home is the brand header — the colla's crest and *fin·o·lingo* — over
-  eight squares**: the sister apps' six in their order — Practice, Vocab,
-  About me, Real life, Grammar, All Phrases — then Listen & read and
-  Chat, which grew out of Real life (see *Eight squares*). **Practice is
+  eight squares**: Practice, Vocab, Real life, Grammar, Listen & read, Chat,
+  then About me and All Phrases, which are last because they are used least
+  (see *The reader is two halves*). Listen & read and Chat grew out of Real
+  life (see *Eight squares*). **Practice is
   the forks' winding path**, built from the
   everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
   completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
@@ -4523,7 +4625,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v104 / `xerra-v104` — `js/version.js` first, `sw.js` second, as ever.
+- v107 / `xerra-v107` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

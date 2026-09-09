@@ -759,6 +759,21 @@ export function booksDeck(language) {
   return BOOKS_DECK[language] ?? "Books";
 }
 
+/* Where a phrase kept from something you *read here* is filed — an article,
+   an episode's blurb, a story the app wrote. It used to land in Missatges,
+   which was wrong in the one way a deck name can be: a stock phrase out of a
+   Sàpiens piece is not a message anybody sent you, and filing it there makes
+   the messages deck a bin for everything read. Reported from the phone as the
+   kept things "also being saved in the messages deck". A message still goes
+   to Missatges and a book page still goes to Llibres; this is the third.
+   Single *words* are not here — they go to the Vocab family, where a picture
+   can be hung on them. */
+const READING_DECK = { "ca-ES": "Lectures", "es-ES": "Lecturas", "it-IT": "Letture" };
+
+export function readingDeck(language) {
+  return READING_DECK[language] ?? "Readings";
+}
+
 /** The part after the prefix — what a row says once its family is open. */
 export function deckLeaf(deck) {
   const at = deck.indexOf(SUBDECK);

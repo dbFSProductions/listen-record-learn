@@ -1642,11 +1642,29 @@ function embeddedAudio(kind, html) {
   return "";
 }
 
+/* Markup to plain text, keeping the shape of it.
+
+   A podcast's show notes are the one thing this parser sees that is really a
+   *document*: headings, a paragraph, a list of what is talked about, links.
+   Flattening all of that to one run was reported from the phone as the Easy
+   Catalan notes being hard to read. So every block that ends a line ends one
+   here — a heading and a table row as well as a paragraph — a list item
+   opens with a bullet, and a heading is followed by a blank line so it reads
+   as a heading rather than as the first sentence under it. The reading page
+   turns a blank line into a real paragraph.
+
+   Everything else is unchanged: this still strips every tag and never keeps
+   a URL, so what reaches the phone is plain text a gloss can be matched on. */
 function textOf(raw) {
   return decodeEntities(
     String(raw ?? "")
       .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-      .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi, "\n")
+      // A paragraph, a heading and a list end a *paragraph*; a <br> and a
+      // list item end a line. The blank line is what the reading page turns
+      // into a real paragraph, so this is where that begins.
+      .replace(/<\/?h[1-6](?:\s[^>]*)?>|<\/p>|<\/div>|<\/ul>|<\/ol>/gi, "\n\n")
+      .replace(/<li(?:\s[^>]*)?>/gi, "\n• ")
+      .replace(/<br\s*\/?>|<\/tr>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
   )
     .replace(/[ \t]+/g, " ")
