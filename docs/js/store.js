@@ -22,6 +22,7 @@ const KEYS = {
   messages: "xerra.messages",
   chats: "xerra.chats",
   feeds: "xerra.feeds",
+  books: "xerra.books",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -45,14 +46,26 @@ export const REVIEW_DECK = "review:due";
 const RECALL_PASS = 75; // the same "close" line the drill verdict uses
 
 const DB_NAME = "xerra";
-/* Bumped to 2 for the pictures store. The upgrade handler creates whatever is
-   missing rather than assuming a fresh database, so an install that predates
-   this keeps its recordings and its cached model audio and simply gains the
-   third box. */
-const DB_VERSION = 2;
+/* Bumped to 2 for the pictures store, and to 3 for the two an imported book
+   needs. The upgrade handler creates whatever is missing rather than assuming
+   a fresh database, so an install that predates either keeps its recordings
+   and its cached model audio and simply gains the new boxes. */
+const DB_VERSION = 3;
 const STORE_MODEL = "modelAudio";
 const STORE_RECORDINGS = "recordings";
 const STORE_PICTURES = "pictures";
+/* A whole imported book's pages. Here rather than in localStorage because a
+   novel is a couple of hundred kilobytes of text on its own, and localStorage
+   is a five-megabyte drawer shared with the phrases and the attempts. Not in
+   export/import, for the reason the recordings and the drawings aren't: it is
+   re-derivable from the EPUB file, which the reader still has. */
+const STORE_BOOKS = "books";
+/* What the assistant said about one page, keyed by a hash of that page's
+   text rather than by any id. That is what makes a re-import after an
+   eviction free: the same file chunks to the same pages, so the same hashes
+   come back and the glosses are already there. In export/import, because
+   these are the one part of a book that cost real money to produce. */
+const STORE_GLOSSES = "bookGlosses";
 const SEED_REPLACEMENTS = new Map([
   ["Em falta pressió a l'esquena.", "Més pit!"],
   // 'Va estar plovent' is Spanish's estuvo lloviendo calqued into Catalan;
@@ -769,6 +782,8 @@ function openDB() {
       if (!db.objectStoreNames.contains(STORE_MODEL)) db.createObjectStore(STORE_MODEL);
       if (!db.objectStoreNames.contains(STORE_RECORDINGS)) db.createObjectStore(STORE_RECORDINGS);
       if (!db.objectStoreNames.contains(STORE_PICTURES)) db.createObjectStore(STORE_PICTURES);
+      if (!db.objectStoreNames.contains(STORE_BOOKS)) db.createObjectStore(STORE_BOOKS);
+      if (!db.objectStoreNames.contains(STORE_GLOSSES)) db.createObjectStore(STORE_GLOSSES);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -847,6 +862,41 @@ export const audioStore = {
     if (!navigator.storage?.estimate) return null;
     const { usage, quota } = await navigator.storage.estimate();
     return { usage, quota };
+  },
+};
+
+/* The two halves of an imported book that are too big for localStorage: its
+   pages, and the gloss of each page that has been read.
+
+   The split matters. The text is the book and belongs to the file it came
+   from — lose it and you re-import. The glosses are the part that was paid
+   for a page at a time, so they are keyed by content hash and ride in
+   export/import, and a re-import of the same file finds them waiting. */
+export const bookStore = {
+  putPages: (id, pages) => idbPut(STORE_BOOKS, id, pages),
+  getPages: (id) => idbGet(STORE_BOOKS, id),
+  deletePages: (id) => idbDelete(STORE_BOOKS, id),
+
+  putGloss: (hash, gloss) => idbPut(STORE_GLOSSES, hash, gloss),
+  getGloss: (hash) => idbGet(STORE_GLOSSES, hash),
+
+  /* Every gloss on the device, for the export. Keyed by hash, so a backup
+     restored onto a phone that already has some simply overwrites like with
+     like. */
+  async allGlosses() {
+    const out = {};
+    for (const hash of await idbKeys(STORE_GLOSSES)) {
+      const gloss = await idbGet(STORE_GLOSSES, hash);
+      if (gloss) out[hash] = gloss;
+    }
+    return out;
+  },
+
+  async putGlosses(byHash) {
+    if (!byHash || typeof byHash !== "object") return;
+    for (const [hash, gloss] of Object.entries(byHash)) {
+      if (gloss && typeof gloss === "object") await idbPut(STORE_GLOSSES, hash, gloss);
+    }
   },
 };
 
@@ -1364,7 +1414,13 @@ export const library = {
      for a life story it has already been told. The hand-made deck names ride
      along for the same reason: an empty deck is only a name, so a backup that
      dropped it would restore the cards and lose the filing. */
-  exportJSON() {
+  /* Async since the books arrived: their glosses are in IndexedDB, being far
+     too big for localStorage, and they are the one thing in a book that cost
+     money to make — so a backup that dropped them would restore your place in
+     a novel and then charge you again for every page you had already read.
+     The book's *text* stays out, like the recordings and the drawings: it is
+     re-derivable from the EPUB, which you still have. */
+  async exportJSON() {
     return JSON.stringify(
       {
         exportedAt: new Date().toISOString(),
@@ -1375,13 +1431,15 @@ export const library = {
         progress: progress.lessons,
         messages: messages.items,
         chats: chats.items,
+        books: books.items,
+        bookGlosses: await bookStore.allGlosses(),
       },
       null,
       2
     );
   },
 
-  importJSON(text) {
+  async importJSON(text) {
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.phrases)) throw new Error("No phrases in that file.");
     this.phrases = parsed.phrases;
@@ -1397,6 +1455,11 @@ export const library = {
     progress.replace(parsed.progress);
     messages.replace(parsed.messages);
     chats.replace(parsed.chats);
+    /* Absent in a backup taken before books existed, which is not an error.
+       The glosses go back under their hashes, so re-importing the EPUB after
+       an eviction finds them and calls the Worker for nothing. */
+    books.replace(parsed.books);
+    await bookStore.putGlosses(parsed.bookGlosses);
   },
 };
 
@@ -1679,6 +1742,99 @@ export const feeds = {
   set(source, data) {
     this.bySource = { ...this.bySource, [source]: data };
     writeJSON(KEYS.feeds, this.bySource);
+  },
+};
+
+// -------------------------------------------------------------------- books
+
+/* An imported book, as everything about it *except* its text.
+
+   The text lives in `bookStore` because a novel is too big for localStorage,
+   and the glosses live there too because they are bigger still. What is here
+   is the small, durable half: what the book is called, how far through it you
+   are, and — per page you have actually read — what you wrote it was about,
+   how many words you looked up and which ones.
+
+   That division is the whole answer to reading a book slowly. iOS evicts a
+   web app's storage under pressure, and a book read over months will meet
+   that; this half is what rides in export/import, so a backup restores your
+   place and your lookups, and re-importing the same file puts the pages and
+   their paid-for glosses back underneath by hash. */
+export const books = {
+  items: [],
+
+  load() {
+    const stored = readJSON(KEYS.books, null);
+    this.items = Array.isArray(stored) ? stored.filter((b) => b && b.id) : [];
+  },
+
+  save() {
+    writeJSON(KEYS.books, this.items);
+  },
+
+  add(entry) {
+    const saved = {
+      id: uid(),
+      language: settings.language,
+      at: new Date().toISOString(),
+      title: "",
+      author: "",
+      pageCount: 0,
+      hashes: [],
+      position: 0,
+      pages: {},
+      ...entry,
+    };
+    this.items.push(saved);
+    this.save();
+    return saved;
+  },
+
+  find(id) {
+    return this.items.find((book) => book.id === id) ?? null;
+  },
+
+  forLanguage(language) {
+    return this.items.filter((book) => book.language === language);
+  },
+
+  /* Mutates in place, like `messages.update` and `keepNote` on a phrase: the
+     page being drawn is holding this object, and replacing it would leave the
+     view repainting a stale one. */
+  update(id, patch) {
+    const book = this.find(id);
+    if (!book) return null;
+    Object.assign(book, patch);
+    this.save();
+    return book;
+  },
+
+  /* What you have done with one page. Absent means a page you have opened but
+     not yet read — `gist: null` is the same "not read yet" the message page
+     already understands. */
+  pageState(id, hash) {
+    return this.find(id)?.pages?.[hash] ?? { gist: null, taps: 0, looked: [] };
+  },
+
+  updatePage(id, hash, patch) {
+    const book = this.find(id);
+    if (!book) return null;
+    book.pages = { ...book.pages, [hash]: { gist: null, taps: 0, looked: [], ...book.pages?.[hash], ...patch } };
+    this.save();
+    return book.pages[hash];
+  },
+
+  /* Forgetting a book drops its record and its pages, and leaves every card
+     it made behind — the same bargain as forgetting a message or a chat. */
+  async remove(id) {
+    this.items = this.items.filter((book) => book.id !== id);
+    this.save();
+    await bookStore.deletePages(id);
+  },
+
+  replace(items) {
+    this.items = Array.isArray(items) ? items.filter((b) => b && typeof b === "object" && b.id && typeof b.title === "string") : [];
+    this.save();
   },
 };
 

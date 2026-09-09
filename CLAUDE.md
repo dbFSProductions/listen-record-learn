@@ -1068,6 +1068,112 @@ link to the entry, and reopens without a second call; a 404 title is
 searched for and the top hit opened; Enter in `#wiki-query` lists
 `[data-wiki-hit]` rows with markup-stripped snippets, and a hit opens.
 
+### A whole book, imported and read a page at a time
+
+Asked for as wanting to read a whole Catalan book in the reader rather than
+photographing it a page at a time. The Kindle half of that question has no
+answer worth giving — a Kindle purchase is DRM'd, and since February 2025
+Amazon has removed *Download & transfer via USB*, so there is no sanctioned
+file to have — but the file that arrived instead is the thing that matters:
+a Bookwire **watermarked** EPUB, no `META-INF/encryption.xml`, plain XHTML
+throughout. That is the route to recommend when this comes up again: buy the
+EPUB from the publisher's own shop or a watermarking retailer, not from
+Kindle.
+
+- **The EPUB reader is `docs/js/epub.js` and vendors nothing.** An EPUB is a
+  ZIP of XHTML, and the browser already has both halves —
+  `DecompressionStream("deflate-raw")` for the entries, `DOMParser` for the
+  markup — so the whole importer is one file and no build step. That is the
+  same call `vendor/` makes in the other direction for the Azure SDK and
+  jsPDF: vendor when the platform genuinely hasn't got the thing, write it
+  when it has. It reads the central directory rather than walking local
+  headers, refuses zip64 in a sentence rather than half-supporting it, and
+  refuses an `encryption.xml` file **by name** — a DRM'd EPUB is still a zip
+  and would otherwise import as a book of mojibake.
+- **The split has to be deterministic, and that is load-bearing rather than
+  tidy.** A page's gloss is cached under a hash of the page's text, so the
+  same file imported again must produce the same pages: that is what makes
+  re-importing after an eviction free instead of a second payment for the
+  whole book. Nothing in `chunkChapters` may read the clock, a Map's order,
+  or anything but the paragraphs. A page never spans a chapter — a chapter
+  break is the one place the book itself says stop — with one exception,
+  `mergeRunts`: a "chapter" that is nothing but its own heading is a runt,
+  and on the real book there were fourteen of them, the shortest eight
+  characters long. A runt is a page to swipe past *and* a Worker call for a
+  page with three words on it, so it is joined to the page after it. That
+  took the book from 187 pages to 173, none under 250 characters.
+- **`PAGE_CHARS` is 1200, and it is sized to a sitting rather than to a
+  budget.** The gloss scales with the text, so cost per word read is nearly
+  flat whatever this is; only the ~600-token prompt overhead doesn't
+  amortise, which is about 15% between a 1200-character page and a
+  2400-character one. Small enough to ignore, which means the number should
+  answer "how much is one sitting?" and not "how do we save money?".
+  `PARAGRAPH_MAX` keeps every page under the Worker's own `BOOK_CHARS` cap
+  of 4000.
+- **The gloss is fetched when you arrive at a page and never before, and
+  there is deliberately no prefetch.** Glossing a novel on import would be
+  173 calls into a twenty-a-minute limit, minutes of spinner, and payment for
+  a book that might be put down at chapter three. Prefetching the next page
+  was considered and rejected for this reader specifically: they read two or
+  three pages at a sitting, so a prefetch is a wasted call every session.
+  **Don't add one** without knowing that has changed.
+- **The text is in IndexedDB and the reading state is in localStorage, and
+  that division is the answer to reading a book slowly.** `MESSAGES_KEEP` is
+  60 and a novel is 173 pages, so a book kept in `messages` would start
+  evicting its own opening chapters about three-quarters of the way through —
+  and take the `looked` words behind `bookWords` with them, which is the part
+  that gets *better* the further in you are. So `STORE_BOOKS` holds the pages
+  and `STORE_GLOSSES` the glosses (`DB_VERSION` 2 → 3, the upgrade handler
+  creating whatever is missing as before), and `books` in store.js holds the
+  small durable half: the title, your place, and per page your gist, your tap
+  count and the words you looked up.
+- **Export carries the glosses and not the text**, which is why
+  `library.exportJSON` and `importJSON` are **async now** (one `await` at the
+  one call site each). iOS evicts a web app's storage under pressure and a
+  book read over months will meet that. The text is re-derivable from the
+  EPUB, which the reader still has — so it stays out, like the recordings and
+  the drawings. The glosses are the only part that cost money, so they go in,
+  keyed by content hash: restore the backup, re-import the file, and every
+  page you had already paid for is waiting. **The looked-up words are in the
+  export too and that is correct** — they are the frequency list, not the
+  book.
+- **The reading page is `renderMessage`, unchanged in shape.** A page of a
+  book is read exactly the way an article is — tap a word, write what you
+  think happened, then the English — so the page is shared rather than
+  copied. `state.bookPage` carries the loaded page (its text and gloss are in
+  IndexedDB and cannot be looked up inside a synchronous render, unlike a
+  `messages` entry), and `saveText` is the one writer for both shapes. Two
+  differences only: a book page has a pager, and it has no *Forget this* —
+  what you would forget is the book.
+- **Importing is above the paste box, and the paste box stays.** The
+  screenshot is what settled that: the import card was third on the page and
+  below the fold, which is *the gear had to look like a gear* again — 40 DOM
+  assertions passing and the control invisible. The paste box is still the
+  right answer for a book you only have on paper.
+- **A re-import is the same book, matched on the hash of its first page.**
+  That is also the ordinary way back after an eviction, so it must keep your
+  place rather than restart you at page one.
+
+Worth asserting, with `/message` stubbed: the import card sits above the
+paste box; an EPUB carrying `META-INF/encryption.xml` is refused with *DRM-
+protected* in the message and nothing imported; importing makes **no** Worker
+call; the book's title and author come off the OPF; one hash per page, all
+distinct, none under 250 characters and none over 4000; opening page 1 makes
+exactly one call and the page is headed *Page 1* with the pager reading *Page
+1 of N*, Back disabled, no `#msg-forget`, no `.msg-translation` and a gist box
+asking *What happened on this page?*; two taps write `taps: 2` and two
+`looked` entries and the words are offered to `Paraules · From reading`; Next
+costs one call and Back costs none; a reload keeps the place and costs
+nothing; re-importing the same file makes one book, not two, keeps the place,
+and costs no call; the back link reads *‹ Contents* rather than repeating the
+title; export carries `books` and `bookGlosses`, carries the looked-up words,
+and does **not** carry the page text; and a backup predating all of this still
+imports. On the real 2.1MB EPUB: 173 pages, deterministic across two imports,
+and a wipe-then-restore-then-re-import round trip re-reads page 1 free with
+the gist still on it. Neither sister fork has any of this; it would port
+whole — the Worker is untouched, `/message`'s `kind: "book"` being already
+there.
+
 ### Eight squares: Listen & read and Xerrada leave Real life
 
 Reported from the phone as five things at once: *"There's no stop button for
@@ -4350,6 +4456,17 @@ the parser losing a block to a formatting change.
   Worker (additive; `worker/tools/feed-test.mjs`, `story-test.mjs`). The
   chat's partner lines are glossed word by word and their tools are a play
   button, English and a ···.
+- **A whole book** can be imported rather than photographed: a DRM-free or
+  watermarked EPUB, unzipped on the device by `docs/js/epub.js` with nothing
+  vendored, split deterministically into ~1200-character pages, and read
+  through the same message page with a pager and a remembered place. Each
+  page is glossed when you reach it and never before, and never twice — the
+  gloss is cached under a hash of the page's text, so a re-import after an
+  eviction is free. `importEpubFile`, `openBookPage` and `renderImportedBook`
+  in app.js; `books` in store.js with the reading state, `bookStore` over
+  `DB_VERSION` 3 with the text and the glosses; `exportJSON`/`importJSON`
+  async, carrying the glosses and not the text. No Worker change — it goes
+  through `/message` with the `kind: "book"` that was already there.
 - **Review** is spaced repetition read off the attempts: `library.reviewOf`
   / `library.due` in store.js, `REVIEW_DECK`, the `.due-strip` on the home
   page and a Review node on the path.
@@ -4378,7 +4495,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v101 / `xerra-v101` — `js/version.js` first, `sw.js` second, as ever.
+- v104 / `xerra-v104` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

@@ -34,3 +34,8 @@ worker/.wrangler/
 # What worker/tools/draw-one.mjs writes when it succeeds — a scratch image,
 # not a fixture. Look at it, then let it go.
 worker/tools/drawn.*
+
+# Personal ebook files and Adobe fulfilment tickets. An .acsm carries a
+# purchase token tied to an Adobe ID, and this repo is published to Pages.
+Ebooks/
+*.acsm

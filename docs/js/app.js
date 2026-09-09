@@ -5,7 +5,9 @@ import {
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
+  books, bookStore,
 } from "./store.js";
+import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring, transcription } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
@@ -47,6 +49,18 @@ const state = {
      the About me workshop. `about` wins over `deck` in render() so that
      leaving the workshop to drill and coming back lands where you expect. */
   about: false,
+
+  /* A page of an imported book, once it has been loaded. Its text and its
+     gloss are in IndexedDB rather than localStorage — a novel is far too big
+     for the latter — so unlike a `messages` entry it cannot be looked up
+     inside a synchronous render. `openBookPage` loads it and puts it here,
+     and `renderMessage` reads it: the reading page itself is shared, because
+     a page of a book is read exactly the way an article is. */
+  bookPage: null,
+  /* Which imported book you are inside, for the book's own page. Its twin
+     `book` is a *title* and belongs to the older pasted-pages books, which
+     are `messages` entries and have no record of their own. */
+  bookId: null,
 
   /* The lesson being drilled, when the drill was started from a node on the
      Practice path: its id, its title, and when it began. Null for every other
@@ -1039,6 +1053,8 @@ function goHome() {
   state.section = null;
   state.message = null;
   state.book = null;
+  state.bookId = null;
+  state.bookPage = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -1314,8 +1330,10 @@ function render() {
      Xerrada, a text open behind Real life or the reader, a book behind the
      reader. Whichever is open wins, and Back clears it. */
   else if (state.tab === "practise" && state.section === "xerrada" && state.chat) renderChat();
+  else if (state.tab === "practise" && state.section === "reader" && state.bookPage) renderMessage();
   else if (state.tab === "practise" && (state.section === "quick" || state.section === "reader") && state.message) renderMessage();
   else if (state.tab === "practise" && state.section === "reader" && state.book) renderBook();
+  else if (state.tab === "practise" && state.section === "reader" && state.bookId) renderImportedBook();
   else if (state.tab === "practise" && state.section === "reader") renderReader();
   else if (state.tab === "practise" && state.section === "xerrada") renderXerrada();
   else if (state.tab === "practise" && state.section === "quick") renderQuick();
@@ -2637,12 +2655,35 @@ function messageAskContext(item) {
    ordinary deck like Quick's, and the message itself stays in `messages` with
    your reading and your reply on it. */
 function renderMessage() {
-  const item = messages.find(state.message);
+  /* A text on this page comes from one of two places, and everything below
+     is written against whichever it is rather than being duplicated.
+
+     Most are `messages` entries — a message somebody sent, an article, an
+     episode's blurb, a story the app wrote. A page of an imported book is
+     the other: its text and its gloss are far too big for localStorage and
+     live in IndexedDB, so it cannot be found inside a synchronous render the
+     way a message can. `openBookPage` has already loaded it into
+     `state.bookPage`, and this reads that.
+
+     They differ in exactly two places — where a change is written back, and
+     that a book page has no "Forget this" of its own, since what you would
+     forget is the book. */
+  const page = state.bookPage;
+  const item = page ? page.item : messages.find(state.message);
   if (!item) {
     state.message = null;
+    state.bookPage = null;
     render();
     return;
   }
+  /* One writer for both. `item` is mutated either way, because the render
+     closure below is holding it — the same reason `messages.update` and
+     `keepNote` mutate in place rather than replacing. */
+  const saveText = (patch) => {
+    Object.assign(item, patch);
+    if (page) books.updatePage(page.bookId, page.hash, patch);
+    else messages.update(item.id, patch);
+  };
   const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
   const revealed = item.gist !== null;
   const segments = glossSegments(item.text, item.read?.glossary, item.language);
@@ -2667,7 +2708,11 @@ function renderMessage() {
   /* Back goes to wherever this was opened from: the book's page, the reader,
      or Real life — the section you are behind names it. */
   const section = TILE_BY_KEY[state.section] ? state.section : "quick";
-  const back = state.book ? firstLine(state.book, 22) : TILE_BY_KEY[section].title;
+  const back = state.book
+    ? firstLine(state.book, 22)
+    : state.bookId
+    ? "Contents"
+    : TILE_BY_KEY[section].title;
   /* The voice the text is read in — asked for as choosing a voice for the
      stories. `settings.readerVoice`, or the drill voice; the select is the
      chat's `voiceField` with its own label, and only with a key and a
@@ -2725,15 +2770,21 @@ function renderMessage() {
     <div id="msg-words"></div>
     <div id="msg-reply-card"></div>
     <div id="msg-ask" hidden></div>
-    <div class="btn-row" style="margin-top:18px">
-      <button class="link btn-danger" id="msg-forget">${reading ? "Forget this" : "Forget this message"}</button>
-    </div>`;
+    <div id="msg-pager"></div>
+    ${
+      page
+        ? ""
+        : `<div class="btn-row" style="margin-top:18px">
+             <button class="link btn-danger" id="msg-forget">${reading ? "Forget this" : "Forget this message"}</button>
+           </div>`
+    }`;
 
   document.getElementById("msg-back").onclick = () => {
     // A story still reading when you leave the page would go on reading
     // under the next one.
     stopEverything();
     state.message = null;
+    state.bookPage = null;
     render();
   };
   /* The text read aloud, in the reader voice, at the drill's two speeds, with
@@ -2757,7 +2808,7 @@ function renderMessage() {
     // A reading under way is in the old voice; the next Listen is in the new one.
     readAloud.halt();
   });
-  document.getElementById("msg-forget").onclick = () => {
+  if (document.getElementById("msg-forget")) document.getElementById("msg-forget").onclick = () => {
     stopEverything();
     messages.remove(item.id);
     state.message = null;
@@ -2781,7 +2832,7 @@ function renderMessage() {
         const seg = segments[Number(button.dataset.word)];
         const looked = [...(item.looked ?? [])];
         if (seg?.gloss !== undefined) looked.push({ text: trimWord(seg.text), gloss: seg.gloss });
-        messages.update(item.id, { taps: (item.taps ?? 0) + 1, looked });
+        saveText({ taps: (item.taps ?? 0) + 1, looked });
       }
     })
   );
@@ -2793,6 +2844,49 @@ function renderMessage() {
   paintWords();
   paintReply();
   paintAsk();
+  paintPager();
+
+  /* Where you are in the book, and the way on. Only an imported book has
+     this: a message, an article and a story are each a thing on their own,
+     and a pasted page belongs to a list rather than to a sequence.
+
+     Next is where the money goes, so it says so by spinning rather than by
+     asking — the page it opens is one Worker call if you have not read it
+     before and free if you have. */
+  function paintPager() {
+    const box = document.getElementById("msg-pager");
+    if (!box || !page) return;
+    const last = page.pageCount - 1;
+    box.innerHTML = `
+      <div class="msg-pager">
+        <button class="btn" id="msg-prev" ${page.index === 0 ? "disabled" : ""}>‹ Back</button>
+        <span class="msg-pager-at">Page ${page.index + 1} of ${page.pageCount}</span>
+        <button class="btn btn-primary" id="msg-next" ${page.index === last ? "disabled" : ""}>Next ›</button>
+      </div>
+      <div class="notice bad" id="msg-pager-error" hidden></div>`;
+    const go = async (to, button) => {
+      const errorBox = document.getElementById("msg-pager-error");
+      if (errorBox) errorBox.hidden = true;
+      const label = button.textContent;
+      button.disabled = true;
+      button.innerHTML = `<span class="spinner"></span>`;
+      stopEverything();
+      try {
+        await openBookPage(page.bookId, to);
+      } catch (error) {
+        if (!document.getElementById("msg-pager")) return;
+        button.disabled = false;
+        button.textContent = label;
+        const box2 = document.getElementById("msg-pager-error");
+        if (box2) {
+          box2.textContent = error.message;
+          box2.hidden = false;
+        }
+      }
+    };
+    document.getElementById("msg-prev").onclick = (event) => go(page.index - 1, event.currentTarget);
+    document.getElementById("msg-next").onclick = (event) => go(page.index + 1, event.currentTarget);
+  }
 
   function paintGist() {
     const box = document.getElementById("msg-gist-card");
@@ -2830,7 +2924,7 @@ function renderMessage() {
   }
 
   function reveal(gist) {
-    messages.update(item.id, { gist });
+    saveText({ gist });
     document.querySelector(".msg-hint").textContent = "";
     paintGist();
     paintReveal();
@@ -3098,7 +3192,7 @@ function renderMessage() {
       );
       if (state.message !== item.id) return;
       if (!result.text?.trim()) throw new Error("Nothing came back. Try again.");
-      messages.update(item.id, {
+      saveText({
         reply: { draft, text: result.text, translation: result.translation || "", note: result.note || "" },
       });
       paintReply();
@@ -3285,8 +3379,15 @@ function renderReader() {
       <button class="btn btn-primary" id="story-go" style="width:100%">Write me a story</button>
       <div class="notice bad" id="story-error" hidden></div>
     </div>
-    ${bookCard()}
+    <div class="card" id="epub-card">
+      <p class="small" style="margin:0 0 8px"><b>Read a whole book.</b> An EPUB you own — DRM-free or watermarked. It is read here on the phone and never uploaded.</p>
+      <label class="btn btn-primary" id="epub-pick-label" for="epub-pick" style="width:100%;text-align:center">Import an EPUB</label>
+      <input type="file" id="epub-pick" accept=".epub,application/epub+zip" hidden>
+      <p class="tiny muted" style="margin:8px 0 0">Glossed a page at a time as you reach it, never up front — so a book you don't finish only costs the pages you read.</p>
+      <div class="notice bad" id="epub-error" hidden></div>
+    </div>
     <div id="reader-books"></div>
+    ${bookCard()}
     <div id="reader-read"></div>
     <div class="card reader-player" id="reader-player" hidden>
       <p class="reader-now" id="reader-now"></p>
@@ -3325,6 +3426,13 @@ function renderReader() {
     })
   );
   document.getElementById("story-go").addEventListener("click", writeStory);
+  document.getElementById("epub-pick").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    // Cleared so the same file can be picked twice running — after a failed
+    // import, which is the time you most want to try again.
+    event.target.value = "";
+    if (file) importEpubFile(file);
+  });
   wireBookCard();
   wireWiki();
 
@@ -3384,37 +3492,65 @@ function renderReader() {
      row into its own page. */
   function paintBooks() {
     const box = document.getElementById("reader-books");
-    const books = bookList(settings.language);
-    if (!books.length) {
+    /* Two kinds of book share this list. An imported one has a record of its
+       own and knows how many pages it has; a pasted one is a run of
+       `messages` entries and only knows how many you have fed it. They read
+       the same once open, so they belong in one fold. */
+    const imported = books.forLanguage(settings.language);
+    const pasted = bookList(settings.language);
+    const total = imported.length + pasted.length;
+    if (!total) {
       box.innerHTML = "";
       return;
     }
-    box.innerHTML = readerFold(
-      "books",
-      "Your books",
-      `${books.length} book${books.length === 1 ? "" : "s"}`,
-      `<div class="rows rows-spaced">
-        ${books
-          .map(
-            (book) => `
+    const importedRows = imported
+      .map((book) => {
+        const { read, lookups } = bookProgress(book);
+        return `
+          <div class="row striped hue-purple">
+            <button class="row-open" data-ibook="${esc(book.id)}">
+              <span class="row-main">
+                <span class="row-title">${esc(book.title)}</span>
+                <span class="row-sub">page ${book.position + 1} of ${book.pageCount} · ${read} read · ${lookups} word${
+          lookups === 1 ? "" : "s"
+        } looked up</span>
+              </span>
+              <span class="chev">›</span>
+            </button>
+          </div>`;
+      })
+      .join("");
+    const pastedRows = pasted
+      .map(
+        (book) => `
           <div class="row striped hue-purple">
             <button class="row-open" data-book="${esc(book.title)}">
               <span class="row-main">
                 <span class="row-title">${esc(book.title)}</span>
-                <span class="row-sub">${book.pages.length} page${book.pages.length === 1 ? "" : "s"} · ${book.lookups} word${
-                  book.lookups === 1 ? "" : "s"
-                } looked up</span>
+                <span class="row-sub">${book.pages.length} page${book.pages.length === 1 ? "" : "s"} pasted · ${book.lookups} word${
+          book.lookups === 1 ? "" : "s"
+        } looked up</span>
               </span>
               <span class="chev">›</span>
             </button>
           </div>`
-          )
-          .join("")}
-      </div>`
+      )
+      .join("");
+    box.innerHTML = readerFold(
+      "books",
+      "Your books",
+      `${total} book${total === 1 ? "" : "s"}`,
+      `<div class="rows rows-spaced">${importedRows}${pastedRows}</div>`
     );
     box.querySelectorAll("[data-book]").forEach((button) =>
       button.addEventListener("click", () => {
         state.book = button.dataset.book;
+        render();
+      })
+    );
+    box.querySelectorAll("[data-ibook]").forEach((button) =>
+      button.addEventListener("click", () => {
+        state.bookId = button.dataset.ibook;
         render();
       })
     );
@@ -3907,7 +4043,7 @@ function bookCard(title = null) {
       }
       <label class="field"><span>${title === null ? "Paste a page." : "Paste the next page."}</span>
         <textarea id="book-text" lang="${esc(settings.language)}" rows="4" autocapitalize="none"></textarea></label>
-      <p class="tiny muted" style="margin:-4px 0 10px">On the phone: Camera at the page, the Live Text button, Select all, Copy.</p>
+      <p class="tiny muted" style="margin:-4px 0 10px">For a book you only have on paper: Camera at the page, the Live Text button, Select all, Copy.</p>
       <button class="btn btn-primary" id="book-go" style="width:100%">Read this page</button>
       <div class="notice bad" id="book-error" hidden></div>
     </div>`;
@@ -4083,6 +4219,274 @@ function renderBook() {
       toast(`Added to ${deck}.`);
     })
   );
+}
+
+// ---------------------------------------------------------- imported books
+
+/* A whole book, read in the app, a page at a time.
+
+   The paste box above is the snapshot workflow: Camera at the page, Live
+   Text, Select all, Copy, and it works but it is a chore, and it leaves you
+   tracking your own place in the book. This is the same reading with the
+   fetching taken out — you hand it an EPUB once and then just read.
+
+   Three things decide the shape of it, and none of them is the import:
+
+   - The gloss is the only thing that costs money, so it is fetched when you
+     arrive at a page and never before. Glossing a novel on import would be
+     eighty-odd calls into a twenty-a-minute limit, minutes of spinner, and
+     payment for a book you might put down at chapter three. There is
+     deliberately no prefetch of the next page either: for someone reading two
+     pages at a sitting a prefetch is a wasted call every session.
+   - The pages are cut deterministically (see epub.js), and each page's gloss
+     is stored under a hash of its text. So a re-import of the same file after
+     iOS has evicted the storage finds every gloss it already paid for.
+   - The text is far too big for localStorage and lives in IndexedDB, which is
+     also what takes a book out of `messages` and its cap of sixty. Reading
+     eighty-five pages slowly over weeks is exactly the pattern that cap was
+     never sized for. */
+
+/* The reading state of a book, for a row: how far in, and how much was looked
+   up on the way. */
+function bookProgress(book) {
+  const pages = Object.values(book.pages ?? {});
+  const read = pages.filter((page) => page.gist !== null).length;
+  const lookups = pages.reduce((total, page) => total + (page.taps ?? 0), 0);
+  return { read, lookups };
+}
+
+/* Import an EPUB. Everything here happens on the device: the unzip, the spine
+   walk and the page splitting are all free, so an import costs nothing and an
+   abandoned book costs nothing either. */
+async function importEpubFile(file) {
+  const errorBox = document.getElementById("epub-error");
+  const button = document.getElementById("epub-pick-label");
+  if (errorBox) errorBox.hidden = true;
+  if (button) button.innerHTML = `<span class="spinner"></span> Reading the book…`;
+  try {
+    const parsed = await readEpub(file);
+    const pages = chunkChapters(parsed.chapters);
+    if (!pages.length) throw new Error("No readable text came out of that EPUB.");
+    const hashes = pages.map((page) => pageHash(page.text));
+    /* The same file imported twice is the same book, not a second copy of it
+       — and it is the ordinary way back after an eviction, so it must keep
+       your place rather than start you at page one. Matched on the hash of
+       the first page, which is the file's own fingerprint under a
+       deterministic split. */
+    const already = books.forLanguage(settings.language).find((b) => b.hashes?.[0] === hashes[0]);
+    const book =
+      already ??
+      books.add({
+        title: parsed.title || file.name.replace(/\.epub$/i, ""),
+        author: parsed.author || "",
+        pageCount: pages.length,
+        hashes,
+        position: 0,
+      });
+    await bookStore.putPages(book.id, pages.map((page) => page.text));
+    if (already) books.update(book.id, { pageCount: pages.length, hashes });
+    if (!inReader()) return;
+    state.bookId = book.id;
+    render();
+    toast(already ? `«${book.title}» is back, at page ${already.position + 1}.` : `«${book.title}» — ${pages.length} pages.`);
+  } catch (error) {
+    if (button) button.textContent = "Import an EPUB";
+    if (!errorBox) return;
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+}
+
+/* One page, opened. The gloss is read from the cache if this page has been
+   here before — a re-read, or a re-import — and fetched otherwise. Saved
+   before it is shown, so a page that arrives after you have left the reader
+   is still paid for once and only once. */
+async function openBookPage(bookId, index) {
+  const book = books.find(bookId);
+  if (!book) return;
+  const pages = await bookStore.getPages(bookId);
+  if (!pages?.length) throw new Error("That book's text isn't on this device any more. Import the EPUB again.");
+  const at = Math.max(0, Math.min(index, pages.length - 1));
+  const text = pages[at];
+  const hash = book.hashes?.[at] ?? pageHash(text);
+  let read = await bookStore.getGloss(hash);
+  if (!read) {
+    const language = LANGUAGES[book.language] ?? LANGUAGES[settings.language];
+    read = await cardAssistant.readMessage(
+      { message: text, languageCode: book.language, languageName: language.englishName, kind: "book", title: book.title },
+      settings
+    );
+    if (!read?.translation?.trim()) throw new Error("Nothing came back. Try again.");
+    await bookStore.putGloss(hash, {
+      translation: read.translation,
+      register: read.register || "",
+      glossary: Array.isArray(read.glossary) ? read.glossary : [],
+      keep: Array.isArray(read.keep) ? read.keep : [],
+    });
+    read = await bookStore.getGloss(hash);
+  }
+  books.update(bookId, { position: at });
+  if (!inReader()) return;
+  const saved = books.pageState(bookId, hash);
+  /* Shaped as a `messages` entry, because the reading page is shared and a
+     page of a book is read exactly the way an article is. */
+  state.bookPage = {
+    bookId,
+    index: at,
+    hash,
+    pageCount: pages.length,
+    item: {
+      id: `${bookId}:${hash}`,
+      kind: "book",
+      language: book.language,
+      title: book.title,
+      text,
+      source: { name: book.title, page: at + 1 },
+      read,
+      gist: saved.gist ?? null,
+      taps: saved.taps ?? 0,
+      looked: saved.looked ?? [],
+    },
+  };
+  state.message = null;
+  render();
+}
+
+/* The book's own page: where you are, what you have looked up, and the pages
+   themselves. */
+function renderImportedBook() {
+  const book = books.find(state.bookId);
+  if (!book) {
+    state.bookId = null;
+    render();
+    return;
+  }
+  const { read, lookups } = bookProgress(book);
+  const words = bookWords({ pages: Object.values(book.pages ?? {}) }, book.language);
+  const atStart = read === 0 && !Object.keys(book.pages ?? {}).length;
+
+  view.innerHTML = `
+    ${pageHead(
+      "reader",
+      book.title,
+      `${book.pageCount} page${book.pageCount === 1 ? "" : "s"} · ${read} read · ${lookups} word${lookups === 1 ? "" : "s"} looked up`,
+      `<button class="link" id="ibook-back">‹ ${esc(READER_TITLE)}</button>`
+    )}
+    <div class="card">
+      ${book.author ? `<p class="small muted" style="margin:0 0 10px">${esc(book.author)}</p>` : ""}
+      <button class="btn btn-primary" id="ibook-continue" style="width:100%">${
+        atStart ? "Start reading" : `Continue — page ${book.position + 1}`
+      }</button>
+      <div class="notice bad" id="ibook-error" hidden></div>
+    </div>
+    ${
+      words.length
+        ? `<div class="section-label">Words you looked up</div>
+           <p class="small muted" style="margin:-4px 0 10px">Most often first. One looked up on several pages is the card to make.</p>
+           <div class="rows rows-spaced">
+             ${words
+               .slice(0, BOOK_WORDS_SHOWN)
+               .map(
+                 (word, i) => `
+               <div class="row striped hue-purple book-word">
+                 <span class="row-main">
+                   <span class="row-title" lang="${esc(book.language)}">${esc(word.text)} <span class="book-word-gloss">${esc(
+                   word.gloss
+                 )}</span></span>
+                   <span class="row-sub">${word.pages === 1 ? "1 page" : `${word.pages} pages`}</span>
+                 </span>
+                 <button class="link book-keep" data-keep-word="${i}" ${replyKept({ text: word.text }) ? "disabled" : ""}>${
+                   replyKept({ text: word.text }) ? "Kept ✓" : "Keep"
+                 }</button>
+               </div>`
+               )
+               .join("")}
+           </div>`
+        : ""
+    }
+    <div class="section-label">Pages</div>
+    <div class="rows rows-spaced" id="ibook-pages">
+      ${book.hashes
+        .map((hash, i) => {
+          const page = book.pages?.[hash];
+          const sub = !page ? "Not opened" : page.gist === null ? "Opened, not read" : `${page.taps ?? 0} looked up`;
+          return `
+        <div class="row striped hue-purple">
+          <button class="row-open" data-ibook-page="${i}">
+            <span class="row-main">
+              <span class="row-title">Page ${i + 1}${i === book.position ? " · where you are" : ""}</span>
+              <span class="row-sub">${esc(sub)}</span>
+            </span>
+            <span class="chev">›</span>
+          </button>
+        </div>`;
+        })
+        .join("")}
+    </div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="link btn-danger" id="ibook-forget">Forget this book</button>
+    </div>`;
+
+  document.getElementById("ibook-back").onclick = () => {
+    state.bookId = null;
+    render();
+  };
+  const go = async (index, button) => {
+    const errorBox = document.getElementById("ibook-error");
+    if (errorBox) errorBox.hidden = true;
+    const label = button.textContent;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Reading…`;
+    try {
+      await openBookPage(book.id, index);
+    } catch (error) {
+      if (!document.getElementById("ibook-continue")) return;
+      button.disabled = false;
+      button.textContent = label;
+      if (errorBox) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+      }
+    }
+  };
+  document.getElementById("ibook-continue").onclick = (event) => go(book.position, event.currentTarget);
+  view.querySelectorAll("[data-ibook-page]").forEach((button) =>
+    button.addEventListener("click", () => go(Number(button.dataset.ibookPage), button))
+  );
+  /* A word into the Vocab family, with the book as its situation — the same
+     bargain the pasted-pages book makes, and the same deck. */
+  view.querySelectorAll("[data-keep-word]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const word = words[Number(button.dataset.keepWord)];
+      if (!word?.text || !word.gloss) return;
+      if (replyKept({ text: word.text })) {
+        button.disabled = true;
+        button.textContent = "Kept ✓";
+        return;
+      }
+      const deck = readingWordsDeck(book.language);
+      library.add({
+        text: word.text,
+        translation: word.gloss,
+        deck,
+        language: book.language,
+        situation: `From «${book.title}».`,
+        usageNote: null,
+        focusNote: null,
+        replies: [],
+      });
+      button.disabled = true;
+      button.textContent = "Kept ✓";
+      toast(`Added to ${deck}.`);
+    })
+  );
+  document.getElementById("ibook-forget").onclick = async () => {
+    const title = book.title;
+    await books.remove(book.id);
+    state.bookId = null;
+    render();
+    toast(`«${title}» forgotten. Any cards you kept from it are still in the library.`);
+  };
 }
 
 // ------------------------------------------------------------------ xerrada
@@ -9455,8 +9859,10 @@ function renderSettings() {
     showUsage();
   };
 
-  document.getElementById("s-export").onclick = () => {
-    const blob = new Blob([library.exportJSON()], { type: "application/json" });
+  /* Async since the books arrived — their glosses are in IndexedDB, and they
+     are the one part of a book that cost money to make. */
+  document.getElementById("s-export").onclick = async () => {
+    const blob = new Blob([await library.exportJSON()], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -9469,7 +9875,7 @@ function renderSettings() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      library.importJSON(await file.text());
+      await library.importJSON(await file.text());
       toast("Imported.");
       render();
     } catch (error) {
@@ -9555,6 +9961,7 @@ progress.load();
 messages.load();
 chats.load();
 feeds.load();
+books.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 
