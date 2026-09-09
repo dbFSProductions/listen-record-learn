@@ -8975,6 +8975,40 @@ function assistantSpeedPanel() {
     </div>`;
 }
 
+/* The test the phone kept trying to run, without the room in it.
+
+   Playing the model out of a phone's speaker and back into its own microphone
+   is the obvious way to ask "is it me or the app?", and it is the one way that
+   cannot answer: iOS reroutes playback while a capture session is open, echo
+   cancellation is off by design here, and the level, the distance and the
+   clipping are different on every take. Three goes at it came back 46, 80 and
+   100 on identical source audio — which says the acoustic path is noisy, and
+   says nothing whatever about the pipeline.
+
+   This scores the model's own bytes against the model's own words: the same
+   `toWav16k`, the same resampler, the same padding, the same Azure call, with
+   no microphone, no speaker and no air anywhere in it. Three phrases rather
+   than one, because the question is really about *variance* — three numbers
+   that agree mean the pipeline is repeatable, and three that do not are a bug
+   in here worth reporting. It is the audio half of what `aiLog` is for the
+   assistant, and it is behind a button for the same reason: diagnostics are
+   asked for, not run at you. */
+function scorerCheckPanel() {
+  if (!settings.hasAzure) return "";
+  return `
+    <div class="section-label">Check the scorer</div>
+    <div class="card">
+      <p class="tiny muted" style="margin:0 0 10px">
+        Scores the model's own voice against its own words — no microphone, no speaker, no room.
+        Three high numbers that agree mean the scoring pipeline is sound, and a lower number on a
+        real take is the air between your mouth and the phone. Numbers that disagree here are the
+        app's fault and worth reporting.
+      </p>
+      <button class="btn" id="s-scorer-check" style="width:100%">Run the check</button>
+      <div id="s-scorer-result"></div>
+    </div>`;
+}
+
 function renderSettings() {
   const language = LANGUAGES[settings.language];
 
@@ -9096,6 +9130,8 @@ function renderSettings() {
       </p>
     </div>
 
+    ${scorerCheckPanel()}
+
     <div class="section-label">Version</div>
     <div class="card">
       <div class="version-row">
@@ -9117,6 +9153,63 @@ function renderSettings() {
   document.getElementById("s-speed-clear")?.addEventListener("click", () => {
     aiLog.clear();
     render();
+  });
+
+  /* Each phrase is painted as it lands rather than all three at the end: it is
+     three TTS fetches and three Azure round trips, and a button that spins for
+     ten seconds with nothing under it reads as a hang. */
+  document.getElementById("s-scorer-check")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const box = document.getElementById("s-scorer-result");
+    const phrases = library.drillable(settings.language).slice(0, 3);
+    if (!phrases.length) {
+      box.innerHTML = `<p class="tiny muted" style="margin:10px 0 0">Nothing to check — no phrases in this language yet.</p>`;
+      return;
+    }
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    box.innerHTML = "";
+    const got = [];
+    for (const phrase of phrases) {
+      const audio = await speech.modelAudio(phrase, settings);
+      const result = audio ? await scoring.score(audio, phrase, settings) : null;
+      const score = result ? attemptScore(result) : null;
+      if (score != null) got.push(score);
+      const weakest = (result?.words ?? [])
+        .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+        .filter((word) => typeof word.score === "number")
+        .sort((a, b) => a.score - b.score)[0];
+      box.insertAdjacentHTML(
+        "beforeend",
+        `<div class="version-row">
+           <span class="tiny">${esc(firstLine(phrase.text, 30))}</span>
+           <strong style="color:${score == null ? "var(--text-3)" : scoreColour(score)}">${
+             score == null ? "—" : Math.round(score)
+           }</strong>
+         </div>
+         ${
+           score != null && weakest && score < GOOD
+             ? `<p class="tiny muted" style="margin:0 0 6px">weakest: “${esc(weakest.word)}”</p>`
+             : ""
+         }`
+      );
+    }
+    /* The verdict on the three, which is the whole point of running three. */
+    const spread = got.length > 1 ? Math.max(...got) - Math.min(...got) : 0;
+    box.insertAdjacentHTML(
+      "beforeend",
+      `<p class="tiny muted" style="margin:10px 0 0">${
+        !got.length
+          ? esc(scoring.lastError || speech.lastError || "Nothing came back — check the key and the region above.")
+          : Math.min(...got) >= GOOD && spread <= 10
+          ? "The pipeline is sound. A lower score on a real take is the room, the distance or the mouth — not this."
+          : `These should all be high and within a few points of each other; this run spread <strong>${Math.round(
+              spread
+            )}</strong> with a low of <strong>${Math.round(Math.min(...got))}</strong>. That is worth reporting.`
+      }</p>`
+    );
+    button.disabled = false;
+    button.textContent = "Run the check again";
   });
 
   document.getElementById("s-language").onchange = (event) => {

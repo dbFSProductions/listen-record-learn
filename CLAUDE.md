@@ -3507,6 +3507,57 @@ word is close*, which names nothing); 95/71/90 names *«dia»* and not *«Em»*;
 71/71/95 reads *your weakest words: «Em» and «dia»*; an `Omission` still reads
 *didn't come out at all*; and four words tied at 40 name none.
 
+### A quarter-second of silence, and a way to ask whose fault it is
+
+The three takes above turned out to be **all three the model played back into
+the microphone** — the same source audio every time, scoring 46, 80 and 100.
+Identical input, a 54-point spread, and the low ones landing on the first word.
+That is not a learner being inconsistent; it is either the pipeline or the room,
+and the honest position is that the app had no way to tell them apart.
+
+**Azure gets silence at each end now.** `AZURE_PAD` (0.25 s) is added inside
+`toWav16k`, after the resample. A recogniser decides where speech *starts*
+before it decides what it is, and a clip that opens on the first phoneme gives
+its endpointer nothing to settle against — so the first word pays, which is the
+word this app kept being asked about. How much lead-in a take actually has is
+not the app's to control: it is the gap between the tap and the first sound,
+plus however long iOS takes to bring the capture session up, and it differs
+every time. Padding takes that variable out — every clip now reaches Azure with
+the same quiet run-up however quick the tap was. Silence at the ends is not a
+pause in the middle, so fluency is untouched; the samples between the pads are
+the same samples in the same order. The tail is padded for `TAIL_PAD`'s reason:
+these decks teach final consonants and the release of a final -t sits at the
+very edge of a clip that stopped when the speaker did.
+
+**And Settings can now run the test without the room in it.** `scorerCheckPanel`
+scores the model's own bytes against the model's own words — the same
+`toWav16k`, resampler, padding and Azure call, with no microphone, no speaker
+and no air anywhere. Three phrases rather than one, because the question is
+really about *variance*: three high numbers that agree mean the pipeline is
+repeatable and a lower score on a real take is the room; numbers that disagree
+are a bug in here. It prints the spread and the low, and names the weakest word
+on anything under `GOOD`. Behind a button and only with a key, and it is the
+audio half of what `aiLog` is for the assistant.
+
+**Why the speaker-into-microphone test cannot answer the question**, and should
+not be run again expecting it to: iOS reroutes playback while a capture session
+is open (usually to the earpiece, quieter), `echoCancellation` is off here by
+design, and the level, the distance and the clipping differ on every go. It is
+the noisiest possible input dressed up as a controlled one. The panel above is
+the same idea with the confound removed.
+
+Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
+`#s-scorer-check` without a key; with one it is offered and makes no call until
+pressed; pressing it makes three TTS fetches and three scoring calls, each
+phrase scored against its own text, and prints three `.version-row`s; 99/97/98
+reads *the pipeline is sound* and names no weakest word; 46/80/99 reads the
+spread and the low, says *worth reporting*, and names the weak word on the low
+ones; a scorer returning null prints dashes and the error rather than nothing;
+and the button comes back reading *again*. For the padding: a 1.0 s clip comes
+out 1.5 s at 16 kHz with the first and last 200 ms silent, the speech at its
+full level immediately after the pad, and the alias rejection and the 150 Hz
+tone exactly as they were. Both would port to the forks whole.
+
 ### One detector, used three times
 
 `speechBounds` finds where the speech is, and the picture, the sound and the
@@ -4166,7 +4217,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v99 / `xerra-v99` — `js/version.js` first, `sw.js` second, as ever.
+- v100 / `xerra-v100` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
