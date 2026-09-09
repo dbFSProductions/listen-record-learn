@@ -478,6 +478,31 @@ the message *for* you rather than *at* you, in a fixed order.
   shape — `card-test.mjs` with `BEFORE` set is still byte-identical — and
   `worker/tools/message-test.mjs` drives both with `globalThis.fetch`
   stubbed. `worker/**` is on the deploy trigger, so merging shipped them.
+- **Ask about it, at the foot of the page — and only after the reveal.**
+  Asked for as wanting an ask section in the reading pages: the tap-a-word
+  gloss answers *what does this word mean* and nothing answered *why is it
+  «avisar-vos» and not «avisar-te»*. It is `cardChatPanel`, the drill's and
+  the chat's, with the text shaped as the card by `messageAskContext` — the
+  message as `text`, its English as `translation` (already on the screen by
+  then), and a situation naming what kind of text it is and where it came
+  from, so the tutor knows a notice from a line said across a table. One turn
+  of `/chat`, which the sister apps share, so **no Worker change**; history
+  dies with the page, as it does everywhere else the panel is; the card fields
+  are capped at a thousand characters by the Worker, so a book page reaches it
+  as its first thousand.
+  - **It waits for the reveal, and that is the same line every other ask box
+    in this app is drawn on.** The drill's panel goes out while a level-two
+    question stands, because the answer it fetches is built from the card and
+    would otherwise be the way round the question — and the whole of this page
+    is that question. A box that will translate the message for you, sitting
+    under a message you have not read yet, is the gate with a door in it.
+    Before the reveal you have the glosses, which are word-sized and counted;
+    *I can't tell — just show me* is one tap away either way. It is painted by
+    `paintAsk` on render and again on the reveal, and `askBuilt` is what stops
+    the second call throwing away what you have already asked.
+  - It is on **every** kind the page shows — a message, an article, an
+    episode's blurb, a story, a book page — since they are one page and one
+    argument. The deck it names is the one that text's cards land in.
 - **`messages` in store.js is the record**: the text, what came back
   (`read`), your `gist`, the `taps`, and the `reply` with the draft it was
   made from. Persisted for the interview transcript's reason — *what did
@@ -512,6 +537,17 @@ Mum-o-lingo have none of this; it would port whole — the Worker is already
 serving it — with `messagesDeck` collapsing to one name.
 
 ### Xerrada: having the conversation before you have it
+
+**The tile says Chat.** Reported from the phone as simply wanting the word
+changed, and it is the Real life precedent exactly: `TILE_BY_KEY.xerrada.title`
+is what the page head, the back links and the fallback name of an untitled chat
+all print, so the name lives in one place and **the key is still `xerrada`** —
+`state.section`, `settings.folds["xerrada:chats"]` and the `Xerrades` deck are
+untouched, and nothing downstream reads the title. The Catalan word survives as
+the deck's name, which is where it belongs: a deck is content, a tile is a
+label. The two places that had it spelled out in prose — the no-assistant
+notice and an untitled chat's row — read the tile's title now rather than a
+second copy of the string.
 
 Asked for as *"I'm meeting people for language chats soon, I'd like to
 prepare. Can we run Catalan chat simulations?"* Everything else in the app is
@@ -988,7 +1024,8 @@ out accordion/folder the phrases in about me and top level of real life."*
 - **Real life had four faces and About me had a third of one.** The grid is
   two by four: the sister apps' six in their order, then **Listen & read**
   (purple, the reader's own colour, and the Catalan name *Escolta i llegeix*
-  is its subtitle now) and **Xerrada** (green). Real life keeps the ask box
+  is its subtitle now) and **Chat** (green; it was titled *Xerrada* for two
+  releases — the key is still `xerrada`). Real life keeps the ask box
   and the message box and says so — *A phrase you need, a message you got* —
   with the key still `quick` and the deck still `Quick`, on the usual
   precedent. `state.reader` is gone: the reader is `state.section ===
@@ -1038,7 +1075,7 @@ out accordion/folder the phrases in about me and top level of real life."*
 Worth asserting, with `/feed` and `/message` stubbed and `speech.modelAudio`
 overridden to record `phrase.voice` and hand back a two-second clip: eight
 `.tile`s titled Practice, Vocab, About me, Real life, Grammar, All Phrases,
-Listen & read, Xerrada; a settings blob carrying `readerOpen: { sapiens:
+Listen & read, Chat; a settings blob carrying `readerOpen: { sapiens:
 true }` loads as `folds["reader:sapiens"]` with the key gone and the fold
 open; on the reader `[data-fold-card="reader:en-guardia"]` is
 `aria-expanded="false"` with `#fold-reader_en-guardia` hidden, one tap
@@ -1058,7 +1095,7 @@ deck is a `[data-deck]` row behind it; Real life has `#quick-ask` and
 *9 phrases · last 8* shut and opens to eight rows, a message backs to
 *‹ Real life* with its looked-up word listed and its reply box present, and
 the fold is remembered open; Xerrada has `#chat-scene` and `#chat-voice`,
-`xerrada:chats` opens to the chat and the chat backs to *‹ Xerrada*; About
+`xerrada:chats` opens to the chat and the chat backs to *‹ Chat*; About
 me's `about:cards` reads *3 cards* shut with `#about-practise` outside it;
 and the home page does not scroll sideways at 390. Neither sister fork has
 the reader or the chat; the folds and the Stop would port whole.
@@ -1091,8 +1128,14 @@ ground rather than on a banner.
   the photo it was handed over as and saved as `docs/icons/crest.png` at
   160px, which is enough for 34px at 3x. It is in the service worker's
   precache list, so it is on the phone offline like the parrot is over there.
-  It is the *header* logo only: the app icons in `docs/icons/` are still
-  Xerra's, and the `<title>`, the manifest and this file's heading still say
+  It is the header logo **and the tab icon**: `<link rel="icon">` points at
+  `icons/crest.png`, because the little bird was what showed on a Safari page
+  and the crest is what the app looks like everywhere else — reported that way
+  from the phone. One line and no new asset: the crest is 160px, which is
+  plenty for a favicon, it carries an alpha channel already, and it is in the
+  service worker's precache list. The *app* icons in `docs/icons/` are still
+  Xerra's bird — `apple-touch-icon` (the home screen) and the manifest's three
+  — and the `<title>`, the manifest and this file's heading still say
   Xerra. Renaming the app outright is a separate decision, and the manifest's
   `short_name` is what the phone's home screen prints.
 - **The language line went under the header.** *Català · 243 phrases ready*
@@ -1351,6 +1394,35 @@ box is empty and the matching phrases once it isn't. Three things had to come wi
 The search box writes `state.search`, so a full `render()` (a star toggled in
 the sheet, a phrase deleted) doesn't throw the query away. Folds are ignored
 while searching rather than opened — same invariant as before, less machinery.
+
+### A search has a way out of it
+
+Reported as *"once I've searched for a phrase there's no way to go back"*, and
+it was exactly that: results replace whatever the page was showing — the tiles
+on the home page, the deck list inside a section — and the only thing that put
+them back was emptying the box. On the home page the box sits *under* the
+results (the four squares are what the page is for, so they go on top), which
+means that after a search of any length the one control that undoes it has
+scrolled off the bottom.
+
+So `searchResults` leads with a **back link naming where the results came
+from** — *‹ Home* from the tiles, *‹ All Phrases* or *‹ Grammar* from inside a
+section — in the same `‹ Somewhere` shape every other page in the app prints,
+with the match count beside it. `[data-search-clear]` is wired in `wire(list)`
+with the tile and fold handlers, and it empties `state.search` **and the box by
+hand**, since `paint()` rewrites the list and not the input. It is printed on
+the empty result too: *Nothing matches* is the state you most want out of.
+
+Not a native `type="search"` clear button doing the job: iOS draws one, it is
+small, it is at the far end of a field you may not be looking at, and it says
+*clear this box* rather than *go back*. Both sister forks have the same search
+box under the same tiles and want this.
+
+Worth asserting: typing into `#search` from the tiles prints one `.search-back`
+whose link reads *‹ Home* and whose count reads *3 matches*, with no `.tile` on
+screen; `[data-search-clear]` puts the tiles back and empties `#search`; inside
+`[data-section="phrases"]` the link reads *‹ All Phrases* and clearing it brings
+the deck rows back; and a query matching nothing still carries the link.
 
 ### A deck row opens, and a card in it drills
 
@@ -3828,7 +3900,7 @@ the parser losing a block to a formatting change.
 - **Home is the brand header — the colla's crest and *fin·o·lingo* — over
   eight squares**: the sister apps' six in their order — Practice, Vocab,
   About me, Real life, Grammar, All Phrases — then Listen & read and
-  Xerrada, which grew out of Real life (see *Eight squares*). **Practice is
+  Chat, which grew out of Real life (see *Eight squares*). **Practice is
   the forks' winding path**, built from the
   everyday decks five cards to a lesson, with ticks in `xerra.progress` and a
   completion screen (`practiceUnits`, `startLesson`, `finishLesson`,
@@ -3847,11 +3919,13 @@ the parser losing a block to a formatting change.
   it yourself with a tap on any word you are stuck on, write what you think it
   says, and only then see the English — then keep the stock phrases as cards
   in the language's `Missatges` deck and write your reply, which comes back
-  corrected. `renderMessage` and `glossSegments` in app.js, `messages` and
+  corrected — with an Ask panel at the foot of every text the page shows, after
+  the reveal. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
   (additive; `worker/tools/message-test.mjs`).
-- **Xerrada** is the conversation had before it is had for real, and a tile
-  of its own (key `xerrada`) since *Eight squares*; it was the third face of
+- **Chat** is the conversation had before it is had for real, and a tile
+  of its own (key `xerrada`, titled *Xerrada* until it was renamed on request)
+  since *Eight squares*; it was the third face of
   **Real life** — the tile that was Quick, renamed because a phrase to say,
   a message to read and a chat to have are all the language meeting real
   people; Real life's key and deck are still `quick` / `Quick`. Pick a scene
@@ -3974,7 +4048,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v97 / `xerra-v97` — `js/version.js` first, `sw.js` second, as ever.
+- v98 / `xerra-v98` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

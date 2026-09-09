@@ -1265,7 +1265,7 @@ const TILES = [
      pages rather than lists, like About me, so `renderPractice` never sees
      their keys. */
   { key: "reader", title: "Listen & read", blurb: "Radio, articles, stories, your books", colour: "purple" },
-  { key: "xerrada", title: "Xerrada", blurb: "Rehearse a conversation", colour: "green" },
+  { key: "xerrada", title: "Chat", blurb: "Rehearse a conversation", colour: "green" },
 ];
 
 const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
@@ -1988,20 +1988,35 @@ function renderPractice(section = null) {
       (phrase.sounds ?? "").toLowerCase().includes(query);
 
     const hits = phrases.filter(match);
-    if (!hits.length) return `<div class="empty"><p>Nothing matches.</p></div>`;
+    /* The way back out. Results replace whatever the page was showing — the
+       tiles on the home page, the deck list inside a section — and the only
+       thing that put them back was emptying the search box, which on the home
+       page sits *under* the results and is scrolled off the moment there are
+       more than a screenful. Reported as there being no way back from a
+       search. So the results lead with a back link naming where they came
+       from, the same `‹ Somewhere` shape every other page prints. */
+    const backOut = `
+      <div class="search-back">
+        <button class="link" data-search-clear="1">‹ ${esc(section ? TILE_BY_KEY[section].title : "Home")}</button>
+        <span class="tiny muted">${hits.length} match${hits.length === 1 ? "" : "es"}</span>
+      </div>`;
+    if (!hits.length) return `${backOut}<div class="empty"><p>Nothing matches.</p></div>`;
 
     const groups = new Map();
     for (const phrase of hits) {
       if (!groups.has(phrase.deck)) groups.set(phrase.deck, []);
       groups.get(phrase.deck).push(phrase);
     }
-    return [...groups]
-      .map(
-        ([deck, found]) => `
+    return (
+      backOut +
+      [...groups]
+        .map(
+          ([deck, found]) => `
           <div class="section-label inked hue-${deckColour(deck)}">${esc(deck)}</div>
           <div class="rows rows-spaced">${found.map(phraseRow).join("")}</div>`
-      )
-      .join("");
+        )
+        .join("")
+    );
   }
 
   function wire(list) {
@@ -2016,6 +2031,17 @@ function renderPractice(section = null) {
         render();
       })
     );
+
+    // Out of a search and back to whatever the page was showing. The box is
+    // emptied by hand as well as `state.search`, since paint() rewrites the
+    // list and not the box.
+    list.querySelector("[data-search-clear]")?.addEventListener("click", () => {
+      state.search = "";
+      search.value = "";
+      search.blur();
+      paint();
+      window.scrollTo(0, 0);
+    });
 
     list.querySelectorAll("[data-fold]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -2435,7 +2461,7 @@ function renderXerrada() {
     ${
       settings.hasAssistant
         ? chatStarter()
-        : `<div class="notice">Xerrada needs the card assistant. Set it up in Settings and this becomes a
+        : `<div class="notice">Chat needs the card assistant. Set it up in Settings and this becomes a
              conversation partner who speaks only ${esc(LANGUAGES[settings.language].englishName)} to you.</div>`
     }
     <div id="quick-chats"></div>`;
@@ -2466,7 +2492,7 @@ function renderXerrada() {
               <div class="row striped hue-green">
                 <button class="row-open" data-chat-open="${esc(item.id)}">
                   <span class="row-main">
-                    <span class="row-title">${esc(item.scene.title || "Xerrada")}</span>
+                    <span class="row-title">${esc(item.scene.title || TILE_BY_KEY.xerrada.title)}</span>
                     <span class="row-sub">${esc(
                       item.ended
                         ? `${said} line${said === 1 ? "" : "s"} · finished`
@@ -2553,6 +2579,44 @@ function glossSegments(text, glossary, language) {
   return segments;
 }
 
+/* The text on screen, shaped as the card the tutor expects, so the ask panel
+   at the foot of the message page is the same `/chat` the drill and the phrase
+   sheet use — no Worker change, and the sister apps share the endpoint.
+
+   `text` is the message itself; the Worker caps every card field at a thousand
+   characters, so a book page reaches it as its first thousand, which is where
+   the questions come from. The English goes in as the translation because by
+   the time this panel exists it is already on the screen — this is offered
+   after the reveal, and only then. The situation says what kind of text it is
+   and where it came from, which is what tells the tutor that «escric per
+   avisar-vos» is a notice and not something said to you across a table. */
+function messageAskContext(item) {
+  const kind = item.kind || "message";
+  const source = item.source?.name ? ` from ${item.source.name}` : "";
+  const where = {
+    message: "A message somebody sent the learner, read in the app.",
+    article: `An article${source}, read in the app.`,
+    episode: `The blurb of a radio episode${source}, read in the app.`,
+    story: "A short story the app wrote for the learner to read.",
+    book: `A page${item.source?.name ? ` of «${item.source.name}»` : ""}${
+      item.source?.page ? `, page ${item.source.page}` : ""
+    }, photographed and pasted in by the learner.`,
+  }[kind] ?? "A text read in the app.";
+  return {
+    languageCode: item.language,
+    languageName: LANGUAGES[item.language]?.englishName ?? item.language,
+    deck: item.kind === "book" ? booksDeck(item.language) : messagesDeck(item.language),
+    card: {
+      text: item.text.slice(0, 1000),
+      translation: (item.read?.translation ?? "").slice(0, 1000),
+      situation: `${where} The learner is reading it, not saying it, and may ask about any word or phrase in it.`,
+      usageNote: item.read?.register ?? "",
+      focusNote: "",
+      replies: [],
+    },
+  };
+}
+
 /* A received message, read rather than translated.
 
    Everything on this page is arranged around one rule: the English is not
@@ -2583,6 +2647,8 @@ function renderMessage() {
   const revealed = item.gist !== null;
   const segments = glossSegments(item.text, item.read?.glossary, item.language);
   const opened = new Set();
+  // Whether the ask panel has been built for this render — see paintAsk.
+  let askBuilt = false;
   /* What kind of text this is. A message is the original: somebody wrote it
      to you, and it wants a reply. The reader's three — an article, an
      episode's blurb, a story the app wrote — are read the same way, with
@@ -2658,6 +2724,7 @@ function renderMessage() {
     <div id="msg-keep"></div>
     <div id="msg-words"></div>
     <div id="msg-reply-card"></div>
+    <div id="msg-ask" hidden></div>
     <div class="btn-row" style="margin-top:18px">
       <button class="link btn-danger" id="msg-forget">${reading ? "Forget this" : "Forget this message"}</button>
     </div>`;
@@ -2725,6 +2792,7 @@ function renderMessage() {
   paintKeep();
   paintWords();
   paintReply();
+  paintAsk();
 
   function paintGist() {
     const box = document.getElementById("msg-gist-card");
@@ -2770,6 +2838,7 @@ function renderMessage() {
     paintKeep();
     paintWords();
     paintReply();
+    paintAsk();
     document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -2981,6 +3050,34 @@ function renderMessage() {
     document.getElementById("msg-reply-keep")?.addEventListener("click", (event) =>
       keepFromMessage(reply, item, event.currentTarget, "reply")
     );
+  }
+
+  /* Ask about it, at the foot of the page — the drill's panel, the phrase
+     sheet's and the chat's, on the text you are reading. Asked for as wanting
+     an ask section in the reading pages: the tap-a-word gloss answers "what
+     does this word mean" and nothing answered "why is it *vos* here" or "what
+     tense is escric".
+
+     It waits for the reveal, and that is the same line every other ask box in
+     this app is drawn on: the English is withheld until you have written what
+     you think the text says, and a box that will translate the whole thing for
+     you sitting under an unread message is the way round the only gate this
+     page has. Before the reveal you have the glosses, which are word-sized and
+     counted; after it you are checking, and the questions are the interesting
+     part. `I can't tell — just show me` is one tap away either way. */
+  function paintAsk() {
+    const box = document.getElementById("msg-ask");
+    if (item.gist === null || !settings.hasAssistant) {
+      box.innerHTML = "";
+      box.hidden = true;
+      askBuilt = false;
+      return;
+    }
+    // The panel holds its own conversation, so it is built once — a second
+    // call would throw away what has been asked.
+    if (askBuilt) return;
+    askBuilt = true;
+    cardChatPanel(box, "Ask about a word or a phrase", () => messageAskContext(item));
   }
 
   async function sendReply(draft) {
@@ -4274,7 +4371,7 @@ function renderChat() {
   view.innerHTML = `
     ${pageHead(
       "xerrada",
-      item.scene.title || "Xerrada",
+      item.scene.title || TILE_BY_KEY.xerrada.title,
       item.ended ? "How it went" : item.scene.character ? `With ${item.scene.character}` : `Rehearsing it in ${language.name}`,
       `<button class="link" id="chat-back">‹ ${esc(TILE_BY_KEY.xerrada.title)}</button>`
     )}
