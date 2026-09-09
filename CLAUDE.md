@@ -3785,8 +3785,36 @@ stands behind the ask box's gate (the chips print the phrase) and road mode
 takes it off; without a key there is nothing to check, so it is not offered.
 The six *Em* phrases in the library all have Em before a consonant — four
 before *pot*, where the m and the p are one lip closure and the m has no
-release of its own — and the guess is that those are the ones that fail;
-this is the button that says.
+release of its own — and the guess was that those are the ones that fail.
+
+**What the button found, and what was built on it and taken down again.**
+Two screenshots from the phone: Enric's own **Em** in *Em lligues la faixa*
+scores 56, its two sounds 60 and 0 — Azure hears no m in it at all — and
+his **entenc** in *Ho entenc, però no sé com dir-ho* scores 67, its last
+three sounds 66, 21 and 0, while the learner scored 93 on the same phrase.
+Enric says *ən-TENG* with no released k, exactly as the card's Listen for
+note teaches; Azure's Catalan dictionary expects the k; the learner reads
+the spelling and says one. The assessment is not a comparison with the
+model — it scores each sound against Azure's own dictionary, and the neural
+voice is a separate product with its own idea of Catalan — so on the few
+words where the two disagree the number is about the dictionary, not the
+mouth, and a learner can "beat" the model by being less native. The check
+card says so in as many words now, and numbers the sounds, since Azure
+names no phonemes for Catalan (*sound by sound: 1 60 · 2 0*; the drill's
+phoneme box numbers them the same way).
+
+On that finding, v105 calibrated the dial: the model's own per-word scores
+kept per phrase and voice, and a word the model itself scored under 90
+greyed on the chips and left out of the weakest-word rule, so that level
+two and Review followed. It was on the phone for an hour and **withdrawn on
+request** — *"I'm not sure I like that. Rollback the greying out of words.
+But leave me the check button."* — as v106, a revert of #91. The dial is
+the plain weakest word again, and the check card is the manual version of
+the same information: press it on a phrase you are having trouble with,
+and if the model fails the word too, that is the scorer. The whole of the
+calibration is one commit in git (`calibration` in store.js,
+`calibratePhrase` and `uncountedWords`) if it is ever wanted back; the
+notes it carried are in that commit's version of this file.
 
 Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
 `#s-scorer-check` without a key; with one it is offered and makes no call

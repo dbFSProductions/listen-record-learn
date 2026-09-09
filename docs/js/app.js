@@ -6915,7 +6915,7 @@ function cardCheckBlock() {
       <p class="tiny muted" style="margin:0 0 10px">
         Scores the model's own voice on this phrase through the same pipeline — no mic, no room.
         Clear here, and a lower score on your take is the air between you and the phone. Low here,
-        and Azure can't hear that word even from its own voice.
+        and Azure's dictionary disagrees with the voice on that word — the number is about the dictionary, not you.
       </p>
       <button class="btn" data-check-go style="width:100%">Check this card</button>
       <div data-check-runs></div>
@@ -6955,7 +6955,10 @@ function cardCheckRun(result) {
   const sounds = weak
     .map((word) => {
       const phonemes = (word.phonemes ?? []).filter((p) => typeof p.score === "number");
-      return phonemes.length ? `${esc(word.word)}: ${phonemes.map((p) => `${esc(p.phoneme)} ${Math.round(p.score)}`).join(" · ")}` : "";
+      // Azure names no phonemes for Catalan, so the sounds are numbered.
+      return phonemes.length
+        ? `${esc(word.word)}, sound by sound: ${phonemes.map((p, i) => `${esc(p.phoneme || String(i + 1))} ${Math.round(p.score)}`).join(" · ")}`
+        : "";
     })
     .filter(Boolean)
     .join("; ");
@@ -6964,8 +6967,8 @@ function cardCheckRun(result) {
     score >= GOOD
       ? "Clear. The app and Azure hear this phrase — a lower score on a take of yours is the air between you and the phone."
       : weak.length
-      ? `Azure marks ${names} down on its own voice, so no take will score it reliably. That is the scorer, not you.`
-      : "Below the line on its own voice — that is the scorer, not you.";
+      ? `Azure's dictionary and the voice disagree on ${names}: the model itself scores ${Math.round(score)} there. That is the scorer, not you.`
+      : "Below the line on its own voice — the dictionary and the voice disagree somewhere here. That is the scorer, not you.";
   return `
     <div class="check-run">
       <div class="score-head">
@@ -7462,8 +7465,8 @@ function wireComparison() {
           <div class="tiny muted" style="margin-bottom:6px">Sounds in “${esc(word.word)}”</div>
           ${word.phonemes
             .map(
-              (p) =>
-                `<span class="phoneme"><code>${esc(p.phoneme)}</code><span style="color:${scoreColour(
+              (p, i) =>
+                `<span class="phoneme"><code>${esc(p.phoneme || String(i + 1))}</code><span style="color:${scoreColour(
                   p.score
                 )}">${p.score == null ? "" : Math.round(p.score)}</span></span>`
             )
