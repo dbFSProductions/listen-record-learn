@@ -13,6 +13,40 @@ up an Azure key; it isn't repeated here.
 
 ---
 
+## Work is not finished until it is on `main`
+
+**If you want the owner to try something, put it on `main`.** Not on a branch,
+not on a branch with a pull request open, not "pushed and ready to merge" —
+merged, so GitHub Pages rebuilds and the phone can be reloaded onto it.
+
+This is not a preference about tidiness. It is the whole shape of this project:
+the only device that matters runs the published Pages app from `main`, the
+`docs/` tree is served straight out of that branch with no build step, and the
+notes below spell out at length why the working tree *cannot* be served to the
+phone instead — `http://192.168.x.x` is not a secure context, so there is no
+microphone and no service worker, which is most of the app. So a branch is a
+thing nobody can test. Asking "does this fix it?" while the fix sits on a branch
+is asking a question that cannot be answered, and it has been asked more than
+once.
+
+What that means in practice, every time:
+
+- **Land it, then report it.** The turn that says "this is fixed, try it" is the
+  turn after the merge, not the turn after the push. Say the two version numbers
+  in that same message — they are what the phone is checked against.
+- **A pull request is a step, never the destination.** Open one if the repo's
+  workflow wants the record (it does — every change here has arrived through
+  one), and then *merge it*. A PR left open is work that has not shipped.
+- **Re-read `main`'s two version strings at the moment of merging** and bump
+  past them, as *Running it* below insists. That check is worth most exactly
+  when several branches are in flight, which is the situation this rule creates.
+- **The exception is work that was asked for as a draft**, or that is genuinely
+  unfinished and known to be. Say so out loud when leaving it on a branch, and
+  say what is missing — silence reads as "go and look", and there is nothing to
+  look at.
+
+---
+
 ## There are two apps in this repo
 
 | | | |
@@ -3095,7 +3129,8 @@ context, and those are treated as secure. A `file://` open will not work.
 The phone runs the published GitHub Pages app
 (`https://dbfsproductions.github.io/listen-record-learn/`) — a proper secure
 context, so microphone and service worker just work. Merge to `main`, let
-Pages rebuild, reload on the phone.
+Pages rebuild, reload on the phone. **`main` is the only place anything can be
+tried from** — see *Work is not finished until it is on `main`* at the top.
 
 Don't try to serve the working tree to the phone over the LAN instead:
 `http://192.168.x.x` is **not** a secure context, so the app loads and plays
@@ -3457,6 +3492,106 @@ into the speech band. Measured, before and after:
 **audio.js is shared verbatim with both forks and both have this bug** — a
 Spanish take is downsampled by the same function, and `Me`/`Te`/`Se` are the
 same clitics. Port it, and re-verify numerically rather than by ear.
+
+### And then the card said `Em` on a hundred
+
+The aliasing fix shipped as v98 and was reported back as *"still does this"*,
+with three takes from the phone. Read as data they say something different from
+the complaint: **100, every chip green, *Every word landed*** on one; **80 with
+`a` amber and `Em` green** on the next, five minutes later; and the 46 with `Em`
+red is the *earliest* of the three. So the pipeline was behaving. What was not
+behaving was the sentence under the dial, which on the 100 read **"Your weakest
+word: 'Em'"** — the card contradicting itself in its own next line, and the
+whole of why the phone said nothing had changed.
+
+Two faults in `renderScore`, both in the four lines that pick that word:
+
+- **It named one whatever the score.** There is no weak word in a take where
+  every word cleared `GOOD`; above that line the verdict already says the right
+  thing and the sentence is now just *Scored by Azure*. The chat's own
+  `practiceResult` has always had exactly this guard (`score >= GOOD` → *Every
+  word cleared 90*, no name) — the drill was the odd one out, so this is
+  bringing it into line rather than inventing a rule.
+- **A tie handed back the first word of the phrase.** `sort` is stable, so with
+  every word on 100 the "weakest" was whichever came first in `attempt.words` —
+  the first word, every time. On a library where a great many phrases open on a
+  clitic, that printed `Em` again and again on takes where `Em` was tied with
+  everything else at the top. It names **every** word on the minimum now (*your
+  weakest words: «a» and «la»*), or none when more than three of them tie, at
+  which point the whole phrase is the finding and the verdict is saying so. The
+  `Omission` wording survives for the group.
+
+**The deeper thing this exposed is not a bug**, and was not changed here: the
+dial is the lowest word, a one- or two-phoneme clitic has nothing to average
+against, and its score is therefore both the noisiest number in the attempt and
+the one the dial reports. `Em`, `a`, `la`, `si`, `us` will keep landing on the
+dial. That is *the score is your weakest word* working exactly as that section
+argues, and changing it is a decision for the owner, not a fix — the options, if
+it ever is wanted, are to weight a word by how many phonemes Azure scored in it,
+or to exempt one-phoneme function words from the dial while still chipping them.
+
+**The lesson is about reading the report against the screenshots.** "Still does
+this" named the audio, and the audio was fixed; what had never been fixed was
+the app agreeing out loud that `Em` was the problem. A number and a sentence
+that disagree will be believed as the sentence.
+
+Worth asserting, with `scoring.score` stubbed: every word at 100 reads 100,
+*Every word landed*, **no** *weakest word* naming and still *Scored by Azure*;
+92 and 97 name none either (the 90-band verdict still says *even your weakest
+word is close*, which names nothing); 95/71/90 names *«dia»* and not *«Em»*;
+71/71/95 reads *your weakest words: «Em» and «dia»*; an `Omission` still reads
+*didn't come out at all*; and four words tied at 40 name none.
+
+### A quarter-second of silence, and a way to ask whose fault it is
+
+The three takes above turned out to be **all three the model played back into
+the microphone** — the same source audio every time, scoring 46, 80 and 100.
+Identical input, a 54-point spread, and the low ones landing on the first word.
+That is not a learner being inconsistent; it is either the pipeline or the room,
+and the honest position is that the app had no way to tell them apart.
+
+**Azure gets silence at each end now.** `AZURE_PAD` (0.25 s) is added inside
+`toWav16k`, after the resample. A recogniser decides where speech *starts*
+before it decides what it is, and a clip that opens on the first phoneme gives
+its endpointer nothing to settle against — so the first word pays, which is the
+word this app kept being asked about. How much lead-in a take actually has is
+not the app's to control: it is the gap between the tap and the first sound,
+plus however long iOS takes to bring the capture session up, and it differs
+every time. Padding takes that variable out — every clip now reaches Azure with
+the same quiet run-up however quick the tap was. Silence at the ends is not a
+pause in the middle, so fluency is untouched; the samples between the pads are
+the same samples in the same order. The tail is padded for `TAIL_PAD`'s reason:
+these decks teach final consonants and the release of a final -t sits at the
+very edge of a clip that stopped when the speaker did.
+
+**And Settings can now run the test without the room in it.** `scorerCheckPanel`
+scores the model's own bytes against the model's own words — the same
+`toWav16k`, resampler, padding and Azure call, with no microphone, no speaker
+and no air anywhere. Three phrases rather than one, because the question is
+really about *variance*: three high numbers that agree mean the pipeline is
+repeatable and a lower score on a real take is the room; numbers that disagree
+are a bug in here. It prints the spread and the low, and names the weakest word
+on anything under `GOOD`. Behind a button and only with a key, and it is the
+audio half of what `aiLog` is for the assistant.
+
+**Why the speaker-into-microphone test cannot answer the question**, and should
+not be run again expecting it to: iOS reroutes playback while a capture session
+is open (usually to the earpiece, quieter), `echoCancellation` is off here by
+design, and the level, the distance and the clipping differ on every go. It is
+the noisiest possible input dressed up as a controlled one. The panel above is
+the same idea with the confound removed.
+
+Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
+`#s-scorer-check` without a key; with one it is offered and makes no call until
+pressed; pressing it makes three TTS fetches and three scoring calls, each
+phrase scored against its own text, and prints three `.version-row`s; 99/97/98
+reads *the pipeline is sound* and names no weakest word; 46/80/99 reads the
+spread and the low, says *worth reporting*, and names the weak word on the low
+ones; a scorer returning null prints dashes and the error rather than nothing;
+and the button comes back reading *again*. For the padding: a 1.0 s clip comes
+out 1.5 s at 16 kHz with the first and last 200 ms silent, the speech at its
+full level immediately after the pad, and the alias rejection and the 150 Hz
+tone exactly as they were. Both would port to the forks whole.
 
 ### One detector, used three times
 
@@ -4117,7 +4252,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v98 / `xerra-v98` — `js/version.js` first, `sw.js` second, as ever.
+- v100 / `xerra-v100` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

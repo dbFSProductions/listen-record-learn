@@ -604,7 +604,39 @@ export async function toWav16k(blob) {
   const { samples, sampleRate } = await monoSamples(blob);
   const target = 16000;
   const resampled = resampleTo(samples, sampleRate, target);
-  return encodeWav(resampled, target);
+  return encodeWav(padEnds(resampled, target), target);
+}
+
+/* A quarter of a second of silence at each end of what Azure is given.
+
+   A recogniser decides where speech starts before it decides what it is, and
+   a clip that opens on the first phoneme gives its endpointer nothing to
+   settle against — so the first word is the one that pays, which is exactly
+   the word this app kept being asked about. How much lead-in a take actually
+   has is not something the app controls: it is the gap between the tap on the
+   record button and the first sound, plus however long iOS takes to bring the
+   capture session up, and it is different every time. That is variance in what
+   Azure sees on takes that ought to be identical, and it lands on the first
+   word. Padding takes the variable out: every clip now arrives with the same
+   quiet run-up, however quick the tap was.
+
+   Silence at the ends is not a pause in the middle, so fluency is untouched;
+   the reference text and the word list are unchanged; and the samples between
+   the pads are the same samples in the same order, so nothing about the speech
+   itself is altered. It is the cheapest thing in the pipeline and the only
+   part of it that is about how a recogniser works rather than how audio does.
+
+   The tail is padded for the reason `TAIL_PAD` exists in playback: these decks
+   teach final consonants, and the release of a final -t sits at the very edge
+   of a clip that stopped when the speaker did. */
+const AZURE_PAD = 0.25;
+
+function padEnds(samples, rate) {
+  const pad = Math.round(AZURE_PAD * rate);
+  // A Float32Array is born zeroed, so the pads are silence already.
+  const padded = new Float32Array(pad + samples.length + pad);
+  padded.set(samples, pad);
+  return padded;
 }
 
 /* This is the one place in the app that *down*samples, and it used to do it by
