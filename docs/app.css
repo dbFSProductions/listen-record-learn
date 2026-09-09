@@ -648,6 +648,17 @@ button { font: inherit; }
   margin: 0 0 14px;
 }
 
+/* The way out of a search. Results replace the tiles or the deck list, and on
+   the home page the search box is under them — so this is the only thing on
+   screen that puts back what was there. */
+.search-back {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 4px 10px;
+}
+
 /* ------------------------------------------------------------------ drill */
 
 .drill-text {

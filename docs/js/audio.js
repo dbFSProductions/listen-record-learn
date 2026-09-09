@@ -603,22 +603,84 @@ export async function analyse(blob) {
 export async function toWav16k(blob) {
   const { samples, sampleRate } = await monoSamples(blob);
   const target = 16000;
-  const resampled = resampleLinear(samples, sampleRate, target);
+  const resampled = resampleTo(samples, sampleRate, target);
   return encodeWav(resampled, target);
 }
 
-function resampleLinear(samples, fromRate, toRate) {
+/* This is the one place in the app that *down*samples, and it used to do it by
+   linear interpolation alone — no low-pass first, which is the textbook way to
+   alias a signal. The phone decodes a recording at 44.1 or 48 kHz and this
+   takes it to 16 kHz, so everything the microphone picked up above 8 kHz came
+   back folded into the speech band: an 11 kHz tone reappears at 5 kHz, right
+   among the formants, and hiss spread over 8–24 kHz lands as a wash across
+   1–7 kHz. Measured before the fix, an 11 kHz tone came through 1.8 dB under
+   the 300 Hz "voice" beside it — not a subtlety, a second signal.
+
+   What that costs is worst on the quietest sounds, because the folded noise
+   does not get quieter with them: an unstressed clitic at the head of a phrase
+   (`Em`, `Et`, `Es`) is the least energetic thing in the sentence and takes
+   the same wash as the vowels. Reported from the phone as those phrases
+   scoring badly, and — the part that made it a bug rather than an opinion — as
+   Azure's *own* voice, played back into the microphone, scoring 58.
+
+   So the kernel is a Blackman-windowed sinc, cut off below the new Nyquist and
+   evaluated around each output position, which filters and resamples in one
+   pass. Only what Azure hears changes: the waveforms, the pitch track and the
+   trim all read `monoSamples` at the device's own rate and never come through
+   here. Not an OfflineAudioContext, for the reason the comment above gives.
+
+   Numbers, not eyes, for anything touched here — the checks are in the notes:
+   a 300 Hz tone through unchanged, an 11 kHz tone gone rather than folded, the
+   first and last 20 ms at full level, and the synthetic 150 Hz tone still
+   reading 150 Hz. */
+const SINC_ZEROS = 24; // zero crossings of the sinc kept each side
+const SINC_ROLLOFF = 0.9; // cutoff, as a fraction of the lower Nyquist
+const SINC_STEPS = 64; // kernel table entries per input sample
+
+function resampleTo(samples, fromRate, toRate) {
   if (fromRate === toRate) return samples;
   const ratio = fromRate / toRate;
   const length = Math.floor(samples.length / ratio);
   const output = new Float32Array(length);
+  if (!length) return output;
+
+  // Cutoff in cycles per *input* sample: the lower of the two Nyquists, held
+  // under it so the transition band is finished before the fold point.
+  const cutoff = (SINC_ROLLOFF * 0.5) / Math.max(1, ratio);
+  const half = Math.ceil(SINC_ZEROS / (2 * cutoff));
+
+  /* The kernel, on a fine grid and read by interpolation — a Math.sin per tap
+     per output sample would be a couple of million of them for a three-second
+     take. Blackman rather than Hamming: the stopband is what this is for. */
+  const table = new Float32Array(half * SINC_STEPS + 2);
+  for (let i = 0; i < table.length; i++) {
+    const x = i / SINC_STEPS;
+    const t = 2 * cutoff * x;
+    const sinc = t === 0 ? 1 : Math.sin(Math.PI * t) / (Math.PI * t);
+    const window =
+      x >= half ? 0 : 0.42 + 0.5 * Math.cos((Math.PI * x) / half) + 0.08 * Math.cos((2 * Math.PI * x) / half);
+    table[i] = sinc * window;
+  }
+
   for (let i = 0; i < length; i++) {
-    const position = i * ratio;
-    const index = Math.floor(position);
-    const fraction = position - index;
-    const a = samples[index] ?? 0;
-    const b = samples[index + 1] ?? a;
-    output[i] = a + (b - a) * fraction;
+    const centre = i * ratio;
+    const first = Math.max(0, Math.ceil(centre - half));
+    const last = Math.min(samples.length - 1, Math.floor(centre + half));
+    let sum = 0;
+    let weight = 0;
+    for (let j = first; j <= last; j++) {
+      const step = Math.abs(centre - j) * SINC_STEPS;
+      const k = step | 0;
+      const fraction = step - k;
+      const w = table[k] + (table[k + 1] - table[k]) * fraction;
+      sum += samples[j] * w;
+      weight += w;
+    }
+    /* Divided by the weight actually used rather than by a constant, which is
+       what keeps the level right at the two ends: at the first and last output
+       samples half the kernel hangs off the clip, and a fixed divisor would
+       fade the take in and out. The first word is the one being scored. */
+    output[i] = weight ? sum / weight : 0;
   }
   return output;
 }
