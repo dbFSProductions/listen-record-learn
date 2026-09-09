@@ -4,7 +4,7 @@ import {
   library, settings, audioStore, aboutMe, aiLog, customDecks, LANGUAGES, MY_PHRASES, ABOUT_DECK, uid,
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
-  messages, messagesDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
+  messages, messagesDeck, readingDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
   books, bookStore,
 } from "./store.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
@@ -578,6 +578,45 @@ function readAloudControls({ listen, slow, stop }, textOf, language, voiceOf = (
   stop.addEventListener("click", halt);
   idle();
   return { halt };
+}
+
+/* The glossed text, as paragraphs rather than one block.
+
+   It was a single <p> with `white-space: pre-wrap`, which is right for the
+   three lines of a message somebody sent you and wrong for everything the
+   reader opens: an Easy Catalan episode's notes run to a dozen paragraphs,
+   and a wall of them with nothing but a line break between was reported from
+   the phone as hard to read. So a blank line in the source becomes a real
+   paragraph with space around it, and single newlines inside one are kept as
+   they came.
+
+   The one thing that must not change is the text itself: `glossSegments`
+   matched the glossary onto the message character for character, so the
+   segments are printed in order and only the whitespace *between* paragraphs
+   is turned into markup. `data-word` stays the segment's own index, since
+   that is what the tap handler reads. */
+function glossedParagraphs(segments) {
+  const paragraphs = [[]];
+  segments.forEach((seg, i) => {
+    if (seg.gloss !== undefined) {
+      paragraphs[paragraphs.length - 1].push(
+        `<button class="msg-word" data-word="${i}"><span class="msg-w">${esc(seg.text)}</span><span class="msg-g" hidden>${esc(
+          seg.gloss
+        )}</span></button>`
+      );
+      return;
+    }
+    const parts = String(seg.text).split(/\n[ \t]*\n[\s]*/);
+    parts.forEach((part, n) => {
+      if (n) paragraphs.push([]);
+      if (part) paragraphs[paragraphs.length - 1].push(esc(part));
+    });
+  });
+  return paragraphs
+    .map((parts) => parts.join("").replace(/^\s+|\s+$/g, ""))
+    .filter(Boolean)
+    .map((html) => `<p class="msg-para">${html}</p>`)
+    .join("");
 }
 
 /* The words tapped while a text's question was open, one entry per word —
@@ -1265,23 +1304,29 @@ const SECTIONS = {
    is why it carries `data-about` and not `data-section`. All Phrases is the
    whole library as one list — every deck of every section, the way the
    Practice page looked before the tiles — with the search box on top. */
+/* The eight squares, in the order they are reached for.
+
+   They were the sister apps' six followed by the two that grew out of Real
+   life, which put About me and All Phrases in the second row — and both are
+   the least-used squares on the page: the interview is a thing you do once,
+   and the whole library as one list is what you fall back to when the search
+   box hasn't found it. Asked for from the phone as putting the two at the
+   bottom. So the six that get daily use come first and those two close the
+   grid. Nothing downstream reads this order — `sectionOf` decides what is
+   behind a tile and `TILE_BY_KEY` is what names it — so reordering is a
+   reordering and nothing else.
+
+   Both new-comers are pages rather than lists, like About me, so
+   `renderPractice` never sees their keys. */
 const TILES = [
   { key: "decks", title: "Practice", blurb: "The everyday decks", colour: "blue" },
   { key: "vocab", title: "Vocab", blurb: "A word, a sound, a picture", colour: "purple" },
-  { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
   { key: "quick", title: "Real life", blurb: "A phrase you need, a message you got", colour: "orange" },
   { key: "grammar", title: "Grammar", blurb: "Tenses, mood, the little words", colour: "gold" },
-  { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
-  /* The two that grew out of Real life. It held four things — a phrase, a
-     message, a chat and the whole reader — and the reader was reported as
-     feeling top-level while About me's square was nearly empty, so the
-     rehearsal chat and Listen & read are squares of their own and Real life
-     keeps the two boxes it started with. Eight squares, four rows; the
-     sister apps' six keep their order and these two sit under them. Both are
-     pages rather than lists, like About me, so `renderPractice` never sees
-     their keys. */
   { key: "reader", title: "Listen & read", blurb: "Radio, articles, stories, your books", colour: "purple" },
   { key: "xerrada", title: "Chat", blurb: "Rehearse a conversation", colour: "green" },
+  { key: "about", title: ABOUT_DECK, blurb: "Cards written about you", colour: "green" },
+  { key: "phrases", title: "All Phrases", blurb: "Every card, searchable", colour: "blue" },
 ];
 
 const TILE_BY_KEY = Object.fromEntries(TILES.map((tile) => [tile.key, tile]));
@@ -1610,8 +1655,14 @@ function renderPractice(section = null) {
 
   /* Spaced repetition's one visible surface on the home page: how many
      phrases have come round, and a way to start on them. Nothing when nothing
-     is due — a strip reading "0 due" would be a nag — and purple, because
-     purple is what memory looks like in this app (the level-two badge). */
+     is due — a strip reading "0 due" would be a nag.
+
+     It was purple, because purple is what memory looks like in this app (the
+     level-two badge) — but on *this* page purple is also two of the eight
+     squares it sits above, so the one thing that is not a tile read as one.
+     Reported from the phone as wanting it a different colour. Teal is the
+     only strong colour in the palette that no tile wears; it is quiet mode's
+     elsewhere, and the two never share a screen. */
   function dueStrip() {
     const due = library.due(settings.language).length;
     if (!due) return "";
@@ -1734,7 +1785,7 @@ function renderPractice(section = null) {
                is due, like the strip on the home page. */
             due.length
               ? `<div class="node-slot" style="--offset:${favourites.length ? 1 : 0}">
-                   <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--purple);--node-dark:var(--purple-dark)" aria-label="Review what is due">
+                   <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--teal);--node-dark:var(--teal-dark)" aria-label="Review what is due">
                      ${CLOCK_SVG}
                    </button>
                    <div class="node-title">Review · <strong>${due.length}</strong> due</div>
@@ -2623,7 +2674,12 @@ function messageAskContext(item) {
   return {
     languageCode: item.language,
     languageName: LANGUAGES[item.language]?.englishName ?? item.language,
-    deck: item.kind === "book" ? booksDeck(item.language) : messagesDeck(item.language),
+    deck:
+      item.kind === "book"
+        ? booksDeck(item.language)
+        : (item.kind || "message") === "message"
+        ? messagesDeck(item.language)
+        : readingDeck(item.language),
     card: {
       text: item.text.slice(0, 1000),
       translation: (item.read?.translation ?? "").slice(0, 1000),
@@ -2651,7 +2707,8 @@ function messageAskContext(item) {
    what changed. Producing it and then seeing the correction is the learning;
    being handed a reply to copy would be Google Translate again.
 
-   What you keep lands in the language's Missatges deck (`messagesDeck`), an
+   What you keep lands in the language's own deck for the kind of text it is
+   — Missatges, Llibres or Lectures (`keepFromMessage` picks) — an
    ordinary deck like Quick's, and the message itself stays in `messages` with
    your reading and your reply on it. */
 function renderMessage() {
@@ -2731,15 +2788,7 @@ function renderMessage() {
         : ""
     }
     <div class="card message-card striped hue-${reading ? "purple" : "orange"}">
-      <p class="msg-text" lang="${esc(item.language)}">${segments
-        .map((seg, i) =>
-          seg.gloss !== undefined
-            ? `<button class="msg-word" data-word="${i}"><span class="msg-w">${esc(seg.text)}</span><span class="msg-g" hidden>${esc(
-                seg.gloss
-              )}</span></button>`
-            : esc(seg.text)
-        )
-        .join("")}</p>
+      <div class="msg-text" lang="${esc(item.language)}">${glossedParagraphs(segments)}</div>
       <p class="small muted msg-hint">${
         revealed
           ? ""
@@ -3057,20 +3106,27 @@ function renderMessage() {
       return;
     }
     const deck = readingWordsDeck(item.language);
+    /* The ones already filed sink to the bottom and stop offering a button —
+       the same separation the book pages make with two folds. One page's
+       worth is short enough not to need folding on top of that. */
+    const order = [...looked.keys()].sort(
+      (a, b) => Number(replyKept({ text: looked[a].text })) - Number(replyKept({ text: looked[b].text }))
+    );
     box.innerHTML = `
       <div class="section-label">Words you looked up</div>
       <p class="small muted" style="margin:-4px 4px 10px">Keep one and it lands in <b>${esc(deck)}</b>, under Vocab, where a picture can be hung on it.</p>
       <div class="rows rows-spaced">
-        ${looked
-          .map((word, i) => {
+        ${order
+          .map((i) => {
+            const word = looked[i];
             const kept = replyKept({ text: word.text });
             return `
-          <div class="row striped hue-purple book-word">
+          <div class="row striped hue-${READER_HUE.words} book-word">
             <button class="star" data-say-word="${i}" aria-label="Listen to ${esc(word.text)}">▶</button>
             <span class="row-main">
               <span class="row-title" lang="${esc(item.language)}">${esc(word.text)} <span class="book-word-gloss">${esc(word.gloss)}</span></span>
             </span>
-            <button class="link book-keep" data-keep-word="${i}" ${kept ? "disabled" : ""}>${kept ? "Kept ✓" : "Keep"}</button>
+            ${kept ? `<span class="tiny muted">Kept ✓</span>` : `<button class="link book-keep" data-keep-word="${i}">Keep</button>`}
           </div>`;
           })
           .join("")}
@@ -3207,11 +3263,19 @@ function renderMessage() {
   }
 }
 
-/* One tap from a phrase in a message to a card of its own — `keepReply`'s
-   shape, with the message as the situation, because where you read this is
+/* One tap from a phrase in a text to a card of its own — `keepReply`'s
+   shape, with the text as the situation, because where you read this is
    exactly what a situation is for. A phrase goes with its `why` as the usage
-   note; the reply you sent goes with the message it answered. Both land in
-   the language's Missatges deck. */
+   note; the reply you sent goes with the message it answered.
+
+   Where it lands follows what you were reading, and there are three answers
+   rather than two: a book page goes to Llibres, a message somebody sent you
+   to Missatges, and anything you opened from the reader — an article, an
+   episode's blurb, a story — to Lectures. That third one used to go to
+   Missatges as well, and it was wrong in the one way a deck name can be:
+   a stock phrase out of a Sàpiens piece is not a message anybody sent.
+   Reported from the phone as the kept things also being saved in the
+   messages deck. */
 function keepFromMessage(entry, item, button, kind = "phrase") {
   const text = entry.text?.trim();
   const translation = entry.translation?.trim();
@@ -3226,8 +3290,10 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
     return;
   }
   const book = item.kind === "book" ? item.source?.name || item.title || "" : "";
-  const deck = book ? booksDeck(item.language) : messagesDeck(item.language);
+  const read = !book && (item.kind || "message") !== "message";
+  const deck = book ? booksDeck(item.language) : read ? readingDeck(item.language) : messagesDeck(item.language);
   const about = firstLine(item.gist || item.read?.translation || item.text, 90);
+  const where = item.source?.name ? `${item.source.name}: ` : "";
   library.add({
     text,
     translation,
@@ -3235,6 +3301,8 @@ function keepFromMessage(entry, item, button, kind = "phrase") {
     language: item.language,
     situation: book
       ? `From «${book}»${item.source?.page ? `, page ${item.source.page}` : ""}.`
+      : read
+      ? `${item.kind === "story" ? "From a story" : `From ${where}`}«${item.title || about}».`
       : kind === "reply"
       ? `Your reply to a message: “${about}”`
       : `From a message you received: “${about}”`,
@@ -3292,14 +3360,8 @@ const READER_SOURCES = [
   {
     key: "easy-catalan",
     name: "Easy Catalan",
-    blurb: "Two hosts chatting about everyday life, at natural speed, for learners. Play an episode here; open it to read the blurb with a tap on any word.",
+    blurb: "Two hosts chatting about everyday life, at natural speed, for learners. Play an episode here; open it to read the notes with a tap on any word.",
     kind: "episode",
-  },
-  {
-    key: "beteve",
-    name: "betevé",
-    blurb: "Barcelona's own news, a short piece at a time — the register of a notice on a wall. Open one to read it the way you read a message.",
-    kind: "article",
   },
   {
     key: "beteve-radio",
@@ -3314,19 +3376,47 @@ const READER_SOURCES = [
     kind: "episode",
   },
   {
+    key: "beteve",
+    name: "betevé",
+    blurb: "Barcelona's own news, a short piece at a time — the register of a notice on a wall. Open one to read it the way you read a message.",
+    kind: "article",
+  },
+  {
     key: "sapiens",
     name: "Sàpiens",
     blurb: "The history magazine. Open a piece to read it the way you read a message.",
     kind: "article",
   },
 ];
+
+/* Listening and reading are two different acts and the page had them
+   interleaved — a podcast, a news site, another podcast — with nothing
+   saying which was which. Reported from the phone as no separation between
+   the read and the listen features, and as wanting the listening on top:
+   it is the half you can do on a walk, and it is the half this app was
+   short of. So the page runs Listen, then Read, then your books, and a
+   source's `kind` is what sorts it — an episode has audio, an article
+   hasn't, which is exactly the distinction. `mode` is derived rather than
+   declared, so a source added to `FEEDS` cannot land in the wrong half. */
+const listenSources = () => READER_SOURCES.filter((source) => source.kind === "episode");
+const readSources = () => READER_SOURCES.filter((source) => source.kind !== "episode");
+
+/* Each part of the reader wears its own colour, because "everything seems to
+   be purple" was the reading of a page whose every row — a podcast, a news
+   piece, a book, a word — was the reader's own hue. Purple stays on what you
+   *read*, since that is the tile's colour; listening is blue, your books are
+   orange, and the words you looked up are green, which is where they are
+   filed (Vocab is purple, but a word row on this page is about the reading
+   it came from). Nothing else in the app reads these; they are the striped
+   row idiom, one level of grouping up. */
+const READER_HUE = { listen: "blue", read: "purple", books: "orange", words: "green" };
 const STORY_IDEAS = ["A moment from Catalan history", "How castells began", "Horta a hundred years ago", "A Saturday at the market"];
 
 /* One folded section of the reader — `foldCard` under the reader's namespace.
    It was `readerFold` with a listener of its own on `view`, which is the bug
    the delegated listener's comment describes. */
-function readerFold(key, title, sub, body) {
-  return foldCard(`reader:${key}`, title, sub, body);
+function readerFold(key, title, sub, body, hue = null) {
+  return foldCard(`reader:${key}`, title, sub, body, { hue });
 }
 
 function feedSub(source, data) {
@@ -3372,46 +3462,62 @@ function renderReader() {
       "Escolta i llegeix — the input half of learning",
       `<button class="link" id="reader-back" data-go-home="1">‹ Home</button>`
     )}
-    <div class="card">
-      <label class="field"><span>A story written for you, in ${esc(language.englishName)}. What about?</span>
-        <textarea id="story-topic" lang="en-GB" rows="1"></textarea></label>
-      <div class="ideas">${STORY_IDEAS.map((idea) => `<button class="idea" data-idea="${esc(idea)}">${esc(idea)}</button>`).join("")}</div>
-      <button class="btn btn-primary" id="story-go" style="width:100%">Write me a story</button>
-      <div class="notice bad" id="story-error" hidden></div>
-    </div>
-    <div class="card" id="epub-card">
-      <p class="small" style="margin:0 0 8px"><b>Read a whole book.</b> An EPUB you own — DRM-free or watermarked. It is read here on the phone and never uploaded.</p>
-      <label class="btn btn-primary" id="epub-pick-label" for="epub-pick" style="width:100%;text-align:center">Import an EPUB</label>
-      <input type="file" id="epub-pick" accept=".epub,application/epub+zip" hidden>
-      <p class="tiny muted" style="margin:8px 0 0">Glossed a page at a time as you reach it, never up front — so a book you don't finish only costs the pages you read.</p>
-      <div class="notice bad" id="epub-error" hidden></div>
-    </div>
-    <div id="reader-books"></div>
-    ${bookCard()}
-    <div id="reader-read"></div>
     <div class="card reader-player" id="reader-player" hidden>
       <p class="reader-now" id="reader-now"></p>
       <audio id="reader-audio" controls preload="none"></audio>
     </div>
-    ${READER_SOURCES.map((source) =>
-      readerFold(
-        source.key,
-        source.name,
-        feedSub(source, feeds.get(source.key)),
-        `<p class="small muted reader-blurb">${esc(source.blurb)}</p>
-         <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`
-      )
-    ).join("")}
+    <div class="section-label">Listen</div>
+    <p class="small muted" style="margin:-4px 4px 10px">Play it here, on the walk. Open an episode to read its notes.</p>
+    ${sourceFolds(listenSources(), READER_HUE.listen)}
+    <div class="section-label">Read</div>
+    <p class="small muted" style="margin:-4px 4px 10px">Tap any word you are stuck on; the English waits until you have said what you made of it.</p>
+    ${sourceFolds(readSources(), READER_HUE.read)}
     ${
       WIKI[settings.language]
         ? readerFold(
             "wiki",
             WIKI[settings.language].name,
             `${(WIKI_SHELVES[settings.language] ?? []).length || "No"} shelves · search`,
-            wikiSection()
+            wikiSection(),
+            READER_HUE.read
           )
         : ""
-    }`;
+    }
+    <div id="reader-read"></div>
+    <div class="section-label">Books</div>
+    <div id="reader-books"></div>
+    ${bookCard()}
+    <div class="card" id="epub-card">
+      <p class="small" style="margin:0 0 8px"><b>A whole book.</b> An EPUB you own — DRM-free or watermarked. It is read here on the phone and never uploaded.</p>
+      <label class="btn" id="epub-pick-label" for="epub-pick" style="width:100%;text-align:center">Import an EPUB</label>
+      <input type="file" id="epub-pick" accept=".epub,application/epub+zip" hidden>
+      <p class="tiny muted" style="margin:8px 0 0">Glossed a page at a time as you reach it, never up front — so a book you don't finish only costs the pages you read.</p>
+      <div class="notice bad" id="epub-error" hidden></div>
+    </div>
+    <div class="section-label">Or have one written for you</div>
+    <div class="card">
+      <label class="field"><span>A story written for you, in ${esc(language.englishName)}. What about?</span>
+        <textarea id="story-topic" lang="en-GB" rows="1"></textarea></label>
+      <div class="ideas">${STORY_IDEAS.map((idea) => `<button class="idea" data-idea="${esc(idea)}">${esc(idea)}</button>`).join("")}</div>
+      <button class="btn" id="story-go" style="width:100%">Write me a story</button>
+      <div class="notice bad" id="story-error" hidden></div>
+    </div>`;
+
+  /* One fold per source, in the half it belongs to. */
+  function sourceFolds(sources, hue) {
+    return sources
+      .map((source) =>
+        readerFold(
+          source.key,
+          source.name,
+          feedSub(source, feeds.get(source.key)),
+          `<p class="small muted reader-blurb">${esc(source.blurb)}</p>
+           <div id="feed-${esc(source.key)}" class="reader-feed"><div class="empty small"><span class="spinner"></span> Loading…</div></div>`,
+          hue
+        )
+      )
+      .join("");
+  }
 
   /* Every list on this page folds behind its header — asked for as an
      accordion for the long lists. The folds are `foldCard`s, flipped by the
@@ -3465,7 +3571,7 @@ function renderReader() {
         ${read
           .map(
             (item) => `
-          <div class="row striped hue-purple">
+          <div class="row striped hue-${READER_HUE.read}">
             <button class="row-open" data-read-open="${esc(item.id)}">
               <span class="row-main">
                 <span class="row-title">${esc(item.title || firstLine(item.text, 64))}</span>
@@ -3478,7 +3584,8 @@ function renderReader() {
           </div>`
           )
           .join("")}
-      </div>`
+      </div>`,
+      READER_HUE.read
     );
     box.querySelectorAll("[data-read-open]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -3507,7 +3614,7 @@ function renderReader() {
       .map((book) => {
         const { read, lookups } = bookProgress(book);
         return `
-          <div class="row striped hue-purple">
+          <div class="row striped hue-${READER_HUE.books}">
             <button class="row-open" data-ibook="${esc(book.id)}">
               <span class="row-main">
                 <span class="row-title">${esc(book.title)}</span>
@@ -3523,7 +3630,7 @@ function renderReader() {
     const pastedRows = pasted
       .map(
         (book) => `
-          <div class="row striped hue-purple">
+          <div class="row striped hue-${READER_HUE.books}">
             <button class="row-open" data-book="${esc(book.title)}">
               <span class="row-main">
                 <span class="row-title">${esc(book.title)}</span>
@@ -3540,7 +3647,8 @@ function renderReader() {
       "books",
       "Your books",
       `${total} book${total === 1 ? "" : "s"}`,
-      `<div class="rows rows-spaced">${importedRows}${pastedRows}</div>`
+      `<div class="rows rows-spaced">${importedRows}${pastedRows}</div>`,
+      READER_HUE.books
     );
     box.querySelectorAll("[data-book]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -3571,6 +3679,11 @@ function renderReader() {
       if (!inReader() || cached) return;
       const box = document.getElementById(`feed-${source.key}`);
       if (box) box.innerHTML = `<div class="notice bad">${esc(error.message)}</div>`;
+      /* And say so on the header, which is the only part of a shut fold you
+         can see: it read "Loading…" for ever otherwise, on a fetch that had
+         already given up. */
+      const sub = document.getElementById(foldSubId(`reader:${source.key}`));
+      if (sub) sub.textContent = "Couldn't load";
     }
   }
 
@@ -3610,8 +3723,9 @@ function renderReader() {
         ? [formatFeedDate(item.date), formatDuration(item.duration)].filter(Boolean).join(" · ")
         : firstLine(item.summary, 90) || formatFeedDate(item.date);
     const opened = messages.items.some((m) => m.source?.link && m.source.link === item.link);
+    const hue = source.kind === "episode" ? READER_HUE.listen : READER_HUE.read;
     return `
-      <div class="row striped hue-purple reader-item">
+      <div class="row striped hue-${hue} reader-item">
         ${
           item.audio
             ? `<button class="star reader-play" data-play="${i}" aria-label="Play ${esc(item.title)}">▶</button>`
@@ -4027,6 +4141,108 @@ function bookWords(book, language) {
   return [...words.values()].sort((a, b) => b.pages - a.pages);
 }
 
+/* The words looked up in a book, as two folds.
+
+   They used to be one open list that only ever grew: every word you tapped
+   stayed on the page whether or not you did anything about it, so on a book
+   thirty words in the list was the page. Reported from the phone as an
+   endless list you cannot get out of, with the kept ones wanting a folder of
+   their own. So the ones still to deal with are one fold, the ones already
+   filed are another that names the deck they went to, and each row you are
+   never going to keep has a × that drops it from the record.
+
+   Dropping takes the word out of the shortlist and leaves the tap count
+   alone: how many words you needed on the way is a fact about the reading,
+   not a list you curate. */
+function wordFolds(keyBase, words, language, hue) {
+  const kept = words.filter((word) => replyKept({ text: word.text }));
+  const todo = words.filter((word) => !replyKept({ text: word.text }));
+  const deck = readingWordsDeck(language);
+  const row = (word, i, done) => `
+    <div class="row striped hue-${hue} book-word">
+      <span class="row-main">
+        <span class="row-title" lang="${esc(language)}">${esc(word.text)} <span class="book-word-gloss">${esc(word.gloss)}</span></span>
+        <span class="row-sub">${word.pages === 1 ? "1 page" : `${word.pages} pages`}</span>
+      </span>
+      ${
+        done
+          ? `<span class="tiny muted">Kept ✓</span>`
+          : `<button class="link book-keep" data-keep-word="${i}">Keep</button>
+             <button class="star book-drop" data-drop-word="${i}" aria-label="Drop ${esc(word.text)}">×</button>`
+      }
+    </div>`;
+  return `
+    ${
+      todo.length
+        ? foldCard(
+            `${keyBase}:words`,
+            "Words you looked up",
+            `${todo.length} to deal with`,
+            `<p class="small muted" style="margin:0 0 10px">Most often first. One looked up on several pages is the card to make; × drops one you are done with.</p>
+             <div class="rows rows-spaced">${todo
+               .slice(0, BOOK_WORDS_SHOWN)
+               .map((word) => row(word, words.indexOf(word), false))
+               .join("")}</div>
+             ${
+               todo.length > BOOK_WORDS_SHOWN
+                 ? `<p class="tiny muted" style="margin:10px 0 0">${todo.length - BOOK_WORDS_SHOWN} more behind these — keep or drop some and the rest come up.</p>`
+                 : ""
+             }`,
+            { hue }
+          )
+        : ""
+    }
+    ${
+      kept.length
+        ? foldCard(
+            `${keyBase}:kept`,
+            "Words you kept",
+            `${kept.length} in ${deck}`,
+            `<p class="small muted" style="margin:0 0 10px">These are cards in <b>${esc(deck)}</b>, under Vocab, where a picture can be hung on them.</p>
+             <div class="rows rows-spaced">${kept.map((word) => row(word, words.indexOf(word), true)).join("")}</div>`,
+            { hue }
+          )
+        : ""
+    }`;
+}
+
+/* Keep one, drop one. `keep` files the card and `drop` writes the shortened
+   record; both repaint by re-rendering, since a kept word moves between two
+   folds and a dropped one leaves the page. */
+function wireWordFolds(words, { situation, language, drop }) {
+  view.querySelectorAll("[data-keep-word]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const word = words[Number(button.dataset.keepWord)];
+      if (!word?.text || !word.gloss) return;
+      if (replyKept({ text: word.text })) {
+        render();
+        return;
+      }
+      const deck = readingWordsDeck(language);
+      library.add({
+        text: word.text,
+        translation: word.gloss,
+        deck,
+        language,
+        situation,
+        usageNote: null,
+        focusNote: null,
+        replies: [],
+      });
+      toast(`Added to ${deck}.`);
+      render();
+    })
+  );
+  view.querySelectorAll("[data-drop-word]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const word = words[Number(button.dataset.dropWord)];
+      if (!word?.text) return;
+      drop(foldAccents(String(word.text).toLocaleLowerCase(language)));
+      render();
+    })
+  );
+}
+
 /* The paste box, on the reader and on a book's own page. With a title
    already known the book field is fixed; otherwise it offers the books you
    have read from as suggestions. */
@@ -4036,9 +4252,17 @@ function bookCard(title = null) {
     <div class="card" id="book-card">
       ${
         title === null
-          ? `<label class="field"><span>Reading a book? Which one?</span>
-               <input type="text" id="book-title" list="book-titles" autocapitalize="sentences" autocomplete="off">
-               <datalist id="book-titles">${titles.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist></label>`
+          ? `<div class="field">
+               <div class="field-head"><label for="book-pick">Reading a book? Which one?</label></div>
+               <select id="book-pick" class="deck-select">
+                 ${titles.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+                 <option value="">A book not listed…</option>
+               </select>
+               <div class="new-deck" id="book-new" ${titles.length ? "hidden" : ""}>
+                 <input type="text" id="book-title" placeholder="Name the book" autocomplete="off"
+                        autocapitalize="sentences" enterkeyhint="done" maxlength="80">
+               </div>
+             </div>`
           : ""
       }
       <label class="field"><span>${title === null ? "Paste a page." : "Paste the next page."}</span>
@@ -4052,11 +4276,27 @@ function bookCard(title = null) {
 function wireBookCard(fixedTitle = null) {
   const button = document.getElementById("book-go");
   if (!button) return;
+  /* Which book a page belongs to is a *choice among the books you have*, not
+     a name to retype — the free-text box with a datalist behind it drew iOS's
+     own suggestion popover over the field under it (reported with a
+     screenshot as "weird"), and worse, it let «Pit i Amunt» and «PIT i AMUNT»
+     become two books. So it is the deck field's shape: a select of what you
+     have, with one option that opens a box for a book that isn't listed.
+     With nothing yet, the box is what you get. */
+  const pick = document.getElementById("book-pick");
+  const box = document.getElementById("book-new");
+  const nameBox = document.getElementById("book-title");
+  pick?.addEventListener("change", () => {
+    const fresh = pick.value === "";
+    box.hidden = !fresh;
+    if (fresh) nameBox.focus();
+  });
+  const chosen = () => (pick ? (pick.value || nameBox?.value.trim() || "") : "");
   button.addEventListener("click", async () => {
     const titleBox = document.getElementById("book-title");
     const textBox = document.getElementById("book-text");
     const errorBox = document.getElementById("book-error");
-    const title = fixedTitle ?? titleBox?.value.trim() ?? "";
+    const title = fixedTitle ?? chosen();
     const text = textBox.value.trim();
     if (!title) {
       titleBox?.focus();
@@ -4137,45 +4377,31 @@ function renderBook() {
       `<button class="link" id="book-back">‹ ${esc(READER_TITLE)}</button>`
     )}
     ${bookCard(title)}
-    ${
-      words.length
-        ? `<div class="section-label">Words you looked up</div>
-           <p class="small muted" style="margin:-4px 0 10px">Most often first. One looked up on several pages is the card to make.</p>
-           <div class="rows rows-spaced">
-             ${words
-               .slice(0, BOOK_WORDS_SHOWN)
-               .map(
-                 (word, i) => `
-               <div class="row striped hue-purple book-word">
-                 <span class="row-main">
-                   <span class="row-title" lang="${esc(settings.language)}">${esc(word.text)} <span class="book-word-gloss">${esc(word.gloss)}</span></span>
-                   <span class="row-sub">${word.pages === 1 ? "1 page" : `${word.pages} pages`}</span>
-                 </span>
-                 <button class="link book-keep" data-keep-word="${i}" ${replyKept({ text: word.text }) ? "disabled" : ""}>${
-                   replyKept({ text: word.text }) ? "Kept ✓" : "Keep"
-                 }</button>
-               </div>`
-               )
-               .join("")}
-           </div>`
-        : ""
-    }
-    <div class="section-label">Pages</div>
-    <div class="rows rows-spaced">
-      ${pages
-        .map(
-          (page) => `
-        <div class="row striped hue-purple">
+    ${wordFolds("book", words, settings.language, READER_HUE.words)}
+    ${foldCard(
+      "book:pages",
+      "Pages",
+      `${book.pages.length} page${book.pages.length === 1 ? "" : "s"}`,
+      `<div class="rows rows-spaced">
+        ${pages
+          .map(
+            (page) => `
+        <div class="row striped hue-${READER_HUE.books}">
           <button class="row-open" data-page-open="${esc(page.id)}">
             <span class="row-main">
               <span class="row-title">Page ${page.source?.page ?? "?"} · ${esc(firstLine(page.text, 48))}</span>
-              <span class="row-sub">${page.gist === null ? "Not read yet" : `${page.taps ?? 0} looked up`}</span>
+              <span class="row-sub">${pageState(page)}</span>
             </span>
             <span class="chev">›</span>
           </button>
         </div>`
-        )
-        .join("")}
+          )
+          .join("")}
+      </div>`,
+      { hue: READER_HUE.books }
+    )}
+    <div class="btn-row" style="margin-top:18px">
+      <button class="link btn-danger" id="book-forget">Forget this book</button>
     </div>`;
 
   document.getElementById("book-back").onclick = () => {
@@ -4189,36 +4415,71 @@ function renderBook() {
       render();
     })
   );
-  /* A word into the Llibres deck, with the book as its situation. Painted
-     in place, like every other keep. */
-  view.querySelectorAll("[data-keep-word]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const word = words[Number(button.dataset.keepWord)];
-      if (!word?.text || !word.gloss) return;
-      if (replyKept({ text: word.text })) {
-        button.disabled = true;
-        button.textContent = "Kept ✓";
-        return;
-      }
-      /* A word goes to the Vocab family, not to Llibres: that is where the
-         keyword pictures live, and a word you keep looking up is the one to
-         hang a picture on. The page's phrases still go to Llibres. */
-      const deck = readingWordsDeck(settings.language);
-      library.add({
-        text: word.text,
-        translation: word.gloss,
-        deck,
-        language: settings.language,
-        situation: `From «${title}».`,
-        usageNote: null,
-        focusNote: null,
-        replies: [],
-      });
-      button.disabled = true;
-      button.textContent = "Kept ✓";
-      toast(`Added to ${deck}.`);
-    })
-  );
+  /* A word into the Vocab family, with the book as its situation — not into
+     Llibres, which is where the *phrases* go: that is where the keyword
+     pictures live, and a word you keep looking up is the one to hang a
+     picture on. */
+  wireWordFolds(words, {
+    language: settings.language,
+    situation: `From «${title}».`,
+    drop: (key) => dropWordFromPasted(book, key, settings.language),
+  });
+  /* A pasted book is a run of `messages` entries and had no way out at all —
+     an imported one has had its "Forget this book" since it shipped. Same
+     bargain: the record goes, the cards it made stay. Armed rather than
+     confirmed — the interview's two taps — since a book is a lot of pages to
+     lose to one of them. */
+  const forget = document.getElementById("book-forget");
+  let armed = false;
+  forget.onclick = () => {
+    if (!armed) {
+      armed = true;
+      forget.textContent = `Tap again — ${book.pages.length} page${book.pages.length === 1 ? "" : "s"} go`;
+      setTimeout(() => {
+        if (!armed) return;
+        armed = false;
+        forget.textContent = "Forget this book";
+      }, 4000);
+      return;
+    }
+    for (const page of book.pages) messages.remove(page.id);
+    state.book = null;
+    render();
+    toast(`«${title}» forgotten. Any cards you kept from it are still in the library.`);
+  };
+}
+
+/* Drop a looked-up word from every page of a pasted book. The tap counts are
+   left where they are — see `wordFolds`. */
+function dropWordFromPasted(book, key, language) {
+  for (const page of book.pages) {
+    const looked = (page.looked ?? []).filter(
+      (entry) => foldAccents(String(entry?.text ?? "").toLocaleLowerCase(language)) !== key
+    );
+    if (looked.length !== (page.looked ?? []).length) messages.update(page.id, { looked });
+  }
+}
+
+/* Drop a looked-up word from every page of an imported book — the same
+   shortening `dropWordFromPasted` does one store over. */
+function dropWordFromImported(book, key) {
+  for (const [hash, page] of Object.entries(book.pages ?? {})) {
+    const looked = (page.looked ?? []).filter(
+      (entry) => foldAccents(String(entry?.text ?? "").toLocaleLowerCase(book.language)) !== key
+    );
+    if (looked.length !== (page.looked ?? []).length) books.updatePage(book.id, hash, { looked });
+  }
+}
+
+/* How a page of a book reads in a list. "Read" used to mean only that you had
+   written what it was about, so a book you had read eight pages of said "2
+   read" — reported from the phone as the read/not-read not working. Moving on
+   from a page is reading it; writing the gist is the extra step, and the row
+   says which of the two happened. */
+function pageState(page) {
+  if (!page) return "Not opened";
+  if (page.gist === null) return "Read, not summed up";
+  return `Read · ${page.taps ?? 0} looked up`;
 }
 
 // ---------------------------------------------------------- imported books
@@ -4250,7 +4511,15 @@ function renderBook() {
    up on the way. */
 function bookProgress(book) {
   const pages = Object.values(book.pages ?? {});
-  const read = pages.filter((page) => page.gist !== null).length;
+  /* Read means read. It used to mean "you wrote what happened on it", so a
+     book you were eight pages into reported "2 read" and the row disagreed
+     with the page number beside it — reported from the phone as the
+     read/not-read not working. A page you have opened and moved past is a
+     page you read; the gist is the optional extra step, and the pages list
+     is where that distinction still shows. */
+  const read = (book.hashes ?? []).filter(
+    (hash, i) => book.pages?.[hash] && (i < (book.position ?? 0) || book.pages[hash].gist !== null)
+  ).length;
   const lookups = pages.reduce((total, page) => total + (page.taps ?? 0), 0);
   return { read, lookups };
 }
@@ -4379,42 +4648,21 @@ function renderImportedBook() {
       }</button>
       <div class="notice bad" id="ibook-error" hidden></div>
     </div>
-    ${
-      words.length
-        ? `<div class="section-label">Words you looked up</div>
-           <p class="small muted" style="margin:-4px 0 10px">Most often first. One looked up on several pages is the card to make.</p>
-           <div class="rows rows-spaced">
-             ${words
-               .slice(0, BOOK_WORDS_SHOWN)
-               .map(
-                 (word, i) => `
-               <div class="row striped hue-purple book-word">
-                 <span class="row-main">
-                   <span class="row-title" lang="${esc(book.language)}">${esc(word.text)} <span class="book-word-gloss">${esc(
-                   word.gloss
-                 )}</span></span>
-                   <span class="row-sub">${word.pages === 1 ? "1 page" : `${word.pages} pages`}</span>
-                 </span>
-                 <button class="link book-keep" data-keep-word="${i}" ${replyKept({ text: word.text }) ? "disabled" : ""}>${
-                   replyKept({ text: word.text }) ? "Kept ✓" : "Keep"
-                 }</button>
-               </div>`
-               )
-               .join("")}
-           </div>`
-        : ""
-    }
-    <div class="section-label">Pages</div>
-    <div class="rows rows-spaced" id="ibook-pages">
+    ${wordFolds("ibook", words, book.language, READER_HUE.words)}
+    ${foldCard(
+      "ibook:pages",
+      "Pages",
+      `${book.pageCount} page${book.pageCount === 1 ? "" : "s"} · ${read} read`,
+      `<div class="rows rows-spaced" id="ibook-pages">
       ${book.hashes
         .map((hash, i) => {
           const page = book.pages?.[hash];
-          const sub = !page ? "Not opened" : page.gist === null ? "Opened, not read" : `${page.taps ?? 0} looked up`;
+          const sub = i === book.position ? "Where you are" : pageState(page);
           return `
-        <div class="row striped hue-purple">
+        <div class="row striped hue-${READER_HUE.books}">
           <button class="row-open" data-ibook-page="${i}">
             <span class="row-main">
-              <span class="row-title">Page ${i + 1}${i === book.position ? " · where you are" : ""}</span>
+              <span class="row-title">Page ${i + 1}</span>
               <span class="row-sub">${esc(sub)}</span>
             </span>
             <span class="chev">›</span>
@@ -4422,7 +4670,9 @@ function renderImportedBook() {
         </div>`;
         })
         .join("")}
-    </div>
+      </div>`,
+      { hue: READER_HUE.books }
+    )}
     <div class="btn-row" style="margin-top:18px">
       <button class="link btn-danger" id="ibook-forget">Forget this book</button>
     </div>`;
@@ -4455,31 +4705,11 @@ function renderImportedBook() {
   );
   /* A word into the Vocab family, with the book as its situation — the same
      bargain the pasted-pages book makes, and the same deck. */
-  view.querySelectorAll("[data-keep-word]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const word = words[Number(button.dataset.keepWord)];
-      if (!word?.text || !word.gloss) return;
-      if (replyKept({ text: word.text })) {
-        button.disabled = true;
-        button.textContent = "Kept ✓";
-        return;
-      }
-      const deck = readingWordsDeck(book.language);
-      library.add({
-        text: word.text,
-        translation: word.gloss,
-        deck,
-        language: book.language,
-        situation: `From «${book.title}».`,
-        usageNote: null,
-        focusNote: null,
-        replies: [],
-      });
-      button.disabled = true;
-      button.textContent = "Kept ✓";
-      toast(`Added to ${deck}.`);
-    })
-  );
+  wireWordFolds(words, {
+    language: book.language,
+    situation: `From «${book.title}».`,
+    drop: (key) => dropWordFromImported(book, key),
+  });
   document.getElementById("ibook-forget").onclick = async () => {
     const title = book.title;
     await books.remove(book.id);
