@@ -6014,6 +6014,7 @@ function renderDrill() {
     ${road ? "" : drillContext(phrase, questioned)}
     ${road ? "" : drillReplies(phrase, questioned)}
     <div id="drill-notes">${road ? "" : drillNotes(phrase, questioned)}</div>
+    ${settings.hasAzure && !questioned && !road ? cardCheckBlock() : ""}
     ${
       /* Asking about the phrase you have just said is half of practising it —
          you get it right, and then want to know why it's `tingui`. The box
@@ -6203,6 +6204,7 @@ function renderDrill() {
   wirePicture(view, phrase);
 
   wireReplies(view.querySelector(".drill-replies"), phrase.replies ?? [], phrase.language, () => phrase);
+  wireCardCheck(view.querySelector(".card-check"), phrase);
 
   /* Fetching them mid-drill. The card is repainted in place rather than through
      render(), which would take the attempt you're looking at off the screen —
@@ -6474,6 +6476,100 @@ function notesBlock(notes, { deletable = false } = {}) {
         </div>`
         )
         .join("")}
+    </div>`;
+}
+
+/* Check this card: the scorer on the model's own voice, for this phrase.
+
+   Asked for from the phone as "on some sentences Em is fine, on others it is
+   not", after the model played back into the microphone had scored anything
+   from 46 to 100 on the same phrase. That test has the speaker, the air, the
+   room and iOS's capture routing in it, so it cannot say whose fault a number
+   is. This one has none of them: the model's own bytes for *this* phrase
+   through the same `toWav16k`, the same padding and the same Azure call the
+   drill uses, and nothing else. The check in Settings does the same on the
+   first three phrases of the library, which is the pipeline in general; this
+   is the card in front of you, which is the question actually being asked.
+
+   The number alone is not the finding, so what it means is printed under it.
+   Clear, every word high: the app and Azure can hear this phrase, and a lower
+   score on a real take is the air between the mouth and the phone. Low, with
+   a word named: Azure marks that word down on its own voice, so no take of
+   yours will score it reliably, and the fix is on the dial rather than in the
+   audio — that is the scorer, not the learner. Each press is one more run,
+   listed above the last, because "does it agree with itself?" is the other
+   half of the question: the same bytes twice should land within a point or
+   two, and a spread here is a bug in here.
+
+   Nothing is filed — not an attempt, not a tally — on quiet mode's argument.
+   It stands behind the same gate as the ask box, since the chips print every
+   word of the phrase, and road mode takes it off. Only with a key: without
+   one there is nothing to check. */
+function cardCheckBlock() {
+  return `
+    <div class="card card-check">
+      <p class="tiny muted" style="margin:0 0 10px">
+        Scores the model's own voice on this phrase through the same pipeline — no mic, no room.
+        Clear here, and a lower score on your take is the air between you and the phone. Low here,
+        and Azure can't hear that word even from its own voice.
+      </p>
+      <button class="btn" data-check-go style="width:100%">Check this card</button>
+      <div data-check-runs></div>
+    </div>`;
+}
+
+function wireCardCheck(root, phrase) {
+  const button = root?.querySelector("[data-check-go]");
+  if (!button) return;
+  const runs = root.querySelector("[data-check-runs]");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Checking…`;
+    const audio = await speech.modelAudio(phrase, settings);
+    const result = audio ? await scoring.score(audio, phrase, settings) : null;
+    if (!button.isConnected) return; // moved on while Azure was thinking
+    runs.insertAdjacentHTML("afterbegin", cardCheckRun(result));
+    button.disabled = false;
+    button.textContent = "Check again";
+  });
+}
+
+function cardCheckRun(result) {
+  const score = result ? attemptScore(result) : null;
+  if (score == null) {
+    return `<div class="check-run"><div class="notice bad">${esc(
+      scoring.lastError || speech.lastError || "Nothing came back — check the key and the region in Settings."
+    )}</div></div>`;
+  }
+  const words = (result.words ?? [])
+    .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+    .filter((word) => typeof word.score === "number");
+  const weak = words.filter((word) => word.score === score && score < GOOD);
+  const chips = words
+    .map((word) => `<span class="chip ${scoreClass(word.score)}">${esc(word.word)} <b>${Math.round(word.score)}</b></span>`)
+    .join("");
+  const sounds = weak
+    .map((word) => {
+      const phonemes = (word.phonemes ?? []).filter((p) => typeof p.score === "number");
+      return phonemes.length ? `${esc(word.word)}: ${phonemes.map((p) => `${esc(p.phoneme)} ${Math.round(p.score)}`).join(" · ")}` : "";
+    })
+    .filter(Boolean)
+    .join("; ");
+  const names = weak.map((word) => `“${esc(word.word)}”`).join(" and ");
+  const verdict =
+    score >= GOOD
+      ? "Clear. The app and Azure hear this phrase — a lower score on a take of yours is the air between you and the phone."
+      : weak.length
+      ? `Azure marks ${names} down on its own voice, so no take will score it reliably. That is the scorer, not you.`
+      : "Below the line on its own voice — that is the scorer, not you.";
+  return `
+    <div class="check-run">
+      <div class="score-head">
+        <div class="check-score" style="color:${scoreColour(score)}">${Math.round(score)}</div>
+        <div class="tiny">${verdict}</div>
+      </div>
+      <div class="chips" style="margin-top:8px">${chips}</div>
+      ${sounds ? `<p class="tiny muted" style="margin:6px 0 0">${sounds}</p>` : ""}
     </div>`;
 }
 
@@ -7203,6 +7299,7 @@ function showPhrase(phrase) {
             <div id="p-replies-error" class="notice bad" hidden></div>`
          : ""
      }
+     ${settings.hasAzure && phrase.text.trim() ? cardCheckBlock() : ""}
      <section id="p-notes" style="margin-bottom:14px">${notesBlock(phrase.notes, { deletable: true })}</section>
      <section id="p-chat" hidden style="margin-bottom:14px"></section>
      ${
@@ -7293,6 +7390,7 @@ function showPhrase(phrase) {
   };
 
   wireReplies(document.getElementById("p-replies"), phrase.replies ?? [], phrase.language, () => phrase);
+  wireCardCheck(sheetBody.querySelector(".card-check"), phrase);
 
   document.getElementById("p-get-replies")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
