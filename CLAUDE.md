@@ -3661,14 +3661,44 @@ design, and the level, the distance and the clipping differ on every go. It is
 the noisiest possible input dressed up as a controlled one. The panel above is
 the same idea with the confound removed.
 
+**And the same check on the card in front of you.** Reported next as
+*"on some sentences Em is fine, on others it is not"*, with the model played
+back into the microphone scoring anything from 46 to 100 on one phrase — and
+the Settings check scores the first three phrases of the library, which are
+the Sounds deck, so it could not answer that. `cardCheckBlock` /
+`wireCardCheck` in app.js put **Check this card** on the phrase sheet and at
+the foot of the drill: the model's own bytes for *this* phrase through the
+same `toWav16k`, padding and Azure call, no microphone anywhere. Each press
+is one more run listed above the last, with every word as a chip carrying
+its score and the weakest word's phonemes under it, because *does it agree
+with itself?* is half the question. The verdict is printed with the number:
+clear, and a lower score on a real take is the air; low with a word named,
+and Azure marks that word down on its own voice, so the fix is on the dial
+and not in the audio — *that is the scorer, not you*. Nothing is filed. It
+stands behind the ask box's gate (the chips print the phrase) and road mode
+takes it off; without a key there is nothing to check, so it is not offered.
+The six *Em* phrases in the library all have Em before a consonant — four
+before *pot*, where the m and the p are one lip closure and the m has no
+release of its own — and the guess is that those are the ones that fail;
+this is the button that says.
+
 Worth asserting, with `speech.modelAudio` and `scoring.score` stubbed: no
-`#s-scorer-check` without a key; with one it is offered and makes no call until
-pressed; pressing it makes three TTS fetches and three scoring calls, each
+`#s-scorer-check` without a key; with one it is offered and makes no call
+until pressed; pressing it makes three TTS fetches and three scoring calls, each
 phrase scored against its own text, and prints three `.version-row`s; 99/97/98
 reads *the pipeline is sound* and names no weakest word; 46/80/99 reads the
 spread and the low, says *worth reporting*, and names the weak word on the low
 ones; a scorer returning null prints dashes and the error rather than nothing;
-and the button comes back reading *again*. For the padding: a 1.0 s clip comes
+and the button comes back reading *again*. For the card: `.card-check` is on
+the sheet from a search with a key and absent without one, `[data-check-go]`
+makes one TTS fetch and one scoring call, a stub scoring `Em` 54 and the rest
+97 prints `.check-score` 54, names *“Em” down on its own voice* and *the
+scorer, not you*, one `.chip` per word with its score and *Em: ə 33 · m 71*
+under them, a second press lists a second `.check-run` on top,
+`xerra.attempts` is untouched, the drill offers it at level one under
+`#drill-notes`, road mode removes it and putting road mode away brings it
+back, a standing level-two question hides it and `#show-me` restores it.
+For the padding: a 1.0 s clip comes
 out 1.5 s at 16 kHz with the first and last 200 ms silent, the speech at its
 full level immediately after the pad, and the alias rejection and the 150 Hz
 tone exactly as they were. Both would port to the forks whole.
