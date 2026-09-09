@@ -2182,3 +2182,23 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .msg-listen-row .btn[hidden] { display: none; }
 .msg-voice { margin-top: 10px; }
 .msg-voice .field { margin-bottom: 0; }
+
+/* The pager under a page of an imported book — where you are, and the way on.
+   Only an imported book has one: a message, an article and a story are each a
+   thing on their own rather than a place in a sequence. */
+.msg-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.msg-pager .btn { flex: 0 0 auto; }
+.msg-pager-at {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+/* A label standing in for a file input's button, so importing looks like
+   every other primary action rather than like a browser control. */
+#epub-pick-label { display: block; cursor: pointer; }
