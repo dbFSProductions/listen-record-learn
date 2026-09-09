@@ -912,18 +912,22 @@ on whatever you ask, with three questions to check you followed it.
   The charset is read from the Content-Type header, then the XML
   declaration, and a body that declares nothing and still will not decode
   as UTF-8 is read as Latin-1, by hand if the runtime's TextDecoder does not
-  know it. **The two URLs were found from
-  documentation, not fetched**: the development sandbox could not reach
-  either host, so each source carries a second spelling and the first that
-  parses wins. **On the phone, En guàrdia came through and Sàpiens did
-  not** — the site's feed is not at any of the guessed paths — so a source
-  may carry `discover` and `hosts`: once every guess has failed, the Worker
-  fetches that page, reads its `<link rel="alternate" type="application/
-  rss+xml">` the way a feed reader does, and follows it only if it stays on
-  one of the named hosts. Still an allowlist, one step longer. `parseFeed`
-  reads Atom `<entry>`s as well as RSS `<item>`s for the same reason. If
-  Sàpiens is still empty, the site has no feed to find, and the next move
-  is a different history source rather than another guess.
+  know it. **Every URL in `FEEDS` was fetched from this Mac on 2026-09-09, and the
+  first entry of each list is the one that answered.** Before that they
+  were guesses written from a sandbox that could reach nothing, and most of
+  them were 404s: Sàpiens publishes at
+  `/uploads/feeds/feed_sapiens_ca.xml` and names it in its `<link
+  rel="alternate">`, which is what the discovery step found on the phone and
+  what is first in the list now, so the fetch is one request rather than
+  seven. A source may still carry `discover` and `hosts`: once every guess
+  has failed, the Worker fetches that page, reads its `<link rel="alternate"
+  type="application/rss+xml">` the way a feed reader does, and follows it
+  only if it stays on one of the named hosts. Still an allowlist, one step
+  longer. `parseFeed` reads Atom `<entry>`s as well as RSS `<item>`s for the
+  same reason. The way to check a source is `worker/tools/feed-test.mjs`
+  for the parser and, for the sites themselves, driving `worker.fetch` from
+  Node with the real `globalThis.fetch` — the notes on this machine's setup
+  under *Checking a change actually works* say how.
   `worker/tools/feed-test.mjs` shows the shapes the parser expects. `feeds` in store.js keeps the last
   fetch per source so the page opens on something in a tunnel; not in
   export/import, since the Worker hands the same list back.
@@ -935,17 +939,27 @@ on whatever you ask, with three questions to check you followed it.
   at natural speed, for learners), **betevé** (`beteve`, the city channel's
   news as articles) and **betevé ràdio** (`beteve-radio`, its radio as a
   podcast). `READER_SOURCES` lists them ahead of En guàrdia and Sàpiens.
-  **None of the URLs could be checked from the sandbox that added them**,
-  the same as the first two, so each carries several guesses, a `discover`
-  page and a `hosts` list that includes the podcast hosts a programme's
-  feed may live on. A listening source carries `audioOnly`: discovery on a
-  WordPress site finds the posts feed first, and for betevé that is the
-  news, so a podcast source that lands on a feed with no enclosures is a
-  502 rather than the same list of articles twice. `feed-test.mjs` drives
-  all three. The first thing to do after the deploy is open Listen & read
-  on the phone and see which of the five headers fill; a source that stays
-  at *Couldn't reach* has its feed at none of the guessed paths and none
-  linked from its discovery page, and wants the real URL typed in.
+  **Checked live from the Mac on 2026-09-09, and two of the three needed
+  more than a URL.** Easy Catalan's feed is `feeds.fireside.fm/easycatalan/
+  rss`; the programme's site never links it as a `<link rel="alternate">`,
+  only as a base64 parameter inside a subscribe button, which is why the
+  discovery step could never have found it. betevé's WordPress feeds carry
+  no enclosures at all — its radio programmes are posts with a Kaltura
+  player embedded — so `embeddedAudio` in the Worker builds each episode's
+  URL from the embed's own attributes: the partner, the entry, and the
+  `data-kaltura-radio` flag that marks the audio-only entries (the flagless
+  ones are television, and are left without audio rather than handed to an
+  audio player as a 96 MB video). Kaltura's `playManifest` answers with an
+  audio-only MP4 — AAC, 26 MB for a 27-minute programme — which `<audio>`
+  plays. Only a source with `embedded: "kaltura"` is read that way, so no
+  other feed's parse changed. A listening source carries `audioOnly`:
+  discovery on a WordPress site finds the posts feed first, and for betevé
+  that is the news, so a podcast source that lands on a feed with no
+  enclosures is a 502 rather than the same list of articles twice.
+  `feed-test.mjs` drives all five, with betevé's markup as fetched. Driven
+  against the live sites from Node, all five answered in one fetch each;
+  the thing to do after the deploy is open Listen & read on the phone and
+  see the five headers fill.
 - **The audio is the broadcaster's own file, streamed.** `<audio controls>`
   on the reader's player card and on the episode's page, `src` set to the
   enclosure URL, nothing stored: a podcast feed is built for exactly this.
@@ -3512,6 +3526,53 @@ into the speech band. Measured, before and after:
 Spanish take is downsampled by the same function, and `Me`/`Te`/`Se` are the
 same clitics. Port it, and re-verify numerically rather than by ear.
 
+#### Measured on real speech, and it was a small problem fixed correctly
+
+The table above is built from tones and hiss, which show the folding at its
+worst. Asked from the phone whether the audio changes had *done* anything,
+the fix was run on speech from this Mac (2026-09-09): macOS's Spanish voice
+saying *Me llamo Joan y vivo en Horta* and *Te espero en la plaza a las
+seis*, and an English voice on a sentence full of fricatives, each at 48 kHz
+with a −50 dBFS mic-like noise floor and a −18 dB quiet take as variants,
+put through the app's own `toWav16k` in headless Chromium — the old linear
+version from git, the sinc version, and the padded one — and compared with a
+polyphase FIR reference in numpy. In-band error (100 Hz–7.2 kHz), relative
+to the speech:
+
+| clip | energy above 8 kHz | old | new | first 250 ms, old → new |
+|---|---|---|---|---|
+| *Me llamo…* | −37 dB | −40 dB | −59 dB | −36 → −58 dB |
+| *Te espero…* | −27 dB | −30 dB | −49 dB | −23 → −43 dB |
+| English, fricatives | −18 dB | −20 dB | −41 dB | −31 → −54 dB |
+| mic noise floor in the silent tail | | −52.6 dBFS | −55.4 dBFS | |
+
+So the old resampler's error was 20 dB above the new one's on every clip,
+and on a clean clip it was also 30–40 dB *below the speech* — a per-cent of
+the energy on the fricative-heavy English sentence, a hundredth of that on
+the Spanish. On a noise floor it added about 3 dB of hiss in band. That is a
+real defect, and it is not the size of defect that turns a 54 into a 94 on
+`Em`. The scores this was reported against — the same model clip played into
+the microphone scoring 46, 80 and 100 — are not explained by it, and the
+notes above already say what else is in that path: the room, the speaker,
+iOS's capture routing, and the endpointer the padding is for. The padding
+is sample-exact (the new output is the sinc output with 4000 zeros either
+side, checked); what it does to Azure is not measurable without a key.
+
+The same run checked `forPlayback` on real clips: a take 18 dB quiet comes
+out at the 0.16 line, a clip at 0.18 comes down to it, one within a decibel
+is left alone, the limiter bends under 0.1 % of samples on the loudest
+clip, and the lead-in is trimmed to within a few hundredths of a second of
+where it was put. Nothing there is wrong.
+
+**There is no Azure key on the Mac**, so the only test of the *scores* is
+the scorer check in Settings on the phone: the model's own bytes through the
+same pipeline with no room in it. Three numbers that agree in the high 90s
+mean the pipeline is repeatable and the spread on real takes is the room;
+three that disagree are a bug in here. And whatever the pipeline does, the
+dial is still the weakest word, and a one- or two-phoneme clitic is still
+the noisiest number in the attempt — see *And then the card said `Em` on a
+hundred* for the two options if that is ever to change.
+
 ### And then the card said `Em` on a hundred
 
 The aliasing fix shipped as v98 and was reported back as *"still does this"*,
@@ -3804,10 +3865,26 @@ cost time before they were written down:
 
 - **Playwright lives outside this repo, deliberately.** There is no
   `package.json` here and there is not going to be one — the lack of a build
-  step is why this deploys to a phone at all. So the harness is installed in a
-  scratch directory of its own and the test scripts are run from there against
-  the served `docs/`. A `node_modules` inside the repo is the thing to avoid,
-  not Playwright itself.
+  step is why this deploys to a phone at all. On this machine it is the
+  *global* install: `/opt/homebrew/lib/node_modules/playwright`, with
+  Chromium under `~/Library/Caches/ms-playwright`. A script outside the
+  repo finds it with `NODE_PATH=/opt/homebrew/lib/node_modules node
+  script.js` — there is no scratch `node_modules` anywhere, and looking
+  for one cost time. A `node_modules` inside the repo is the thing to
+  avoid, not Playwright itself.
+- **The Worker can be driven against the live sites from Node**, since
+  `worker.fetch` takes a `Request` and uses `globalThis.fetch`: import
+  `worker/src/index.js`, pass an env with a passcode and a rate limiter
+  stub, and post `{ source }` to `/feed`. That is how every `FEEDS` URL was
+  checked, and it is the check to run when a source stops filling.
+- **For audio, real speech is one command away**: `say -v Mónica
+  --file-format=WAVE --data-format=LEI16@48000 -o take.wav "…"` (Spanish;
+  there is no Catalan voice installed, and the clitics are the same), and
+  `ffmpeg` and a numpy venv outside the repo do the measuring. Route the
+  served `js/audio.js` (and old versions of it from `git show`) into a page
+  with `page.route`, `import()` them, and call `toWav16k` and
+  `forPlayback` on the WAV as a `Blob`. There is **no Azure key on the
+  Mac**, so nothing about the scores can be tested here.
 - **Pick a port and check it is free.** 8765 is often already serving another
   project on this machine; a smoke test that "passed" against someone else's
   page reported a title of *A/B listening room* and zero tiles. If the assertions
