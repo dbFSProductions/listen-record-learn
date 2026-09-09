@@ -1488,8 +1488,6 @@ canvas { width: 100%; display: block; }
 .chip.good { background: color-mix(in srgb, var(--green) 22%, transparent); }
 .chip.ok { background: color-mix(in srgb, var(--gold) 30%, transparent); }
 .chip.bad { background: color-mix(in srgb, var(--red) 24%, transparent); }
-/* A word the model itself fails: still there, still tappable, not the verdict. */
-.chip.uncounted { background: transparent; border: 1.5px dashed var(--line); color: var(--text-3); padding: 3.5px 9.5px; }
 .phoneme-box { background: var(--surface-2); border-radius: 10px; padding: 10px; margin-top: 9px; }
 
 /* Check this card: one run per press, newest on top, the number leading. */
