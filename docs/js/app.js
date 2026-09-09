@@ -6844,11 +6844,32 @@ function renderScore(attempt, bare = false) {
     )
     .join("");
 
-  // Whichever chip is reddest is the dial — say so, so the number has somewhere
-  // to point rather than being a verdict from nowhere.
-  const weakest = attempt.words
-    .filter((word) => typeof word.score === "number" || word.errorType === "Omission")
-    .sort((a, b) => (a.errorType === "Omission" ? 0 : a.score) - (b.errorType === "Omission" ? 0 : b.score))[0];
+  /* Whichever chip is reddest is the dial — say so, so the number has somewhere
+     to point rather than being a verdict from nowhere. Two guards on that, both
+     reported from the phone as `Em` being named the weakest word over and over.
+
+     **A take with nothing weak in it names nothing.** Above `GOOD` every word
+     cleared 90, so there is no weak word to point at, and printing one under
+     *Every word landed* is the card contradicting itself in the next sentence —
+     which is exactly what a 100 with "Your weakest word: Em" under it was. The
+     verdict already says the right thing at that level. This is what the chat's
+     own practice card has always done; the drill was the odd one out.
+
+     **A tie is not a finding.** `sort` is stable, so several words on the same
+     score handed back the *first* of them — and the first of them is the first
+     word of the phrase, every time. On a library where half the phrases open on
+     a clitic, that named `Em` again and again on takes where `Em` was tied with
+     everything else at 100. Every word on the minimum is named now, or, when
+     more than three of them are, none: at that point the whole phrase is the
+     finding and the verdict is already saying so. */
+  const scored = attempt.words
+    .map((word) => ({ ...word, score: word.errorType === "Omission" ? 0 : word.score }))
+    .filter((word) => typeof word.score === "number");
+  const lowest = scored.length ? Math.min(...scored.map((word) => word.score)) : null;
+  const tied = lowest === null ? [] : scored.filter((word) => word.score === lowest);
+  const weakest = score >= GOOD || tied.length > 3 ? [] : tied;
+  const omitted = weakest.length > 0 && weakest.every((word) => word.errorType === "Omission");
+  const weakestNames = weakest.map((word) => `“${esc(word.word)}”`).join(" and ");
 
   /* The dial, the verdict and the weakest word are the score; the chips, the
      sub-scores and what Azure heard are the drill-down, and it was reported
@@ -6863,11 +6884,9 @@ function renderScore(attempt, bare = false) {
         <div>
           <div style="font-weight:600">${verdict}</div>
           <p class="tiny muted" style="margin:6px 0 0">${
-            weakest
-              ? `Your weakest word${
-                  weakest.errorType === "Omission"
-                    ? ` — “${esc(weakest.word)}” didn't come out at all`
-                    : `: “${esc(weakest.word)}”`
+            weakest.length
+              ? `Your weakest word${weakest.length > 1 ? "s" : ""}${
+                  omitted ? ` — ${weakestNames} didn't come out at all` : `: ${weakestNames}`
                 }.`
               : ""
           } Scored by ${esc(attempt.engine)}</p>

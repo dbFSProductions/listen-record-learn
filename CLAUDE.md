@@ -3458,6 +3458,55 @@ into the speech band. Measured, before and after:
 Spanish take is downsampled by the same function, and `Me`/`Te`/`Se` are the
 same clitics. Port it, and re-verify numerically rather than by ear.
 
+### And then the card said `Em` on a hundred
+
+The aliasing fix shipped as v98 and was reported back as *"still does this"*,
+with three takes from the phone. Read as data they say something different from
+the complaint: **100, every chip green, *Every word landed*** on one; **80 with
+`a` amber and `Em` green** on the next, five minutes later; and the 46 with `Em`
+red is the *earliest* of the three. So the pipeline was behaving. What was not
+behaving was the sentence under the dial, which on the 100 read **"Your weakest
+word: 'Em'"** — the card contradicting itself in its own next line, and the
+whole of why the phone said nothing had changed.
+
+Two faults in `renderScore`, both in the four lines that pick that word:
+
+- **It named one whatever the score.** There is no weak word in a take where
+  every word cleared `GOOD`; above that line the verdict already says the right
+  thing and the sentence is now just *Scored by Azure*. The chat's own
+  `practiceResult` has always had exactly this guard (`score >= GOOD` → *Every
+  word cleared 90*, no name) — the drill was the odd one out, so this is
+  bringing it into line rather than inventing a rule.
+- **A tie handed back the first word of the phrase.** `sort` is stable, so with
+  every word on 100 the "weakest" was whichever came first in `attempt.words` —
+  the first word, every time. On a library where a great many phrases open on a
+  clitic, that printed `Em` again and again on takes where `Em` was tied with
+  everything else at the top. It names **every** word on the minimum now (*your
+  weakest words: «a» and «la»*), or none when more than three of them tie, at
+  which point the whole phrase is the finding and the verdict is saying so. The
+  `Omission` wording survives for the group.
+
+**The deeper thing this exposed is not a bug**, and was not changed here: the
+dial is the lowest word, a one- or two-phoneme clitic has nothing to average
+against, and its score is therefore both the noisiest number in the attempt and
+the one the dial reports. `Em`, `a`, `la`, `si`, `us` will keep landing on the
+dial. That is *the score is your weakest word* working exactly as that section
+argues, and changing it is a decision for the owner, not a fix — the options, if
+it ever is wanted, are to weight a word by how many phonemes Azure scored in it,
+or to exempt one-phoneme function words from the dial while still chipping them.
+
+**The lesson is about reading the report against the screenshots.** "Still does
+this" named the audio, and the audio was fixed; what had never been fixed was
+the app agreeing out loud that `Em` was the problem. A number and a sentence
+that disagree will be believed as the sentence.
+
+Worth asserting, with `scoring.score` stubbed: every word at 100 reads 100,
+*Every word landed*, **no** *weakest word* naming and still *Scored by Azure*;
+92 and 97 name none either (the 90-band verdict still says *even your weakest
+word is close*, which names nothing); 95/71/90 names *«dia»* and not *«Em»*;
+71/71/95 reads *your weakest words: «Em» and «dia»*; an `Omission` still reads
+*didn't come out at all*; and four words tied at 40 name none.
+
 ### One detector, used three times
 
 `speechBounds` finds where the speech is, and the picture, the sound and the
@@ -4117,7 +4166,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v98 / `xerra-v98` — `js/version.js` first, `sw.js` second, as ever.
+- v99 / `xerra-v99` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
