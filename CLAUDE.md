@@ -13,6 +13,40 @@ up an Azure key; it isn't repeated here.
 
 ---
 
+## Work is not finished until it is on `main`
+
+**If you want the owner to try something, put it on `main`.** Not on a branch,
+not on a branch with a pull request open, not "pushed and ready to merge" —
+merged, so GitHub Pages rebuilds and the phone can be reloaded onto it.
+
+This is not a preference about tidiness. It is the whole shape of this project:
+the only device that matters runs the published Pages app from `main`, the
+`docs/` tree is served straight out of that branch with no build step, and the
+notes below spell out at length why the working tree *cannot* be served to the
+phone instead — `http://192.168.x.x` is not a secure context, so there is no
+microphone and no service worker, which is most of the app. So a branch is a
+thing nobody can test. Asking "does this fix it?" while the fix sits on a branch
+is asking a question that cannot be answered, and it has been asked more than
+once.
+
+What that means in practice, every time:
+
+- **Land it, then report it.** The turn that says "this is fixed, try it" is the
+  turn after the merge, not the turn after the push. Say the two version numbers
+  in that same message — they are what the phone is checked against.
+- **A pull request is a step, never the destination.** Open one if the repo's
+  workflow wants the record (it does — every change here has arrived through
+  one), and then *merge it*. A PR left open is work that has not shipped.
+- **Re-read `main`'s two version strings at the moment of merging** and bump
+  past them, as *Running it* below insists. That check is worth most exactly
+  when several branches are in flight, which is the situation this rule creates.
+- **The exception is work that was asked for as a draft**, or that is genuinely
+  unfinished and known to be. Say so out loud when leaving it on a branch, and
+  say what is missing — silence reads as "go and look", and there is nothing to
+  look at.
+
+---
+
 ## There are two apps in this repo
 
 | | | |
@@ -3095,7 +3129,8 @@ context, and those are treated as secure. A `file://` open will not work.
 The phone runs the published GitHub Pages app
 (`https://dbfsproductions.github.io/listen-record-learn/`) — a proper secure
 context, so microphone and service worker just work. Merge to `main`, let
-Pages rebuild, reload on the phone.
+Pages rebuild, reload on the phone. **`main` is the only place anything can be
+tried from** — see *Work is not finished until it is on `main`* at the top.
 
 Don't try to serve the working tree to the phone over the LAN instead:
 `http://192.168.x.x` is **not** a secure context, so the app loads and plays
