@@ -18,7 +18,7 @@
 // rehearsal chat's transcription are Azure's whatever voice is chosen —
 // nothing else here can say which *sound* you missed.
 
-import { audioStore, voiceProvider, workerVoiceName } from "./store.js";
+import { audioStore, voiceProvider, workerVoiceName, WORKER_VOICE_MAX, LANGUAGES } from "./store.js";
 import { cardAssistant } from "./card-assistant.js";
 import { toWav16k } from "./audio.js";
 
@@ -62,7 +62,7 @@ export const speech = {
       this.lastError = null;
       return null;
     }
-    if (!canSay(phrase.voice || settings.azureVoice, settings)) {
+    if (!canSay(readableVoice(phrase.voice || settings.azureVoice, phrase, settings), settings)) {
       this.lastError = null;
       return null;
     }
@@ -72,7 +72,7 @@ export const speech = {
        conversation are two people. The cache is keyed by voice, so a line
        heard in one voice is not served back in another. Additive: a phrase
        without `voice` is exactly the call it always was. */
-    const voice = phrase.voice || settings.azureVoice;
+    const voice = readableVoice(phrase.voice || settings.azureVoice, phrase, settings);
     const key = cacheKey(phrase.text, voice, phrase.language);
     /* The cache read used to sit outside the try, so a database that would not
        open — a blocked version upgrade, storage evicted mid-session, private
@@ -186,6 +186,30 @@ export const speech = {
     }
   },
 };
+
+/* The voice this text will actually be read in.
+
+   A Worker voice is a CPU model on somebody's free box: about 49 ms a
+   character, so a page of a book would take a minute and time out well before
+   it. Over `WORKER_VOICE_MAX` the reading goes to the language's Azure voice
+   instead — the drill, the replies and the rehearsal chat are all far under it
+   (the longest phrase in the library is 53 characters), so this only ever
+   catches the reader's pages, stories and articles.
+
+   With no Azure key there is nothing to hand it to, and the Worker voice is
+   kept so the caller gets the honest failure rather than a silent swap to
+   nothing. The cache key is built from what this returns, so a page read by
+   Azure is stored as Azure's and never served back as Matxa's. */
+function readableVoice(voice, phrase, settings) {
+  if (voiceProvider(voice) !== "worker") return voice;
+  if ((phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
+  if (!settings.hasAzure) return voice;
+  /* An Azure voice by name rather than `defaultVoice`, which answers with
+     whatever the language's list leads with and could one day lead with a
+     Worker voice — the one thing this must never hand back. */
+  const azure = (LANGUAGES[phrase.language]?.voices ?? []).find((v) => voiceProvider(v.id) === "azure");
+  return azure?.id ?? voice;
+}
 
 /* Can this device speak in this voice at all? Azure's need the speech key,
    the Worker's need the card assistant, and either can be missing — in which

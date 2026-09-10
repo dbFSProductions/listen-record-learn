@@ -9958,9 +9958,10 @@ function renderSettings() {
         Catalan voices from Projecte AINA and the Barcelona Supercomputing Center, and come
         through the card assistant instead — they are here because three voices heard every
         day for a year stop being voices you listen to. Being Catalan models rather than
-        multilingual ones, they only appear for Català. If one ever sounds wrong, try it on a
-        card with <strong>Check this card</strong>: if Azure marks the model's own words down,
-        that is the voice, not you.
+        multilingual ones, they only appear for Català — and a long text, a page of a book or a
+        story, is read by an Azure voice instead, since a Catalan voice takes about a minute over
+        one. If one ever sounds wrong, try it on a card with <strong>Check this card</strong>: if
+        Azure marks the model's own words down, that is the voice, not you.
       </p>
     </div>
 

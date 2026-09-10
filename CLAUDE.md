@@ -4284,6 +4284,55 @@ object across all of them, it survives `stop()`, and a real tap during ordinary
 navigation unlocks it. Plus the standing check that all six Catalan WAVs still
 decode and play through `forPlayback`.
 
+### A CPU voice reads at 49 ms a character, and a book page is 1200 of them
+
+Reported straight after the iOS unlock landed: *"It works for the shorter
+example bits. But fails on the longer text."* Not a bug this time — a limit,
+and one worth writing the numbers down for.
+
+Measured through the deployed Worker against the live Space:
+
+| characters | round trip | |
+|---|---|---|
+| 100 | 6.3 s | |
+| 302 | 15.6 s | |
+| 605 | 31.0 s | just inside the old 38 s budget |
+| 1211 | 38.2 s | **aborted** |
+
+Linear: about **49 ms a character** plus a second and a half of overhead. Matxa
+is a CPU model on a free two-core box, and that is simply what it costs.
+
+- **Nothing the app drills comes close.** The longest phrase in the library is
+  **53 characters** and the median is 24; a kept reply is capped at 160. What
+  crosses the line is the reader — a book page is `PAGE_CHARS` 1200, a story
+  about a thousand — so this was only ever going to show up there.
+- **So long text is read by an Azure voice.** `WORKER_VOICE_MAX` (400) in
+  store.js and `readableVoice` in speech.js: over the line, the language's first
+  Azure voice reads it instead. By name rather than through `defaultVoice`,
+  which answers with whatever the list leads with and could one day lead with a
+  Worker voice — the one thing this must never hand back. **The cache key is
+  built from what it returns**, so a page read by Azure is stored as Azure's and
+  never served back as Matxa's.
+- **With no Azure key it keeps the Worker voice** and lets the honest failure
+  happen, rather than silently swapping to nothing.
+- **The Worker's own cap is 600, and it is a backstop.** The client decides
+  first at 400, so the Worker only catches a caller that has not — and its
+  message names Azure rather than just refusing. `MATXA_ABORT_MS` is 55 s,
+  roughly double the worst case 600 characters can buy, and separate from the
+  Replicate path's budget because this one does the synthesis inside the request
+  rather than waiting on a queue.
+- **The abort was landing in the wrong place.** Gradio holds the SSE stream open
+  *while the job runs*, so a slow synthesis aborts inside `stream.text()` — the
+  one read not wrapped in a try. A 1211-character page therefore came back as
+  the generic *"Couldn't say that out loud"* with the real reason only in the
+  Worker log. It is a 504 naming the length now.
+
+Worth asserting: the Worker refuses 601 characters with no call and names Azure,
+lets 500 through, and maps an abort during the body read to the 504 rather than
+the generic 502; and headless, that a short phrase is asked of the Matxa voice
+while a text one character over `WORKER_VOICE_MAX` is asked of `ca-ES-Joana`
+instead, whole and in one piece.
+
 ## Storage
 
 Plain JSON, not a database — `phrases.json` and `attempts.json` alongside
@@ -4897,7 +4946,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v112 / `xerra-v112` — `js/version.js` first, `sw.js` second, as ever.
+- v113 / `xerra-v113` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

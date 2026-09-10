@@ -2185,6 +2185,21 @@ export function workerVoiceName(id = "") {
   return String(id).slice(WORKER_VOICE.length);
 }
 
+/* How much a Worker voice will read in one go before an Azure voice takes over.
+
+   Matxa is a CPU model on a free box and runs at about 49 ms a character, so
+   605 characters take half a minute and 1211 time out — reported from the phone
+   as *"It works for the shorter example bits. But fails on the longer text"*.
+   Nothing the app drills is anywhere near this: the longest phrase in the
+   library is 53 characters, the median is 24, and a kept reply is capped at
+   160. What crosses it is the reader — a page of a book is 1200 characters, a
+   story about a thousand — and those are read by an Azure voice instead, which
+   is the same trade the app makes anywhere Matxa cannot go.
+
+   400 rather than the Worker's own 600 so the client always decides first, and
+   so the longest wait this can buy is about twenty seconds. */
+export const WORKER_VOICE_MAX = 400;
+
 /* The Catalan voices, and Catalan is the whole of it.
 
    Six MiniMax voices stood here for one release, spread across all three

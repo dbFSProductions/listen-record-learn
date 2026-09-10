@@ -648,12 +648,28 @@ const MATXA_VOICES = {
    Overridable as JSON in MATXA_INPUT, like the picture path's input. */
 const DEFAULT_MATXA_INPUT = { temperature: 0.2, length_scale: 1.0 };
 
-/* Matxa answers with a WAV rather than an MP3, so a page of a book is
-   megabytes where Azure's was kilobytes. This is the cap on what may be asked
-   for in one go, well under SPEECH_MAX_CHARS: the reader's own PAGE_CHARS is
-   1200, so a page still goes through whole, and a runaway paste is refused
-   here rather than filling the phone. */
-const MATXA_MAX_CHARS = 2_000;
+/* What Matxa can actually read in one go, measured rather than guessed.
+
+   The Space is a free two-core box and Matxa is a CPU model, so synthesis is
+   linear in the text at about 49 ms a character plus a second and a half of
+   overhead: 100 characters in 6 s, 302 in 16 s, 605 in 31 s, and 1211 timed
+   out. This was reported as *"It works for the shorter example bits. But fails
+   on the longer text"*, which is exactly that line being crossed.
+
+   600 is where it stays comfortably inside MATXA_ABORT_MS. It is a backstop
+   rather than the working limit: the client swaps to an Azure voice above
+   WORKER_VOICE_MAX (400) in store.js, so this only catches a caller that has
+   not, and its message names the fix. Nothing the app drills comes near either
+   number — the longest phrase in the library is 53 characters and the median
+   is 24. It is the reader's 1200-character pages that cannot be read this way,
+   and a minute of waiting would not be worth it if they could. */
+const MATXA_MAX_CHARS = 600;
+
+/* Longer than the Replicate path's, because this one is doing the synthesis
+   inside the request rather than waiting on a queue: 600 characters is about
+   31 s of work, so 55 s is roughly double the worst case the cap allows. It
+   still sits inside the app's own 70 s deadline with the file fetch after. */
+const MATXA_ABORT_MS = 55_000;
 
 const DEFAULT_SPEECH_MODEL = "minimax/speech-02-hd";
 
@@ -2249,7 +2265,7 @@ async function speakWithMatxa(request, voice, env) {
       method: "POST",
       headers,
       body: JSON.stringify({ data }),
-      signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+      signal: AbortSignal.timeout(MATXA_ABORT_MS),
     });
   } catch (error) {
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
@@ -2281,7 +2297,7 @@ async function speakWithMatxa(request, voice, env) {
   try {
     stream = await fetch(`${host}/gradio_api/call/${voice.endpoint}/${eventId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+      signal: AbortSignal.timeout(MATXA_ABORT_MS),
     });
   } catch (error) {
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
@@ -2291,7 +2307,21 @@ async function speakWithMatxa(request, voice, env) {
   }
   if (!stream.ok) throw new PublicError(`The Catalan voice returned ${stream.status}.`, 502);
 
-  const result = gradioResult(await stream.text());
+  /* The job runs *while this body is being read* — Gradio holds the stream open
+     until the audio is made — so a slow synthesis aborts here rather than at
+     either fetch. This was the one read not wrapped, and a 1211-character page
+     came back as the generic "Couldn't say that out loud" with the real reason
+     only in the log. */
+  let body;
+  try {
+    body = await stream.text();
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("That is too long for a Catalan voice to read. An Azure voice will read it.", 504);
+    }
+    throw new PublicError("The Catalan voice stopped part way through. Try again.", 502);
+  }
+  const result = gradioResult(body);
   if (result.error !== undefined) {
     throw new PublicError(
       result.error ? `The Catalan voice failed: ${String(result.error).slice(0, 200)}` : "The voice said nothing. Try again.",
@@ -2308,7 +2338,7 @@ async function speakWithMatxa(request, voice, env) {
 
   const file = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-    signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+    signal: AbortSignal.timeout(MATXA_ABORT_MS),
   }).catch(() => null);
   if (!file?.ok) throw new PublicError("The audio could not be fetched back.", 502);
 
