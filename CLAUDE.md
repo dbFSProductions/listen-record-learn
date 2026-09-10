@@ -3590,6 +3590,33 @@ which is Catalan and nothing else.
   **Download all audio still refuses**, for manners now rather than cost: four
   hundred five-second requests at a free box somebody else pays for.
 
+**The verdict from the phone, after all of it: *"The new voices we put in don't
+seem to be that great in comparison. But it was worth a try."*** They are
+shipped, they work, and Azure is still the better voice. Read that before
+proposing another round.
+
+- **The ceiling was known before any of this was built and is worth restating**:
+  Matxa is 22.05 kHz against Azure's 24 kHz, and a flow-matching CPU model
+  against a large vendor's neural stack. It was never going to win on fidelity.
+  What it won on was being Catalan at all, which is the thing MiniMax was not.
+- **The leaderboard measures the best *open Catalan* model, not the best Catalan
+  voice available.** Matxa topping BSC's UTMOS table at 3.50 is a real result
+  and it says nothing about Azure, which is not in that table. Three rounds went
+  into chasing quality inside a family whose ceiling sat below the voice already
+  installed. **Check what you are ranking against before optimising within it.**
+- **There is no cheaper Azure answer, checked 2026-09-10**: `ca-ES` has exactly
+  three voices, and Catalan is *not* among the languages the multilingual or
+  DragonHD voices support (that list is de, en, es, fr, it, ja, ko, pt-BR, zh).
+  So "just find more Azure voices" is a dead end, not an unexplored one.
+- **The one avenue with real upside is untried**: ElevenLabs supports Catalan
+  and is a much larger model. It is a paid API and is *not* on Replicate, so it
+  would want a third branch in `speakLine` alongside Matxa and Replicate — which
+  the per-voice fork was built to accept. Worth doing only if the three Azure
+  voices wear thin again.
+- **Nothing needs undoing.** The six sit in the list costing nothing, Azure
+  remains the drill voice, and long text was already going to Azure anyway. The
+  Worker's Matxa path is additive and the Space is somebody else's to keep up.
+
 Worth asserting, headless with `/speak` routed (24 assertions): eight tiles and
 a clean boot; `#s-voice` lists nine voices for Catalan, Azure's three first and
 six reading *· Matxa*, named Ona, Èlia, Central, Jan, Grau, Central, three of
