@@ -360,13 +360,35 @@ async function run() {
   globalThis.caches = fakeCaches();
   stubSpace();
   calls = [];
-  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(1200) });
-  ok("a 1200-character page still goes through", res.status === 200, String(res.status));
+  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(500) });
+  ok("a sentence or two still goes through", res.status === 200, String(res.status));
   calls = [];
-  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(2001) });
+  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(601) });
   payload = await res.json();
-  ok("over the Catalan cap is refused with no call",
-    res.status === 400 && calls.length === 0 && /too long for a Catalan voice/.test(payload.error ?? ""),
+  ok("over the Catalan cap is refused with no call, naming Azure",
+    res.status === 400 && calls.length === 0 && /too long for a Catalan voice/.test(payload.error ?? "")
+      && /Azure/.test(payload.error ?? ""),
+    `${res.status} ${payload.error}`);
+
+  // The synthesis happens while the body is read, so that is where slow aborts.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url?.url ?? url);
+    calls.push({ href, options });
+    if (href.includes("/gradio_api/call/")) {
+      if (/\/[0-9a-f]{8,}$/.test(href)) {
+        const err = new Error("aborted"); err.name = "TimeoutError";
+        return new Response(new ReadableStream({ start(c) { c.error(err); } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ event_id: "abcdef0123456789" }), { status: 200 });
+    }
+    return new Response(wav24(), { status: 200 });
+  };
+  res = await post("/speak", { ...LINE, voice: "ona" });
+  payload = await res.json();
+  ok("a job that runs past the budget says so, not 'couldn't say that'",
+    res.status === 504 && /too long for a Catalan voice/.test(payload.error ?? ""),
     `${res.status} ${payload.error}`);
 
   // A non-Matxa voice still goes to Replicate, so both providers stand.
