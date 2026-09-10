@@ -3757,7 +3757,8 @@ tone; the tracker reads 149.5 Hz. If you change the algorithm on one side,
 change it on the other, and re-verify against a known tone rather than by eye.
 
 `docs/js/audio.js` is also shared with the sister fork **Deb-o-lingo**, and the
-two are **out of step until the aliasing fix is ported** — see *What Azure
+two are **out of step until the aliasing fix and the shared-Audio-element fix
+are ported** (see *A new Audio() per clip* below) — see *What Azure
 hears was aliased* below; before that they were in step on both halves — the file is a verbatim copy there
 apart from two comments, where the tail-pad argument names a Spanish final -s
 rather than a Catalan final -t. Change either repo's copy and change the
@@ -4241,6 +4242,47 @@ Worth asserting, headless with `/speak` stubbed to a 504 and
 and the reason this was invisible: the drill card's `.notice.bad` names the
 reason, pressing `#listen` toasts that same reason, and the toast no longer
 says *no sound came out*.
+
+### A new Audio() per clip is an iOS bug waiting for a slow network
+
+Reported as the Catalan voices not playing, with the tell that made it
+findable: *"Ona and central female work fine. But the rest I get Audio couldn't
+play."* Some voices, not all, and the Azure ones healthy throughout.
+
+- **The message was `player.play` being *refused*, not the audio being bad.**
+  "The audio arrived but wouldn't play" is the Settings voice test's own catch
+  around `player.play(blob)`, so the fetch had already succeeded — the timings
+  panel agreed, `/speak ×9` at a 4.6 s median. Driven through the deployed
+  Worker from Node, all six voices came back as valid 16-bit 22 kHz mono WAVs,
+  and in headless Chromium all six decoded and played through the app's own
+  `forPlayback`. Nothing was wrong with the sound.
+- **`play` built a `new Audio(url)` for every clip**, and Safari only lets a
+  media element play without a user gesture once *that element* has been played
+  from inside one. A fresh element has no such history, so every play depended
+  on still being inside the tap that asked for it.
+- **Which is why it looked like a per-voice fault and was not.** A cached clip
+  comes back from IndexedDB in milliseconds and the play is still inside the
+  tap; an uncached one costs four seconds of network and the gesture is long
+  gone. The voices that worked were the ones already heard once. **Azure's
+  looked fine for the same reason** — a year of drilling has left almost every
+  phrase cached — which is exactly why this survived until a new provider
+  arrived with an empty cache. **A bug that only shows on a cold cache will be
+  reported as being about whatever feature was new that week.**
+- **So the Player keeps one element for the life of the page**, `unlock()`
+  plays sixteen silent samples on it, and app.js calls that from the first
+  `pointerdown` anywhere, in the capture phase, once. `stop()` now keeps the
+  element and only pauses and rewinds it: throwing it away would throw the
+  unlock away with it. `onended` moved onto the element and reads `this.onEnded`,
+  which `stop` clears, so a stopped clip's callback still never fires late.
+- **`audio.js` is shared verbatim with both forks and both have this bug.**
+  It is invisible over there for now because their audio is Azure's and mostly
+  cached — but any slow fetch before a play hits it. Port it.
+
+Worth asserting, headless, with `window.Audio` counted: `unlock()` constructs
+exactly one element, three plays construct no more, the element is the same
+object across all of them, it survives `stop()`, and a real tap during ordinary
+navigation unlocks it. Plus the standing check that all six Catalan WAVs still
+decode and play through `forPlayback`.
 
 ## Storage
 
@@ -4855,7 +4897,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v111 / `xerra-v111` — `js/version.js` first, `sw.js` second, as ever.
+- v112 / `xerra-v112` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
