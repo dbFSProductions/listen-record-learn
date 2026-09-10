@@ -54,8 +54,18 @@ export const speech = {
    * speech, which is what a missing Azure key has always meant here.
    */
   async modelAudio(phrase, settings) {
-    if (!phrase.text?.trim()) return null;
-    if (!canSay(phrase.voice || settings.azureVoice, settings)) return null;
+    /* Both early returns clear the last error, and that matters now that
+       `noVoice` prints it: a failure from a previous phrase must not be
+       reported against this one, where the honest answer is that there is no
+       provider to try rather than that something went wrong. */
+    if (!phrase.text?.trim()) {
+      this.lastError = null;
+      return null;
+    }
+    if (!canSay(phrase.voice || settings.azureVoice, settings)) {
+      this.lastError = null;
+      return null;
+    }
 
     /* The voice is the settings' unless the caller names one — the rehearsal
        chat's partner speaks in a voice of their own, so the two sides of a

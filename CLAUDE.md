@@ -4208,6 +4208,40 @@ key, and `speech.lastError` when Azure refuses. **Those two lines are the first
 thing to read when playback is reported dead** — between them and the new toast,
 every silent path now names itself.
 
+### And then it said the wrong thing about the silence
+
+Reported one release after the Catalan voices shipped: *"The new voices don't
+work. It reports 'no sound came out'"*. Everything upstream was fine, and
+checking it was the fast part — the deployed Worker answered all six voices
+against the live Space in 2.6–4.5 s driven from Node, GitHub Pages was serving
+v110 of every file, the deploy had succeeded, CORS and the route were live.
+The bug was that the app could not say which thing had failed.
+
+- **Two failures happen, and only the second one was reported.** `modelAudio`
+  fails and returns null; the caller falls through to the browser voice; iOS
+  accepts the utterance and stays silent; `onSilent` fires and `noVoice` blames
+  the ringer switch. The interesting failure is the first one, and its message
+  was sitting in `speech.lastError` with nothing printing it.
+- **The drill card printed it and nothing else did.** `renderDrill` has a
+  `.notice.bad` for exactly this, so a drill card showed the truth — but Listen
+  on a reply, a story, a book page or the reader has no such notice, and the
+  toast is all there is. A toast that names the wrong fix is worse than a toast
+  that says nothing, because it sends you to the ringer switch.
+- **So `noVoice` leads with `speech.lastError` when there is one**, and only
+  falls back to the ringer and the pick-a-voice lines when there is not. This
+  is *Listen has to say when nothing came out* one floor down: noticing the
+  silence is not enough, the app has to say **which** silence it was.
+- **Both of `modelAudio`'s early returns now clear `lastError`.** They did not
+  before, which did not matter while nothing read it and matters now: a failure
+  from a previous phrase must not be reported against a phrase that was never
+  attempted, where the honest answer is "there is no provider configured".
+
+Worth asserting, headless with `/speak` stubbed to a 504 and
+`speechSynthesis.speak` replaced by a no-op — which is iOS's own failure mode
+and the reason this was invisible: the drill card's `.notice.bad` names the
+reason, pressing `#listen` toasts that same reason, and the toast no longer
+says *no sound came out*.
+
 ## Storage
 
 Plain JSON, not a database — `phrases.json` and `attempts.json` alongside
@@ -4821,7 +4855,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v110 / `xerra-v110` — `js/version.js` first, `sw.js` second, as ever.
+- v111 / `xerra-v111` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
