@@ -293,31 +293,86 @@ export async function forPlayback(blob) {
   return result;
 }
 
+/* Sixteen silent samples, played once inside a real tap to buy every play
+   after it. See `unlock` below. */
+const SILENCE =
+  "data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 export class Player {
   constructor() {
     this.element = null;
     this.url = null;
     this.onEnded = null;
+    this.unlocked = false;
   }
 
-  async play(blob, { rate = 1, onEnded = null } = {}) {
-    const playable = await forPlayback(blob);
-    this.stop();
-    this.url = URL.createObjectURL(playable);
-    const audio = new Audio(this.url);
+  /* One element for the life of the page, and that is the whole of the iOS
+     fix.
+
+     Safari only lets a media element play without a user gesture once *that
+     element* has been played from inside one. `play` used to build a
+     `new Audio(url)` per clip, which handed it a fresh, never-unlocked element
+     every single time — and it worked anyway whenever the clip was already in
+     IndexedDB, because then `play()` still ran inside the tap that asked for
+     it. It failed whenever the clip had to be fetched first, because four
+     seconds of network puts the play well outside the gesture.
+
+     That is exactly the shape of the report that found this: the Catalan
+     voices that had already been heard once played, and the ones being heard
+     for the first time answered *"The audio arrived but wouldn't play"* — the
+     blob was there, `decodeAudioData` was fine, and `audio.play()` was refused.
+     Azure's voices looked healthy for the same reason: a year of drilling has
+     left almost every phrase cached. */
+  ensure() {
+    if (this.element) return this.element;
+    const audio = new Audio();
+    audio.preload = "auto";
     // Time-stretch rather than pitch-shift, so slow playback still sounds
     // like a person. Safari needs the webkit-prefixed form.
     audio.preservesPitch = true;
     audio.webkitPreservesPitch = true;
     audio.mozPreservesPitch = true;
-    audio.playbackRate = rate;
-    this.onEnded = onEnded;
+    // Set once, on the element rather than per clip, since the element now
+    // outlives the clip. `stop` clears `onEnded`, so a stopped clip's callback
+    // never fires late.
     audio.onended = () => {
       const callback = this.onEnded;
       this.onEnded = null;
       callback?.();
     };
     this.element = audio;
+    return audio;
+  }
+
+  /* Called from a real tap, before anything is awaited — see the pointerdown
+     listener in app.js. Playing silence inside the gesture is what every later
+     play borrows from. Deliberately forgiving: a browser that refuses it, or
+     one that never needed it, costs nothing. */
+  unlock() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    const audio = this.ensure();
+    // Never interrupt a clip that is already playing to unlock an element that
+    // is evidently already unlocked.
+    if (audio.src && !audio.paused) return;
+    try {
+      audio.src = SILENCE;
+      audio.play().then(() => audio.pause()).catch(() => {});
+    } catch {}
+  }
+
+  async play(blob, { rate = 1, onEnded = null } = {}) {
+    const audio = this.ensure();
+    const playable = await forPlayback(blob);
+    audio.pause();
+    const stale = this.url;
+    this.url = URL.createObjectURL(playable);
+    audio.src = this.url;
+    // Revoked only once the element has been pointed somewhere else, so the
+    // clip being replaced can never be read from a URL that has just gone.
+    if (stale) URL.revokeObjectURL(stale);
+    audio.playbackRate = rate;
+    this.onEnded = onEnded;
     await audio.play();
     return audio;
   }
@@ -330,15 +385,17 @@ export class Player {
     });
   }
 
+  /* Stops the clip and keeps the element, which is the one thing that must not
+     go back to how it was: throwing the element away would throw the unlock
+     away with it, and the next play would be refused all over again. */
   stop() {
     if (this.element) {
       this.element.pause();
-      this.element.onended = null;
-      this.element = null;
-    }
-    if (this.url) {
-      URL.revokeObjectURL(this.url);
-      this.url = null;
+      try {
+        this.element.currentTime = 0;
+      } catch {
+        // A source that will not seek is still a source that has stopped.
+      }
     }
     this.onEnded = null;
   }

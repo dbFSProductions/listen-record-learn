@@ -21,6 +21,14 @@ const sheetBody = document.getElementById("sheet-body");
 const toastEl = document.getElementById("toast");
 
 const player = new Player();
+
+/* iOS only lets an audio element play unprompted once it has played from
+   inside a real tap, so the first touch anywhere in the app buys that for
+   every clip after it — including the ones that take four seconds to fetch and
+   would otherwise be refused for arriving after the gesture had passed. Once,
+   in the capture phase, so it runs before whatever the tap was actually for.
+   Costs a browser that never needed it precisely nothing. */
+window.addEventListener("pointerdown", () => player.unlock(), { once: true, capture: true });
 let recorder = new Recorder();
 
 const state = {
