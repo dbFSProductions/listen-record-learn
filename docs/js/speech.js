@@ -6,12 +6,20 @@
 // working offline once installed.
 //
 // An honest limitation of the web version: the browser's built-in speech
-// synthesis can be *played* but not *captured*, so without an Azure key there
-// is no model audio file to draw a waveform from or to A/B against. Listening
-// still works; the visual comparison and scoring need a key. On iOS the native
-// app could capture its built-in voice to a file — Safari cannot.
+// synthesis can be *played* but not *captured*, so with no way to synthesise
+// there is no model audio file to draw a waveform from or to A/B against.
+// Listening still works; the visual comparison needs a real clip and the
+// scoring needs Azure. On iOS the native app could capture its built-in voice
+// to a file — Safari cannot.
+//
+// Model audio has two possible sources and scoring has one. A voice id says
+// which: Azure's SDK below for the Neural voices, the Worker's /speak for the
+// `rep:` ones (see REPLICATE_VOICE in store.js). The assessment and the
+// rehearsal chat's transcription are Azure's whatever voice is chosen —
+// nothing else here can say which *sound* you missed.
 
-import { audioStore } from "./store.js";
+import { audioStore, voiceProvider, replicateVoiceName } from "./store.js";
+import { cardAssistant } from "./card-assistant.js";
 import { toWav16k } from "./audio.js";
 
 let sdkPromise = null;
@@ -41,12 +49,13 @@ export const speech = {
   lastError: null,
 
   /**
-   * Model audio for a phrase, from cache when possible. Returns null when
-   * there's no Azure key — the caller falls back to browser speech.
+   * Model audio for a phrase, from cache when possible. Returns null when the
+   * voice's provider isn't configured — the caller falls back to browser
+   * speech, which is what a missing Azure key has always meant here.
    */
   async modelAudio(phrase, settings) {
     if (!phrase.text?.trim()) return null;
-    if (!settings.hasAzure) return null;
+    if (!canSay(phrase.voice || settings.azureVoice, settings)) return null;
 
     /* The voice is the settings' unless the caller names one — the rehearsal
        chat's partner speaks in a voice of their own, so the two sides of a
@@ -68,7 +77,15 @@ export const speech = {
     }
 
     try {
-      const blob = await this.synthesise(phrase.text, phrase.language, settings, voice);
+      /* Who says it is read off the voice id and nowhere else — see
+         REPLICATE_VOICE in store.js. Everything either side of this line is
+         shared: the same cache, the same key, the same blob, so a Replicate
+         voice draws a waveform, plays at the drill's Slow rate and can be
+         scored by *Check this card* exactly as an Azure one does. */
+      const blob =
+        voiceProvider(voice) === "replicate"
+          ? await speakThroughWorker(phrase.text, phrase.language, voice, settings)
+          : await this.synthesise(phrase.text, phrase.language, settings, voice);
       // Failing to *keep* it is not failing to have it. A full or unavailable
       // store costs the offline copy, never the audio you just asked for.
       try {
@@ -77,7 +94,10 @@ export const speech = {
       this.lastError = null;
       return blob;
     } catch (error) {
-      this.lastError = describeAzureError(error);
+      this.lastError =
+        voiceProvider(voice) === "replicate"
+          ? error?.message || "Couldn't reach the card assistant to say that."
+          : describeAzureError(error);
       return null;
     }
   },
@@ -89,8 +109,15 @@ export const speech = {
      no phrase, no buttons, no way to tell what had happened. A question about
      a spinner should never be able to do that. */
   async isCached(phrase, settings) {
-    if (!settings.hasAzure) return false;
-    const key = cacheKey(phrase.text, settings.azureVoice, phrase.language);
+    /* The effective voice, not `settings.azureVoice`. It read the drill voice
+       whatever the caller had asked for, so a line the chat partner had
+       already said in *their* voice was reported uncached and painted a
+       spinner over audio that was sitting in the store. Harmless while the
+       only cost was a spinner; not harmless now that a miss can be a paid
+       call, so the two agree on the voice. */
+    const voice = phrase.voice || settings.azureVoice;
+    if (!canSay(voice, settings)) return false;
+    const key = cacheKey(phrase.text, voice, phrase.language);
     try {
       return Boolean(await audioStore.getModel(key));
     } catch {
@@ -131,7 +158,13 @@ export const speech = {
     });
   },
 
-  /** Warm the cache for a whole deck so a session runs with no signal. */
+  /* Warm the cache for a whole deck so a session runs with no signal.
+
+     Deliberately never called with a Replicate voice — Settings refuses, and
+     the reason is the bill rather than the machinery: Azure's audio is bought
+     by the month and this would be four hundred paid calls into a rate limit
+     of twenty a minute. The way to have a Replicate voice offline is to drill
+     with it; each phrase is fetched once and kept. */
   async prefetch(phrases, settings, onProgress) {
     const drillable = phrases.filter((p) => p.text?.trim());
     let done = 0;
@@ -141,6 +174,31 @@ export const speech = {
     }
   },
 };
+
+/* Can this device speak in this voice at all? Azure's need the speech key,
+   the Worker's need the card assistant, and either can be missing — in which
+   case there is no model audio and the caller falls through to the browser
+   voice, exactly as it always did with no Azure key. */
+function canSay(voice, settings) {
+  return voiceProvider(voice) === "replicate" ? settings.hasAssistant : settings.hasAzure;
+}
+
+/* The Worker's /speak, unpacked into the same kind of Blob the Azure SDK
+   hands back, so nothing above this line has to know which one answered.
+   base64 in, bytes out — the drawing's shape, and for the drawing's reason:
+   what the phone keeps is a blob in IndexedDB, so a URL into someone else's
+   CDN would trade the offline story for one saved request. */
+async function speakThroughWorker(text, language, voice, settings) {
+  const { audio } = await cardAssistant.speak(
+    { text, language, voice: replicateVoiceName(voice) },
+    settings
+  );
+  if (!audio?.data) throw new Error("The card assistant sent back no audio.");
+  const binary = atob(audio.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: audio.mimeType || "audio/mpeg" });
+}
 
 // ---------------------------------------------- browser speech (play only)
 

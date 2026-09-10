@@ -5,7 +5,7 @@ import {
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, readingDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
-  books, bookStore,
+  books, bookStore, voicesFor, voiceProvider,
 } from "./store.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -497,7 +497,7 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.", 
    when it is one of this language's voices, else null, which `modelAudio`
    reads as the drill voice. */
 function readerVoiceNow() {
-  const voices = LANGUAGES[settings.language]?.voices ?? [];
+  const voices = voicesFor(settings.language);
   return settings.readerVoice && voices.some((v) => v.id === settings.readerVoice) ? settings.readerVoice : null;
 }
 
@@ -1638,8 +1638,8 @@ function renderPractice(section = null) {
       section || settings.hasAzure
         ? ""
         : `<div class="section-label">Heads up</div>
-           <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, but
-           the waveform comparison and scoring need one.
+           <div class="notice">Without an Azure key you can hear phrases using the browser's built-in voice, or one of
+           the card assistant's, but the waveform comparison and scoring need one.
            <button class="link" id="open-settings-notice">Add it in Settings</button></div>`
     }`;
 
@@ -4802,27 +4802,74 @@ function chatStarter() {
     </div>`;
 }
 
-/* Their voice: a select over the language's voices, opening on `selected`.
-   Only with an Azure key — the browser voice is one voice per language and
-   there is nothing to choose — and the same control on the starter card and
-   on the chat page, so a voice picked before the partner opens and a voice
-   changed mid-chat are one thing. */
+/* Is there a real voice to be had on this device, for this voice id? Azure's
+   need the speech key, the Worker's need the card assistant, and without
+   either the app falls through to the browser voice — which it has always
+   done, and which used to be the same question as "is there an Azure key".
+   It isn't any more, so everything that asked about *audio* asks this and
+   everything that asks about *scoring* still asks `hasAzure` directly. */
+function canSpeak(voice = settings.azureVoice) {
+  return voiceProvider(voice) === "replicate" ? settings.hasAssistant : settings.hasAzure;
+}
+
+/* What a voice is asked to say when you try it out. A sentence, not a word:
+   an accent shows in a phrase and hides in "hola". Each one is built out of
+   the sounds its language's notes go on about — the Catalan has a schwa in
+   *bona*, a silent final r in *dinar* and the voiced j of *dijous*. */
+const VOICE_TEST_LINE = {
+  "ca-ES": "Bona tarda! Dijous anem a dinar plegats, si et va bé.",
+  "es-ES": "Buenas tardes. El jueves vamos a comer juntos, si te va bien.",
+  "it-IT": "Buonasera! Giovedì andiamo a pranzo insieme, se ti va bene.",
+};
+
+/* Their voice: a select over the language's *reachable* voices, opening on
+   `selected`. Only where there are two to choose between — the browser voice
+   is one voice per language, and an unreachable voice is worse than no voice
+   here, since picking one would leave every Listen falling silently through
+   to the browser. The same control on the starter card and on the chat page,
+   so a voice picked before the partner opens and a voice changed mid-chat are
+   one thing. */
 function voiceField(id, selected, label = "Their voice") {
-  if (!settings.hasAzure) return "";
-  const voices = LANGUAGES[settings.language]?.voices ?? [];
+  /* `canSpeak` per voice rather than `voicesFor`, which falls back to the
+     whole list when nothing is reachable — right for a select you are about
+     to configure a provider from, wrong here, where the answer to "nothing is
+     reachable" is to offer no choice at all. It used to read `!hasAzure`,
+     which was the same question until there were two providers. */
+  const voices = (LANGUAGES[settings.language]?.voices ?? []).filter((v) => canSpeak(v.id));
   if (voices.length < 2) return "";
   return `
     <label class="field"><span>${esc(label)}</span>
       <select id="${id}" class="deck-select">
-        ${voices
-          .map(
-            (v) =>
-              `<option value="${esc(v.id)}" ${v.id === selected ? "selected" : ""}>${esc(v.name)} · ${esc(
-                v.gender
-              )}${v.id === settings.azureVoice ? " — your drill voice" : ""}</option>`
-          )
-          .join("")}
+        ${voices.map((v) => voiceOption(v, selected)).join("")}
       </select></label>`;
+}
+
+/* One option, wherever a voice is chosen. `· Replicate` is on the ones the
+   Worker says, because which provider a voice is on is not a detail here: it
+   decides whether Listen works with the speech key out, what it costs, and
+   whether the voice has ever been checked against Azure's Catalan.
+
+   An option that cannot be reached says which thing is missing, which is only
+   ever seen on the Settings page — everywhere else the list is filtered by
+   `voicesFor` first. Settings is the exception on purpose: it is the page
+   where the key and the assistant are typed in, so a list that hid the voices
+   until they worked would be hiding the reason to set them up. */
+function voiceOption(voice, selected, { markDrillVoice = true } = {}) {
+  const replicate = voiceProvider(voice.id) === "replicate";
+  const provider = replicate ? " · Replicate" : "";
+  const missing = replicate
+    ? settings.hasAssistant
+      ? ""
+      : " — needs the card assistant"
+    : settings.hasAzure
+    ? ""
+    : " — needs the Azure key";
+  /* Not in the Settings select, where the field *is* the drill voice and the
+     note would be three suffixes deep on a line that already truncates. */
+  const drill = markDrillVoice && !missing && voice.id === settings.azureVoice ? " — your drill voice" : "";
+  return `<option value="${esc(voice.id)}" ${voice.id === selected ? "selected" : ""}>${esc(voice.name)} · ${esc(
+    voice.gender
+  )}${provider}${missing}${drill}</option>`;
 }
 
 function wireChatStarter() {
@@ -6401,7 +6448,7 @@ async function loadPhrase() {
   scoring.lastError = null;
   if (!phrase) return render();
 
-  state.loadingModel = settings.hasAzure && !(await speech.isCached(phrase, settings));
+  state.loadingModel = canSpeak(phrase.voice) && !(await speech.isCached(phrase, settings));
   render();
 
   /* Guarded even though modelAudio now swallows its own failures: this is the
@@ -6574,16 +6621,19 @@ function renderDrill() {
         ? ""
         : state.loadingModel
         ? `<p class="small muted" style="margin-top:10px"><span class="spinner"></span> Generating audio…</p>`
-        : !hasModel && settings.hasAzure && speech.lastError
+        : !hasModel && canSpeak() && speech.lastError
         ? `<div class="notice bad" style="margin-top:10px">${esc(speech.lastError)}</div>`
         : !hasModel
         ? `<div class="notice" style="margin-top:10px">${
             /* Quiet mode never records, so there is nothing for Azure to
                compare or score and saying so here would be answering a
                question nobody asked. What is still true is which voice you
-               are about to hear. */
-            quiet
-              ? "Using the browser voice. The Catalan voices need an Azure key."
+               are about to hear — and which thing is missing, since the drill
+               voice may be one the card assistant says rather than Azure. */
+            voiceProvider(settings.azureVoice) === "replicate"
+              ? "Using the browser voice. That voice comes through the card assistant — set it up in Settings."
+              : quiet
+              ? "Using the browser voice. The real voices need an Azure key."
               : "Using the browser voice. Comparison and scoring need an Azure key."
           }</div>`
         : ""
@@ -7338,9 +7388,9 @@ function playModel(rate) {
    reaches the browser voice at all. */
 function noVoice() {
   toast(
-    settings.hasAzure
+    canSpeak()
       ? "No sound came out. Check the ringer switch and the volume."
-      : "The browser voice didn't play. Add an Azure key in Settings for the real voices.",
+      : "The browser voice didn't play. Pick a real voice in Settings — Azure's, or one of the card assistant's.",
     4000
   );
 }
@@ -9870,24 +9920,40 @@ function renderSettings() {
 
     ${aiLog.entries.length ? assistantSpeedPanel() : ""}
 
-    <div class="section-label">Azure voice and scoring</div>
+    <div class="section-label">Voice</div>
+    <div class="card">
+      <label class="field"><span>The voice you drill against</span>
+        <select id="s-voice">
+          ${(LANGUAGES[settings.language]?.voices ?? [])
+            .map((v) => voiceOption(v, settings.azureVoice, { markDrillVoice: false }))
+            .join("")}
+        </select></label>
+      <button class="btn btn-primary" id="s-voice-test" style="width:100%">Hear it say something</button>
+      <div id="s-voice-result" style="margin-top:10px"></div>
+      <p class="tiny muted" style="margin:12px 0 0">
+        The plain voices are Azure's and need the speech key below. The ones marked Replicate
+        come through the card assistant instead, and are here because three voices heard
+        every day for a year stop being voices you listen to. They have not been checked
+        against Catalan by anyone but you: a voice that sounds Spanish teaches the wrong
+        mouth, so try one on a card with <strong>Check this card</strong> before drilling on
+        it — if Azure marks the model's own words down, that is the voice, not you.
+      </p>
+    </div>
+
+    <div class="section-label">Azure key and scoring</div>
     <div class="card">
       <label class="field"><span>Speech key</span>
         <input type="password" id="s-key" value="${esc(settings.azureKey)}" autocomplete="off"></label>
       <label class="field"><span>Region</span>
         <input type="text" id="s-region" value="${esc(settings.azureRegion)}" autocomplete="off"></label>
-      <label class="field"><span>Voice</span>
-        <select id="s-voice">
-          ${language.voices
-            .map((v) => `<option value="${v.id}" ${v.id === settings.azureVoice ? "selected" : ""}>${esc(v.name)} · ${esc(v.gender)}</option>`)
-            .join("")}
-        </select></label>
       <button class="btn btn-primary" id="s-test" style="width:100%">Save and test</button>
       <div id="s-test-result" style="margin-top:10px"></div>
       <p class="tiny muted" style="margin:12px 0 0">
-        The region is lowercase with no spaces, like northeurope. The key is stored only in
-        this browser, on this device — anyone with access to the phone could read it, so use
-        a key you're happy to rotate.
+        Scoring is Azure's whichever voice you drill against — it is the only one that can say
+        which sound you missed — and so is the mic in the rehearsal chat. The region is
+        lowercase with no spaces, like northeurope. The key is stored only in this browser, on
+        this device — anyone with access to the phone could read it, so use a key you're happy
+        to rotate.
       </p>
     </div>
 
@@ -9978,6 +10044,10 @@ function renderSettings() {
     // A new language means a new voice, and the one it opens on is the male
     // one — see defaultVoice in store.js. A voice this language already has
     // (the select can't offer one, but an export can carry one) is kept.
+    /* A Replicate voice is the same voice in every language — it is a system
+       voice on a multilingual model, steered by the text — so switching
+       language keeps it, and only an Azure voice belonging to the old locale
+       is swapped out. */
     const voices = LANGUAGES[settings.language].voices;
     if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = defaultVoice(settings.language);
     settings.save();
@@ -10050,23 +10120,65 @@ function renderSettings() {
   document.getElementById("s-voice").onchange = (event) => {
     settings.azureVoice = event.target.value;
     settings.save();
+    document.getElementById("s-voice-result").innerHTML = "";
+  };
+
+  /* The voice test plays the voice, and that is the point of it rather than a
+     nicety: a name in a select tells you nothing about an accent, and the one
+     thing worth knowing about a voice you have not heard is what it sounds
+     like saying a sentence in the language you are learning. It goes through
+     `modelAudio`, so it is the same path the drill takes — a voice that plays
+     here plays there, and a voice the model has not got says so in the
+     Worker's own words rather than failing silently mid-drill. */
+  document.getElementById("s-voice-test").onclick = async () => {
+    const box = document.getElementById("s-voice-result");
+    const voice = document.getElementById("s-voice").value;
+    settings.azureVoice = voice;
+    settings.save();
+    const replicate = voiceProvider(voice) === "replicate";
+    if (replicate ? !settings.hasAssistant : !settings.hasAzure) {
+      box.innerHTML = `<div class="notice">${
+        replicate
+          ? "That voice needs the card assistant — set its address and passcode above."
+          : "No Azure key set — the browser voice will be used, without comparison or scoring."
+      }</div>`;
+      return;
+    }
+    box.innerHTML = `<p class="small muted"><span class="spinner"></span> Asking it to say something…</p>`;
+    // A sentence rather than a word: an accent shows in a phrase and hides in
+    // "hola". This one has the schwa, the silent final r and a voiced j in it.
+    const line = VOICE_TEST_LINE[settings.language] ?? "Hola, què tal?";
+    const blob = await speech.modelAudio({ text: line, language: settings.language, voice }, settings);
+    if (!blob) {
+      box.innerHTML = `<div class="notice bad">${esc(speech.lastError ?? "That voice said nothing.")}</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="notice good">“${esc(line)}” — playing it now. New audio will use this voice.</div>`;
+    try {
+      await player.play(blob);
+    } catch {
+      box.innerHTML = `<div class="notice bad">The audio arrived but wouldn't play.</div>`;
+    }
   };
 
   document.getElementById("s-test").onclick = async () => {
     settings.azureKey = document.getElementById("s-key").value.trim();
     settings.azureRegion = document.getElementById("s-region").value.trim();
-    settings.azureVoice = document.getElementById("s-voice").value;
     settings.save();
 
     const box = document.getElementById("s-test-result");
     if (!settings.hasAzure) {
-      box.innerHTML = `<div class="notice">No key set — the browser voice will be used, without comparison or scoring.</div>`;
+      box.innerHTML = `<div class="notice">No key set — no scoring, and no model audio unless you pick a Replicate voice.</div>`;
       return;
     }
     box.innerHTML = `<p class="small muted"><span class="spinner"></span> Testing…</p>`;
     try {
-      await speech.synthesise("Hola", settings.language, settings);
-      box.innerHTML = `<div class="notice good">Azure is working. New audio will use ${esc(settings.azureVoice)}.</div>`;
+      /* An Azure voice, whatever the drill voice is: this button asks whether
+         the *key* works, and sending it "rep:Calm_Woman" would fail for a
+         reason that has nothing to do with the key. */
+      const azure = voicesFor(settings.language).find((v) => voiceProvider(v.id) === "azure") ?? { id: settings.azureVoice };
+      await speech.synthesise("Hola", settings.language, settings, azure.id);
+      box.innerHTML = `<div class="notice good">Azure is working — scoring is on, and its voices are in the list above.</div>`;
     } catch (error) {
       box.innerHTML = `<div class="notice bad">${esc(speech.lastError ?? error.message)}</div>`;
     }
@@ -10074,6 +10186,16 @@ function renderSettings() {
 
   document.getElementById("s-prefetch").onclick = async () => {
     const status = document.getElementById("s-prefetch-status");
+    /* Not offered on a Replicate voice, and the reason is the bill rather than
+       the machinery. Azure's audio is bought by the month, so downloading the
+       whole library costs nothing extra; this would be four hundred paid calls
+       into a rate limit of twenty a minute. Drilling with the voice fetches
+       each phrase once and keeps it, which is the same destination by a route
+       you are already walking. */
+    if (voiceProvider(settings.azureVoice) === "replicate") {
+      status.textContent = "Not for a Replicate voice — those are paid per phrase. Drilling keeps each one as you go.";
+      return;
+    }
     if (!settings.hasAzure) {
       status.textContent = "Needs an Azure key.";
       return;
