@@ -7383,10 +7383,25 @@ function playModel(rate) {
   }
 }
 
-/* Said when the device has no voice it will actually use. It names the fix,
-   because the fix is nearly always the same one: with an Azure key this never
-   reaches the browser voice at all. */
+/* Said when the device has no voice it will actually use.
+
+   The real reason first, whenever there is one. This blamed the ringer switch
+   whatever had happened — and the commonest thing that actually happens is
+   that the model audio failed, `modelAudio` returned null, the browser voice
+   was tried as the fallback and iOS declined to speak it. Two failures, one
+   of them the interesting one, and the toast reported neither: *"The new
+   voices don't work. It reports 'no sound came out'"*, with the Worker,
+   the Space and every deployed asset all verifiably fine. `speech.lastError`
+   had the answer the whole time and nothing put it on the screen — the drill
+   card prints it, but Listen from a reply, a story or the reader has no such
+   notice, and a toast that names the wrong fix sends you to the wrong place.
+
+   This is the same lesson as *Listen has to say when nothing came out*, one
+   floor down: it is not enough to notice the silence, the app has to say
+   which silence it was. `modelAudio` clears `lastError` on success, so a
+   message here is about the phrase that just failed. */
 function noVoice() {
+  if (speech.lastError) return toast(speech.lastError, 5000);
   toast(
     canSpeak()
       ? "No sound came out. Check the ringer switch and the volume."
