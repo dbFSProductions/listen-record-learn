@@ -3489,6 +3489,140 @@ let the worker install, swap the directory for the new tree and reload.
 
 ---
 
+### A second voice source, because three voices wear out
+
+Asked for as *"Can I get better Catalan voices from another model. (Azure is
+good but I'm a bit bored of the same voices). For ease can I get them through
+Replicate?"* Azure has exactly three Catalan voices — Joana, Enric, Alba — and
+this app is used every day, so after a year they are three voices heard
+several thousand times. That is not a cosmetic complaint in an app whose whole
+loop is *listen, then say it back*: a voice you have stopped attending to is a
+model you have stopped copying.
+
+- **A voice is still only a string, and that is the whole of how a second
+  provider fits.** `REPLICATE_VOICE` in store.js is the prefix `rep:`, and
+  `voiceProvider(id)` is the one reader. `phrase.voice`,
+  `settings.azureVoice`, `chatVoice`, `readerVoice`, the chat partner's voice
+  and the key the model audio is cached under are all one id, and every one of
+  them went on working untouched — the same argument the deck names make, that
+  the naming *is* the grouping, so nothing downstream had to learn a field. A
+  prefix rather than a `provider:` field because the id travels alone into
+  places that have no entry to look it up in: the audio cache key, an export,
+  an import written months ago.
+- **Azure keeps the two things only Azure can do**, whatever voice is chosen:
+  the pronunciation assessment — the only reason this app can say *which
+  sound* you missed — and the transcription the rehearsal chat's Talk mode
+  listens with. `/speak` only ever answers "say this sentence". So `hasAzure`
+  split in two: everything asking about *audio* now asks `canSpeak()` (app.js)
+  or `canSay()` (speech.js), and everything asking about *scoring* still asks
+  `hasAzure` directly. Getting that split wrong is how you end up telling
+  somebody with a working voice that they need an Azure key.
+- **`/speak` is the drawing's shape one field over**: `{ text, language,
+  voice }` in, `{ audio: { data, mimeType } }` out, base64 fetched back from
+  Replicate's URL because this app is offline-first and what the phone keeps
+  is a blob. Answered before the Gemini-key check like `/feed` — no model of
+  Gemini's is involved — but **with a rate limit of its own key** on the same
+  limiter, because it costs money per character: a deck being read aloud must
+  not spend the budget the Add tab needs to write a card, and a card being
+  written must not silence the Listen button.
+- **The edge caches what has been paid for.** `SPEECH_CACHE_S` is thirty days,
+  keyed on a hash of the whole input, so the model, the voice, the language,
+  the speed and `REPLICATE_VOICE_INPUT` all miss it rather than serving audio
+  made under old settings. The phone caches every clip in IndexedDB and would
+  rarely ask twice — but iOS evicts a web app's storage under pressure, a
+  reinstall starts empty, and a second device pays again.
+- **Nothing is ever defaulted or reset onto a paid voice, and that rule is
+  load-bearing rather than tidy.** The first cut had `defaultVoice` and
+  `settings.load` fall back through `voicesFor` — the reachable voices — which
+  meant clearing the Azure key silently moved the drill voice onto a provider
+  charged by the character. The headless run caught it. `voicesFor` is now
+  used only for *offering* voices (`voiceField`, `partnerVoice`); the drill
+  voice is defaulted and repaired against the language's full list, so it is
+  always an Azure voice where the language has one. An unreachable drill voice
+  behaves exactly as a missing Azure key always has — the browser voice — and
+  the Settings list says which thing it is waiting for. **Download all audio
+  refuses a Replicate voice** for the same reason: Azure's audio is bought by
+  the month, and that button on a paid voice is four hundred calls into a
+  limit of twenty a minute. Drilling fetches each phrase once and keeps it.
+- **Settings grew a Voice card of its own, above the Azure one.** The voice
+  now spans two providers, so it could not stay a field inside *Azure voice
+  and scoring* — that card is *Azure key and scoring* now, and its Save and
+  test synthesises with an **Azure** voice whatever the drill voice is, since
+  that button asks whether the key works and would otherwise fail for a
+  reason that has nothing to do with the key. The Voice card's button *plays*
+  the voice, which is the point of it: a name in a select tells you nothing
+  about an accent. `VOICE_TEST_LINE` is a sentence rather than a word, built
+  out of the sounds each language's notes go on about — the Catalan has the
+  schwa in *bona*, the silent final r of *dinar*, the voiced j of *dijous*.
+- **The Settings select is the one list that is not filtered**, and shows
+  every voice with what it is waiting for (*— needs the card assistant*, *—
+  needs the Azure key*). Settings is where the key and the assistant are typed
+  in, so a list that hid the voices until they worked would hide the reason to
+  set them up. Everywhere else `voicesFor` filters first.
+- **Which model, and the honest state of it.** `REPLICATE_VOICE_MODEL` /
+  `REPLICATE_VOICE_INPUT` in wrangler.toml, the picture path's contract
+  exactly — Replicate 422s on a field a model has not declared, so the input
+  travels with the model id. The default is `minimax/speech-02-hd`, picked
+  because Catalan is on its own language list, it takes a plain system voice
+  id rather than a reference recording, and it is reachable on the token this
+  Worker already holds. **It has not been listened to in Catalan from this
+  repo, and neither has any of the six voice ids been confirmed to exist** —
+  `replicate.com` and `api.replicate.com` are both blocked from the sandbox
+  this was written in, so the voice list is written from documentation. A
+  voice the model has not got comes back as a 422 the Worker turns into
+  *«Deep_Voice_Man» — try another voice*, naming the voice and the model, so
+  the fix is one line in `REPLICATE_VOICES` rather than a debugging session.
+  That is also why *which* model is a wrangler var: the answer to "who speaks
+  the best Catalan" is a pair of ears on a phone, and changing it must not be
+  a code change.
+- **The pedagogical risk is the real one, and it is why this is an addition
+  rather than a replacement.** A multilingual model listing Catalan among its
+  languages is not the same as a model speaking Central Catalan. In this app
+  the model audio is both what the learner copies *and* what Azure scores them
+  against, so a Spanish-accented voice would teach the wrong mouth and then
+  mark you down for it — *a mnemonic that teaches the wrong mouth is worse
+  than none*, one floor up. **Check this card** is exactly the instrument for
+  this and was already built: it scores the model's own bytes against Azure,
+  with no room and no microphone in the path. A voice Azure marks down on its
+  own audio is a voice to leave alone. Both the Settings note and the Worker
+  say so.
+- **What would be better than any of this, if the voices disappoint.** Projecte
+  AINA's **Matxa-TTS** (`projecte-aina/matxa-tts-cat-multiaccent`, with the
+  alVoCat vocoder) is a Catalan model rather than a multilingual one: 47
+  speakers across Central, North-Western, Balearic and Valencian, from the
+  Barcelona Supercomputing Center. It is the real answer to "better Catalan
+  voices" and it is **not on Replicate** — it is on Hugging Face, so reaching
+  it means either an Inference Endpoint or packaging it with Cog and pushing
+  it to Replicate yourself, which needs a GPU build the Mac can do. Nothing in
+  this endpoint would change: it is `REPLICATE_VOICE_MODEL`, a different
+  `REPLICATE_VOICE_INPUT`, and speaker ids in place of the six names.
+
+Worth asserting, headless with `/speak` routed (29 assertions, and the whole
+of it ran): the home page still has eight tiles and boots clean; Settings has
+a *Voice* section above *Azure key and scoring*; `#s-voice` lists nine voices
+for Catalan, Azure's three first, six reading *· Replicate*, and each saying
+what it needs until that thing is configured; with the assistant set,
+`#s-voice-test` on `rep:Calm_Woman` makes exactly one `/speak` call carrying
+`voice: "Calm_Woman"` unprefixed, the library's language and a sentence, the
+result quotes what it said and the choice is saved; a second press makes no
+call; `#s-prefetch` refuses a Replicate voice and buys nothing; a drill with
+no Azure key at all fetches its model audio and shows no *needs an Azure key*
+notice; an Azure voice with no key makes no `/speak` call; a Replicate voice
+with the assistant unset is left standing and plays as the browser voice; and
+a voice the language has never heard of falls back to Enric rather than to a
+paid one. On the Worker, `node worker/tools/speak-test.mjs` (41 assertions):
+the route needs no Gemini key, is limited under its own key, sends
+text/voice_id/language_boost with `Prefer: wait`, hands back base64 rather
+than a URL, reads all three output shapes, serves an identical second call
+from the edge while a different voice or speed misses, maps every Replicate
+status to its own message with 422 naming the voice, and refuses an empty
+text, an over-long one and a voice id with a slash in it without calling out.
+`card-test.mjs` with `BEFORE` set is still byte-identical, so the two sister
+apps are untouched — neither has a `/speak` client, and the endpoint is
+additive. It would port whole, `REPLICATE_VOICES` and `SPEECH_LANGUAGE`
+being the only things Spanish would want different, and the Worker already
+serves them.
+
 ## Azure, and the degraded path
 
 Azure Speech provides the good Catalan neural voices (Joana, Enric, Alba) and
@@ -4656,6 +4790,14 @@ the parser losing a block to a formatting change.
   `DB_VERSION` 3 with the text and the glosses; `exportJSON`/`importJSON`
   async, carrying the glosses and not the text. No Worker change — it goes
   through `/message` with the `kind: "book"` that was already there.
+- **A second voice source**: the six `rep:` voices in `LANGUAGES` are said by
+  the Worker's `/speak` rather than by Azure, on the Replicate token the
+  drawings already use, because three Catalan voices heard every day wear out.
+  `REPLICATE_VOICE` / `voiceProvider` / `voicesFor` in store.js, `canSay` in
+  speech.js, `canSpeak` / `voiceOption` / `VOICE_TEST_LINE` in app.js,
+  `REPLICATE_VOICE_MODEL` on the Worker (additive;
+  `worker/tools/speak-test.mjs`). Scoring and the chat's mic stay Azure's, and
+  nothing is ever defaulted onto a voice charged by the character.
 - **Review** is spaced repetition read off the attempts: `library.reviewOf`
   / `library.due` in store.js, `REVIEW_DECK`, the `.due-strip` on the home
   page and a Review node on the path.
@@ -4684,7 +4826,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v108 / `xerra-v108` — `js/version.js` first, `sw.js` second, as ever.
+- v109 / `xerra-v109` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

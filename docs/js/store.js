@@ -2038,6 +2038,9 @@ export const settings = {
        being sent to Azure, which would answer with an error on every Listen.
        A saved voice that is valid is left alone whatever its gender: the
        default is a default, not a preference imposed on a choice already made. */
+    /* The whole list, and only the whole list. A voice this language has never
+       heard of is a mistake to correct; a voice whose provider is not set up
+       today is a choice to leave standing — see `voicesFor`. */
     const voices = LANGUAGES[this.language]?.voices ?? [];
     if (voices.length && !voices.some((v) => v.id === this.azureVoice)) this.azureVoice = defaultVoice(this.language);
     if (this.chatVoice && !voices.some((v) => v.id === this.chatVoice)) this.chatVoice = "";
@@ -2094,8 +2097,40 @@ export function setFamilyOpen(name, open) {
    languages, so it lives here in one place and nowhere else. The first voice
    is the fallback for a language with no male one. */
 export function defaultVoice(language) {
+  /* The whole list, deliberately, not `voicesFor` — so this is always an
+     Azure voice where the language has one. A default is the app choosing for
+     you, and the app must not choose a voice that is charged by the character:
+     Azure's audio is bought by the month, so an Azure voice is the one that
+     costs nothing to land on. A Replicate voice is only ever reached by
+     picking it. */
   const voices = LANGUAGES[language]?.voices ?? [];
   return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
+}
+
+/* The voices this device can actually speak in right now.
+
+   Two providers, two different things configured: the Azure voices need the
+   speech key, the Replicate ones need the card assistant, and either can be
+   absent. A voice you cannot reach is worse than no voice — `modelAudio`
+   returns null for it and every Listen quietly falls through to the browser
+   voice — so the select never offers one, `partnerVoice` never picks one, and
+   `settings.load` moves off one that has become unreachable.
+
+   With neither configured the whole list comes back rather than nothing —
+   an empty select is not a state worth having a rule for.
+
+   What this is deliberately *not* used for is defaulting or resetting the
+   drill voice. Filtering there would mean clearing the Azure key silently
+   moved you onto a voice charged by the character, which is the one thing an
+   app should never do on your behalf. An unreachable drill voice behaves
+   exactly as a missing Azure key always has — the browser voice — and the
+   Settings list says which thing it is waiting for. */
+export function voicesFor(language) {
+  const voices = LANGUAGES[language]?.voices ?? [];
+  const usable = voices.filter((v) =>
+    voiceProvider(v.id) === "replicate" ? settings.hasAssistant : settings.hasAzure
+  );
+  return usable.length ? usable : voices;
 }
 
 /* The voice the other person in a rehearsal chat speaks in. Your choice if
@@ -2106,11 +2141,68 @@ export function defaultVoice(language) {
    own corrected lines are read back in, which is what makes the two sides of
    the chat two people. */
 export function partnerVoice(language, mine = settings.azureVoice, chosen = settings.chatVoice) {
-  const voices = LANGUAGES[language]?.voices ?? [];
+  const voices = voicesFor(language);
   if (chosen && voices.some((v) => v.id === chosen)) return chosen;
   const myGender = voices.find((v) => v.id === mine)?.gender;
   return (voices.find((v) => v.gender !== myGender) ?? voices.find((v) => v.id !== mine) ?? voices[0])?.id ?? "";
 }
+
+/* ------------------------------------------------------- who says it
+
+   A voice is still only a string, and that is the whole of how a second
+   provider fits in here. `phrase.voice`, `settings.azureVoice`, the chat
+   partner's voice, the reader's voice and the key the model audio is cached
+   under are all one id, and every one of them goes on working untouched
+   because the id says who says it: a `rep:` prefix means the Worker's /speak
+   endpoint, anything else means Azure. Same argument the deck names make —
+   the naming *is* the grouping, so nothing downstream had to learn a new
+   field.
+
+   Why a prefix rather than a `provider:` field on the entry. The id travels
+   on its own to places that have no entry to look it up in: into the audio
+   cache key, into an export, back out of an import written months ago. A
+   field would have to be carried alongside it every time or looked up against
+   a table that may since have changed; a prefix is readable from the string
+   wherever it turns up. */
+export const REPLICATE_VOICE = "rep:";
+
+export function voiceProvider(id = "") {
+  return String(id).startsWith(REPLICATE_VOICE) ? "replicate" : "azure";
+}
+
+/* The model's own name for the voice, with our prefix taken off. */
+export function replicateVoiceName(id = "") {
+  return String(id).slice(REPLICATE_VOICE.length);
+}
+
+/* The Replicate voices, and the same six in every language.
+
+   They are system voices on a multilingual model steered by the language of
+   the text, not voices belonging to a locale the way Joana and Enric do — so
+   one list, appended to each language, rather than three lists to keep in
+   step. The names here are the model's own ids and the labels are plain
+   English descriptions of them, deliberately: a Catalan name on a voice that
+   may turn out to have a Spanish accent would be a second lie on top of the
+   first.
+
+   **These have not been listened to in Catalan from this repo.** A model that
+   lists Catalan among its languages is not the same as a model that speaks
+   Central Catalan, and in this app that difference matters more than it would
+   anywhere else: the model audio is what the learner copies *and* what Azure
+   scores them against, so a Spanish-accented voice teaches the wrong mouth
+   and then marks them down for it. Judge one with *Check this card* before
+   drilling on it — that button scores the model's own bytes, so a voice Azure
+   itself marks down on its own audio is a voice to leave alone. A voice the
+   model has not got comes back from the Worker naming the voice and the
+   model; the fix is one line here, or a different REPLICATE_VOICE_MODEL. */
+const REPLICATE_VOICES = [
+  { id: `${REPLICATE_VOICE}Deep_Voice_Man`, name: "Deep", gender: "Male" },
+  { id: `${REPLICATE_VOICE}Calm_Woman`, name: "Calm", gender: "Female" },
+  { id: `${REPLICATE_VOICE}Casual_Guy`, name: "Casual", gender: "Male" },
+  { id: `${REPLICATE_VOICE}Wise_Woman`, name: "Wise", gender: "Female" },
+  { id: `${REPLICATE_VOICE}Patient_Man`, name: "Patient", gender: "Male" },
+  { id: `${REPLICATE_VOICE}Lively_Girl`, name: "Lively", gender: "Female" },
+];
 
 export const LANGUAGES = {
   "ca-ES": {
@@ -2120,6 +2212,7 @@ export const LANGUAGES = {
       { id: "ca-ES-JoanaNeural", name: "Joana", gender: "Female" },
       { id: "ca-ES-EnricNeural", name: "Enric", gender: "Male" },
       { id: "ca-ES-AlbaNeural", name: "Alba", gender: "Female" },
+      ...REPLICATE_VOICES,
     ],
   },
   "es-ES": {
@@ -2128,6 +2221,7 @@ export const LANGUAGES = {
     voices: [
       { id: "es-ES-ElviraNeural", name: "Elvira", gender: "Female" },
       { id: "es-ES-AlvaroNeural", name: "Álvaro", gender: "Male" },
+      ...REPLICATE_VOICES,
     ],
   },
   /* Italian is wired up on the same terms as the other two: a locale, its
@@ -2142,6 +2236,7 @@ export const LANGUAGES = {
       { id: "it-IT-ElsaNeural", name: "Elsa", gender: "Female" },
       { id: "it-IT-DiegoNeural", name: "Diego", gender: "Male" },
       { id: "it-IT-IsabellaNeural", name: "Isabella", gender: "Female" },
+      ...REPLICATE_VOICES,
     ],
   },
 };

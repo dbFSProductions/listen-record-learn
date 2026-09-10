@@ -546,6 +546,87 @@ const IMAGE_TIMEOUT_MS = 40_000;
    keeps anyway. */
 const MAX_IMAGE_CHARS = 4_000_000;
 
+/* ---------------------------------------------------------------- /speak
+
+   The second thing this Worker makes that is bytes rather than words, and it
+   is here for the reason the drawings are: the account with the token is not
+   the phone.
+
+   Why at all, when Azure already says every phrase. Azure has three Catalan
+   voices — Joana, Enric, Alba — and this app is used every day, so after a
+   year they are three voices you have heard several thousand times. Boredom
+   with the model is not a cosmetic complaint in an app whose whole loop is
+   *listen, then say it back*: a voice you have stopped attending to is a
+   model you have stopped copying.
+
+   What this is NOT is a replacement for Azure. Two things stay Azure's
+   whatever voice is chosen — the pronunciation assessment, which is the only
+   reason this app can say *which sound* you missed, and the transcription the
+   rehearsal chat listens with. This endpoint only ever answers the question
+   "say this sentence", and the client picks it per voice, so the two live
+   side by side in one list.
+
+   The honest caveat, and it belongs in the code rather than only in the
+   notes: a multilingual model listing Catalan among its languages is not the
+   same as a model that speaks Central Catalan. The model audio is the thing
+   the learner copies AND the thing Azure scores them against, so a voice with
+   a Spanish accent on it would teach the wrong mouth and then mark them down
+   for it. That is exactly what *Check this card* in the app is for — it
+   scores the model's own bytes — and it is the way to judge a new voice
+   before drilling on it. Nothing here can judge it; no Catalan ear ships in a
+   Worker. */
+
+/* MiniMax speech-02 is the default because Catalan is in its own language
+   list, it takes a plain system voice id rather than a reference clip, and it
+   is already reachable on the token this Worker holds. Both are overridable
+   from wrangler.toml exactly as the picture model is — REPLICATE_VOICE_MODEL
+   and REPLICATE_VOICE_INPUT — because *which* model speaks the best Catalan
+   is a question for a pair of ears on a phone, and swapping the answer must
+   not be a code change. */
+const DEFAULT_SPEECH_MODEL = "minimax/speech-02-hd";
+
+/* Model-specific input, JSON, same contract as DEFAULT_REPLICATE_INPUT: a
+   field the model has not declared is a 422, so these travel with the model id
+   rather than being hardcoded. `text`, `voice_id` and `language_boost` are
+   built per request and are not settable from here. */
+const DEFAULT_SPEECH_INPUT = { sample_rate: 32000, bitrate: 128000, channel: "mono", english_normalization: false };
+
+/* What `language_boost` is called for each library. MiniMax takes the English
+   name of the language, not a locale — and Catalan being on that list at all
+   is the whole reason this model was picked. A locale with no entry is sent
+   as "auto" rather than refused: a new language in LANGUAGES should get a
+   voice that works before it gets an entry here. */
+const SPEECH_LANGUAGE = { "ca-ES": "Catalan", "es-ES": "Spanish", "it-IT": "Italian" };
+
+/* A line, a reply, a story, a page of a book. The reader's Listen hands over
+   whole pages, and PAGE_CHARS over there is 1200, so the cap is set well
+   above what the app actually sends and below what a runaway paste would
+   cost. It is charged by the character at the other end. */
+const SPEECH_MAX_CHARS = 5_000;
+
+/* Shorter than the drawing's wait because speech is quick — a sentence is a
+   second or two and a page of a book a handful. The same discipline applies
+   as for REPLICATE_ABORT_MS, and it is the one thing about this pair that has
+   already gone wrong once: our own deadline must sit *past* Replicate's wait,
+   or a slow synthesis is aborted here before Replicate can say it is still
+   working, and a slow voice reads as a broken button. */
+const SPEECH_WAIT_S = 30;
+const SPEECH_ABORT_MS = SPEECH_WAIT_S * 1000 + 8_000;
+
+/* Audio comes back as a URL and is fetched here, so this caps the bytes. A
+   minute of 128kbit mono is about a megabyte; the cap is generous enough for
+   the longest thing the reader will send and mean enough that a model change
+   upstream cannot start pushing a podcast through a Worker response. */
+const SPEECH_MAX_BYTES = 8 * 1024 * 1024;
+
+/* How long the edge keeps a line it has already paid for. The phone caches
+   every clip in IndexedDB and would rarely ask twice — but iOS evicts a web
+   app's storage under pressure, a reinstall starts empty, and the same deck
+   read on a second device pays again. Thirty days of "this sentence in this
+   voice" costs nothing and is the difference between an eviction being free
+   and being another bill. Keyed on everything that changes the audio. */
+const SPEECH_CACHE_S = 60 * 60 * 24 * 30;
+
 // The app aborts at 70s. Retries *and* the fallback model have to finish inside
 // that, or the user sees a generic timeout instead of the real reason.
 const TOTAL_BUDGET_MS = 60_000;
@@ -621,6 +702,33 @@ export default {
       } catch (error) {
         console.error("Feed request failed", error instanceof Error ? error.message : String(error));
         const message = error instanceof PublicError ? error.message : "Couldn't fetch that feed.";
+        return json({ error: message }, error instanceof PublicError ? error.status : 502, cors);
+      }
+    }
+
+    /* Saying a phrase out loud needs no Gemini key either, so it is answered
+       before that check like /feed is — but unlike a feed it costs money per
+       character, so it keeps a rate limit. Its own key on the same limiter,
+       not the shared "card-assistant" one: a deck being read aloud must not
+       spend the budget the Add tab needs to write a card, and a card being
+       written must not silence the Listen button. */
+    if (url.pathname === "/speak") {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors);
+      if (!(env.REPLICATE_API_TOKEN || "").trim()) {
+        return json({ error: "This Worker has no Replicate token, so it can't speak. Use an Azure voice." }, 503, cors);
+      }
+      const speech = await env.AI_RATE_LIMITER.limit({ key: "speak" });
+      if (!speech.success) return json({ error: "Too much to say at once. Try again in a minute." }, 429, cors);
+      try {
+        const raw = await request.text();
+        if (raw.length > 24_000) return json({ error: "That request is too long." }, 413, cors);
+        const trace = { model: null, models: 0 };
+        const started = Date.now();
+        const audio = await speakLine(validateSpeak(JSON.parse(raw)), env, trace);
+        return json({ audio, ms: Date.now() - started, model: trace.model, models: trace.models }, 200, cors);
+      } catch (error) {
+        console.error("Speak request failed", error instanceof Error ? error.message : String(error));
+        const message = error instanceof PublicError ? error.message : "Couldn't say that out loud.";
         return json({ error: message }, error instanceof PublicError ? error.status : 502, cors);
       }
     }
@@ -1930,6 +2038,192 @@ ${card.sounds ? `It is a pun on the English "${card.sounds}", so make anything t
 ` : ""}${genderLine(card)}What it has to teach: ${card.text}, which means "${card.translation}" in ${request.languageName}.
 
 Style: a bold, funny, brightly coloured cartoon on a plain background. Simple shapes, few objects, readable as a thumbnail on a phone. Comic exaggeration is wanted — the sillier the better, because that is what makes it stick. No lettering, no captions, no speech bubbles, no watermark.`;
+}
+
+/* What /speak accepts. Everything is a plain string and none of it reaches a
+   language model, so there is no prompt to be steered here at all — the text
+   is read aloud and that is the whole of what can happen to it.
+
+   `voice` is the model's own system voice id and is checked against a
+   character class rather than a list. A list here would be a fourth place to
+   keep the voices in step (the client's LANGUAGES, wrangler.toml, this) and
+   would refuse a voice the model had just added; the character class is what
+   stops a voice id being used to reach anything else in the request body. A
+   voice the model does not know comes back as Replicate's own 422, which is
+   named below so it reads as "that voice, on that model" rather than as the
+   button being broken. */
+export function validateSpeak(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new PublicError("The speech request is invalid.", 400);
+  }
+  const text = typeof value.text === "string" ? value.text.trim() : "";
+  if (!text) throw new PublicError("There is nothing to say.", 400);
+  if (text.length > SPEECH_MAX_CHARS) {
+    throw new PublicError(`That is too long to read aloud — ${SPEECH_MAX_CHARS} characters at most.`, 400);
+  }
+  const voice = typeof value.voice === "string" ? value.voice.trim() : "";
+  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(voice)) throw new PublicError("That voice name is not one this can use.", 400);
+  const language = typeof value.language === "string" ? value.language.trim().slice(0, 20) : "";
+  /* Speed is the model's, not the app's. The drill's Slow is done at playback
+     — `player.play(blob, { rate })` — which is why a slow clip costs no second
+     synthesis and why every voice, browser voice included, has a Slow button.
+     This is here for a voice that reads uniformly too fast to follow. */
+  const speed = Number(value.speed);
+  return {
+    text,
+    voice,
+    language,
+    speed: Number.isFinite(speed) && speed >= 0.5 && speed <= 2 ? speed : 1,
+  };
+}
+
+/* The line, spoken, through Replicate.
+ 
+   Two round trips for the same reason the drawings need two: Replicate answers
+   with a URL to the audio rather than with the audio, and this app is
+   offline-first — what the phone keeps is a blob in IndexedDB, so handing it a
+   link into someone else's CDN would trade the whole offline story for one
+   saved request. The client contract is therefore the picture's, one field
+   over: { audio: { data, mimeType } }, base64 in, blob out. */
+async function speakLine(request, env, trace) {
+  const model = (env.REPLICATE_VOICE_MODEL || "").trim() || DEFAULT_SPEECH_MODEL;
+  if (trace) {
+    trace.model = model;
+    trace.models = 1;
+  }
+
+  let extraInput = DEFAULT_SPEECH_INPUT;
+  if ((env.REPLICATE_VOICE_INPUT || "").trim()) {
+    try {
+      extraInput = JSON.parse(env.REPLICATE_VOICE_INPUT);
+    } catch {
+      // A typo in a config var must not take the voice away: text and voice_id
+      // alone are accepted by every speech model worth pointing this at.
+      console.error("REPLICATE_VOICE_INPUT is not valid JSON; sending the text and voice only");
+      extraInput = {};
+    }
+  }
+
+  const input = {
+    ...extraInput,
+    text: request.text,
+    voice_id: request.voice,
+    language_boost: SPEECH_LANGUAGE[request.language] || "auto",
+    speed: request.speed,
+  };
+
+  /* The same sentence in the same voice is the same audio, so the edge keeps
+     it. Note what is in the key: the model and the whole input, so changing
+     the voice, the language, the speed or REPLICATE_VOICE_INPUT all miss the
+     cache rather than serving audio made under the old settings. */
+  const cache = globalThis.caches?.default;
+  const key = new Request(`https://speak.xerra.invalid/${model}/${await hashOf(JSON.stringify(input))}`);
+  if (cache) {
+    const hit = await cache.match(key).catch(() => null);
+    if (hit) return hit.json();
+  }
+
+  let response;
+  try {
+    response = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.REPLICATE_API_TOKEN.trim()}`,
+        "Content-Type": "application/json",
+        Prefer: `wait=${SPEECH_WAIT_S}`,
+      },
+      body: JSON.stringify({ input }),
+      signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("That took too long to say. Try again.", 504);
+    }
+    throw new PublicError("Couldn't reach Replicate to say it. Try again.", 502);
+  }
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const detail = typeof payload?.detail === "string" ? payload.detail : "";
+    if (response.status === 401 || response.status === 403) {
+      throw new PublicError("The Replicate token is wrong or not allowed to speak.", 502);
+    }
+    if (response.status === 402) throw new PublicError(detail || "The Replicate account is out of credit.", 502);
+    if (response.status === 404) {
+      throw new PublicError(`No such Replicate model: ${model}. Check REPLICATE_VOICE_MODEL.`, 502);
+    }
+    /* 422 is the one worth naming precisely: it is what Replicate answers for
+       an input field the model has not declared, and by far the likeliest
+       cause is a voice id this model does not have. Told as "the voice", it
+       is one line in LANGUAGES to fix; flattened to "Replicate returned 422"
+       it reads as the endpoint being broken. */
+    if (response.status === 422) {
+      throw new PublicError(detail || `${model} wouldn't take the voice “${request.voice}”. Try another voice.`, 502);
+    }
+    if (response.status === 429) throw new PublicError("Replicate is busy. Try again in a moment.", 503);
+    throw new PublicError(detail || `Replicate returned ${response.status}.`, 502);
+  }
+
+  if (payload.status !== "succeeded") {
+    if (payload.status === "processing" || payload.status === "starting") {
+      throw new PublicError("That took too long to say. Try again.", 504);
+    }
+    throw new PublicError(payload.error || "The model said nothing. Try again.", 502);
+  }
+
+  /* Three output shapes, because they differ per model and the difference is
+     invisible until it 500s: a bare URL string, an array of them, or an object
+     with the URL under a field of its own. The picture path learned the first
+     two the hard way; the third is here because speech models are the ones
+     that tend to return metadata beside the file. */
+  const output = payload.output;
+  const url =
+    typeof output === "string"
+      ? output
+      : Array.isArray(output)
+      ? output[0]
+      : typeof output?.audio === "string"
+      ? output.audio
+      : typeof output?.url === "string"
+      ? output.url
+      : null;
+  if (!url) throw new PublicError("The model said nothing. Try again.", 502);
+
+  const file = await fetch(url, { signal: AbortSignal.timeout(SPEECH_ABORT_MS) }).catch(() => null);
+  if (!file?.ok) throw new PublicError("The audio could not be fetched back.", 502);
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  // On the bytes, before base64 inflates them by a third — the cap is about
+  // what may cross the wire into IndexedDB, and this is the honest size.
+  if (bytes.length > SPEECH_MAX_BYTES) throw new PublicError("That came back too long to send.", 502);
+
+  const audio = {
+    data: base64OfBytes(bytes),
+    mimeType: (file.headers.get("Content-Type") || "audio/mpeg").split(";")[0].trim(),
+  };
+
+  if (cache) {
+    await cache
+      .put(
+        key,
+        new Response(JSON.stringify(audio), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${SPEECH_CACHE_S}` },
+        })
+      )
+      .catch(() => {});
+  }
+  return audio;
+}
+
+/* A short, stable name for a request body. Only ever a cache key — nothing
+   here is a secret and nothing is verified against it. */
+async function hashOf(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)]
+    .slice(0, 16)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function validatePicture(value) {

@@ -45,6 +45,22 @@ REPLICATE_MODEL = "google/nano-banana-2"
 # hardcoded. Empty or invalid falls back to sending only the prompt, which
 # every model tried accepts.
 REPLICATE_INPUT = '{"aspect_ratio":"1:1","resolution":"1K","output_format":"jpg"}'
+# /speak reads a phrase aloud, on the same Replicate token as the drawings.
+# Unset the token and the endpoint answers 503 saying so; the app then offers
+# only the Azure voices, which is exactly what it did before this existed.
+#
+# minimax/speech-02-hd is the default because Catalan is on its own language
+# list and it takes a plain system voice id rather than a reference recording.
+# It has NOT been listened to in Catalan from this repo — no Catalan ear ships
+# in a Worker — so treat this pair as the knob to turn if the voices are wrong:
+# the app's voice list names the ids, and *Check this card* in the app scores
+# the model's own bytes against Azure, which is how to tell a good Catalan
+# voice from a Spanish-accented one before drilling on it.
+REPLICATE_VOICE_MODEL = "minimax/speech-02-hd"
+# Model-specific input fields, as JSON, exactly like REPLICATE_INPUT above:
+# Replicate 422s on a field the model does not declare. text, voice_id,
+# language_boost and speed are built per request and are not settable here.
+REPLICATE_VOICE_INPUT = '{"sample_rate":32000,"bitrate":128000,"channel":"mono","english_normalization":false}'
 ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]

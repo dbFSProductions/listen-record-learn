@@ -165,6 +165,21 @@ export const cardAssistant = {
     });
   },
 
+  /* A phrase, said out loud, when the chosen voice is one the Worker speaks
+     rather than one Azure does. The only call here that comes back as bytes
+     besides the drawing, and an endpoint of its own for the same reason —
+     though note that unlike every other call on this client it is *not* an AI
+     call in the sense the timings panel means: no Gemini key is involved, and
+     it has its own share of the rate limit on the Worker. It is still timed
+     through `request`, because "why is Listen slow?" is exactly the question
+     that panel exists to answer. */
+  speak(payload, settings) {
+    return request("/speak", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   chat(payload, settings) {
     return request("/chat", settings, {
       method: "POST",
