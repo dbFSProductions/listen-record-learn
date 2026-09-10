@@ -14,11 +14,11 @@
 //
 // Model audio has two possible sources and scoring has one. A voice id says
 // which: Azure's SDK below for the Neural voices, the Worker's /speak for the
-// `rep:` ones (see REPLICATE_VOICE in store.js). The assessment and the
+// `say:` ones (see WORKER_VOICE in store.js). The assessment and the
 // rehearsal chat's transcription are Azure's whatever voice is chosen —
 // nothing else here can say which *sound* you missed.
 
-import { audioStore, voiceProvider, replicateVoiceName } from "./store.js";
+import { audioStore, voiceProvider, workerVoiceName } from "./store.js";
 import { cardAssistant } from "./card-assistant.js";
 import { toWav16k } from "./audio.js";
 
@@ -78,12 +78,12 @@ export const speech = {
 
     try {
       /* Who says it is read off the voice id and nowhere else — see
-         REPLICATE_VOICE in store.js. Everything either side of this line is
-         shared: the same cache, the same key, the same blob, so a Replicate
+         WORKER_VOICE in store.js. Everything either side of this line is
+         shared: the same cache, the same key, the same blob, so a Matxa
          voice draws a waveform, plays at the drill's Slow rate and can be
          scored by *Check this card* exactly as an Azure one does. */
       const blob =
-        voiceProvider(voice) === "replicate"
+        voiceProvider(voice) === "worker"
           ? await speakThroughWorker(phrase.text, phrase.language, voice, settings)
           : await this.synthesise(phrase.text, phrase.language, settings, voice);
       // Failing to *keep* it is not failing to have it. A full or unavailable
@@ -95,7 +95,7 @@ export const speech = {
       return blob;
     } catch (error) {
       this.lastError =
-        voiceProvider(voice) === "replicate"
+        voiceProvider(voice) === "worker"
           ? error?.message || "Couldn't reach the card assistant to say that."
           : describeAzureError(error);
       return null;
@@ -160,11 +160,13 @@ export const speech = {
 
   /* Warm the cache for a whole deck so a session runs with no signal.
 
-     Deliberately never called with a Replicate voice — Settings refuses, and
-     the reason is the bill rather than the machinery: Azure's audio is bought
-     by the month and this would be four hundred paid calls into a rate limit
-     of twenty a minute. The way to have a Replicate voice offline is to drill
-     with it; each phrase is fetched once and kept. */
+     Deliberately never called with a Matxa voice — Settings refuses, and the
+     reason is manners as much as machinery: Azure's audio is bought by the
+     month and arrives in milliseconds, where this would be four hundred
+     requests at five seconds each, into a rate limit of twenty a minute, aimed
+     at a free CPU box somebody else is paying for. Half an hour of hammering
+     for a library you will drill anyway. The way to have a Matxa voice offline
+     is to drill with it; each phrase is fetched once and kept. */
   async prefetch(phrases, settings, onProgress) {
     const drillable = phrases.filter((p) => p.text?.trim());
     let done = 0;
@@ -180,7 +182,7 @@ export const speech = {
    case there is no model audio and the caller falls through to the browser
    voice, exactly as it always did with no Azure key. */
 function canSay(voice, settings) {
-  return voiceProvider(voice) === "replicate" ? settings.hasAssistant : settings.hasAzure;
+  return voiceProvider(voice) === "worker" ? settings.hasAssistant : settings.hasAzure;
 }
 
 /* The Worker's /speak, unpacked into the same kind of Blob the Azure SDK
@@ -190,7 +192,7 @@ function canSay(voice, settings) {
    CDN would trade the offline story for one saved request. */
 async function speakThroughWorker(text, language, voice, settings) {
   const { audio } = await cardAssistant.speak(
-    { text, language, voice: replicateVoiceName(voice) },
+    { text, language, voice: workerVoiceName(voice) },
     settings
   );
   if (!audio?.data) throw new Error("The card assistant sent back no audio.");

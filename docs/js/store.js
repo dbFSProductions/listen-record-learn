@@ -2101,8 +2101,9 @@ export function defaultVoice(language) {
      Azure voice where the language has one. A default is the app choosing for
      you, and the app must not choose a voice that is charged by the character:
      Azure's audio is bought by the month, so an Azure voice is the one that
-     costs nothing to land on. A Replicate voice is only ever reached by
-     picking it. */
+     always works once the key is in. A Matxa voice is only ever reached by
+     picking it — it needs the card assistant, a third party's machine and a
+     few seconds, none of which the app should take on for you. */
   const voices = LANGUAGES[language]?.voices ?? [];
   return (voices.find((v) => v.gender === "Male") ?? voices[0])?.id ?? "";
 }
@@ -2110,7 +2111,7 @@ export function defaultVoice(language) {
 /* The voices this device can actually speak in right now.
 
    Two providers, two different things configured: the Azure voices need the
-   speech key, the Replicate ones need the card assistant, and either can be
+   speech key, the Matxa ones need the card assistant, and either can be
    absent. A voice you cannot reach is worse than no voice — `modelAudio`
    returns null for it and every Listen quietly falls through to the browser
    voice — so the select never offers one, `partnerVoice` never picks one, and
@@ -2128,7 +2129,7 @@ export function defaultVoice(language) {
 export function voicesFor(language) {
   const voices = LANGUAGES[language]?.voices ?? [];
   const usable = voices.filter((v) =>
-    voiceProvider(v.id) === "replicate" ? settings.hasAssistant : settings.hasAzure
+    voiceProvider(v.id) === "worker" ? settings.hasAssistant : settings.hasAzure
   );
   return usable.length ? usable : voices;
 }
@@ -2153,7 +2154,7 @@ export function partnerVoice(language, mine = settings.azureVoice, chosen = sett
    provider fits in here. `phrase.voice`, `settings.azureVoice`, the chat
    partner's voice, the reader's voice and the key the model audio is cached
    under are all one id, and every one of them goes on working untouched
-   because the id says who says it: a `rep:` prefix means the Worker's /speak
+   because the id says who says it: a `say:` prefix means the Worker's /speak
    endpoint, anything else means Azure. Same argument the deck names make —
    the naming *is* the grouping, so nothing downstream had to learn a new
    field.
@@ -2163,45 +2164,58 @@ export function partnerVoice(language, mine = settings.azureVoice, chosen = sett
    cache key, into an export, back out of an import written months ago. A
    field would have to be carried alongside it every time or looked up against
    a table that may since have changed; a prefix is readable from the string
-   wherever it turns up. */
-export const REPLICATE_VOICE = "rep:";
+   wherever it turns up.
+
+   It was `rep:` for one release, when the Worker only ever spoke to Replicate.
+   The Catalan voices come from a Hugging Face Space now and the Worker picks
+   the provider per voice, so a prefix naming a vendor had become a lie about
+   a thing the client never knew in the first place. `say:` is what it always
+   meant: this one is said by the Worker rather than by Azure. An old `say:`-
+   less id saved in settings is simply not in the language's list any more, and
+   `load` puts the drill voice back to Azure's default — which is the same path
+   a retired Azure voice has always taken. */
+export const WORKER_VOICE = "say:";
 
 export function voiceProvider(id = "") {
-  return String(id).startsWith(REPLICATE_VOICE) ? "replicate" : "azure";
+  return String(id).startsWith(WORKER_VOICE) ? "worker" : "azure";
 }
 
-/* The model's own name for the voice, with our prefix taken off. */
-export function replicateVoiceName(id = "") {
-  return String(id).slice(REPLICATE_VOICE.length);
+/* The Worker's own name for the voice, with our prefix taken off. */
+export function workerVoiceName(id = "") {
+  return String(id).slice(WORKER_VOICE.length);
 }
 
-/* The Replicate voices, and the same six in every language.
+/* The Catalan voices, and Catalan is the whole of it.
 
-   They are system voices on a multilingual model steered by the language of
-   the text, not voices belonging to a locale the way Joana and Enric do — so
-   one list, appended to each language, rather than three lists to keep in
-   step. The names here are the model's own ids and the labels are plain
-   English descriptions of them, deliberately: a Catalan name on a voice that
-   may turn out to have a Spanish accent would be a second lie on top of the
-   first.
+   Six MiniMax voices stood here for one release, spread across all three
+   languages on the strength of Catalan being in that model's supported list.
+   The phone's verdict was that they *"sound french or italian"*, which is
+   exactly what this file warned they might: a multilingual model listing
+   Catalan is not a model that speaks Catalan.
 
-   **These have not been listened to in Catalan from this repo.** A model that
-   lists Catalan among its languages is not the same as a model that speaks
-   Central Catalan, and in this app that difference matters more than it would
-   anywhere else: the model audio is what the learner copies *and* what Azure
-   scores them against, so a Spanish-accented voice teaches the wrong mouth
-   and then marks them down for it. Judge one with *Check this card* before
-   drilling on it — that button scores the model's own bytes, so a voice Azure
-   itself marks down on its own audio is a voice to leave alone. A voice the
-   model has not got comes back from the Worker naming the voice and the
-   model; the fix is one line here, or a different REPLICATE_VOICE_MODEL. */
-const REPLICATE_VOICES = [
-  { id: `${REPLICATE_VOICE}Deep_Voice_Man`, name: "Deep", gender: "Male" },
-  { id: `${REPLICATE_VOICE}Calm_Woman`, name: "Calm", gender: "Female" },
-  { id: `${REPLICATE_VOICE}Casual_Guy`, name: "Casual", gender: "Male" },
-  { id: `${REPLICATE_VOICE}Wise_Woman`, name: "Wise", gender: "Female" },
-  { id: `${REPLICATE_VOICE}Patient_Man`, name: "Patient", gender: "Male" },
-  { id: `${REPLICATE_VOICE}Lively_Girl`, name: "Lively", gender: "Female" },
+   These are Matxa-TTS, from Projecte AINA and the Barcelona Supercomputing
+   Center — a Catalan model and nothing else, trained on Catalan recordings,
+   top of BSC's own Catalan naturalness benchmark ahead of far heavier
+   architectures. So they belong to `ca-ES` alone and are not spread across the
+   other two: a Catalan model cannot say Spanish, and offering it there would
+   be the same mistake one release later. Spanish and Italian are back to
+   Azure's voices, which is what they had before and what works.
+
+   Chosen by listening on the phone, not by measuring. Four of the six come
+   from the multi-accent checkpoint whose top octave measures 15 dB quieter
+   than the central-only one's; the numbers said they would be the veiled ones
+   and the ear kept all four. Three male and three female, because
+   `partnerVoice` hands the rehearsal chat's other person a voice of the gender
+   yours is not. The names are the model's own — ona, jan, grau and elia are
+   real speakers in it — and the two spelled out are the checkpoint's own
+   generic pair. */
+const MATXA_VOICES = [
+  { id: `${WORKER_VOICE}ona`, name: "Ona", gender: "Female" },
+  { id: `${WORKER_VOICE}elia`, name: "Èlia", gender: "Female" },
+  { id: `${WORKER_VOICE}central-female`, name: "Central", gender: "Female" },
+  { id: `${WORKER_VOICE}jan`, name: "Jan", gender: "Male" },
+  { id: `${WORKER_VOICE}grau`, name: "Grau", gender: "Male" },
+  { id: `${WORKER_VOICE}central-male`, name: "Central", gender: "Male" },
 ];
 
 export const LANGUAGES = {
@@ -2212,7 +2226,7 @@ export const LANGUAGES = {
       { id: "ca-ES-JoanaNeural", name: "Joana", gender: "Female" },
       { id: "ca-ES-EnricNeural", name: "Enric", gender: "Male" },
       { id: "ca-ES-AlbaNeural", name: "Alba", gender: "Female" },
-      ...REPLICATE_VOICES,
+      ...MATXA_VOICES,
     ],
   },
   "es-ES": {
@@ -2221,7 +2235,6 @@ export const LANGUAGES = {
     voices: [
       { id: "es-ES-ElviraNeural", name: "Elvira", gender: "Female" },
       { id: "es-ES-AlvaroNeural", name: "Álvaro", gender: "Male" },
-      ...REPLICATE_VOICES,
     ],
   },
   /* Italian is wired up on the same terms as the other two: a locale, its
@@ -2236,7 +2249,6 @@ export const LANGUAGES = {
       { id: "it-IT-ElsaNeural", name: "Elsa", gender: "Female" },
       { id: "it-IT-DiegoNeural", name: "Diego", gender: "Male" },
       { id: "it-IT-IsabellaNeural", name: "Isabella", gender: "Female" },
-      ...REPLICATE_VOICES,
     ],
   },
 };
