@@ -4809,7 +4809,7 @@ function chatStarter() {
    It isn't any more, so everything that asked about *audio* asks this and
    everything that asks about *scoring* still asks `hasAzure` directly. */
 function canSpeak(voice = settings.azureVoice) {
-  return voiceProvider(voice) === "replicate" ? settings.hasAssistant : settings.hasAzure;
+  return voiceProvider(voice) === "worker" ? settings.hasAssistant : settings.hasAzure;
 }
 
 /* What a voice is asked to say when you try it out. A sentence, not a word:
@@ -4844,10 +4844,10 @@ function voiceField(id, selected, label = "Their voice") {
       </select></label>`;
 }
 
-/* One option, wherever a voice is chosen. `· Replicate` is on the ones the
-   Worker says, because which provider a voice is on is not a detail here: it
-   decides whether Listen works with the speech key out, what it costs, and
-   whether the voice has ever been checked against Azure's Catalan.
+/* One option, wherever a voice is chosen. `· Matxa` is on the ones the Worker
+   says, because which model a voice is on is not a detail here: it decides
+   whether Listen works with the speech key out, and — the lesson of the six
+   voices these replaced — which language the model actually speaks.
 
    An option that cannot be reached says which thing is missing, which is only
    ever seen on the Settings page — everywhere else the list is filtered by
@@ -4855,9 +4855,9 @@ function voiceField(id, selected, label = "Their voice") {
    where the key and the assistant are typed in, so a list that hid the voices
    until they worked would be hiding the reason to set them up. */
 function voiceOption(voice, selected, { markDrillVoice = true } = {}) {
-  const replicate = voiceProvider(voice.id) === "replicate";
-  const provider = replicate ? " · Replicate" : "";
-  const missing = replicate
+  const worker = voiceProvider(voice.id) === "worker";
+  const provider = worker ? " · Matxa" : "";
+  const missing = worker
     ? settings.hasAssistant
       ? ""
       : " — needs the card assistant"
@@ -6630,7 +6630,7 @@ function renderDrill() {
                question nobody asked. What is still true is which voice you
                are about to hear — and which thing is missing, since the drill
                voice may be one the card assistant says rather than Azure. */
-            voiceProvider(settings.azureVoice) === "replicate"
+            voiceProvider(settings.azureVoice) === "worker"
               ? "Using the browser voice. That voice comes through the card assistant — set it up in Settings."
               : quiet
               ? "Using the browser voice. The real voices need an Azure key."
@@ -9931,12 +9931,13 @@ function renderSettings() {
       <button class="btn btn-primary" id="s-voice-test" style="width:100%">Hear it say something</button>
       <div id="s-voice-result" style="margin-top:10px"></div>
       <p class="tiny muted" style="margin:12px 0 0">
-        The plain voices are Azure's and need the speech key below. The ones marked Replicate
-        come through the card assistant instead, and are here because three voices heard
-        every day for a year stop being voices you listen to. They have not been checked
-        against Catalan by anyone but you: a voice that sounds Spanish teaches the wrong
-        mouth, so try one on a card with <strong>Check this card</strong> before drilling on
-        it — if Azure marks the model's own words down, that is the voice, not you.
+        The plain voices are Azure's and need the speech key below. The ones marked Matxa are
+        Catalan voices from Projecte AINA and the Barcelona Supercomputing Center, and come
+        through the card assistant instead — they are here because three voices heard every
+        day for a year stop being voices you listen to. Being Catalan models rather than
+        multilingual ones, they only appear for Català. If one ever sounds wrong, try it on a
+        card with <strong>Check this card</strong>: if Azure marks the model's own words down,
+        that is the voice, not you.
       </p>
     </div>
 
@@ -10044,10 +10045,11 @@ function renderSettings() {
     // A new language means a new voice, and the one it opens on is the male
     // one — see defaultVoice in store.js. A voice this language already has
     // (the select can't offer one, but an export can carry one) is kept.
-    /* A Replicate voice is the same voice in every language — it is a system
-       voice on a multilingual model, steered by the text — so switching
-       language keeps it, and only an Azure voice belonging to the old locale
-       is swapped out. */
+    /* Every voice here belongs to a locale now, which is the change Matxa
+       brought: it is a Catalan model, so it is listed under ca-ES alone and
+       switching to Spanish or Italian moves the drill voice to that language's
+       Azure default. The six multilingual voices this replaced did travel
+       between languages, and sounded French in all three. */
     const voices = LANGUAGES[settings.language].voices;
     if (!voices.some((v) => v.id === settings.azureVoice)) settings.azureVoice = defaultVoice(settings.language);
     settings.save();
@@ -10135,10 +10137,10 @@ function renderSettings() {
     const voice = document.getElementById("s-voice").value;
     settings.azureVoice = voice;
     settings.save();
-    const replicate = voiceProvider(voice) === "replicate";
-    if (replicate ? !settings.hasAssistant : !settings.hasAzure) {
+    const worker = voiceProvider(voice) === "worker";
+    if (worker ? !settings.hasAssistant : !settings.hasAzure) {
       box.innerHTML = `<div class="notice">${
-        replicate
+        worker
           ? "That voice needs the card assistant — set its address and passcode above."
           : "No Azure key set — the browser voice will be used, without comparison or scoring."
       }</div>`;
@@ -10168,7 +10170,7 @@ function renderSettings() {
 
     const box = document.getElementById("s-test-result");
     if (!settings.hasAzure) {
-      box.innerHTML = `<div class="notice">No key set — no scoring, and no model audio unless you pick a Replicate voice.</div>`;
+      box.innerHTML = `<div class="notice">No key set — no scoring, and no model audio unless you pick a Matxa voice.</div>`;
       return;
     }
     box.innerHTML = `<p class="small muted"><span class="spinner"></span> Testing…</p>`;
@@ -10186,14 +10188,14 @@ function renderSettings() {
 
   document.getElementById("s-prefetch").onclick = async () => {
     const status = document.getElementById("s-prefetch-status");
-    /* Not offered on a Replicate voice, and the reason is the bill rather than
-       the machinery. Azure's audio is bought by the month, so downloading the
-       whole library costs nothing extra; this would be four hundred paid calls
-       into a rate limit of twenty a minute. Drilling with the voice fetches
-       each phrase once and keeps it, which is the same destination by a route
-       you are already walking. */
-    if (voiceProvider(settings.azureVoice) === "replicate") {
-      status.textContent = "Not for a Replicate voice — those are paid per phrase. Drilling keeps each one as you go.";
+    /* Not offered on a Matxa voice — see `prefetch` in speech.js. Azure's
+       audio is bought by the month and arrives at once, so downloading the
+       whole library costs nothing; this would be four hundred five-second
+       requests at a free box somebody else pays for. Drilling with the voice
+       fetches each phrase once and keeps it, which is the same destination by
+       a route you are already walking. */
+    if (voiceProvider(settings.azureVoice) === "worker") {
+      status.textContent = "Not for a Catalan voice — those come one at a time. Drilling keeps each one as you go.";
       return;
     }
     if (!settings.hasAzure) {

@@ -51,7 +51,49 @@ function fakeCaches() {
   };
 }
 
+/* A 24-bit mono WAV, which is what Matxa returns and what `narrowWav` has to
+ * halve. Three samples, so the maths is checkable by eye. */
+function wav24(samples = [0x123456, 0x7fffff, 0x800000]) {
+  const head = new Uint8Array(44 + samples.length * 3);
+  const view = new DataView(head.buffer);
+  const put = (at, s) => { for (let i = 0; i < s.length; i++) head[at + i] = s.charCodeAt(i); };
+  put(0, "RIFF"); view.setUint32(4, 36 + samples.length * 3, true);
+  put(8, "WAVEfmt "); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, 22050, true); view.setUint32(28, 22050 * 3, true);
+  view.setUint16(32, 3, true); view.setUint16(34, 24, true);
+  put(36, "data"); view.setUint32(40, samples.length * 3, true);
+  samples.forEach((v, i) => {
+    head[44 + i * 3] = v & 0xff;
+    head[44 + i * 3 + 1] = (v >> 8) & 0xff;
+    head[44 + i * 3 + 2] = (v >> 16) & 0xff;
+  });
+  return head;
+}
+
 let calls = [];
+/* The Space, played straight: POST hands back an event id, the GET streams
+ * server-sent events ending in `complete`, and the file URL serves a WAV. */
+function stubSpace({ postStatus = 200, sse = null, fileStatus = 200, wav = null } = {}) {
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url?.url ?? url);
+    calls.push({ href, options });
+    if (href.includes("/gradio_api/call/")) {
+      if (/\/[0-9a-f]{8,}$/.test(href)) {
+        return new Response(
+          sse ?? 'event: complete\ndata: [{"url":"https://space.test/file=/tmp/a.wav"}]\n\n',
+          { status: 200 }
+        );
+      }
+      if (postStatus !== 200) return new Response("no", { status: postStatus });
+      return new Response(JSON.stringify({ event_id: "abcdef0123456789" }),
+        { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    if (fileStatus !== 200) return new Response("no", { status: fileStatus });
+    return new Response(wav ?? wav24(), { status: 200, headers: { "Content-Type": "audio/wav" } });
+  };
+}
+
 function stubFetch({ status = 200, body = null, audioStatus = 200 } = {}) {
   globalThis.fetch = async (url, options = {}) => {
     const href = String(url?.url ?? url);
@@ -146,7 +188,7 @@ async function run() {
 
   // Failures, each named as its own thing.
   const failures = [
-    ["no Replicate token", { env: { ...ENV(), REPLICATE_API_TOKEN: "" } }, {}, 503, /can't speak/],
+    ["no Replicate token", { env: { ...ENV(), REPLICATE_API_TOKEN: "" } }, {}, 503, /can't say that/],
     ["a wrong token", {}, { status: 401 }, 502, /token is wrong/],
     ["no credit", {}, { status: 402 }, 502, /out of credit/],
     ["a model that does not exist", {}, { status: 404 }, 502, /REPLICATE_VOICE_MODEL/],
@@ -199,6 +241,141 @@ async function run() {
   // the door for the two sister apps.
   r = await post("/complete-card", { text: "hola", languageCode: "ca-ES", languageName: "Catalan" });
   ok("/complete-card still refuses without a Gemini key", r.status === 503, String(r.status));
+
+
+  // ------------------------------------------------------------ Matxa
+  console.log("\n/speak — the Catalan voices");
+
+  const spaceCalls = () => calls.filter((c) => c.href.includes("/gradio_api/call/"));
+  const sent = () => JSON.parse(spaceCalls()[0].options.body).data;
+
+  globalThis.caches = fakeCaches();
+  calls = []; limited = [];
+  stubSpace();
+  res = await post("/speak", { ...LINE, voice: "grau" });
+  payload = await res.json();
+  ok("a Catalan voice is a 200", res.status === 200, `${res.status} ${payload.error ?? ""}`);
+  ok("it never touches Replicate", calls.every((c) => !c.href.includes("api.replicate.com")));
+  ok("three calls: submit, poll, fetch the file", calls.length === 3, calls.map((c) => c.href).join(" "));
+  ok("submitted to the multi-accent endpoint",
+    spaceCalls()[0].href === "https://bsc-lt-matxa-tts-v2.hf.space/gradio_api/call/tts_multiaccent",
+    spaceCalls()[0].href);
+  ok("under the Space's own speaker name, spaces and all", sent()[1] === "central -- grau", JSON.stringify(sent()));
+  ok("the text goes first", sent()[0] === LINE.text);
+  ok("temperature is 0.2, not the model's 0.667", sent()[2] === 0.2, String(sent()[2]));
+  ok("length_scale is 1.0", sent()[3] === 1, String(sent()[3]));
+  ok("still rate limited under its own key", limited.length === 1 && limited[0] === "speak", limited.join());
+  ok("reports the Space and endpoint as the model",
+    payload.model === "bsc-lt-matxa-tts-v2.hf.space/tts_multiaccent", payload.model);
+
+  // The 24-bit WAV must arrive as 16-bit, which is a third off every clip.
+  const out = Buffer.from(payload.audio.data, "base64");
+  ok("the mime type is wav", payload.audio.mimeType === "audio/wav", payload.audio.mimeType);
+  ok("24-bit in, 16-bit out", out.readUInt16LE(34) === 16, String(out.readUInt16LE(34)));
+  ok("sample rate survives", out.readUInt32LE(24) === 22050, String(out.readUInt32LE(24)));
+  ok("and it is two thirds the size", out.length === 50, String(out.length));
+  ok("the samples are the top two bytes of each",
+    out.subarray(44).toString("hex") === "3412ff7f0080", out.subarray(44).toString("hex"));
+
+  calls = [];
+  await post("/speak", { ...LINE, voice: "ona" });
+  ok("a central-only voice goes to the other endpoint",
+    spaceCalls()[0].href.endsWith("/tts"), spaceCalls()[0].href);
+  ok("with its bare speaker name", sent()[1] === "ona", JSON.stringify(sent()));
+
+  calls = [];
+  await post("/speak", { ...LINE, voice: "central-female" });
+  ok("a hyphenated id becomes the Space's spaced name", sent()[1] === "central female", JSON.stringify(sent()));
+
+  calls = [];
+  await post("/speak", { ...LINE, voice: "grau", speed: 0.5 });
+  ok("speed becomes the reciprocal of length_scale", sent()[3] === 2, String(sent()[3]));
+
+  // Caching, which is what stops a deck being re-fetched.
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "grau" });
+  ok("the same line in the same voice costs no call", res.status === 200 && calls.length === 0, String(calls.length));
+  calls = [];
+  await post("/speak", { ...LINE, voice: "elia" });
+  ok("a different Catalan voice misses the cache", calls.length === 3, String(calls.length));
+
+  // The token is optional, because a duplicate of a public Space needs none.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "grau" });
+  ok("no HF token means no Authorization header",
+    !spaceCalls()[0].options.headers?.Authorization, JSON.stringify(spaceCalls()[0].options.headers));
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "grau" }, { env: { ...ENV(), HF_TOKEN: "hf_abc" } });
+  ok("a token is sent on all three calls",
+    calls.every((c) => c.options.headers?.Authorization === "Bearer hf_abc"),
+    JSON.stringify(calls.map((c) => c.options.headers?.Authorization)));
+
+  // A Catalan voice must work on a Worker with no Replicate token at all.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "grau" }, { env: { ...ENV(), REPLICATE_API_TOKEN: "" } });
+  ok("no Replicate token does not stop a Catalan voice", res.status === 200, String(res.status));
+
+  // A Space of your own.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "ona" }, { env: { ...ENV(), MATXA_SPACE: "me-matxa.hf.space" } });
+  ok("MATXA_SPACE points it at your duplicate",
+    spaceCalls()[0].href.startsWith("https://me-matxa.hf.space/"), spaceCalls()[0].href);
+
+  // Tuning.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "ona" }, { env: { ...ENV(), MATXA_INPUT: '{"temperature":0.4}' } });
+  ok("MATXA_INPUT overrides temperature and keeps the rest",
+    sent()[2] === 0.4 && sent()[3] === 1, JSON.stringify(sent()));
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "ona" }, { env: { ...ENV(), MATXA_INPUT: "{not json" } });
+  ok("a broken MATXA_INPUT falls back rather than failing",
+    sent()[2] === 0.2, JSON.stringify(sent()));
+
+  // Failures, each named as its own thing.
+  const spaceFailures = [
+    ["a sleeping Space", { postStatus: 404 }, 504, /asleep/],
+    ["a wrong HF token", { postStatus: 401 }, 502, /Hugging Face token/],
+    ["a busy Space", { postStatus: 429 }, 503, /busy/],
+    ["a job that failed", { sse: "event: error\ndata: null\n\n" }, 502, /said nothing/],
+    ["a stream that says nothing", { sse: "event: heartbeat\n\n" }, 502, /said nothing/],
+    ["an answer with no file", { sse: 'event: complete\ndata: [null]\n\n' }, 502, /said nothing/],
+    ["audio that cannot be fetched back", { fileStatus: 500 }, 502, /could not be fetched back/],
+  ];
+  for (const [name, stub, status, message] of spaceFailures) {
+    globalThis.caches = fakeCaches();
+    calls = [];
+    stubSpace(stub);
+    const r = await post("/speak", { ...LINE, voice: "grau" });
+    const p = await r.json();
+    ok(`${name} → ${status}`, r.status === status && message.test(p.error ?? ""), `${r.status} ${p.error}`);
+  }
+
+  // A page of a book fits; a pasted novel does not.
+  globalThis.caches = fakeCaches();
+  stubSpace();
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(1200) });
+  ok("a 1200-character page still goes through", res.status === 200, String(res.status));
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "ona", text: "a".repeat(2001) });
+  payload = await res.json();
+  ok("over the Catalan cap is refused with no call",
+    res.status === 400 && calls.length === 0 && /too long for a Catalan voice/.test(payload.error ?? ""),
+    `${res.status} ${payload.error}`);
+
+  // A non-Matxa voice still goes to Replicate, so both providers stand.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  stubFetch();
+  res = await post("/speak", { ...LINE, voice: "Deep_Voice_Man" });
+  ok("an unknown voice still goes to Replicate",
+    res.status === 200 && calls.some((c) => c.href.includes("api.replicate.com")), String(res.status));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

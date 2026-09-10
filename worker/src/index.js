@@ -583,6 +583,78 @@ const MAX_IMAGE_CHARS = 4_000_000;
    and REPLICATE_VOICE_INPUT — because *which* model speaks the best Catalan
    is a question for a pair of ears on a phone, and swapping the answer must
    not be a code change. */
+/* Matxa, and why the six MiniMax voices it replaces lasted one release.
+
+   They were shipped on the strength of Catalan appearing in MiniMax's own
+   language list, with this file saying out loud that nobody here had heard
+   them. The phone heard them: *"all those voices sound french or italian"*.
+   That is exactly the failure the note warned about — a multilingual model
+   listing Catalan is not a model that speaks it — and it is why the honest
+   caveat was written down rather than glossed over.
+
+   Matxa-TTS is the other kind of model. It is Catalan and nothing else:
+   Projecte AINA and the Barcelona Supercomputing Center, trained on Catalan
+   recordings, and it leads BSC's own Catalan naturalness benchmark (UTMOS
+   3.50) ahead of StyleTTS2's 2.42 — which is the answer to "why a small
+   model when quality is the concern". Matcha-TTS is flow-matching: fast
+   because of its architecture, not because anything was given up.
+
+   It reaches this Worker as a Hugging Face Space rather than a Replicate
+   model, and that is a deliberate step down in machinery. The Space already
+   loads both Matxa checkpoints and serves both of them over a plain HTTP API,
+   so there is no image to build, no Cog package to keep current and no CI
+   pipeline in between. What it costs is a cold start: a free Space sleeps
+   after 48 hours idle and takes a minute or so to wake, which is longer than
+   SPEECH_WAIT_S allows — so the first Listen after a fortnight away falls
+   back to the browser voice and the next one works. A private Replicate model
+   scaled to zero does the same thing, so this is not the trade it first
+   looked like. MATXA_SPACE is the knob if that ever stops being true. */
+const DEFAULT_MATXA_SPACE = "bsc-lt-matxa-tts-v2.hf.space";
+
+/* Which of the Space's two models says which voice, and under the name the
+   model itself knows.
+
+   This is a list of voices in the Worker, which `validateSpeak` argues
+   against — but it is doing work rather than duplicating: the Space's own
+   speaker names carry spaces ("central -- grau") that the voice id may not,
+   and the two checkpoints are two endpoints. The client sends a safe id and
+   this decides both. A voice missing from here is not a Matxa voice and goes
+   to Replicate, which is what keeps the two providers side by side.
+
+   The six are the ones that survived listening on the phone, and they are not
+   the six that measured best. Four are from the multi-accent checkpoint whose
+   top octave is 15 dB quieter than the central-only one's — measurement said
+   they would be the veiled ones and the ear kept all four, so the ear is what
+   this table is built from. Three male and three female, because
+   `partnerVoice` gives the rehearsal chat's other person a voice of the
+   gender yours is not, and a list of one gender would have no second person
+   in it. */
+const MATXA_VOICES = {
+  ona: { endpoint: "tts", speaker: "ona" },
+  jan: { endpoint: "tts", speaker: "jan" },
+  grau: { endpoint: "tts_multiaccent", speaker: "central -- grau" },
+  elia: { endpoint: "tts_multiaccent", speaker: "central -- elia" },
+  "central-male": { endpoint: "tts_multiaccent", speaker: "central male" },
+  "central-female": { endpoint: "tts_multiaccent", speaker: "central female" },
+};
+
+/* Temperature is the one number that mattered, and it was wrong for a whole
+   afternoon. The Space's own default is 0.667 and the first renderings drew
+   *"the actual audio quality has a few artifacts"* from the phone; at 0.2 —
+   which is what AINA's older demo ships — the same voices came back *"much
+   better"*. Flow-matching temperature is how far the sampler wanders from the
+   mean, so a lower one is steadier speech, and steady is what a model you are
+   copying should be. `length_scale` is pace and 1.0 is the model's own.
+   Overridable as JSON in MATXA_INPUT, like the picture path's input. */
+const DEFAULT_MATXA_INPUT = { temperature: 0.2, length_scale: 1.0 };
+
+/* Matxa answers with a WAV rather than an MP3, so a page of a book is
+   megabytes where Azure's was kilobytes. This is the cap on what may be asked
+   for in one go, well under SPEECH_MAX_CHARS: the reader's own PAGE_CHARS is
+   1200, so a page still goes through whole, and a runaway paste is refused
+   here rather than filling the phone. */
+const MATXA_MAX_CHARS = 2_000;
+
 const DEFAULT_SPEECH_MODEL = "minimax/speech-02-hd";
 
 /* Model-specific input, JSON, same contract as DEFAULT_REPLICATE_INPUT: a
@@ -714,9 +786,6 @@ export default {
        written must not silence the Listen button. */
     if (url.pathname === "/speak") {
       if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors);
-      if (!(env.REPLICATE_API_TOKEN || "").trim()) {
-        return json({ error: "This Worker has no Replicate token, so it can't speak. Use an Azure voice." }, 503, cors);
-      }
       const speech = await env.AI_RATE_LIMITER.limit({ key: "speak" });
       if (!speech.success) return json({ error: "Too much to say at once. Try again in a minute." }, 429, cors);
       try {
@@ -2077,19 +2146,273 @@ export function validateSpeak(value) {
   };
 }
 
+/* Which provider says this line, and the cache that sits over both.
+
+   The fork is the voice, not a config var — `drawPicture` chooses its provider
+   from whether a token is set, which is right when the two are alternatives,
+   and wrong here: Matxa speaks Catalan and nothing else, so a Spanish or
+   Italian voice must still be able to reach a multilingual model on the same
+   deployment. A voice in MATXA_VOICES goes to the Space; everything else goes
+   to Replicate.
+
+   The edge cache moved up here from inside the Replicate path so both share
+   it. What is in the key: the provider, the model or Space endpoint, and the
+   whole request — so changing the voice, the language, the speed, the Space
+   or the tuning all miss rather than serving audio made under old settings. */
+async function speakLine(request, env, trace) {
+  const matxa = MATXA_VOICES[request.voice];
+  const model = matxa
+    ? `${(env.MATXA_SPACE || "").trim() || DEFAULT_MATXA_SPACE}/${matxa.endpoint}`
+    : (env.REPLICATE_VOICE_MODEL || "").trim() || DEFAULT_SPEECH_MODEL;
+  if (trace) {
+    trace.model = model;
+    trace.models = 1;
+  }
+
+  const cache = globalThis.caches?.default;
+  const key = new Request(
+    `https://speak.xerra.invalid/${await hashOf(JSON.stringify({ model, ...request }))}`
+  );
+  if (cache) {
+    const hit = await cache.match(key).catch(() => null);
+    if (hit) return hit.json();
+  }
+
+  const audio = matxa
+    ? await speakWithMatxa(request, matxa, env)
+    : await speakWithReplicate(request, model, env);
+
+  if (cache) {
+    await cache
+      .put(
+        key,
+        new Response(JSON.stringify(audio), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${SPEECH_CACHE_S}` },
+        })
+      )
+      .catch(() => {});
+  }
+  return audio;
+}
+
+/* The line, spoken by Matxa, through the Space's HTTP API.
+
+   Two round trips, and not the same two as Replicate's. Gradio takes the job
+   and hands back an event id, then streams the result as server-sent events;
+   the stream closes when the job is done, so this reads it as one body rather
+   than parsing a live stream — a Worker has no reason to watch it arrive. The
+   answer is a URL to a WAV, which is fetched and base64'd here for the reason
+   the drawings are: the phone keeps a blob, and a link into someone else's
+   CDN would trade the offline story for one saved request. */
+async function speakWithMatxa(request, voice, env) {
+  if (request.text.length > MATXA_MAX_CHARS) {
+    throw new PublicError(
+      `That is too long for a Catalan voice — ${MATXA_MAX_CHARS} characters at most. An Azure voice will read it.`,
+      400
+    );
+  }
+
+  const host = `https://${(env.MATXA_SPACE || "").trim() || DEFAULT_MATXA_SPACE}`;
+  const token = (env.HF_TOKEN || "").trim();
+  const headers = { "Content-Type": "application/json" };
+  // Only a private Space needs this, and a duplicate of the BSC one is the
+  // point of the setup — so the token is optional and its absence is not an
+  // error until the Space itself says so.
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let tuning = DEFAULT_MATXA_INPUT;
+  if ((env.MATXA_INPUT || "").trim()) {
+    try {
+      tuning = { ...DEFAULT_MATXA_INPUT, ...JSON.parse(env.MATXA_INPUT) };
+    } catch {
+      // A typo in a config var must not take the voice away.
+      console.error("MATXA_INPUT is not valid JSON; using the defaults");
+    }
+  }
+
+  /* The order is the Space's own signature: text, speaker, temperature,
+     length_scale, denoise. `speed` becomes its reciprocal because
+     length_scale is how *long* the speech is — larger is slower — where the
+     app's speed is the other way round. The drill's Slow is still done at
+     playback, so this is only ever a voice that reads uniformly too fast. */
+  const data = [
+    request.text,
+    voice.speaker,
+    tuning.temperature,
+    tuning.length_scale / (request.speed || 1),
+    true,
+  ];
+
+  let started;
+  try {
+    started = await fetch(`${host}/gradio_api/call/${voice.endpoint}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ data }),
+      signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("The Catalan voice is waking up. Try again in a minute.", 504);
+    }
+    throw new PublicError("Couldn't reach the Catalan voice. Try again.", 502);
+  }
+
+  if (!started.ok) {
+    if (started.status === 401 || started.status === 403) {
+      throw new PublicError("The Hugging Face token is wrong or not allowed to use that Space.", 502);
+    }
+    /* A sleeping Space answers 404 on its API before it has woken, which is
+       the same story as the timeout and must read the same way — told as "not
+       found" it sounds like the Space has been deleted. */
+    if (started.status === 404) {
+      throw new PublicError("The Catalan voice is asleep. Try again in a minute.", 504);
+    }
+    if (started.status === 429 || started.status === 503) {
+      throw new PublicError("The Catalan voice is busy. Try again in a moment.", 503);
+    }
+    throw new PublicError(`The Catalan voice returned ${started.status}.`, 502);
+  }
+
+  const eventId = (await started.json().catch(() => ({})))?.event_id;
+  if (!eventId) throw new PublicError("The Catalan voice didn't take the job. Try again.", 502);
+
+  let stream;
+  try {
+    stream = await fetch(`${host}/gradio_api/call/${voice.endpoint}/${eventId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("That took too long to say. Try again.", 504);
+    }
+    throw new PublicError("Couldn't reach the Catalan voice. Try again.", 502);
+  }
+  if (!stream.ok) throw new PublicError(`The Catalan voice returned ${stream.status}.`, 502);
+
+  const result = gradioResult(await stream.text());
+  if (result.error !== undefined) {
+    throw new PublicError(
+      result.error ? `The Catalan voice failed: ${String(result.error).slice(0, 200)}` : "The voice said nothing. Try again.",
+      502
+    );
+  }
+
+  /* Gradio returns a file as an object carrying its URL, and older builds
+     return the URL bare. Both, for the reason the picture path reads three
+     output shapes: the difference is invisible until it 500s. */
+  const first = Array.isArray(result.output) ? result.output[0] : result.output;
+  const url = typeof first === "string" ? first : typeof first?.url === "string" ? first.url : null;
+  if (!url) throw new PublicError("The voice said nothing. Try again.", 502);
+
+  const file = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal: AbortSignal.timeout(SPEECH_ABORT_MS),
+  }).catch(() => null);
+  if (!file?.ok) throw new PublicError("The audio could not be fetched back.", 502);
+
+  const bytes = narrowWav(new Uint8Array(await file.arrayBuffer()));
+  if (bytes.length > SPEECH_MAX_BYTES) throw new PublicError("That came back too long to send.", 502);
+
+  return { data: base64OfBytes(bytes), mimeType: "audio/wav" };
+}
+
+/* The last `data:` line of a finished Gradio job. Returns `{ output }` on
+   success and `{ error }` on anything else — including a stream that ended
+   without saying either, which is what a Space killed mid-job looks like. */
+function gradioResult(body) {
+  let event = null;
+  for (const line of String(body).split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("event:")) event = trimmed.slice(6).trim();
+    else if (trimmed.startsWith("data:")) {
+      const raw = trimmed.slice(5).trim();
+      if (event === "complete") {
+        try {
+          return { output: JSON.parse(raw) };
+        } catch {
+          return { error: "unreadable answer" };
+        }
+      }
+      if (event === "error") return { error: raw === "null" ? "" : raw };
+    }
+  }
+  return { error: "" };
+}
+
+/* Matxa writes 24-bit WAV, which is a third more bytes than the phone has any
+   use for: this is speech at 22 kHz going into IndexedDB and out of a phone
+   speaker, where 16-bit is transparent. Truncating to the top two bytes of
+   each sample is exact — no dither is worth writing for a 16-bit floor 90 dB
+   under a synthetic voice — and anything that is not a 24-bit PCM WAV is
+   handed back untouched, so a Space that starts returning MP3 still works. */
+function narrowWav(bytes) {
+  if (bytes.length < 44) return bytes;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (at) => String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]);
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") return bytes;
+
+  let channels = 0;
+  let rate = 0;
+  let bits = 0;
+  let dataAt = 0;
+  let dataLength = 0;
+  for (let at = 12; at + 8 <= bytes.length; ) {
+    const name = tag(at);
+    const size = view.getUint32(at + 4, true);
+    if (name === "fmt ") {
+      channels = view.getUint16(at + 10, true);
+      rate = view.getUint32(at + 12, true);
+      bits = view.getUint16(at + 22, true);
+    } else if (name === "data") {
+      dataAt = at + 8;
+      dataLength = Math.min(size, bytes.length - dataAt);
+    }
+    at += 8 + size + (size % 2);
+  }
+  if (bits !== 24 || !channels || !rate || !dataAt) return bytes;
+
+  const samples = Math.floor(dataLength / 3);
+  const out = new Uint8Array(44 + samples * 2);
+  const head = new DataView(out.buffer);
+  const write = (at, text) => {
+    for (let i = 0; i < text.length; i += 1) out[at + i] = text.charCodeAt(i);
+  };
+  write(0, "RIFF");
+  head.setUint32(4, 36 + samples * 2, true);
+  write(8, "WAVEfmt ");
+  head.setUint32(16, 16, true);
+  head.setUint16(20, 1, true);
+  head.setUint16(22, channels, true);
+  head.setUint32(24, rate, true);
+  head.setUint32(28, rate * channels * 2, true);
+  head.setUint16(32, channels * 2, true);
+  head.setUint16(34, 16, true);
+  write(36, "data");
+  head.setUint32(40, samples * 2, true);
+  for (let i = 0; i < samples; i += 1) {
+    // Little-endian 24-bit: the top two bytes are the 16-bit sample.
+    out[44 + i * 2] = bytes[dataAt + i * 3 + 1];
+    out[44 + i * 2 + 1] = bytes[dataAt + i * 3 + 2];
+  }
+  return out;
+}
+
 /* The line, spoken, through Replicate.
- 
+
    Two round trips for the same reason the drawings need two: Replicate answers
    with a URL to the audio rather than with the audio, and this app is
    offline-first — what the phone keeps is a blob in IndexedDB, so handing it a
    link into someone else's CDN would trade the whole offline story for one
    saved request. The client contract is therefore the picture's, one field
    over: { audio: { data, mimeType } }, base64 in, blob out. */
-async function speakLine(request, env, trace) {
-  const model = (env.REPLICATE_VOICE_MODEL || "").trim() || DEFAULT_SPEECH_MODEL;
-  if (trace) {
-    trace.model = model;
-    trace.models = 1;
+async function speakWithReplicate(request, model, env) {
+  /* Moved off the route when Matxa arrived: a Catalan voice goes to a Space
+     and needs no Replicate token at all, so refusing the whole endpoint for a
+     missing one would have taken the working half down with the unused half. */
+  if (!(env.REPLICATE_API_TOKEN || "").trim()) {
+    throw new PublicError("This Worker has no Replicate token, so it can't say that. Use an Azure voice.", 503);
   }
 
   let extraInput = DEFAULT_SPEECH_INPUT;
@@ -2111,17 +2434,6 @@ async function speakLine(request, env, trace) {
     language_boost: SPEECH_LANGUAGE[request.language] || "auto",
     speed: request.speed,
   };
-
-  /* The same sentence in the same voice is the same audio, so the edge keeps
-     it. Note what is in the key: the model and the whole input, so changing
-     the voice, the language, the speed or REPLICATE_VOICE_INPUT all miss the
-     cache rather than serving audio made under the old settings. */
-  const cache = globalThis.caches?.default;
-  const key = new Request(`https://speak.xerra.invalid/${model}/${await hashOf(JSON.stringify(input))}`);
-  if (cache) {
-    const hit = await cache.match(key).catch(() => null);
-    if (hit) return hit.json();
-  }
 
   let response;
   try {
@@ -2202,17 +2514,6 @@ async function speakLine(request, env, trace) {
     data: base64OfBytes(bytes),
     mimeType: (file.headers.get("Content-Type") || "audio/mpeg").split(";")[0].trim(),
   };
-
-  if (cache) {
-    await cache
-      .put(
-        key,
-        new Response(JSON.stringify(audio), {
-          headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${SPEECH_CACHE_S}` },
-        })
-      )
-      .catch(() => {});
-  }
   return audio;
 }
 

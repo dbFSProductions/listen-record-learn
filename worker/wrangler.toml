@@ -45,6 +45,38 @@ REPLICATE_MODEL = "google/nano-banana-2"
 # hardcoded. Empty or invalid falls back to sending only the prompt, which
 # every model tried accepts.
 REPLICATE_INPUT = '{"aspect_ratio":"1:1","resolution":"1K","output_format":"jpg"}'
+# The Catalan voices in /speak come from Matxa-TTS on a Hugging Face Space,
+# not from Replicate. The Space serves both Matxa checkpoints over a plain HTTP
+# API and needs no image built, no Cog package and no CI pipeline — which is the
+# whole reason it is a Space and not a Replicate model.
+#
+# The default below is the Barcelona Supercomputing Center's own Space. Point it
+# at your own duplicate of it to stop depending on somebody else's demo staying
+# up:
+#
+#     huggingface.co/spaces/BSC-LT/matxa-tts-v2  ->  Duplicate this Space
+#     wrangler secret put HF_TOKEN --cwd worker   (only for a private one)
+#
+# A free Space sleeps after 48 hours idle and takes about a minute to wake,
+# which is longer than /speak waits — so the first Listen after a long gap falls
+# back to the browser voice and the next one works. Daily use never sleeps.
+MATXA_SPACE = "bsc-lt-matxa-tts-v2.hf.space"
+# Temperature and pace, as JSON. 0.2 rather than the model's own 0.667: at the
+# default the voices came back from the phone as having "a few artifacts", and
+# at 0.2 the same voices were "much better". Lower is a steadier sampler, and
+# steady is what a voice you are copying should be.
+MATXA_INPUT = '{"temperature":0.2,"length_scale":1.0}'
+
+# /speak also still speaks Replicate, for any voice that is not one of Matxa's
+# — the fork is per voice, in speakLine. Catalan goes to Matxa; nothing else
+# has a voice here at present.
+#
+# The six MiniMax voices that used to be listed for all three languages are
+# gone: Catalan was on that model's supported-language list, and the phone
+# reported they "sound french or italian". A multilingual model listing a
+# language is not a model that speaks it, which is what Matxa exists to fix.
+#
+# The original note follows, since the Replicate path itself is unchanged.
 # /speak reads a phrase aloud, on the same Replicate token as the drawings.
 # Unset the token and the endpoint answers 503 saying so; the app then offers
 # only the Azure voices, which is exactly what it did before this existed.
