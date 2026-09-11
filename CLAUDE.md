@@ -3693,56 +3693,154 @@ per-voice fork doing its job. Headless (28): seven voices for Catalan with
 Guillermo labelled *· ElevenLabs* above the Matxa three, Spanish and Italian
 still Azure-only, and his test making one `/speak` call carrying the bare name.
 
-### Three of the six went, and Real life never waits for a voice
+### Three of the six went, and every card gets its own voice
 
 Two things reported together from the phone, after living with the Matxa
-voices for a release.
+voices for a release: *"We can remove the following voices: central male, Jan,
+Elia"*, and *"can we always make sure that the Real Life cards are done with an
+Azure voice, the others take too long and speed is the most important thing
+when using that section"* — then, once that landed, *"Everything to do with
+the real life page should be Enric, whatever. Everything else can be a mix,
+change it up a bit."*
 
-**Èlia, Jan and the central male voice are gone.** Cut on the ear, like the
-six were chosen on the ear; Ona, the central female and Grau are what is left,
-which with Guillermo is still a voice of each gender for `partnerVoice` to
-hand the rehearsal chat's other person. **The three are still in the Worker's
+**Èlia, Jan and the central male voice are gone**, cut on the ear the way the
+six were chosen on the ear. Ona, Central and Grau are what is left, which with
+Guillermo is still a voice of each gender for `partnerVoice` to hand the
+rehearsal chat's other person. **The three stay in the Worker's own
 `MATXA_VOICES` on purpose** — an id the Worker does not know falls through to
 Replicate, so dropping them there would send a chat saved with `say:jan` on it
 to a drawing model. Nothing offers them, `settings.load` repairs a saved one
 back to the language's default (the path a retired Azure voice has always
-taken), and a chat that already carries one goes on speaking. So this touched
-no Worker file and needed no deploy.
+taken), and a chat that already carries one goes on speaking. No Worker file is
+touched, so nothing deployed and the sister apps are unaffected.
 
-**Real life declines a Worker voice whatever the setting says.** `fast` on the
-object handed to `speech.modelAudio`, read by `readableVoice` beside the
-`WORKER_VOICE_MAX` length rule — the same "this reading cannot wait", decided
-by where you are rather than by how much there is, which is why it is not a
-second constant. Everywhere else a few seconds of synthesis buys a nicer
-voice; on Real life you are standing in a doorway with about as long as it
-takes to open it, which is the argument the whole section is built on, so a
-voice fetched from somebody's free box is the wrong trade however it sounds.
+**`voiceFor` in store.js is now the one reader of "who says this", and it
+answers four things in an order that is the whole argument:**
 
-- **It only ever declines a Worker voice, never overrides an Azure one.** A
-  drill voice that is already Azure's comes back untouched, so a Real life
-  card is read in Alba if that is what you picked — the swap is to the
-  language's first Azure voice only when the alternative was a fetch. With no
-  key it keeps the Worker voice and lets the honest failure happen, exactly as
-  the length rule does.
-- **It is the Real life page's own cards and not the message page.** The
-  answer card's Listen and the play buttons under *Asked for before*. A
-  message opened from there keeps its *Read it in* select, because that is a
-  voice you chose deliberately on a page whose whole point is unhurried
-  reading, and silently overriding it would be reported as the select having
-  stopped working.
-- **`sayAloud`'s tail is an options bag now** (`{ voice, rate, fast }`). It was
-  three positionals, one call site passed the second and nothing ever passed
-  `rate`.
+1. **A voice the caller named wins**, always — the chat partner, the reader's
+   *Read it in*, the Settings voice test. A voice chosen on purpose is never
+   overruled, which is the rule everywhere else in this app and is what lets
+   the two rules below be blunt.
+2. **`fast` pins the language's default voice**, which is `defaultVoice`'s
+   first male and so Enric in Catalan, Álvaro in Spanish, Diego in Italian —
+   "Enric, whatever", generalised the only way it generalises. Real life is
+   the whole of who asks.
+3. **The mix**, when `settings.mixVoices` is on.
+4. **Otherwise the drill voice**, exactly as before.
 
-Worth asserting, with `speech.modelAudio` overridden to record `phrase.voice`
-and the drill voice set to `say:ona`: `#s-voice` lists seven Catalan voices
-with no Èlia, Jan or second Central and Spanish still two; a Quick answer
-card's Listen and an *Asked for before* play both record `ca-ES-JoanaNeural`
-while the drill's own fetch still records `null`; with Alba as the drill voice
-both record `ca-ES-AlbaNeural` rather than Joana; with no Azure key both
-record `say:ona`; a message opened from Real life still reads in
-`settings.readerVoice`; and a settings blob carrying `azureVoice: "say:jan"`
-loads as Enric.
+**Real life is never kept waiting, and that overrides the voice you picked.**
+It is the one place in the app that does. Everywhere else a few seconds of
+synthesis buys a nicer voice; there you are standing in a doorway with about as
+long as it takes to open it, which is the argument the whole section is built
+on, so a voice fetched from somebody's free box is seconds you have not got.
+
+- **What counts as Real life is the kind of text, not the tile you came
+  through.** The ask box's answer card and the *Asked for before* plays are on
+  the page itself. A message somebody sent you is `kind: "message"` on the
+  shared message page, and `!reading` is what pins it — so a message is fast
+  whichever route reached it, and an article, a story or a page of a book is
+  not. Deciding it by `state.section` would have made the same message fast or
+  slow depending on how you got there.
+- **It loses to an explicit voice, which is what keeps *Read it in* honest.**
+  Set a reader voice and a message reads in it; leave it unset and Real life
+  pins Enric. A control that silently did nothing would be worse than no
+  control — the gear's lesson, one floor down.
+- With no Azure key there is nothing to pin to and Listen falls through to the
+  browser voice, which is instant anyway, so the section still gets what it
+  asked for.
+
+**And everything else is a mix: a voice per phrase, picked off the phrase's own
+text.** `mixVoices` defaults **on**, because the complaint that bought the
+second provider in the first place was that three voices heard every day for a
+year stop being voices you listen to, and a mix nobody switches on is a mix
+nobody hears.
+
+- **Picked off the text, so it is stable, and that is load-bearing rather than
+  tidy.** The audio cache is keyed by voice; a voice rolled fresh on every tap
+  would be a fetch on every tap, the offline copy would never be the one
+  played, and a card would stop sounding like itself. FNV-1a over the text,
+  modulo the list. Measured over the 354 Catalan cards it lands 40–63 per
+  voice against an even 51 — no clumping, and the same card twice is the same
+  voice.
+- **The pool is `voicesFor`**, so the mix never reaches for a voice this device
+  cannot speak in. A card does move voice if the card assistant goes away;
+  unavoidable, and better than silence.
+- **The chat is excluded, in all three places it speaks.** Its two sides are
+  two named people, so your own corrected line (`data-say-fix`) and the
+  practice card both name `settings.azureVoice` rather than defaulting —
+  `practiceVoice()` is the reader, and it hands a partner line
+  `partnerVoiceOf(item)` and the fix yours. Left to the mix, a chat would be
+  read by neither of you.
+- **The drill voice select still means something with the mix on**: it is what
+  you hear with the mix off, what your corrected lines are read back in, and
+  what `partnerVoice` chooses the other person against.
+- **`speakingVoice` in speech.js is `voiceFor` then `readableVoice`** — who
+  says it, then whether they can manage this much text — and `modelAudio` and
+  `isCached` both go through it. Those two had already drifted apart once on
+  the voice and painted a spinner over audio that was in the store; one
+  function is what stops that happening again as rules are added above it. The
+  drill's `state.loadingModel` asks `canSpeak(voiceFor(phrase, settings))` for
+  the same reason: with the mix on, the card's voice and the drill voice are
+  different questions.
+
+#### Only Azure voices worked in the reader, and that was the select's fault
+
+Reported from the phone the moment the mix landed: *"It looks like only azure
+voices work in the reading section of listen read"*. True, and by design —
+`readableVoice` swaps a Worker voice for Azure's over `WORKER_VOICE_MAX`,
+because a page of a book is a minute of CPU synthesis that times out, and an
+ElevenLabs one is charged by the character. The defect was that **the *Read it
+in* select went on offering voices the app would then quietly overrule**, which
+is *the gear had to look like a gear* one floor down: a control that silently
+does nothing is worse than no control.
+
+So `voiceField` takes an `offer` filter, and the message page passes one that
+drops the Worker voices on a text over the cap, with a line under the select
+saying why. The value it opens on is filtered too — a select showing its first
+option while the reading happens in a third is the same lie in a new place. A
+short message still gets the whole list, since a short message is what a Worker
+voice can manage.
+
+#### Seven Listen buttons were passing an object where a locale goes
+
+Found by the mix, not by a report, and it long predates it. `renderQuick`,
+`renderMessage` and `renderChat` all bind `const language = LANGUAGES[...]` —
+the *entry*, for its `englishName` — and seven `sayAloud` calls handed that
+object straight to `speech.modelAudio` as the locale.
+
+It hid because Azure never reads the language: the voice id carries it, and
+`synthesise` ignores the argument. What it did cost was real but quiet — the
+cache key came out `[object Object]|voice|text`, so a phrase heard in the drill
+was fetched again on the Quick page and neither could serve the other; and on
+the no-key path `browserSpeech.available(<object>)` is false, so **Listen said
+nothing at all** on Real life, the chat and the message page's kept phrases.
+
+`voiceFor` is what surfaced it, by being the first thing in that path ever to
+read `phrase.language`: `LANGUAGES[<object>]` is undefined, `defaultVoice`
+returned `""`, and Real life's pinned voice came out empty. The lesson is the
+one this file keeps relearning about the two version numbers — **a value that
+is never read is a value that is never checked** — and the fix is at the seven
+call sites rather than a defensive `typeof` where it lands.
+
+Worth asserting, headless with `speech.modelAudio` overridden to record
+`speakingVoice(phrase, settings)`: `#s-voice` lists seven Catalan voices with no Èlia, Jan or
+second Central, and Spanish still two; `#s-mix` is checked by default and
+writes `mixVoices` to `xerra.settings`; with the mix on, two different cards
+in one deck record two different voices while the same card twice records the
+same one, and a reload records the same again; with it off every card records
+`settings.azureVoice`; a Quick answer card's Listen and an *Asked for before*
+play record `ca-ES-EnricNeural` with the drill voice set to `say:ona`, with
+the mix both on and off, and with the assistant unset; a message opened from
+Real life records Enric while a story opened from the reader records the mix,
+or `readerVoice` where one is set; setting `#msg-voice` on a message makes it
+record that voice instead; in a chat the partner's `[data-say]` records
+`partnerVoiceOf`, `[data-say-fix]` and `#xat-practice-listen` under a hold
+record the drill voice, and `#xat-practice-listen` under a *Say it back*
+records the partner's; a settings blob carrying `azureVoice: "say:jan"`
+loads as Enric; and no `sayAloud` call anywhere hands over a `LANGUAGES` entry
+where a locale string goes — `#msg-voice` on a story over the cap lists three
+options, all Azure's, and the reading records one of them.
+
 
 ## Azure, and the degraded path
 
@@ -5078,7 +5176,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v115 / `xerra-v115` — `js/version.js` first, `sw.js` second, as ever.
+- v116 / `xerra-v116` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

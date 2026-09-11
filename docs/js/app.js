@@ -5,7 +5,7 @@ import {
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, readingDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
-  books, bookStore, voicesFor, voiceProvider,
+  books, bookStore, voicesFor, voiceFor, voiceProvider, WORKER_VOICE_MAX,
 } from "./store.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -530,7 +530,7 @@ function readerVoiceNow() {
    voice, since the next Listen wants the new one. `voiceOf` is read at each
    Listen rather than once, for that reason. `language` is the locale string,
    which is what `browserSpeech` needs. */
-function readAloudControls({ listen, slow, stop }, textOf, language, voiceOf = () => null) {
+function readAloudControls({ listen, slow, stop }, textOf, language, voiceOf = () => null, fast = false) {
   let token = 0;
   const idle = () => {
     listen.hidden = false;
@@ -557,7 +557,7 @@ function readAloudControls({ listen, slow, stop }, textOf, language, voiceOf = (
     stop.innerHTML = `<span class="spinner"></span> Stop`;
     const still = () => mine === token;
     try {
-      const blob = await speech.modelAudio({ text, language, voice: voiceOf() }, settings);
+      const blob = await speech.modelAudio({ text, language, voice: voiceOf(), fast }, settings);
       if (!still()) return;
       stop.classList.remove("busy");
       stop.textContent = "■ Stop";
@@ -2410,7 +2410,7 @@ function renderQuick() {
       </div>`;
 
     const say = box.querySelector("[data-quick-say]");
-    say.addEventListener("click", () => sayAloud(say, phrase.text, language, "Couldn't play that.", { fast: true }));
+    say.addEventListener("click", () => sayAloud(say, phrase.text, settings.language, "Couldn't play that.", { fast: true }));
     box.querySelector("[data-quick-drill]").addEventListener("click", () => {
       state.quick = null;
       startDeck(QUICK_DECK, phrase.id);
@@ -2461,7 +2461,7 @@ function renderQuick() {
     box.querySelectorAll("[data-quick-play]").forEach((button) =>
       button.addEventListener("click", () => {
         const phrase = library.phrases.find((p) => p.id === button.dataset.quickPlay);
-        if (phrase) sayAloud(button, phrase.text, language, "Couldn't play that.", { fast: true });
+        if (phrase) sayAloud(button, phrase.text, settings.language, "Couldn't play that.", { fast: true });
       })
     );
     box.querySelectorAll("[data-quick-open]").forEach((button) =>
@@ -2788,7 +2788,25 @@ function renderMessage() {
      chat's `voiceField` with its own label, and only with a key and a
      language with two voices, for the chat's reason. */
   const voice = readerVoiceNow();
-  const voiceSelect = voiceField("msg-voice", voice ?? settings.azureVoice, "Read it in");
+  /* Only the voices that will actually read *this* text. Over
+     `WORKER_VOICE_MAX` a Worker voice is swapped for Azure's by
+     `readableVoice` — a page of a book is a minute of CPU synthesis and times
+     out, and an ElevenLabs one is charged by the character — so offering one
+     here was offering a choice the app then quietly overruled. Reported from
+     the phone as *"only azure voices work in the reading section"*, which is
+     precisely what it was doing: working as designed, and saying nothing.
+     A short message still gets the whole list, since a short message is what
+     a Worker voice can manage. */
+  const tooLong = (item.text || "").length > WORKER_VOICE_MAX;
+  const offerVoice = (v) => !tooLong || voiceProvider(v.id) === "azure";
+  /* And the one it opens on has to be a voice it offers, or the select shows
+     its first option while the reading happens in a third. */
+  const chosen = voice ?? settings.azureVoice;
+  const shown =
+    offerVoice({ id: chosen })
+      ? chosen
+      : voicesFor(item.language).find((v) => voiceProvider(v.id) === "azure")?.id ?? chosen;
+  const voiceSelect = voiceField("msg-voice", shown, "Read it in", offerVoice);
 
   view.innerHTML = `
     ${pageHead(section, heading[0], heading[1], `<button class="link" id="msg-back">‹ ${esc(back)}</button>`)}
@@ -2824,6 +2842,12 @@ function renderMessage() {
         <button class="btn msg-stop" id="msg-stop" hidden>■ Stop</button>
       </div>
       ${voiceSelect ? `<div class="msg-voice">${voiceSelect}</div>` : ""}
+      ${
+        voiceSelect && tooLong
+          ? `<p class="tiny muted" style="margin:6px 0 0">Azure's voices only on a text this long — the others
+               are a CPU model that takes about a minute over a page, and would time out before it finished.</p>`
+          : ""
+      }
     </div>
     <div id="msg-gist-card"></div>
     <div id="msg-reveal"></div>
@@ -2862,7 +2886,12 @@ function renderMessage() {
     },
     () => item.text,
     item.language,
-    readerVoiceNow
+    readerVoiceNow,
+    /* Real life's pinning, decided by the kind rather than by which tile you
+       came through: a message somebody sent you is the doorway case whatever
+       route reached it, and an article, a story or a page of a book is not.
+       `Read it in`, if you have set it, still wins — see `voiceFor`. */
+    !reading
   );
   document.getElementById("msg-voice")?.addEventListener("change", (event) => {
     settings.readerVoice = event.target.value;
@@ -3093,7 +3122,7 @@ function renderMessage() {
     box.querySelectorAll("[data-say]").forEach((button) =>
       button.addEventListener("click", () => {
         const entry = keep[Number(button.dataset.say)];
-        if (entry) sayAloud(button, entry.text, language, "Couldn't play that.");
+        if (entry) sayAloud(button, entry.text, item.language, "Couldn't play that.", { fast: !reading });
       })
     );
     box.querySelectorAll("[data-keep]").forEach((button) =>
@@ -3147,7 +3176,7 @@ function renderMessage() {
     box.querySelectorAll("[data-say-word]").forEach((button) =>
       button.addEventListener("click", () => {
         const word = looked[Number(button.dataset.sayWord)];
-        if (word) sayAloud(button, word.text, item.language, "Couldn't play that.");
+        if (word) sayAloud(button, word.text, item.language, "Couldn't play that.", { fast: !reading });
       })
     );
     box.querySelectorAll("[data-keep-word]").forEach((button) =>
@@ -3201,7 +3230,7 @@ function renderMessage() {
     autosize(field);
     document.getElementById("msg-reply-go").onclick = () => sendReply(field.value.trim());
     const say = document.getElementById("msg-reply-say");
-    say?.addEventListener("click", () => sayAloud(say, reply.text, language, "Couldn't play that."));
+    say?.addEventListener("click", () => sayAloud(say, reply.text, item.language, "Couldn't play that."));
     document.getElementById("msg-reply-copy")?.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(reply.text);
@@ -4842,13 +4871,15 @@ const VOICE_TEST_LINE = {
    to the browser. The same control on the starter card and on the chat page,
    so a voice picked before the partner opens and a voice changed mid-chat are
    one thing. */
-function voiceField(id, selected, label = "Their voice") {
+function voiceField(id, selected, label = "Their voice", offer = () => true) {
   /* `canSpeak` per voice rather than `voicesFor`, which falls back to the
      whole list when nothing is reachable — right for a select you are about
      to configure a provider from, wrong here, where the answer to "nothing is
      reachable" is to offer no choice at all. It used to read `!hasAzure`,
      which was the same question until there were two providers. */
-  const voices = (LANGUAGES[settings.language]?.voices ?? []).filter((v) => canSpeak(v.id));
+  const voices = (LANGUAGES[settings.language]?.voices ?? [])
+    .filter((v) => canSpeak(v.id))
+    .filter(offer);
   if (voices.length < 2) return "";
   return `
     <label class="field"><span>${esc(label)}</span>
@@ -4867,6 +4898,12 @@ function voiceField(id, selected, label = "Their voice") {
    `voicesFor` first. Settings is the exception on purpose: it is the page
    where the key and the assistant are typed in, so a list that hid the voices
    until they worked would be hiding the reason to set them up. */
+/* A voice's own name, for prose that has to say which one. Falls back to the
+   id, which is at least true, for a voice that has left the list. */
+function voiceNameOf(id) {
+  return (LANGUAGES[settings.language]?.voices ?? []).find((v) => v.id === id)?.name || id;
+}
+
 function voiceOption(voice, selected, { markDrillVoice = true } = {}) {
   const worker = voiceProvider(voice.id) === "worker";
   /* The voice's own source rather than a single label: there are two models
@@ -5177,7 +5214,7 @@ function renderChat() {
     if (button.id === "xat-practice-say") return togglePractice();
     if (button.id === "xat-practice-listen") {
       const text = practiceText();
-      if (text) sayAloud(button, text, language, "Couldn't play that.");
+      if (text) sayAloud(button, text, item.language, "Couldn't play that.", { voice: practiceVoice() });
       return;
     }
     if (button.id === "xat-practice-done") {
@@ -5207,10 +5244,12 @@ function renderChat() {
       return;
     }
     if (button.hasAttribute("data-say"))
-      sayAloud(button, turn.text, language, "Couldn't play that.", { voice: partnerVoiceOf(item) });
+      sayAloud(button, turn.text, item.language, "Couldn't play that.", { voice: partnerVoiceOf(item) });
     else if (button.hasAttribute("data-say-fix") && turn.correction?.fixed)
-      // Your line as it should have been, in your own voice — the drill's.
-      sayAloud(button, turn.correction.fixed, language, "Couldn't play that.");
+      /* Your line as it should have been, in your own voice — the drill's, named
+         rather than left to default, since the mix would otherwise roll a voice
+         per line and the two sides of the chat would stop being two people. */
+      sayAloud(button, turn.correction.fixed, item.language, "Couldn't play that.", { voice: settings.azureVoice });
     else if (button.hasAttribute("data-practise")) {
       if (hold !== null || hearing) return;
       if (recorder.isRecording) {
@@ -5453,6 +5492,15 @@ function renderChat() {
     if (hold !== null) return item.turns[hold - 1]?.correction?.fixed ?? "";
     if (saying !== null) return item.turns[saying]?.text ?? "";
     return "";
+  }
+
+  /* Whose line the practice card is holding, so it is read in that person's
+     voice: the fix is yours and takes the drill voice, a line you are saying
+     back is theirs. Named rather than defaulted, for `data-say-fix`'s reason —
+     the mix would otherwise roll a voice off the text and the card would be
+     read by neither of you. */
+  function practiceVoice() {
+    return hold !== null ? settings.azureVoice : partnerVoiceOf(item);
   }
 
   function closeSaying() {
@@ -6465,7 +6513,10 @@ async function loadPhrase() {
   scoring.lastError = null;
   if (!phrase) return render();
 
-  state.loadingModel = canSpeak(phrase.voice) && !(await speech.isCached(phrase, settings));
+  /* The voice this card will actually be spoken in, not the drill voice: with
+     the mix on they are different per card, and asking the wrong one paints a
+     spinner for audio that is never coming (or hides one that is). */
+  state.loadingModel = canSpeak(voiceFor(phrase, settings)) && !(await speech.isCached(phrase, settings));
   render();
 
   /* Guarded even though modelAudio now swallows its own failures: this is the
@@ -9962,6 +10013,17 @@ function renderSettings() {
         </select></label>
       <button class="btn btn-primary" id="s-voice-test" style="width:100%">Hear it say something</button>
       <div id="s-voice-result" style="margin-top:10px"></div>
+      <div class="switch-row">
+        <span>Mix them up — a different voice per phrase</span>
+        <input type="checkbox" id="s-mix" ${settings.mixVoices ? "checked" : ""}>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">Every card keeps its own voice — picked off the phrase itself, so
+        a card always sounds like itself and stays cached for offline — but the library stops being one person
+        reading it. The voice above is still yours: it's what you hear with this off, what your own corrected lines
+        are read back in during a chat, and what the other person in a chat is chosen against.
+        <strong>Real life is never mixed</strong> — a phrase you asked for and a message you were sent are always
+        said by ${esc(voiceNameOf(defaultVoice(settings.language)))}, because waiting a few seconds in a doorway is the
+        one thing that section can't afford.</p>
       <p class="tiny muted" style="margin:12px 0 0">
         The plain voices are Azure's and need the speech key below. The ones marked Matxa are
         Catalan voices from Projecte AINA and the Barcelona Supercomputing Center, and come
@@ -10156,6 +10218,11 @@ function renderSettings() {
     settings.azureVoice = event.target.value;
     settings.save();
     document.getElementById("s-voice-result").innerHTML = "";
+  };
+
+  document.getElementById("s-mix").onchange = (event) => {
+    settings.mixVoices = event.target.checked;
+    settings.save();
   };
 
   /* The voice test plays the voice, and that is the point of it rather than a
