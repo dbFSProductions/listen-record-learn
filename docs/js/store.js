@@ -1965,6 +1965,12 @@ const DEFAULT_SETTINGS = {
      `defaultVoice` — and this is `defaultVoice("ca-ES")` spelled out, because
      LANGUAGES is declared further down the file. */
   azureVoice: "ca-ES-EnricNeural",
+  /* A voice per phrase instead of one voice for everything, picked off the
+     phrase's own text so a card always sounds like itself — see `voiceFor`.
+     On by default: the whole reason there is a second provider at all is that
+     one voice heard every day stops being a voice you listen to, and a mix
+     nobody switches on is a mix nobody hears. Real life is never mixed. */
+  mixVoices: true,
   assistantEndpoint: "",
   assistantPasscode: "",
   slowRate: 0.65,
@@ -2132,6 +2138,51 @@ export function voicesFor(language) {
     voiceProvider(v.id) === "worker" ? settings.hasAssistant : settings.hasAzure
   );
   return usable.length ? usable : voices;
+}
+
+/* Which voice says this, and it is the one reader of that question.
+
+   Four answers, in this order, and the order is the argument:
+
+   1. **A voice the caller named wins.** The rehearsal chat's partner, the
+      reader's *Read it in*, the Settings voice test. A voice chosen on purpose
+      is never overruled — the rule everywhere else in this app.
+   2. **`fast` pins the language's default voice**, which is Azure's and for
+      Catalan is Enric. Real life is the whole of who asks: you are standing in
+      a doorway with about as long as it takes to open it, and a voice fetched
+      from somebody's free box is seconds you have not got. The one place the
+      app overrides the voice you picked, because speed is what that section
+      is for.
+   3. **The mix**, when it is on. A voice per phrase, picked off the text, so
+      the same card always sounds like itself — which is what keeps the audio
+      cache worth having: a voice rolled fresh on every tap would be a fetch
+      every tap, and the offline copy would never be the one played. The point
+      is the complaint that started the second provider off, that three voices
+      heard every day for a year stop being voices you listen to.
+   4. **Otherwise the voice you drill against**, exactly as before.
+
+   The pool is `voicesFor`, so the mix never reaches for a voice this device
+   cannot speak in. That does mean a card moves voice if the card assistant
+   goes away — unavoidable, and better than silence. */
+export function voiceFor(phrase = {}, from = settings) {
+  if (phrase.voice) return phrase.voice;
+  const language = phrase.language || from.language;
+  if (phrase.fast) return defaultVoice(language);
+  if (!from.mixVoices) return from.azureVoice;
+  const voices = voicesFor(language);
+  if (!voices.length) return from.azureVoice;
+  return voices[voiceHash(phrase.text || "") % voices.length].id;
+}
+
+/* FNV-1a over the text. Any stable hash would do; what matters is that it is
+   stable — see the cache argument above. */
+function voiceHash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
 /* The voice the other person in a rehearsal chat speaks in. Your choice if

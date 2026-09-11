@@ -18,7 +18,7 @@
 // rehearsal chat's transcription are Azure's whatever voice is chosen —
 // nothing else here can say which *sound* you missed.
 
-import { audioStore, voiceProvider, workerVoiceName, WORKER_VOICE_MAX, LANGUAGES } from "./store.js";
+import { audioStore, voiceFor, voiceProvider, workerVoiceName, WORKER_VOICE_MAX, LANGUAGES } from "./store.js";
 import { cardAssistant } from "./card-assistant.js";
 import { toWav16k } from "./audio.js";
 
@@ -62,17 +62,16 @@ export const speech = {
       this.lastError = null;
       return null;
     }
-    if (!canSay(readableVoice(phrase.voice || settings.azureVoice, phrase, settings), settings)) {
+    if (!canSay(speakingVoice(phrase, settings), settings)) {
       this.lastError = null;
       return null;
     }
 
-    /* The voice is the settings' unless the caller names one — the rehearsal
-       chat's partner speaks in a voice of their own, so the two sides of a
-       conversation are two people. The cache is keyed by voice, so a line
-       heard in one voice is not served back in another. Additive: a phrase
-       without `voice` is exactly the call it always was. */
-    const voice = readableVoice(phrase.voice || settings.azureVoice, phrase, settings);
+    /* `voiceFor` decides who says it — a voice the caller named, Real life's
+       pinned one, the mix, or the drill voice — and `readableVoice` then asks
+       whether they can manage this much text. The cache is keyed by voice, so
+       a line heard in one voice is never served back in another. */
+    const voice = speakingVoice(phrase, settings);
     const key = cacheKey(phrase.text, voice, phrase.language);
     /* The cache read used to sit outside the try, so a database that would not
        open — a blocked version upgrade, storage evicted mid-session, private
@@ -124,8 +123,9 @@ export const speech = {
        already said in *their* voice was reported uncached and painted a
        spinner over audio that was sitting in the store. Harmless while the
        only cost was a spinner; not harmless now that a miss can be a paid
-       call, so the two agree on the voice. */
-    const voice = phrase.voice || settings.azureVoice;
+       call, so the two agree on the voice — the same function, which is what
+       keeps them agreeing as the mix and Real life's pinning arrive. */
+    const voice = speakingVoice(phrase, settings);
     if (!canSay(voice, settings)) return false;
     const key = cacheKey(phrase.text, voice, phrase.language);
     try {
@@ -196,14 +196,9 @@ export const speech = {
    (the longest phrase in the library is 53 characters), so this only ever
    catches the reader's pages, stories and articles.
 
-   `phrase.fast` is the same swap asked for by the caller rather than by the
-   length, and Real life is the whole of who asks. Everywhere else in the app
-   a few seconds of synthesis is the price of a nicer voice; there you are
-   standing in a doorway with about as long as it takes to open it, which is
-   the argument the whole section is built on — so a voice that has to be
-   fetched from a free box is the wrong trade whatever it sounds like. Not a
-   second constant: it is the same "this reading cannot wait", decided by
-   where you are instead of by how much there is.
+   Which voice it is in the first place is `voiceFor`'s question and not this
+   one: this only ever asks whether the voice already chosen can manage this
+   much text. Real life's pinning and the mix both happen one step earlier.
 
    With no Azure key there is nothing to hand it to, and the Worker voice is
    kept so the caller gets the honest failure rather than a silent swap to
@@ -213,13 +208,22 @@ export const speech = {
    stored as Azure's and never served back as Matxa's. */
 function readableVoice(voice, phrase, settings) {
   if (voiceProvider(voice) !== "worker") return voice;
-  if (!phrase.fast && (phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
+  if ((phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
   if (!settings.hasAzure) return voice;
   /* An Azure voice by name rather than `defaultVoice`, which answers with
      whatever the language's list leads with and could one day lead with a
      Worker voice — the one thing this must never hand back. */
   const azure = (LANGUAGES[phrase.language]?.voices ?? []).find((v) => voiceProvider(v.id) === "azure");
   return azure?.id ?? voice;
+}
+
+/* The voice this phrase is actually spoken in: who says it, then whether they
+   can manage this much of it. Everything that synthesises goes through here,
+   `isCached` included — the two have to agree on the voice or the drill paints
+   a spinner over audio that is already in the store, which is exactly what
+   used to happen when one of them read the drill voice and the other did not. */
+function speakingVoice(phrase, settings) {
+  return readableVoice(voiceFor(phrase, settings), phrase, settings);
 }
 
 /* Can this device speak in this voice at all? Azure's need the speech key,
