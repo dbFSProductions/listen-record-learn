@@ -4864,7 +4864,10 @@ function voiceField(id, selected, label = "Their voice") {
    until they worked would be hiding the reason to set them up. */
 function voiceOption(voice, selected, { markDrillVoice = true } = {}) {
   const worker = voiceProvider(voice.id) === "worker";
-  const provider = worker ? " · Matxa" : "";
+  /* The voice's own source rather than a single label: there are two models
+     behind the Worker now, and which one a voice is on is the difference
+     between a Catalan model and a Spanish voice speaking Catalan. */
+  const provider = worker ? ` · ${voice.source || "Worker"}` : "";
   const missing = worker
     ? settings.hasAssistant
       ? ""

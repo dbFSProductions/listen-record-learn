@@ -2225,12 +2225,33 @@ export const WORKER_VOICE_MAX = 400;
    real speakers in it — and the two spelled out are the checkpoint's own
    generic pair. */
 const MATXA_VOICES = [
-  { id: `${WORKER_VOICE}ona`, name: "Ona", gender: "Female" },
-  { id: `${WORKER_VOICE}elia`, name: "Èlia", gender: "Female" },
-  { id: `${WORKER_VOICE}central-female`, name: "Central", gender: "Female" },
-  { id: `${WORKER_VOICE}jan`, name: "Jan", gender: "Male" },
-  { id: `${WORKER_VOICE}grau`, name: "Grau", gender: "Male" },
-  { id: `${WORKER_VOICE}central-male`, name: "Central", gender: "Male" },
+  { id: `${WORKER_VOICE}ona`, name: "Ona", gender: "Female", source: "Matxa" },
+  { id: `${WORKER_VOICE}elia`, name: "Èlia", gender: "Female", source: "Matxa" },
+  { id: `${WORKER_VOICE}central-female`, name: "Central", gender: "Female", source: "Matxa" },
+  { id: `${WORKER_VOICE}jan`, name: "Jan", gender: "Male", source: "Matxa" },
+  { id: `${WORKER_VOICE}grau`, name: "Grau", gender: "Male", source: "Matxa" },
+  { id: `${WORKER_VOICE}central-male`, name: "Central", gender: "Male", source: "Matxa" },
+];
+
+/* ElevenLabs, and one voice of it.
+
+   Six Matxa voices shipped and were lived with, and the verdict was that Azure
+   was still better. This is the avenue the notes had named as the only one left
+   with real upside, and it is here because it passed the same test on the same
+   phone: six of them were listened to and exactly one was kept.
+
+   Guillermo is a *peninsular Spanish* voice rather than a Catalan one — the
+   account has no verified Catalan speaker, and Iberian Spanish is the closest
+   mouth available. That is the shape of the MiniMax failure, which is why it
+   was listened to before a line of this was written rather than after.
+
+   One voice, and that is not a problem the way it would have been: `voicesFor`
+   offers whatever is reachable and `partnerVoice` picks a voice of the other
+   gender from the same list, so the rehearsal chat pairs Guillermo with Ona or
+   with one of Azure's women. A second ElevenLabs voice is one line here and a
+   voice id in the Worker. */
+const ELEVEN_VOICES = [
+  { id: `${WORKER_VOICE}guillermo`, name: "Guillermo", gender: "Male", source: "ElevenLabs" },
 ];
 
 export const LANGUAGES = {
@@ -2241,6 +2262,7 @@ export const LANGUAGES = {
       { id: "ca-ES-JoanaNeural", name: "Joana", gender: "Female" },
       { id: "ca-ES-EnricNeural", name: "Enric", gender: "Male" },
       { id: "ca-ES-AlbaNeural", name: "Alba", gender: "Female" },
+      ...ELEVEN_VOICES,
       ...MATXA_VOICES,
     ],
   },

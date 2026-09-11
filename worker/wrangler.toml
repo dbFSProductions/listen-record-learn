@@ -45,6 +45,21 @@ REPLICATE_MODEL = "google/nano-banana-2"
 # hardcoded. Empty or invalid falls back to sending only the prompt, which
 # every model tried accepts.
 REPLICATE_INPUT = '{"aspect_ratio":"1:1","resolution":"1K","output_format":"jpg"}'
+# Guillermo, the one ElevenLabs voice, needs one secret which is not in this
+# file and must never be:
+#
+#     wrangler secret put ELEVENLABS_API_KEY --cwd worker
+#
+# Unset it and /speak answers 503 for that voice alone and goes on serving every
+# other one — the fork is per voice, in speakLine.
+#
+# Only eleven_v3 speaks Catalan. multilingual_v2, flash_v2_5 and turbo_v2_5 do
+# not, which the account's own /v1/models settled and the public docs would not.
+# So the slow expensive model is the whole offer, which is fine for something
+# the phone caches forever. Scope the key to text-to-speech and give it a credit
+# quota: the whole library is about 11,000 characters, voiced once.
+ELEVEN_INPUT = '{"model_id":"eleven_v3","output_format":"mp3_44100_128"}'
+
 # The Catalan voices in /speak come from Matxa-TTS on a Hugging Face Space,
 # not from Replicate. The Space serves both Matxa checkpoints over a plain HTTP
 # API and needs no image built, no Cog package and no CI pipeline — which is the

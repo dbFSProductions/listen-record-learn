@@ -3642,6 +3642,58 @@ to Replicate. `card-test.mjs` with `BEFORE` set is byte-identical, so the two
 sister apps are untouched — neither has a `/speak` client. It would port whole,
 except for the one part that would not: there is no Spanish in Matxa.
 
+### Guillermo, and the third provider the fork was built for
+
+The notes above named ElevenLabs as *"the one avenue with real upside"* and said
+it would want a third branch in `speakLine`, "which the per-voice fork was built
+to accept". It turned out to want about eighty lines.
+
+- **Only `eleven_v3` speaks Catalan**, which the account's own `/v1/models`
+  settled and the public docs would not: multilingual_v2 (29 languages),
+  flash_v2_5 and turbo_v2_5 (32) all say no. So the slow expensive model is the
+  whole offer. It is not, in practice, slow — **1.2–1.9 s** for a real drill
+  phrase against Matxa's 2.6–4.5 — and it is 44.1 kHz against Azure's 24 and
+  Matxa's 22.
+- **Mechanically it is the simplest of the three.** One round trip: the audio
+  is the response body rather than a URL to fetch, so there is no SSE to parse,
+  no second request and no WAV to narrow.
+- **Six voices were listened to and one was kept.** Guillermo is a *peninsular
+  Spanish* voice, not a Catalan one — the account has no verified Catalan
+  speaker, and Iberian Spanish is the closest mouth available. That is exactly
+  the shape of the MiniMax failure, and the difference is only that this time
+  the listening happened **before** the branch was written rather than after.
+  That ordering is the whole lesson of the three releases above it.
+- **`language_code: "ca"` is not optional.** The voice is Spanish and the model
+  is multilingual; without the code, v3 may reasonably decide a Catalan sentence
+  is Spanish. Pinning it is what stops the thing the voice choice risks.
+- **One voice is not the problem it would have been.** `voicesFor` offers what
+  is reachable and `partnerVoice` picks the other gender from the same list, so
+  the rehearsal chat pairs Guillermo with Ona or one of Azure's women. A second
+  voice is one line in store.js and a voice id in `ELEVEN_VOICES`.
+- **Charged by the character, which is why the cap matters here more than it did
+  for Matxa.** The client still swaps to Azure over `WORKER_VOICE_MAX` (400), so
+  the reader's pages never reach it; the whole library is about 11,000
+  characters, cached on the phone forever, so ordinary use pays once. Scope the
+  key to text-to-speech and give it a credit quota — a scoped, quota-capped key
+  is what makes handing one to a Worker a small decision.
+- **`source` on the voice entry, not one label for all of them.** There are two
+  models behind `/speak` now and the select says which: *· ElevenLabs*,
+  *· Matxa*. Which one a voice is on is the difference between a Catalan model
+  and a Spanish voice speaking Catalan, and that is not a detail to hide.
+
+Worth asserting: on the Worker (104, 25 of them new), Guillermo is one round
+trip to his own voice id with the key in `xi-api-key` rather than
+`Authorization`, on `eleven_v3`, with `language_code: "ca"` pinned and the
+format in the query; a repeat is served from the edge; another language pins its
+own code and an unknown one sends none rather than a wrong one; `ELEVEN_INPUT`
+overrides the model and a broken one falls back; no key, a key missing a scope,
+a spent quota, a vanished voice and rate limiting each map to their own message;
+an empty body is not passed off as audio; over the cap is refused with no call;
+and **a Matxa voice still works with the ElevenLabs key absent**, which is the
+per-voice fork doing its job. Headless (28): ten voices for Catalan with
+Guillermo labelled *· ElevenLabs* above the Matxa six, Spanish and Italian still
+Azure-only, and his test making one `/speak` call carrying the bare name.
+
 ## Azure, and the degraded path
 
 Azure Speech provides the good Catalan neural voices (Joana, Enric, Alba) and
@@ -4973,7 +5025,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v113 / `xerra-v113` — `js/version.js` first, `sw.js` second, as ever.
+- v114 / `xerra-v114` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
