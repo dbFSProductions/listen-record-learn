@@ -492,11 +492,21 @@ async function run() {
   ok("an empty answer is not passed off as audio", res.status === 502, String(res.status));
 
   calls = [];
-  res = await post("/speak", { ...LINE, voice: "guillermo", text: "a".repeat(601) }, { env: EL_ENV() });
+  res = await post("/speak", { ...LINE, voice: "guillermo", text: "a".repeat(1501) }, { env: EL_ENV() });
   payload = await res.json();
   ok("over the cap is refused with no call, naming Azure",
     res.status === 400 && calls.length === 0 && /Azure/.test(payload.error ?? ""),
     `${res.status} ${payload.error}`);
+
+  /* A page of a book is PAGE_CHARS 1200 in the client, and the whole point of
+     raising this cap was that Guillermo can read one. Matxa still cannot, and
+     the assertion above on `ona` at 601 is what holds that line. */
+  calls = [];
+  stubEleven({ body: MP3 });
+  res = await post("/speak", { ...LINE, voice: "guillermo", text: "a".repeat(1200) }, { env: EL_ENV() });
+  ok("a book page goes through in the ElevenLabs voice",
+    res.status === 200 && calls.length === 1,
+    `${res.status} ${calls.length}`);
 
   // The three providers stand side by side.
   globalThis.caches = fakeCaches();

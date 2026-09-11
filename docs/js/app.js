@@ -5,7 +5,7 @@ import {
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, readingDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
-  books, bookStore, voicesFor, voiceFor, voiceProvider, WORKER_VOICE_MAX,
+  books, bookStore, voicesFor, voiceFor, voiceCanRead, voiceProvider,
 } from "./store.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
@@ -2788,24 +2788,23 @@ function renderMessage() {
      chat's `voiceField` with its own label, and only with a key and a
      language with two voices, for the chat's reason. */
   const voice = readerVoiceNow();
-  /* Only the voices that will actually read *this* text. Over
-     `WORKER_VOICE_MAX` a Worker voice is swapped for Azure's by
-     `readableVoice` — a page of a book is a minute of CPU synthesis and times
-     out, and an ElevenLabs one is charged by the character — so offering one
-     here was offering a choice the app then quietly overruled. Reported from
+  /* Only the voices that will actually read *this* text. Over its own ceiling
+     a Worker voice is swapped for Azure's by `readableVoice`, so offering one
+     here was offering a choice the app then quietly overruled — reported from
      the phone as *"only azure voices work in the reading section"*, which is
      precisely what it was doing: working as designed, and saying nothing.
-     A short message still gets the whole list, since a short message is what
-     a Worker voice can manage. */
-  const tooLong = (item.text || "").length > WORKER_VOICE_MAX;
-  const offerVoice = (v) => !tooLong || voiceProvider(v.id) === "azure";
+     Asking `voiceCanRead` per voice rather than "is it Azure" is what lets a
+     book page be read by Guillermo and not by Matxa, which is the difference
+     between the two ceilings. */
+  const length = (item.text || "").length;
+  const offerVoice = (v) => voiceCanRead(v.id, item.language, length);
+  const someHidden = (LANGUAGES[item.language]?.voices ?? []).some((v) => !offerVoice(v));
   /* And the one it opens on has to be a voice it offers, or the select shows
      its first option while the reading happens in a third. */
   const chosen = voice ?? settings.azureVoice;
-  const shown =
-    offerVoice({ id: chosen })
-      ? chosen
-      : voicesFor(item.language).find((v) => voiceProvider(v.id) === "azure")?.id ?? chosen;
+  const shown = offerVoice({ id: chosen })
+    ? chosen
+    : voicesFor(item.language).find((v) => voiceProvider(v.id) === "azure")?.id ?? chosen;
   const voiceSelect = voiceField("msg-voice", shown, "Read it in", offerVoice);
 
   view.innerHTML = `
@@ -2843,9 +2842,9 @@ function renderMessage() {
       </div>
       ${voiceSelect ? `<div class="msg-voice">${voiceSelect}</div>` : ""}
       ${
-        voiceSelect && tooLong
-          ? `<p class="tiny muted" style="margin:6px 0 0">Azure's voices only on a text this long — the others
-               are a CPU model that takes about a minute over a page, and would time out before it finished.</p>`
+        voiceSelect && someHidden
+          ? `<p class="tiny muted" style="margin:6px 0 0">Only the voices that can read a text this long. The
+               Catalan ones are a CPU model and take about a minute over a page, so they drop out first.</p>`
           : ""
       }
     </div>

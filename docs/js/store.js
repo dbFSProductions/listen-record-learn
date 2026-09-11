@@ -2236,20 +2236,56 @@ export function workerVoiceName(id = "") {
   return String(id).slice(WORKER_VOICE.length);
 }
 
-/* How much a Worker voice will read in one go before an Azure voice takes over.
+/* How much one voice will read in a single go before an Azure voice takes over.
 
-   Matxa is a CPU model on a free box and runs at about 49 ms a character, so
-   605 characters take half a minute and 1211 time out — reported from the phone
-   as *"It works for the shorter example bits. But fails on the longer text"*.
-   Nothing the app drills is anywhere near this: the longest phrase in the
-   library is 53 characters, the median is 24, and a kept reply is capped at
-   160. What crosses it is the reader — a page of a book is 1200 characters, a
-   story about a thousand — and those are read by an Azure voice instead, which
-   is the same trade the app makes anywhere Matxa cannot go.
+   It was one number for every Worker voice, and that was two different limits
+   wearing one hat. **Matxa is physics**: a CPU model on a free box at about
+   49 ms a character, so 605 characters take half a minute and 1211 time out —
+   reported from the phone as *"It works for the shorter example bits. But
+   fails on the longer text"*. No amount of patience buys a book page from it.
+   **ElevenLabs is money and nothing else**: one round trip, a few seconds, and
+   charged by the character. Holding it to Matxa's ceiling was refusing to
+   spend rather than being unable to, which is not the app's call to make —
+   asked for as *"For the books I'd like to try the other voices too.
+   Especially the eleven labs one."*
 
-   400 rather than the Worker's own 600 so the client always decides first, and
-   so the longest wait this can buy is about twenty seconds. */
-export const WORKER_VOICE_MAX = 400;
+   So the cap is per voice, keyed off the entry's own `source`:
+
+   - **Matxa, 600.** The Worker's own backstop, and about thirty seconds of
+     waiting at the top of it. Reachable now for a short blurb or a message,
+     which it could not do at 400; a book page is still out of its reach and
+     always will be.
+   - **ElevenLabs, 1500.** A page of a book is `PAGE_CHARS` 1200, so the
+     ordinary page fits with room over, and at roughly 36 ms a character the
+     top of the range lands inside the Worker's 60 s deadline. A longer page
+     falls back to Azure, which is also why the reader's voice select offers
+     what can read *this* text rather than a fixed list.
+   - **Azure, no cap here.** The Worker refuses over `SPEECH_MAX_CHARS`, which
+     nothing in the app approaches.
+
+   The number is a ceiling on one request, not a budget: the audio is cached by
+   text and voice, so a page read once is free ever after. A whole book at
+   1200 characters a page is real money the first time through, which is the
+   thing to know before reading a novel in Guillermo. */
+const VOICE_MAX_CHARS = { Matxa: 600, ElevenLabs: 1500 };
+
+/* The cautious one, for a Worker voice whose entry has no source — a voice
+   from an export written before this, or one that has left the list. */
+export const WORKER_VOICE_MAX = 600;
+
+export function voiceMaxChars(id, language) {
+  if (voiceProvider(id) !== "worker") return Infinity;
+  const source = (LANGUAGES[language]?.voices ?? []).find((v) => v.id === id)?.source;
+  return VOICE_MAX_CHARS[source] ?? WORKER_VOICE_MAX;
+}
+
+/* Can this voice read this much text in one go? The one reader of the table
+   above, asked by `readableVoice` on the way to synthesising and by the
+   reader's voice select on the way to offering a choice — which is what stops
+   the select offering a voice the app is about to overrule. */
+export function voiceCanRead(id, language, length) {
+  return length <= voiceMaxChars(id, language);
+}
 
 /* The Catalan voices, and Catalan is the whole of it.
 

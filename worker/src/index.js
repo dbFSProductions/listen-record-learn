@@ -674,15 +674,27 @@ const DEFAULT_ELEVEN_INPUT = { model_id: "eleven_v3", output_format: "mp3_44100_
    sends no code and lets the model choose. */
 const ELEVEN_LANGUAGE = { "ca-ES": "ca", "es-ES": "es", "it-IT": "it" };
 
-/* Charged by the character, so this matters in a way Matxa's cap did not: the
-   client already swaps to Azure over WORKER_VOICE_MAX (400), and this is the
-   backstop under it. The whole library is about 11,000 characters, cached on
-   the phone forever, so ordinary use costs it once. */
-const ELEVEN_MAX_CHARS = 600;
+/* Charged by the character, so this is a spending limit where Matxa's is a
+   physical one. It was 600, the same number as Matxa's, which held the fast
+   paid voice to the slow free one's ceiling — refusing to spend rather than
+   being unable to, and not this Worker's call to make. Asked for from the
+   phone as wanting the books in the other voices, the ElevenLabs one
+   especially, so it is 1500 now: a page of a book is PAGE_CHARS 1200 in the
+   client, so the ordinary page fits with room over and a longer one falls
+   back to Azure. The client's own per-voice cap is the same number and still
+   decides first; this is the backstop under it.
 
-/* Observed at five to nine seconds for four sentences. Generous enough for a
-   cold start at their end without approaching the app's own 70 s deadline. */
-const ELEVEN_ABORT_MS = 45_000;
+   What it costs is worth knowing before a novel goes through it: 1200
+   characters a page, about 200,000 for a whole book, charged once each since
+   the client caches the audio by text and voice for ever after. */
+const ELEVEN_MAX_CHARS = 1500;
+
+/* Observed at five to nine seconds for four sentences — call it 36 ms a
+   character at the slow end, so the 1500 above lands near 55 s. 60 rather than
+   45 to cover that with a cold start on top, and still inside the app's own
+   70 s deadline with the response after it. A reading that does overrun comes
+   back as the 504 naming the length, with Azure offered as the alternative. */
+const ELEVEN_ABORT_MS = 60_000;
 
 /* Temperature is the one number that mattered, and it was wrong for a whole
    afternoon. The Space's own default is 0.667 and the first renderings drew

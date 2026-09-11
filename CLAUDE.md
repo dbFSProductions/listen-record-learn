@@ -3783,23 +3783,53 @@ nobody hears.
   the same reason: with the mix on, the card's voice and the drill voice are
   different questions.
 
-#### Only Azure voices worked in the reader, and that was the select's fault
+#### Only Azure voices worked in the reader, and one cap was doing two jobs
 
 Reported from the phone the moment the mix landed: *"It looks like only azure
 voices work in the reading section of listen read"*. True, and by design —
-`readableVoice` swaps a Worker voice for Azure's over `WORKER_VOICE_MAX`,
-because a page of a book is a minute of CPU synthesis that times out, and an
-ElevenLabs one is charged by the character. The defect was that **the *Read it
-in* select went on offering voices the app would then quietly overrule**, which
-is *the gear had to look like a gear* one floor down: a control that silently
-does nothing is worse than no control.
+`readableVoice` swapped any Worker voice for Azure's over a single
+`WORKER_VOICE_MAX` of 400. Two faults under one report, and the second is the
+interesting one.
 
-So `voiceField` takes an `offer` filter, and the message page passes one that
-drops the Worker voices on a text over the cap, with a line under the select
-saying why. The value it opens on is filtered too — a select showing its first
-option while the reading happens in a third is the same lie in a new place. A
-short message still gets the whole list, since a short message is what a Worker
-voice can manage.
+**The select went on offering voices the app would then quietly overrule**,
+which is *the gear had to look like a gear* one floor down: a control that
+silently does nothing is worse than no control. `voiceField` takes an `offer`
+filter now, and the message page passes `voiceCanRead` per voice, with a line
+under the select saying why some are missing. The value it opens on is filtered
+too — a select showing its first option while the reading happens in a third is
+the same lie in a new place.
+
+**And one number was two different limits wearing one hat.** Asked for next as
+*"For the books I'd like to try the other voices too. Especially the eleven
+labs one."* Matxa's ceiling is **physics** — a CPU model at about 49 ms a
+character, so no amount of patience buys a book page from it. ElevenLabs' is
+**money** — one round trip, a few seconds, charged by the character. Holding
+the paid voice to the free one's ceiling was refusing to spend rather than
+being unable to, which is not the app's call to make. So `VOICE_MAX_CHARS` is
+keyed off the voice entry's own `source`:
+
+| | one reading | why that number |
+|---|---|---|
+| Matxa | 600 | the Worker's own backstop; ~30 s at the top of it |
+| ElevenLabs | 1500 | a book page is `PAGE_CHARS` 1200, with room over |
+| Azure | no cap | the Worker refuses over `SPEECH_MAX_CHARS`, unreachable here |
+
+- **The select is what makes the two ceilings legible**, since it offers
+  whatever can read *this* text: all seven on a short message, Azure and
+  Guillermo on a page of a book, Azure alone on something longer still. Nobody
+  has to know the numbers to see which voices a text can have.
+- **The Worker's `ELEVEN_MAX_CHARS` went 600 to 1500 and `ELEVEN_ABORT_MS`
+  45 s to 60 s**, which is the one Worker change in this run. At roughly 36 ms a
+  character the top of the range lands near 55 s, inside the app's own 70 s
+  deadline with the response after it; an overrun is the 504 naming the length,
+  with Azure offered. The client's cap is the same number and still decides
+  first. **Neither sister app has a `/speak` client**, so the deploy reaches
+  them and changes nothing — `card-test.mjs` with `BEFORE` set is still
+  byte-identical.
+- **What a book costs is worth saying out loud**: about 1200 characters a page
+  and 200,000 for a novel, charged once each, since the audio is cached by text
+  and voice for ever after. The cap is a ceiling on one request, not a budget.
+  Matxa is free and cannot do it; Azure is bought by the month and can.
 
 #### Seven Listen buttons were passing an object where a locale goes
 
@@ -3839,7 +3869,12 @@ record the drill voice, and `#xat-practice-listen` under a *Say it back*
 records the partner's; a settings blob carrying `azureVoice: "say:jan"`
 loads as Enric; and no `sayAloud` call anywhere hands over a `LANGUAGES` entry
 where a locale string goes — `#msg-voice` on a story over the cap lists three
-options, all Azure's, and the reading records one of them.
+options, all Azure's, and the reading records one of them. For the ceilings:
+a 300-character story offers all seven voices, a 1200-character one offers the
+three Azure voices and Guillermo and no Matxa, 1600 offers Azure's three alone,
+and a page read with Guillermo picked records `say:guillermo`. On the Worker,
+`speak-test.mjs` holds `ona` at 601 refused and `guillermo` at 1200 through and
+1501 refused.
 
 
 ## Azure, and the degraded path
@@ -5176,7 +5211,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v116 / `xerra-v116` — `js/version.js` first, `sw.js` second, as ever.
+- v117 / `xerra-v117` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
