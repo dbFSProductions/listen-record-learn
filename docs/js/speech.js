@@ -196,13 +196,24 @@ export const speech = {
    (the longest phrase in the library is 53 characters), so this only ever
    catches the reader's pages, stories and articles.
 
+   `phrase.fast` is the same swap asked for by the caller rather than by the
+   length, and Real life is the whole of who asks. Everywhere else in the app
+   a few seconds of synthesis is the price of a nicer voice; there you are
+   standing in a doorway with about as long as it takes to open it, which is
+   the argument the whole section is built on — so a voice that has to be
+   fetched from a free box is the wrong trade whatever it sounds like. Not a
+   second constant: it is the same "this reading cannot wait", decided by
+   where you are instead of by how much there is.
+
    With no Azure key there is nothing to hand it to, and the Worker voice is
    kept so the caller gets the honest failure rather than a silent swap to
-   nothing. The cache key is built from what this returns, so a page read by
-   Azure is stored as Azure's and never served back as Matxa's. */
+   nothing. A drill voice that is already Azure's is handed back untouched, so
+   this never overrides a voice you chose — it only ever declines a Worker one.
+   The cache key is built from what this returns, so a page read by Azure is
+   stored as Azure's and never served back as Matxa's. */
 function readableVoice(voice, phrase, settings) {
   if (voiceProvider(voice) !== "worker") return voice;
-  if ((phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
+  if (!phrase.fast && (phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
   if (!settings.hasAzure) return voice;
   /* An Azure voice by name rather than `defaultVoice`, which answers with
      whatever the language's list leads with and could one day lead with a

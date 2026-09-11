@@ -478,8 +478,11 @@ function wireReplies(root, replies, language, source = null) {
 /* One tap, one voice. Stops whatever is playing, then the Azure audio for this
    text if there is a key (cached by text, so it's there offline afterwards) and
    the browser voice if there isn't. The button carries its own busy flag rather
-   than a shared one — several of these can be on screen at once. */
-async function sayAloud(button, text, language, failed = "Couldn't play that.", voice = null, rate = 1) {
+   than a shared one — several of these can be on screen at once.
+
+   The tail is an options bag rather than three positionals because `fast` is
+   the third of them and nothing ever passed `rate`. */
+async function sayAloud(button, text, language, failed = "Couldn't play that.", { voice = null, rate = 1, fast = false } = {}) {
   if (!text.trim()) return;
   player.stop();
   browserSpeech.stop();
@@ -487,8 +490,10 @@ async function sayAloud(button, text, language, failed = "Couldn't play that.", 
   button.dataset.busy = "1";
   button.classList.add("busy");
   try {
-    // `voice` is the chat partner's; everything else speaks in the drill voice.
-    const blob = await speech.modelAudio({ text, language, voice }, settings);
+    /* `voice` is the chat partner's; everything else speaks in the drill
+       voice. `fast` declines a Worker voice for this one reading — see
+       `readableVoice` in speech.js, and Real life below for who asks. */
+    const blob = await speech.modelAudio({ text, language, voice, fast }, settings);
     // `rate` is the drill's Slow, for a page of a book or a story read aloud.
     if (blob) await player.play(blob, { rate });
     else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { rate, onSilent: noVoice });
@@ -2405,7 +2410,7 @@ function renderQuick() {
       </div>`;
 
     const say = box.querySelector("[data-quick-say]");
-    say.addEventListener("click", () => sayAloud(say, phrase.text, language, "Couldn't play that."));
+    say.addEventListener("click", () => sayAloud(say, phrase.text, language, "Couldn't play that.", { fast: true }));
     box.querySelector("[data-quick-drill]").addEventListener("click", () => {
       state.quick = null;
       startDeck(QUICK_DECK, phrase.id);
@@ -2456,7 +2461,7 @@ function renderQuick() {
     box.querySelectorAll("[data-quick-play]").forEach((button) =>
       button.addEventListener("click", () => {
         const phrase = library.phrases.find((p) => p.id === button.dataset.quickPlay);
-        if (phrase) sayAloud(button, phrase.text, language, "Couldn't play that.");
+        if (phrase) sayAloud(button, phrase.text, language, "Couldn't play that.", { fast: true });
       })
     );
     box.querySelectorAll("[data-quick-open]").forEach((button) =>
@@ -5201,7 +5206,8 @@ function renderChat() {
       box?.focus();
       return;
     }
-    if (button.hasAttribute("data-say")) sayAloud(button, turn.text, language, "Couldn't play that.", partnerVoiceOf(item));
+    if (button.hasAttribute("data-say"))
+      sayAloud(button, turn.text, language, "Couldn't play that.", { voice: partnerVoiceOf(item) });
     else if (button.hasAttribute("data-say-fix") && turn.correction?.fixed)
       // Your line as it should have been, in your own voice — the drill's.
       sayAloud(button, turn.correction.fixed, language, "Couldn't play that.");
