@@ -2216,21 +2216,25 @@ export const WORKER_VOICE_MAX = 400;
    be the same mistake one release later. Spanish and Italian are back to
    Azure's voices, which is what they had before and what works.
 
-   Chosen by listening on the phone, not by measuring. Four of the six come
-   from the multi-accent checkpoint whose top octave measures 15 dB quieter
-   than the central-only one's; the numbers said they would be the veiled ones
-   and the ear kept all four. Three male and three female, because
-   `partnerVoice` hands the rehearsal chat's other person a voice of the gender
-   yours is not. The names are the model's own — ona, jan, grau and elia are
-   real speakers in it — and the two spelled out are the checkpoint's own
-   generic pair. */
+   Chosen by listening on the phone, not by measuring — and then listened to
+   again and cut from six to three. Èlia, Jan and the central male voice were
+   dropped on the phone's verdict; what is left is Ona, the central female and
+   Grau, which is two women and a man. With Guillermo below that is still a
+   voice of each gender on this list, which is what `partnerVoice` needs to
+   hand the rehearsal chat's other person a voice of the gender yours is not.
+
+   The three that went are still in the Worker's own `MATXA_VOICES`, and
+   deliberately so: an id it does not know falls through to Replicate, so
+   forgetting one there would turn a chat saved with `say:jan` on it into a
+   drawing model being asked to speak. Nothing offers them any more, `load`
+   repairs a saved one back to the default, and a chat that already carries
+   one goes on working. The names are the model's own — ona and grau are real
+   speakers in it — and the spelled-out one is the checkpoint's generic
+   female. */
 const MATXA_VOICES = [
   { id: `${WORKER_VOICE}ona`, name: "Ona", gender: "Female", source: "Matxa" },
-  { id: `${WORKER_VOICE}elia`, name: "Èlia", gender: "Female", source: "Matxa" },
   { id: `${WORKER_VOICE}central-female`, name: "Central", gender: "Female", source: "Matxa" },
-  { id: `${WORKER_VOICE}jan`, name: "Jan", gender: "Male", source: "Matxa" },
   { id: `${WORKER_VOICE}grau`, name: "Grau", gender: "Male", source: "Matxa" },
-  { id: `${WORKER_VOICE}central-male`, name: "Central", gender: "Male", source: "Matxa" },
 ];
 
 /* ElevenLabs, and one voice of it.

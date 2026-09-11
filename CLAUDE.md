@@ -3618,9 +3618,8 @@ proposing another round.
   Worker's Matxa path is additive and the Space is somebody else's to keep up.
 
 Worth asserting, headless with `/speak` routed (24 assertions): eight tiles and
-a clean boot; `#s-voice` lists nine voices for Catalan, Azure's three first and
-six reading *· Matxa*, named Ona, Èlia, Central, Jan, Grau, Central, three of
-each gender, and no *Replicate* anywhere; Spanish and Italian are back to two
+a clean boot; `#s-voice` lists the Catalan voices with Azure's three first and
+the Matxa ones reading *· Matxa*, and no *Replicate* anywhere; Spanish and Italian are back to two
 and three Azure voices with no Matxa among them; `#s-voice-test` on `say:ona`
 makes one `/speak` call carrying `voice: "ona"` unprefixed and `ca-ES`, saves
 the choice, and a second press is served from cache; `#s-prefetch` refuses a
@@ -3690,9 +3689,60 @@ overrides the model and a broken one falls back; no key, a key missing a scope,
 a spent quota, a vanished voice and rate limiting each map to their own message;
 an empty body is not passed off as audio; over the cap is refused with no call;
 and **a Matxa voice still works with the ElevenLabs key absent**, which is the
-per-voice fork doing its job. Headless (28): ten voices for Catalan with
-Guillermo labelled *· ElevenLabs* above the Matxa six, Spanish and Italian still
-Azure-only, and his test making one `/speak` call carrying the bare name.
+per-voice fork doing its job. Headless (28): seven voices for Catalan with
+Guillermo labelled *· ElevenLabs* above the Matxa three, Spanish and Italian
+still Azure-only, and his test making one `/speak` call carrying the bare name.
+
+### Three of the six went, and Real life never waits for a voice
+
+Two things reported together from the phone, after living with the Matxa
+voices for a release.
+
+**Èlia, Jan and the central male voice are gone.** Cut on the ear, like the
+six were chosen on the ear; Ona, the central female and Grau are what is left,
+which with Guillermo is still a voice of each gender for `partnerVoice` to
+hand the rehearsal chat's other person. **The three are still in the Worker's
+`MATXA_VOICES` on purpose** — an id the Worker does not know falls through to
+Replicate, so dropping them there would send a chat saved with `say:jan` on it
+to a drawing model. Nothing offers them, `settings.load` repairs a saved one
+back to the language's default (the path a retired Azure voice has always
+taken), and a chat that already carries one goes on speaking. So this touched
+no Worker file and needed no deploy.
+
+**Real life declines a Worker voice whatever the setting says.** `fast` on the
+object handed to `speech.modelAudio`, read by `readableVoice` beside the
+`WORKER_VOICE_MAX` length rule — the same "this reading cannot wait", decided
+by where you are rather than by how much there is, which is why it is not a
+second constant. Everywhere else a few seconds of synthesis buys a nicer
+voice; on Real life you are standing in a doorway with about as long as it
+takes to open it, which is the argument the whole section is built on, so a
+voice fetched from somebody's free box is the wrong trade however it sounds.
+
+- **It only ever declines a Worker voice, never overrides an Azure one.** A
+  drill voice that is already Azure's comes back untouched, so a Real life
+  card is read in Alba if that is what you picked — the swap is to the
+  language's first Azure voice only when the alternative was a fetch. With no
+  key it keeps the Worker voice and lets the honest failure happen, exactly as
+  the length rule does.
+- **It is the Real life page's own cards and not the message page.** The
+  answer card's Listen and the play buttons under *Asked for before*. A
+  message opened from there keeps its *Read it in* select, because that is a
+  voice you chose deliberately on a page whose whole point is unhurried
+  reading, and silently overriding it would be reported as the select having
+  stopped working.
+- **`sayAloud`'s tail is an options bag now** (`{ voice, rate, fast }`). It was
+  three positionals, one call site passed the second and nothing ever passed
+  `rate`.
+
+Worth asserting, with `speech.modelAudio` overridden to record `phrase.voice`
+and the drill voice set to `say:ona`: `#s-voice` lists seven Catalan voices
+with no Èlia, Jan or second Central and Spanish still two; a Quick answer
+card's Listen and an *Asked for before* play both record `ca-ES-JoanaNeural`
+while the drill's own fetch still records `null`; with Alba as the drill voice
+both record `ca-ES-AlbaNeural` rather than Joana; with no Azure key both
+record `say:ona`; a message opened from Real life still reads in
+`settings.readerVoice`; and a settings blob carrying `azureVoice: "say:jan"`
+loads as Enric.
 
 ## Azure, and the degraded path
 
@@ -4986,17 +5036,20 @@ the parser losing a block to a formatting change.
   `DB_VERSION` 3 with the text and the glosses; `exportJSON`/`importJSON`
   async, carrying the glosses and not the text. No Worker change — it goes
   through `/message` with the `kind: "book"` that was already there.
-- **A second voice source**: six `say:` voices in `LANGUAGES` are said by the
+- **A second voice source**: the `say:` voices in `LANGUAGES` are said by the
   Worker's `/speak` rather than by Azure — **Matxa-TTS** from Projecte AINA and
   the Barcelona Supercomputing Center, reached as a Hugging Face Space, Catalan
-  only and so listed under `ca-ES` alone. They replace six MiniMax voices that
+  only and so listed under `ca-ES` alone. They replaced six MiniMax voices that
   lasted one release and were reported from the phone as sounding French or
-  Italian. `WORKER_VOICE` / `voiceProvider` / `voicesFor` in store.js, `canSay`
-  in speech.js, `canSpeak` / `voiceOption` / `VOICE_TEST_LINE` in app.js,
-  `MATXA_VOICES` / `speakWithMatxa` / `narrowWav` and `MATXA_SPACE` on the
-  Worker (additive; `worker/tools/speak-test.mjs`). Scoring and the chat's mic
-  stay Azure's, and nothing is ever defaulted onto a voice the app has to
-  fetch.
+  Italian, and are themselves three now rather than six: Èlia, Jan and the
+  central male voice were cut on the ear, leaving Ona, Central and Grau beside
+  Guillermo. `WORKER_VOICE` / `voiceProvider` / `voicesFor` in store.js,
+  `canSay` in speech.js, `canSpeak` / `voiceOption` / `VOICE_TEST_LINE` in
+  app.js, `MATXA_VOICES` / `speakWithMatxa` / `narrowWav` and `MATXA_SPACE` on
+  the Worker (additive; `worker/tools/speak-test.mjs`). Scoring and the chat's
+  mic stay Azure's, nothing is ever defaulted onto a voice the app has to
+  fetch, and **Real life never uses one at all** — `phrase.fast` through
+  `readableVoice`, because speed is what that section is for.
 - **Review** is spaced repetition read off the attempts: `library.reviewOf`
   / `library.due` in store.js, `REVIEW_DECK`, the `.due-strip` on the home
   page and a Review node on the path.
@@ -5025,7 +5078,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v114 / `xerra-v114` — `js/version.js` first, `sw.js` second, as ever.
+- v115 / `xerra-v115` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
