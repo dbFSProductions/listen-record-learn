@@ -18,7 +18,7 @@
 // rehearsal chat's transcription are Azure's whatever voice is chosen —
 // nothing else here can say which *sound* you missed.
 
-import { audioStore, voiceFor, voiceProvider, workerVoiceName, WORKER_VOICE_MAX, LANGUAGES } from "./store.js";
+import { audioStore, voiceFor, voiceMaxChars, voiceProvider, workerVoiceName, LANGUAGES } from "./store.js";
 import { cardAssistant } from "./card-assistant.js";
 import { toWav16k } from "./audio.js";
 
@@ -189,12 +189,13 @@ export const speech = {
 
 /* The voice this text will actually be read in.
 
-   A Worker voice is a CPU model on somebody's free box: about 49 ms a
-   character, so a page of a book would take a minute and time out well before
-   it. Over `WORKER_VOICE_MAX` the reading goes to the language's Azure voice
-   instead — the drill, the replies and the rehearsal chat are all far under it
-   (the longest phrase in the library is 53 characters), so this only ever
-   catches the reader's pages, stories and articles.
+   Every voice has a ceiling on one reading and `voiceMaxChars` is the table —
+   Matxa's is physics, ElevenLabs' is money, Azure has none worth the name.
+   Over it the reading goes to the language's Azure voice instead. The drill,
+   the replies and the rehearsal chat are far under every ceiling (the longest
+   phrase in the library is 53 characters), so this only ever catches the
+   reader's pages, stories and articles — and since the ceilings differ, which
+   of those it catches now depends on the voice as well as the length.
 
    Which voice it is in the first place is `voiceFor`'s question and not this
    one: this only ever asks whether the voice already chosen can manage this
@@ -208,7 +209,7 @@ export const speech = {
    stored as Azure's and never served back as Matxa's. */
 function readableVoice(voice, phrase, settings) {
   if (voiceProvider(voice) !== "worker") return voice;
-  if ((phrase.text || "").length <= WORKER_VOICE_MAX) return voice;
+  if ((phrase.text || "").length <= voiceMaxChars(voice, phrase.language)) return voice;
   if (!settings.hasAzure) return voice;
   /* An Azure voice by name rather than `defaultVoice`, which answers with
      whatever the language's list leads with and could one day lead with a
