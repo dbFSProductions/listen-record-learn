@@ -399,6 +399,112 @@ async function run() {
   ok("an unknown voice still goes to Replicate",
     res.status === 200 && calls.some((c) => c.href.includes("api.replicate.com")), String(res.status));
 
+
+  // ------------------------------------------------------- ElevenLabs
+  console.log("\n/speak — Guillermo");
+
+  const ELEVEN_MP3 = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 0x11, 0x22, 0x33, 0x44]);
+  function stubEleven({ status = 200, detail = null, body = null } = {}) {
+    globalThis.fetch = async (url, options = {}) => {
+      const href = String(url?.url ?? url);
+      calls.push({ href, options });
+      if (status !== 200) {
+        return new Response(JSON.stringify({ detail: detail ?? { message: "nope" } }),
+          { status, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(body ?? ELEVEN_MP3, { status: 200, headers: { "Content-Type": "audio/mpeg" } });
+    };
+  }
+  const EL_ENV = () => ({ ...ENV(), ELEVENLABS_API_KEY: "sk_test" });
+  const elevenCall = () => calls.find((c) => c.href.includes("api.elevenlabs.io"));
+
+  globalThis.caches = fakeCaches();
+  calls = []; limited = [];
+  stubEleven();
+  res = await post("/speak", { ...LINE, voice: "guillermo" }, { env: EL_ENV() });
+  payload = await res.json();
+  ok("Guillermo is a 200", res.status === 200, `${res.status} ${payload.error ?? ""}`);
+  ok("one round trip, no file to fetch", calls.length === 1, String(calls.length));
+  ok("posted to the voice's own id",
+    elevenCall().href.startsWith("https://api.elevenlabs.io/v1/text-to-speech/qUPtETgSYRhCRb2pfOla"),
+    elevenCall().href);
+  ok("the key rides in xi-api-key, not Authorization",
+    elevenCall().options.headers["xi-api-key"] === "sk_test" && !elevenCall().options.headers.Authorization);
+  let sentBody = JSON.parse(elevenCall().options.body);
+  ok("on eleven_v3, the only model that speaks Catalan", sentBody.model_id === "eleven_v3", sentBody.model_id);
+  ok("with the text", sentBody.text === LINE.text);
+  ok("and Catalan pinned, so a Spanish voice is not left to guess",
+    sentBody.language_code === "ca", String(sentBody.language_code));
+  ok("output format is asked for in the query", /output_format=mp3_44100_128/.test(elevenCall().href));
+  ok("hands back base64 mp3", payload.audio?.data === Buffer.from(ELEVEN_MP3).toString("base64"));
+  ok("with its mime type", payload.audio?.mimeType === "audio/mpeg", payload.audio?.mimeType);
+  ok("names the model it used", payload.model === "eleven_v3", payload.model);
+  ok("rate limited under the speak key", limited.length === 1 && limited[0] === "speak");
+
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "guillermo" }, { env: EL_ENV() });
+  ok("a repeat is served from the edge", res.status === 200 && calls.length === 0, String(calls.length));
+
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "guillermo", language: "it-IT" }, { env: EL_ENV() });
+  ok("another language pins its own code", JSON.parse(elevenCall().options.body).language_code === "it");
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "guillermo", language: "pt-PT" }, { env: EL_ENV() });
+  ok("an unknown one sends none rather than a wrong one",
+    JSON.parse(elevenCall().options.body).language_code === undefined);
+
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "guillermo" },
+    { env: { ...EL_ENV(), ELEVEN_INPUT: '{"model_id":"eleven_v3_conversational"}' } });
+  sentBody = JSON.parse(elevenCall().options.body);
+  ok("ELEVEN_INPUT overrides the model and keeps the format",
+    sentBody.model_id === "eleven_v3_conversational" && /mp3_44100_128/.test(elevenCall().href));
+  globalThis.caches = fakeCaches();
+  calls = [];
+  await post("/speak", { ...LINE, voice: "guillermo" }, { env: { ...EL_ENV(), ELEVEN_INPUT: "{oops" } });
+  ok("a broken ELEVEN_INPUT falls back rather than failing",
+    JSON.parse(elevenCall().options.body).model_id === "eleven_v3");
+
+  // Failures, each named as its own thing.
+  const elevenFailures = [
+    ["no key at all", { env: { ...EL_ENV(), ELEVENLABS_API_KEY: "" } }, {}, 503, /no ElevenLabs key/],
+    ["a key missing a scope", {}, { status: 401, detail: { message: "missing the permission text_to_speech" } }, 502, /text_to_speech/],
+    ["a spent quota", {}, { status: 402 }, 502, /nope|quota/],
+    ["a voice that has gone", {}, { status: 404 }, 502, /ELEVEN_VOICES/],
+    ["rate limiting", {}, { status: 429 }, 503, /rate-limiting/],
+  ];
+  for (const [name, opts, stub, status, message] of elevenFailures) {
+    globalThis.caches = fakeCaches();
+    calls = [];
+    stubEleven(stub);
+    const r = await post("/speak", { ...LINE, voice: "guillermo" }, { env: EL_ENV(), ...opts });
+    const p = await r.json();
+    ok(`${name} → ${status}`, r.status === status && message.test(p.error ?? ""), `${r.status} ${p.error}`);
+  }
+
+  globalThis.caches = fakeCaches();
+  calls = [];
+  stubEleven({ body: new Uint8Array(0) });
+  res = await post("/speak", { ...LINE, voice: "guillermo" }, { env: EL_ENV() });
+  ok("an empty answer is not passed off as audio", res.status === 502, String(res.status));
+
+  calls = [];
+  res = await post("/speak", { ...LINE, voice: "guillermo", text: "a".repeat(601) }, { env: EL_ENV() });
+  payload = await res.json();
+  ok("over the cap is refused with no call, naming Azure",
+    res.status === 400 && calls.length === 0 && /Azure/.test(payload.error ?? ""),
+    `${res.status} ${payload.error}`);
+
+  // The three providers stand side by side.
+  globalThis.caches = fakeCaches();
+  calls = [];
+  stubSpace();
+  res = await post("/speak", { ...LINE, voice: "ona" }, { env: { ...ENV(), ELEVENLABS_API_KEY: "" } });
+  ok("a Matxa voice is untouched by the ElevenLabs key being absent", res.status === 200, String(res.status));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }

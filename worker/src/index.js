@@ -638,6 +638,52 @@ const MATXA_VOICES = {
   "central-female": { endpoint: "tts_multiaccent", speaker: "central female" },
 };
 
+/* ElevenLabs, the third provider, and the one that took the fewest words.
+
+   Asked for once the Matxa voices had been lived with and judged *"not that
+   great in comparison"* to Azure — and this was the avenue the notes had
+   already named as the only one left with real upside. The account settled
+   what the public docs would not: **only `eleven_v3` speaks Catalan**.
+   multilingual_v2 (29 languages), flash_v2_5 and turbo_v2_5 (32) do not, so
+   the cheap fast models are not an option and the slow expensive one is the
+   whole offer. Five to nine seconds a clip, which is fine for something cached
+   on the phone forever after.
+
+   Guillermo is a *peninsular Spanish* voice, not a Catalan one — there is no
+   verified Catalan speaker in the account's 38. That is the same shape as the
+   MiniMax failure and was the thing to listen for rather than assume; it
+   passed on the phone where MiniMax did not, which is the only test that has
+   ever settled one of these.
+
+   Mechanically it is the simplest of the three: one round trip, audio bytes in
+   the response rather than a URL to fetch, and 44.1 kHz MP3 against Azure's
+   24 kHz and Matxa's 22. No second fetch, no SSE, no WAV to narrow. */
+const ELEVEN_VOICES = {
+  guillermo: { id: "qUPtETgSYRhCRb2pfOla", name: "Guillermo" },
+};
+
+/* The model and the format, overridable together as JSON. `eleven_v3` is not a
+   default so much as the only choice — see above. The output format is theirs:
+   44.1 kHz at 128 kbit is about 32 KB for a drill phrase, a third of what the
+   same phrase costs as Matxa's WAV. */
+const DEFAULT_ELEVEN_INPUT = { model_id: "eleven_v3", output_format: "mp3_44100_128" };
+
+/* ElevenLabs takes a bare language rather than a locale, and passing it stops
+   v3 deciding for itself that a Catalan sentence is Spanish — which, given the
+   voice is a Spanish one, it might reasonably conclude. A locale with no entry
+   sends no code and lets the model choose. */
+const ELEVEN_LANGUAGE = { "ca-ES": "ca", "es-ES": "es", "it-IT": "it" };
+
+/* Charged by the character, so this matters in a way Matxa's cap did not: the
+   client already swaps to Azure over WORKER_VOICE_MAX (400), and this is the
+   backstop under it. The whole library is about 11,000 characters, cached on
+   the phone forever, so ordinary use costs it once. */
+const ELEVEN_MAX_CHARS = 600;
+
+/* Observed at five to nine seconds for four sentences. Generous enough for a
+   cold start at their end without approaching the app's own 70 s deadline. */
+const ELEVEN_ABORT_MS = 45_000;
+
 /* Temperature is the one number that mattered, and it was wrong for a whole
    afternoon. The Space's own default is 0.667 and the first renderings drew
    *"the actual audio quality has a few artifacts"* from the phone; at 0.2 —
@@ -2176,8 +2222,11 @@ export function validateSpeak(value) {
    whole request — so changing the voice, the language, the speed, the Space
    or the tuning all miss rather than serving audio made under old settings. */
 async function speakLine(request, env, trace) {
+  const eleven = ELEVEN_VOICES[request.voice];
   const matxa = MATXA_VOICES[request.voice];
-  const model = matxa
+  const model = eleven
+    ? elevenInput(env).model_id
+    : matxa
     ? `${(env.MATXA_SPACE || "").trim() || DEFAULT_MATXA_SPACE}/${matxa.endpoint}`
     : (env.REPLICATE_VOICE_MODEL || "").trim() || DEFAULT_SPEECH_MODEL;
   if (trace) {
@@ -2194,7 +2243,9 @@ async function speakLine(request, env, trace) {
     if (hit) return hit.json();
   }
 
-  const audio = matxa
+  const audio = eleven
+    ? await speakWithEleven(request, eleven, env)
+    : matxa
     ? await speakWithMatxa(request, matxa, env)
     : await speakWithReplicate(request, model, env);
 
@@ -2209,6 +2260,97 @@ async function speakLine(request, env, trace) {
       .catch(() => {});
   }
   return audio;
+}
+
+/* The model and format, read once so `speakLine` and `speakWithEleven` agree
+   on what they are naming and sending. A typo in the var must not take the
+   voice away, so a bad parse falls back rather than throwing. */
+function elevenInput(env) {
+  if (!(env.ELEVEN_INPUT || "").trim()) return DEFAULT_ELEVEN_INPUT;
+  try {
+    return { ...DEFAULT_ELEVEN_INPUT, ...JSON.parse(env.ELEVEN_INPUT) };
+  } catch {
+    console.error("ELEVEN_INPUT is not valid JSON; using the defaults");
+    return DEFAULT_ELEVEN_INPUT;
+  }
+}
+
+/* The line, spoken by ElevenLabs.
+
+   One round trip and no second fetch: unlike Replicate and the Space, this
+   answers with the audio itself rather than a URL to it, so the whole function
+   is a POST and a base64. The client contract is the other two's —
+   { data, mimeType } — so nothing above this line knows which of the three
+   answered. */
+async function speakWithEleven(request, voice, env) {
+  const key = (env.ELEVENLABS_API_KEY || "").trim();
+  if (!key) {
+    throw new PublicError("This Worker has no ElevenLabs key, so it can't say that. Use another voice.", 503);
+  }
+  if (request.text.length > ELEVEN_MAX_CHARS) {
+    throw new PublicError(
+      `That is too long for ${voice.name} — ${ELEVEN_MAX_CHARS} characters at most. An Azure voice will read it.`,
+      400
+    );
+  }
+
+  const input = elevenInput(env);
+  const body = { text: request.text, model_id: input.model_id };
+  const language = ELEVEN_LANGUAGE[request.language];
+  if (language) body.language_code = language;
+
+  let response;
+  try {
+    response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voice.id}?output_format=${encodeURIComponent(input.output_format)}`,
+      {
+        method: "POST",
+        headers: { "xi-api-key": key, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(ELEVEN_ABORT_MS),
+      }
+    );
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublicError("That took too long to say. Try again.", 504);
+    }
+    throw new PublicError("Couldn't reach ElevenLabs to say it. Try again.", 502);
+  }
+
+  if (!response.ok) {
+    /* Their errors arrive as JSON even though a good answer is audio, and the
+       message inside is usually the useful one — a scoped key missing a
+       permission says exactly which, and a spent quota says so rather than
+       looking like a broken endpoint. */
+    const detail = await response
+      .json()
+      .then((payload) => {
+        const d = payload?.detail;
+        return typeof d === "string" ? d : d?.message || "";
+      })
+      .catch(() => "");
+    if (response.status === 401 || response.status === 403) {
+      throw new PublicError(detail || "The ElevenLabs key is wrong or not allowed to speak.", 502);
+    }
+    if (response.status === 402) throw new PublicError(detail || "The ElevenLabs quota is spent.", 502);
+    if (response.status === 404) {
+      throw new PublicError(`ElevenLabs has no voice ${voice.id}. Check ELEVEN_VOICES.`, 502);
+    }
+    if (response.status === 422) {
+      throw new PublicError(detail || `${voice.name} wouldn't take that. Try another voice.`, 502);
+    }
+    if (response.status === 429) throw new PublicError("ElevenLabs is rate-limiting. Try again in a moment.", 503);
+    throw new PublicError(detail || `ElevenLabs returned ${response.status}.`, 502);
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!bytes.length) throw new PublicError("The voice said nothing. Try again.", 502);
+  if (bytes.length > SPEECH_MAX_BYTES) throw new PublicError("That came back too long to send.", 502);
+
+  return {
+    data: base64OfBytes(bytes),
+    mimeType: (response.headers.get("Content-Type") || "audio/mpeg").split(";")[0].trim(),
+  };
 }
 
 /* The line, spoken by Matxa, through the Space's HTTP API.
