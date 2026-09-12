@@ -236,7 +236,12 @@ into a pharmacy, how do I ask if they have my medicine?* — and it answers with
 the phrase, plays it, and files it in the Quick deck. **Read a message**: paste
 a text somebody sent you, read it yourself with a tap on any word you are stuck
 on, write what you think it says, and only then see the English, keep the
-stock phrases as cards and write your reply, which comes back corrected.
+stock phrases as cards and write your reply, which comes back corrected. When
+a chat has run away from you — half a dozen messages while you were still
+reading the first — screenshot it instead and tap **Or read it off a
+screenshot**: take up to four shots as you scroll, and the whole thread is
+typed out into the box for you, labelled with who said what. Take out the
+lines you don't need, then Read it as usual.
 **Rehearse a conversation**: pick a scene — a language exchange, a café, the
 market, castells rehearsal, a neighbour on the stairs, or describe one
 yourself — say who you are talking to if you like (*an old man who has lived

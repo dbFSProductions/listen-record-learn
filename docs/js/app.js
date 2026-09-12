@@ -1039,11 +1039,66 @@ function base64ToBlob(data, mimeType) {
   return new Blob([bytes], { type: mimeType });
 }
 
+/* A chat screenshot on its way to the Worker to be transcribed.
+
+   SHOT_PX is the long edge it is scaled to, and it is sized to the smallest
+   thing on the picture that has to survive: a WhatsApp message is about 50
+   pixels tall on a 2532-pixel phone screenshot, so 1600 leaves it near 30 and
+   comfortably readable. Below about a thousand the model starts guessing at
+   accents, which on a Catalan message is the difference between «si» and «sí».
+
+   MAX_SHOTS is four because that is roughly two screens of conversation either
+   side of the one you meant, and because the iOS picker makes taking several
+   at once one gesture. The Worker caps both again.
+
+   WebP is asked for rather than JPEG: this is a picture of small text on flat
+   colour, which is the case JPEG's ringing artefacts hurt most and the case
+   WebP compresses best. Whatever the browser hands back is what gets sent, and
+   `blob.type` is what says which — see shrinkImage. */
+const SHOT_PX = 1600;
+const MAX_SHOTS = 4;
+/* The backstop under the Worker's own body cap, in base64 characters. Only
+   reachable when the canvas has refused to shrink at all and the original is
+   being sent whole — a 12-megapixel photo of a screen rather than a
+   screenshot, usually. Worth catching here rather than after the upload,
+   because the upload is the slow part on a phone. */
+const SHOT_UPLOAD_MAX = 5_500_000;
+
+/* The transcript as it lands in the paste box, and the one thing to keep hold
+   of is that this is ordinary text from there on. It goes through `/message`
+   exactly as a pasted notice does, `glossSegments` matches the glossary onto
+   it character for character, and `glossedParagraphs` splits it at the blank
+   lines — so one message per paragraph is not a formatting choice, it is what
+   makes each bubble read as its own block on the page.
+
+   Who said what is labelled only where the app actually knows: the sender's
+   name where the screenshot printed one, "You" for your own lines, and nothing
+   at all for an incoming message in a chat that shows no names, where the
+   unlabelled lines are the other person by elimination. Inventing a "Them" to
+   put opposite "You" would be putting a word into the reading that was never
+   in the message, which is the one thing this page does not do. */
+function transcriptOf(turns) {
+  return turns
+    .map((turn) => {
+      const label = (turn.name || "").trim() || (turn.from === "you" ? "You" : "");
+      return label ? `${label}: ${turn.text.trim()}` : turn.text.trim();
+    })
+    .join("\n\n");
+}
+
 /* Down to a card-sized thumbnail before it is stored. WebP where the browser
    will encode it and whatever it falls back to where it won't — Safari quietly
    returns PNG, which is bigger but still a fraction of what arrived. If the
-   canvas refuses entirely, the original is kept rather than nothing. */
-async function shrinkImage(blob, max = 512) {
+   canvas refuses entirely, the original is kept rather than nothing.
+
+   `max` is the long edge, and it is the only thing a caller usually changes: a
+   drawing is stored at 512 and is only ever looked at, while a screenshot goes
+   at SHOT_PX and has to stay legible enough for a model to read the words off
+   it. Because the fallback silently changes the *type*, callers who care
+   what they are sending must read `blob.type` off what comes back rather than
+   assume the one they asked for — see `readShots`, where sending JPEG bytes
+   labelled image/webp is a rejected request. */
+async function shrinkImage(blob, max = 512, type = "image/webp", quality = 0.82) {
   try {
     const bitmap = await createImageBitmap(blob);
     const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
@@ -1052,11 +1107,24 @@ async function shrinkImage(blob, max = 512) {
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close?.();
-    const shrunk = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    const shrunk = await new Promise((resolve) => canvas.toBlob(resolve, type, quality));
     return shrunk ?? blob;
   } catch {
     return blob;
   }
+}
+
+/* The other direction from base64ToBlob, for a picture going *to* the Worker.
+   FileReader rather than a loop over the bytes: a phone screenshot is a few
+   hundred kilobytes and String.fromCharCode over that in one call blows the
+   argument limit, while doing it in chunks is slower than the platform's own. */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ""));
+    reader.onerror = () => reject(new Error("That picture couldn't be read off the phone."));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function scoreClass(score) {
@@ -2266,7 +2334,10 @@ function renderQuick() {
         ? `<div class="card quick-message-card">
              <label class="field"><span>Got a message? Paste it here.</span>
                <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
-             <p class="small muted" style="margin:0 0 10px">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
+             <input type="file" id="msg-shot-file" accept="image/*" multiple hidden>
+             <button class="btn" id="msg-shot" style="width:100%">Or read it off a screenshot</button>
+             <div class="notice" id="msg-shot-note" hidden></div>
+             <p class="small muted" style="margin:10px 0">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
              <div class="notice bad" id="msg-error" hidden></div>
            </div>`
@@ -2277,6 +2348,19 @@ function renderQuick() {
 
   document.getElementById("quick-go")?.addEventListener("click", ask);
   document.getElementById("msg-go")?.addEventListener("click", readMessage);
+  /* The picker is the control; the button is only what opens it. A bare file
+     input styled to look like a button is the other way of doing this and it
+     is the one that goes wrong on iOS, where the native control draws its own
+     "Choose File" label at its own size whatever the CSS says. */
+  const shotFile = document.getElementById("msg-shot-file");
+  document.getElementById("msg-shot")?.addEventListener("click", () => shotFile.click());
+  shotFile?.addEventListener("change", () => {
+    const files = [...shotFile.files];
+    // Cleared straight away, so that picking the same screenshot twice —
+    // which is what a retry after a bad read looks like — fires change again.
+    shotFile.value = "";
+    if (files.length) readShots(files);
+  });
   paintAnswer();
   paintRecent();
   paintMessages();
@@ -2330,6 +2414,78 @@ function renderQuick() {
         render();
       })
     );
+  }
+
+  /* Screenshots in, a transcript in the paste box. The bulk way in, for the
+     conversation that arrives faster than it can be copied out a bubble at a
+     time — which is most of them, because a chat app gives you Copy one
+     message at a time inside a context menu and a group of friends does not
+     take turns.
+
+     **It fills the box rather than opening the reading page**, and that is the
+     whole of the design rather than a step left undone. Three things fall out
+     of it: a misread word is fixed before the expensive gloss is spent on it;
+     your own lines, and the neighbour's reply about the football, are deleted
+     by the person who knows which ones they are; and the button that finishes
+     the job is the button that was already there, so there is no second way to
+     read a message to keep in step with the first. The extra tap it costs is
+     the tap you were going to make anyway.
+
+     Nothing is saved here either. A screenshot that read badly leaves no
+     record at all — you pick again, and the second go replaces the first,
+     which is why the box is written rather than appended to. */
+  async function readShots(files) {
+    const button = document.getElementById("msg-shot");
+    const note = document.getElementById("msg-shot-note");
+    const errorBox = document.getElementById("msg-error");
+    const field = document.getElementById("msg-text");
+    const shots = files.slice(0, MAX_SHOTS);
+    errorBox.hidden = true;
+    note.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Reading the ${shots.length === 1 ? "screenshot" : "screenshots"}…`;
+    try {
+      const images = [];
+      for (const file of shots) {
+        /* Scaled down before it is sent, for the reason the drawings are
+           scaled before they are stored: a phone screenshot is several
+           megabytes of pixels, almost all of which are a flat background, and
+           the words survive the shrink perfectly well. Whatever type the
+           canvas actually produced is what is declared — a picture labelled as
+           something it is not is a rejected request, not a blurry one. */
+        const small = await shrinkImage(file, SHOT_PX);
+        images.push({ data: await blobToBase64(small), mimeType: small.type || file.type });
+      }
+      const weight = images.reduce((total, image) => total + image.data.length, 0);
+      if (weight > SHOT_UPLOAD_MAX) {
+        throw new Error(`That's a lot of picture to send. Try ${shots.length > 1 ? "fewer at a time" : "a screenshot rather than a photo"}.`);
+      }
+      const read = await cardAssistant.screenshot(
+        { images, languageCode: settings.language, languageName: language.englishName },
+        settings
+      );
+      if (state.section !== "quick") return;
+      const turns = (Array.isArray(read.turns) ? read.turns : []).filter((turn) => turn?.text?.trim());
+      if (!turns.length) throw new Error(read.note || "No messages could be read off that screenshot.");
+      field.value = transcriptOf(turns);
+      note.innerHTML = `${esc(
+        `Read ${turns.length} message${turns.length === 1 ? "" : "s"}${
+          shots.length > 1 ? ` off ${shots.length} screenshots` : ""
+        }.`
+      )} Anything you sent yourself is in there too — take out what you don't need, then <b>Read it</b>.${
+        files.length > MAX_SHOTS ? `<br>Only the first ${MAX_SHOTS} were read.` : ""
+      }${read.note ? `<br>${esc(read.note)}` : ""}`;
+      note.hidden = false;
+    } catch (error) {
+      if (state.section !== "quick") return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      if (state.section === "quick" && document.getElementById("msg-shot")) {
+        button.disabled = false;
+        button.textContent = "Or read it off a screenshot";
+      }
+    }
   }
 
   /* The message goes to the assistant and comes back read — glossed, translated,

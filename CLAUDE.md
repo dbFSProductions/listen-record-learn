@@ -570,6 +570,130 @@ All Phrases; export carries `messages` and import puts them back;
 Mum-o-lingo have none of this; it would port whole — the Worker is already
 serving it — with `messagesDeck` collapsing to one name.
 
+### A screenshot of the thread, because messages arrive faster than they copy
+
+Reported from the phone as *"My WhatsApp messages come in too fast to copy and
+paste them separately. I need a better way. Screenshot and upload the picture
+maybe??"* — and the diagnosis in it is right. The paste box was built for the
+notice from the library: one text, arriving once, sitting still while you go
+and fetch it. A conversation is not that. Five bubbles land while you are
+reading the first, every one of them is behind its own long-press menu with
+Copy at the bottom of it, and by the fourth trip back and forth the thread has
+moved on. The phone is already good at photographing its own screen, so that
+is the way in: **a screenshot, transcribed, into the box that was already
+there.**
+
+- **`/screenshot` transcribes and does nothing else, and that is the whole
+  reason it is not a field on `/message`.** Reading the pixels and glossing
+  every word are two different jobs with two different failure modes, and the
+  glossary is already the biggest structured output this Worker makes — the
+  argument `/replies` won against `/complete-card`, one floor down. What comes
+  back is small on purpose: `turns`, each `{ from, name, text }`, and a `note`
+  for when something is wrong with the picture. No translation, no gloss, no
+  opinion. `/message` then reads the result exactly as it reads anything typed
+  into the box, with its prompt untouched.
+- **It fills the paste box rather than opening the reading page**, and that is
+  the design rather than a step left undone. Three things fall out of it: a
+  misread word is fixed before the expensive gloss is spent on it; your own
+  lines, and the neighbour's aside about the football, are deleted by the one
+  person who knows which ones they are; and the button that finishes the job is
+  the button that was already there, so there is no second way to read a
+  message to keep in step with the first. The extra tap it costs is the tap you
+  were going to make anyway. It is also why **nothing is saved by the
+  transcription** — a screenshot that read badly leaves no record at all, and
+  the second go replaces the box rather than appending to it, since a second go
+  is almost always a retry.
+- **From the box down it is ordinary text, which is what keeps the page's one
+  invariant.** `glossSegments` matches the glossary onto it character for
+  character and `glossedParagraphs` splits it at the blank lines — so one
+  message per paragraph is not a formatting choice, it is what makes each
+  bubble read as its own block. `transcriptOf` in app.js is the join, and the
+  whole of it.
+- **Who said what is labelled only where the app actually knows.** The sender's
+  name where the screenshot printed one, *You* for your own lines, and nothing
+  at all for an incoming message in a chat that shows no names, where the
+  unlabelled lines are the other person by elimination. Inventing a *Them* to
+  stand opposite *You* would be putting a word into the reading that was never
+  in the message, which is the one thing this page does not do.
+- **The prompt spends most of its words saying "transcribe".** The temptation
+  with a vision model is to let it tidy up — add the accent, expand the
+  abbreviation, finish the cut-off word, drop the emoji — and every one of
+  those is a word the learner is then glossed on and never actually received.
+  It is also told that the side of the screen decides who sent a bubble rather
+  than the colour, to leave the status bar, the header, the timestamps, the
+  ticks and *Today* out, to give a photo or a sticker no entry unless it
+  carries a caption, and to invent no name. And the messages are framed as data
+  the way a pasted message is: text to transcribe, never instructions.
+- **Several screenshots go in one call, because they overlap.** Consecutive
+  shots of one thread share a message or two at the join, and stitching them
+  in the model is both cheaper and better than stitching them on the client,
+  which would be string-matching lines the screen edge has already truncated.
+  `MAX_SHOTS` is four in both places — about two screens of conversation either
+  side of the one you meant, and the iOS picker makes taking several at once
+  one gesture.
+- **It is answered before the block that caps a request at 24KB**, like
+  `/speak` and `/feed` are, because this one carries pictures — but unlike
+  those it is a Gemini call, so it takes the key check and the same
+  `card-assistant` share of the AI rate limit. `SHOT_PX` (1600 on the long
+  edge) is what the client shrinks to, sized to the smallest thing that has to
+  survive: a WhatsApp message is about 50 pixels tall on a 2532-pixel
+  screenshot, so 1600 leaves it near 30 and comfortably readable, and below
+  about a thousand the model starts guessing at accents — which in Catalan is
+  the difference between *si* and *sí*. WebP rather than JPEG, this being small
+  text on flat colour. **Whatever type the canvas actually produced is what is
+  declared**: `shrinkImage`'s fallback quietly returns PNG where WebP is
+  refused, and bytes labelled as something they are not are a rejected request
+  rather than a blurry one, so `blob.type` is read off what comes back.
+
+**The one thing here that has never met a real server, and the caveat to
+believe rather than merely write down.** The multimodal request shape — `input`
+as a list of parts, the image as `{ type: "image", data, mime_type }` — was
+written from Google's documentation for the Interactions API, and there is no
+Gemini key in this repo or on this machine to try it against. That is exactly
+the situation `draw-one.mjs` exists because of: the picture endpoint's
+*response* shape was guessed from docs and reached production before anyone saw
+a real one. So the probe was written first. **`worker/tools/read-screenshot.mjs`
+takes a real key and a real screenshot, builds the Worker's own prompt through
+`buildScreenshotPrompt` and sends the Worker's own request, and prints what
+comes back.** Run it before trusting the route. A 400 naming `input` is the
+shape being wrong and the fix is those two field names in `readScreenshot`;
+anything else, look at the transcript against the screenshot, because the
+failure that matters is not an exception but a model that tidied something up.
+
+Worth asserting on the Worker, `node worker/tools/screenshot-test.mjs` (51):
+`input` is a list with the text part first and one image part per screenshot,
+the bytes reaching Gemini unchanged under `data` and `mime_type`; the prompt
+asks for a transcript and only a transcript, says not to translate, correct or
+re-accent, names the side of the screen as what decides the sender, lists the
+furniture to leave out, forbids inventing a name, and frames the messages as
+data; the stitching line appears for two pictures and not for one; the fifth
+picture is left off; a `data:` URL is stripped rather than refused; a malformed
+turn is dropped and an empty one with it, an unknown side reads as *them*, and
+order is kept; no turns at all is a 422 carrying the model's own reason rather
+than an empty list; no images, no language and an unknown picture type are each
+a 400 with no call, one picture over 1.5MB and a body over 6.5MB are each a
+413; GET is a 405, the passcode still gates it, no key is a 503 and the rate
+limit is a 429; and `/message` still answers with a plain string prompt.
+`card-test.mjs` with `BEFORE` set is still byte-identical, so **both sister
+apps are untouched** — the route is additive and neither has a client for it.
+Headless, with `/screenshot` and `/message` routed (33): `#msg-shot` sits
+between `#msg-text` and `#msg-go` with `#msg-shot-file` genuinely hidden
+(`display: none`, not just the attribute) and `#msg-shot-note` hidden until
+there is one; picking one PNG makes exactly one `/screenshot` call carrying
+base64 with no `data:` prefix, a real `image/` type and the language, and **no
+`/message` call** — the box is filled, not read for you; the box holds one
+paragraph per message with the names on the lines that had them, *You:* on your
+own, and the emoji intact; the note reads *Read 3 messages*; nothing is in
+`xerra.messages`; then *Read it* makes one `/message` call carrying the
+transcript verbatim and paints a page whose `.msg-para`s, with the `.msg-g`
+glosses stripped out, are character-for-character what was in the box; and a
+422 lands in `#msg-error` with the button back, the box untouched and nothing
+saved.
+
+It would port whole to both forks — the Worker is additive, and the client is
+one button, `transcriptOf` and a shrink — the moment either grows the message
+reader it does not have yet.
+
 ### Xerrada: having the conversation before you have it
 
 **The tile says Chat.** Reported from the phone as simply wanting the word
@@ -3132,6 +3256,11 @@ below said what that was costing. What is true of them now:
   answered) and `models` (how many were tried — more than one means the first
   failed). Purely additive fields; both apps read their results field by field,
   so nothing downstream notices them.
+- **`/screenshot` is the only call that sends a picture rather than receiving
+  one**, which is what makes it multimodal where everything else here is text
+  in and text out, and what puts it outside the 24KB body cap the rest of them
+  share. Small structured output, batch budget, the quality chain — see *A
+  screenshot of the thread*.
 - **`/feed` is the one route with no model behind it.** Two allowlisted RSS
   feeds, parsed by regex and cached at the edge for half an hour, answered
   before the Gemini-key check and outside the AI rate limiter. `/story` is
@@ -5060,7 +5189,13 @@ the parser losing a block to a formatting change.
   corrected — with an Ask panel at the foot of every text the page shows, after
   the reveal. `renderMessage` and `glossSegments` in app.js, `messages` and
   `messagesDeck` in store.js, `/message` and `/message-reply` on the Worker
-  (additive; `worker/tools/message-test.mjs`).
+  (additive; `worker/tools/message-test.mjs`). A thread that arrives faster
+  than it can be copied out a bubble at a time goes in as a **screenshot**
+  instead: `/screenshot` transcribes up to four of them into the paste box,
+  where you trim them and press Read it as usual — `readShots` and
+  `transcriptOf` in app.js, `readScreenshot` on the Worker (additive;
+  `worker/tools/screenshot-test.mjs`, plus `read-screenshot.mjs` for the live
+  probe the request shape still wants).
 - **Chat** is the conversation had before it is had for real, and a tile
   of its own (key `xerrada`, titled *Xerrada* until it was renamed on request)
   since *Eight squares*; it was the third face of
@@ -5211,7 +5346,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v117 / `xerra-v117` — `js/version.js` first, `sw.js` second, as ever.
+- v118 / `xerra-v118` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
