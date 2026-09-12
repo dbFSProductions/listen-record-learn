@@ -126,6 +126,23 @@ export const cardAssistant = {
     });
   },
 
+  /* A screenshot of a chat thread, transcribed into text — the bulk way in to
+     the message reader, for the conversation that arrives faster than it can
+     be copied out a bubble at a time.
+
+     It transcribes and stops there: what comes back goes into the paste box,
+     and /message reads it from there exactly as it reads anything typed in.
+     Two calls rather than one because reading the pixels and glossing every
+     word are different jobs that fail differently — the argument /replies won
+     against /complete-card — and because a transcript you can see is a
+     transcript you can correct before the expensive call is spent on it. */
+  screenshot(payload, settings) {
+    return request("/screenshot", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   /* The learner's own reply to that message, turned into what a native would
      send, with a note on what changed. Written first, corrected second — the
      order is the whole of the learning. */
