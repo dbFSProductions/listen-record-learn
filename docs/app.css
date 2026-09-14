@@ -603,6 +603,22 @@ button { font: inherit; }
 }
 .btn-danger-solid:active { box-shadow: none; }
 
+/* A button filled in a section's colour: `.btn-hue` beside a `.hue-*` class,
+   the way a deck row or a unit banner wears one. Same slab-and-press shape as
+   the primary, on `--hue` rather than on the accent, so a page can have a
+   coloured control that is not the green "the way on" button — Upload a
+   screenshot on Real life and Import an EPUB in the reader are both orange,
+   their section's colour, where they were plain white beside a green Read it
+   and read as afterthoughts. Gold's `--hue-on` is dark ink, so it works there
+   too. */
+.btn-hue {
+  background: var(--hue);
+  border-color: var(--hue);
+  color: var(--hue-on);
+  box-shadow: 0 4px 0 var(--hue-dark);
+}
+.btn-hue:active { box-shadow: none; }
+
 
 .link { background: none; border: 0; color: var(--phrases-ink); font-weight: 800; cursor: pointer; padding: 6px; }
 /* A destructive link asks for `.btn-danger` in its class list, but that rule is
