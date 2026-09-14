@@ -227,9 +227,22 @@ const SECTION_PREFIX = "section:";
    round. `REVIEW_DECK` in store.js is the one value; the prefix is refused
    wholesale so nothing else can be named into that space either. */
 const REVIEW_PREFIX = "review:";
-/* A review session is finishable or it is not done: the thirty most overdue
-   cards, and the rest come round tomorrow. */
-const REVIEW_CAP = 30;
+/* A review session is finishable or it is not done: the twenty most overdue
+   cards, and the rest come round tomorrow. It was thirty, and the strip on
+   the home page printed the *whole* backlog beside it — sixty, ninety —
+   which was reported as too many to get through in a day. It was; nobody
+   was ever asked to. The number a session drills and the number the strip
+   and the path node print are the same one now, and the backlog is said
+   under it rather than as the headline. */
+const REVIEW_CAP = 20;
+
+/* What today's review is: the session's cards, and how many are waiting
+   behind them. One reader for the strip, the node and the queue, so the
+   three can never disagree about what "Start" starts. */
+function reviewToday() {
+  const due = library.due(settings.language);
+  return { due, session: Math.min(due.length, REVIEW_CAP), rest: Math.max(0, due.length - REVIEW_CAP) };
+}
 
 /* A deck name is a string on a phrase and a key in a list, and the app already
    spends three strings of its own in that space: "*" is shuffle-all,
@@ -1745,14 +1758,20 @@ function renderPractice(section = null) {
      only strong colour in the palette that no tile wears; it is quiet mode's
      elsewhere, and the two never share a screen. */
   function dueStrip() {
-    const due = library.due(settings.language).length;
-    if (!due) return "";
+    const { session, rest } = reviewToday();
+    if (!session) return "";
+    /* The headline is the session — what Start actually starts — and the
+       backlog is a quieter clause after it. "90 phrases due today" over a
+       button that drills twenty was the number the phone reported as too
+       many, and it was never the number being asked of anyone. */
     return `
       <button class="due-strip" data-review="1">
         <span class="due-mark" aria-hidden="true">${CLOCK_SVG}</span>
         <span class="due-main">
           <span class="due-title">Review</span>
-          <span class="due-sub">${due} phrase${due === 1 ? "" : "s"} due today</span>
+          <span class="due-sub">${session} phrase${session === 1 ? "" : "s"} to review today${
+            rest ? ` · ${rest} more waiting` : ""
+          }</span>
         </span>
         <span class="due-go">Start ›</span>
       </button>`;
@@ -1851,7 +1870,7 @@ function renderPractice(section = null) {
       })
       .join("");
     const favourites = starred();
-    const due = library.due(settings.language);
+    const { session: due } = reviewToday();
     const mix = `
       <section class="unit">
         <div class="unit-banner" style="--unit:var(--blue);--unit-dark:var(--blue-dark)">
@@ -1864,12 +1883,12 @@ function renderPractice(section = null) {
                unit: the path is where you go to practise, and the review is
                the practice that is actually owed today. Absent when nothing
                is due, like the strip on the home page. */
-            due.length
+            due
               ? `<div class="node-slot" style="--offset:${favourites.length ? 1 : 0}">
                    <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--teal);--node-dark:var(--teal-dark)" aria-label="Review what is due">
                      ${CLOCK_SVG}
                    </button>
-                   <div class="node-title">Review · <strong>${due.length}</strong> due</div>
+                   <div class="node-title">Review · <strong>${due}</strong> today</div>
                  </div>`
               : ""
           }
@@ -2335,7 +2354,7 @@ function renderQuick() {
              <label class="field"><span>Got a message? Paste it here.</span>
                <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
              <input type="file" id="msg-shot-file" accept="image/*" multiple hidden>
-             <button class="btn" id="msg-shot" style="width:100%">Or read it off a screenshot</button>
+             <button class="btn btn-hue hue-orange" id="msg-shot" style="width:100%">Upload a screenshot</button>
              <div class="notice" id="msg-shot-note" hidden></div>
              <p class="small muted" style="margin:10px 0">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
@@ -2483,7 +2502,7 @@ function renderQuick() {
     } finally {
       if (state.section === "quick" && document.getElementById("msg-shot")) {
         button.disabled = false;
-        button.textContent = "Or read it off a screenshot";
+        button.textContent = "Upload a screenshot";
       }
     }
   }
@@ -3686,7 +3705,7 @@ function renderReader() {
     ${bookCard()}
     <div class="card" id="epub-card">
       <p class="small" style="margin:0 0 8px"><b>A whole book.</b> An EPUB you own — DRM-free or watermarked. It is read here on the phone and never uploaded.</p>
-      <label class="btn" id="epub-pick-label" for="epub-pick" style="width:100%;text-align:center">Import an EPUB</label>
+      <label class="btn btn-hue hue-orange" id="epub-pick-label" for="epub-pick" style="width:100%;text-align:center">Import an EPUB</label>
       <input type="file" id="epub-pick" accept=".epub,application/epub+zip" hidden>
       <p class="tiny muted" style="margin:8px 0 0">Glossed a page at a time as you reach it, never up front — so a book you don't finish only costs the pages you read.</p>
       <div class="notice bad" id="epub-error" hidden></div>
@@ -5043,10 +5062,11 @@ function voiceField(id, selected, label = "Their voice", offer = () => true) {
       </select></label>`;
 }
 
-/* One option, wherever a voice is chosen. `· Matxa` is on the ones the Worker
-   says, because which model a voice is on is not a detail here: it decides
-   whether Listen works with the speech key out, and — the lesson of the six
-   voices these replaced — which language the model actually speaks.
+/* One option, wherever a voice is chosen. `· ElevenLabs` is on the ones the
+   Worker says, because which model a voice is on is not a detail here: it
+   decides whether Listen works with the speech key out, and — the lesson of
+   the MiniMax and Matxa voices before it — which language the model actually
+   speaks, and whether it reads the punctuation.
 
    An option that cannot be reached says which thing is missing, which is only
    ever seen on the Settings page — everywhere else the list is filtered by
@@ -10180,14 +10200,12 @@ function renderSettings() {
         said by ${esc(voiceNameOf(defaultVoice(settings.language)))}, because waiting a few seconds in a doorway is the
         one thing that section can't afford.</p>
       <p class="tiny muted" style="margin:12px 0 0">
-        The plain voices are Azure's and need the speech key below. The ones marked Matxa are
-        Catalan voices from Projecte AINA and the Barcelona Supercomputing Center, and come
-        through the card assistant instead — they are here because three voices heard every
-        day for a year stop being voices you listen to. Being Catalan models rather than
-        multilingual ones, they only appear for Català — and a long text, a page of a book or a
-        story, is read by an Azure voice instead, since a Catalan voice takes about a minute over
-        one. If one ever sounds wrong, try it on a card with <strong>Check this card</strong>: if
-        Azure marks the model's own words down, that is the voice, not you.
+        The plain voices are Azure's and need the speech key below. The one marked ElevenLabs
+        comes through the card assistant instead — it is here because three voices heard every
+        day for a year stop being voices you listen to. It only appears for Català, and a text
+        longer than a page of a book is read by an Azure voice instead. If a voice ever sounds
+        wrong, try it on a card with <strong>Check this card</strong>: if Azure marks the model's
+        own words down, that is the voice, not you.
       </p>
     </div>
 
@@ -10425,7 +10443,7 @@ function renderSettings() {
 
     const box = document.getElementById("s-test-result");
     if (!settings.hasAzure) {
-      box.innerHTML = `<div class="notice">No key set — no scoring, and no model audio unless you pick a Matxa voice.</div>`;
+      box.innerHTML = `<div class="notice">No key set — no scoring, and no model audio unless you pick the ElevenLabs voice.</div>`;
       return;
     }
     box.innerHTML = `<p class="small muted"><span class="spinner"></span> Testing…</p>`;
@@ -10443,14 +10461,14 @@ function renderSettings() {
 
   document.getElementById("s-prefetch").onclick = async () => {
     const status = document.getElementById("s-prefetch-status");
-    /* Not offered on a Matxa voice — see `prefetch` in speech.js. Azure's
+    /* Not offered on a Worker voice — see `prefetch` in speech.js. Azure's
        audio is bought by the month and arrives at once, so downloading the
-       whole library costs nothing; this would be four hundred five-second
-       requests at a free box somebody else pays for. Drilling with the voice
-       fetches each phrase once and keeps it, which is the same destination by
-       a route you are already walking. */
+       whole library costs nothing; this would be four hundred requests
+       charged by the character. Drilling with the voice fetches each phrase
+       once and keeps it, which is the same destination by a route you are
+       already walking. */
     if (voiceProvider(settings.azureVoice) === "worker") {
-      status.textContent = "Not for a Catalan voice — those come one at a time. Drilling keeps each one as you go.";
+      status.textContent = "Not for the ElevenLabs voice — that one comes a phrase at a time. Drilling keeps each one as you go.";
       return;
     }
     if (!settings.hasAzure) {

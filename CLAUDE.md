@@ -3960,6 +3960,58 @@ keyed off the voice entry's own `source`:
   and voice for ever after. The cap is a ceiling on one request, not a budget.
   Matxa is free and cannot do it; Azure is bought by the month and can.
 
+#### The Matxa voices are gone, and the review is twenty a day
+
+Four things reported together from the phone, and none of them a bug.
+
+- **The Matxa voices are off the list.** *"They don't register any
+  punctuation"* — a comma, a full stop or a question mark changes nothing in
+  what comes out, and in an app whose loop is listen-then-say-it-back, a
+  model that reads *Vols un cafè?* as a statement is a model to copy the
+  wrong melody from; the pitch plot compares exactly that. So `MATXA_VOICES`
+  in store.js is gone and Catalan offers Azure's three and Guillermo. **The
+  Worker is untouched**, and its own `MATXA_VOICES` keeps the ids on purpose
+  — the same argument that kept Èlia, Jan and the central male there: an id
+  the Worker does not know falls through to Replicate. A saved `say:ona`
+  loads as Enric (`settings.load`'s repair, in memory, not written back), a
+  chat carrying one still speaks, and `WORKER_VOICE_MAX` (600, Matxa's
+  ceiling) is what bounds an id with no entry to read a source off.
+  `VOICE_MAX_CHARS` lost its Matxa key. Nothing else about the second voice
+  source changed: `say:` and `voiceProvider` are the prefix and the reader
+  still, and the mix now draws from four voices rather than seven.
+- **Review is twenty, and the strip says twenty.** `REVIEW_CAP` was thirty
+  and the queue honoured it — but the strip on the home page and the node on
+  the path both printed `library.due().length`, the *whole* backlog, so the
+  phone read *90 phrases due today* over a button that was going to drill
+  thirty. Reported as *"60 or 90 too many to get through in a day"*, and it
+  was: nobody was ever asked to. `reviewToday` in app.js is the one reader
+  now — the session (`min(due, cap)`) and the rest — and the strip reads
+  *20 phrases to review today · 70 more waiting*, the node *Review · 20
+  today*, the queue `1/20`. The cap came down to twenty on the same report.
+  The backlog is still said, as the quieter clause: hiding it would be the
+  gear lesson in reverse, a number the app knows and won't say.
+- **Upload a screenshot, in orange.** The button under the paste box read
+  *Or read it off a screenshot* on a plain white `.btn`, beside a green *Read
+  it*, and read as an afterthought. Renamed on request, and filled in Real
+  life's orange through `.btn-hue` — a new class in app.css that takes its
+  fill, slab and lettering from whatever `.hue-*` class sits beside it, the
+  way a deck row does — so a page can have a coloured control that is not
+  the green way on. *Import an EPUB* in the reader wears the same class in
+  the same orange, which is `READER_HUE.books`.
+
+Worth asserting, headless: `#s-voice` lists four Catalan voices, none with a
+Matxa id or label, Guillermo still *· ElevenLabs*, and the Settings copy no
+longer names Matxa; a settings blob carrying `azureVoice: "say:ona"` opens
+Settings on Enric; `#msg-shot` reads *Upload a screenshot*, sits between
+`#msg-text` and `#msg-go`, and computes to `rgb(255, 150, 0)` with white
+lettering; `#epub-pick-label` computes to the same orange with `#epub-pick`
+still beside it; twenty-five phrases with a good attempt three days old give a
+`.due-sub` of *20 phrases to review today · 5 more waiting*, a node reading
+*Review · 20 today* and a drill pill of `1/20`; five give *5 phrases to
+review today* with no clause; and no console errors on any of it. Neither
+sister fork has the reader, the review or the Matxa voices; `.btn-hue` would
+port whole.
+
 #### Seven Listen buttons were passing an object where a locale goes
 
 Found by the mix, not by a report, and it long predates it. `renderQuick`,
@@ -4092,8 +4144,10 @@ said it should be rather than a counter bolted onto level two.
 - **`review:due` is the fifth string in deck-key space** (`REVIEW_DECK` in
   store.js), after `*`, `★`, `family:` and `section:`; `deckNameProblem`
   refuses the `review:` prefix and `queueFor` drills `library.due()` — most
-  overdue first — capped at `REVIEW_CAP` (30), so a session is finishable
-  and the rest come round tomorrow.
+  overdue first — capped at `REVIEW_CAP` (20; it was 30), so a session is
+  finishable and the rest come round tomorrow. The strip and the path node
+  print that same session count, with the backlog as a quieter clause —
+  see *The Matxa voices are gone, and the review is twenty a day*.
 - **Two surfaces, both absent when nothing is due.** `.due-strip` under the
   language line on the home page (*Review · 2 phrases due today · Start ›*),
   and a Review node first in the path's Everything unit. Purple, because
@@ -5305,13 +5359,13 @@ the parser losing a block to a formatting change.
   async, carrying the glosses and not the text. No Worker change — it goes
   through `/message` with the `kind: "book"` that was already there.
 - **A second voice source**: the `say:` voices in `LANGUAGES` are said by the
-  Worker's `/speak` rather than by Azure — **Matxa-TTS** from Projecte AINA and
-  the Barcelona Supercomputing Center, reached as a Hugging Face Space, Catalan
-  only and so listed under `ca-ES` alone. They replaced six MiniMax voices that
-  lasted one release and were reported from the phone as sounding French or
-  Italian, and are themselves three now rather than six: Èlia, Jan and the
-  central male voice were cut on the ear, leaving Ona, Central and Grau beside
-  Guillermo. `WORKER_VOICE` / `voiceProvider` / `voicesFor` in store.js,
+  Worker's `/speak` rather than by Azure. That is **Guillermo** alone now, on
+  ElevenLabs, Catalan only and so listed under `ca-ES` alone. Before him six
+  MiniMax voices lasted one release (reported as sounding French or Italian),
+  then six **Matxa-TTS** voices from Projecte AINA, cut to three on the ear
+  and then retired altogether because they read no punctuation; the Worker
+  still knows their ids so a saved chat keeps speaking. `WORKER_VOICE` /
+  `voiceProvider` / `voicesFor` in store.js,
   `canSay` in speech.js, `canSpeak` / `voiceOption` / `VOICE_TEST_LINE` in
   app.js, `MATXA_VOICES` / `speakWithMatxa` / `narrowWav` and `MATXA_SPACE` on
   the Worker (additive; `worker/tools/speak-test.mjs`). Scoring and the chat's
@@ -5346,7 +5400,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v118 / `xerra-v118` — `js/version.js` first, `sw.js` second, as ever.
+- v119 / `xerra-v119` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

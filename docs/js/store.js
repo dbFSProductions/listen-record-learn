@@ -2251,10 +2251,6 @@ export function workerVoiceName(id = "") {
 
    So the cap is per voice, keyed off the entry's own `source`:
 
-   - **Matxa, 600.** The Worker's own backstop, and about thirty seconds of
-     waiting at the top of it. Reachable now for a short blurb or a message,
-     which it could not do at 400; a book page is still out of its reach and
-     always will be.
    - **ElevenLabs, 1500.** A page of a book is `PAGE_CHARS` 1200, so the
      ordinary page fits with room over, and at roughly 36 ms a character the
      top of the range lands inside the Worker's 60 s deadline. A longer page
@@ -2262,15 +2258,19 @@ export function workerVoiceName(id = "") {
      what can read *this* text rather than a fixed list.
    - **Azure, no cap here.** The Worker refuses over `SPEECH_MAX_CHARS`, which
      nothing in the app approaches.
+   - **Matxa had 600**, and the Matxa voices have left the list (see below);
+     a saved one is caught by `WORKER_VOICE_MAX`, which is that number.
 
    The number is a ceiling on one request, not a budget: the audio is cached by
    text and voice, so a page read once is free ever after. A whole book at
    1200 characters a page is real money the first time through, which is the
    thing to know before reading a novel in Guillermo. */
-const VOICE_MAX_CHARS = { Matxa: 600, ElevenLabs: 1500 };
+const VOICE_MAX_CHARS = { ElevenLabs: 1500 };
 
 /* The cautious one, for a Worker voice whose entry has no source — a voice
-   from an export written before this, or one that has left the list. */
+   from an export written before this, or one that has left the list, which
+   the retired Matxa voices now have. Matxa's own ceiling, since those are the
+   ids that reach it. */
 export const WORKER_VOICE_MAX = 600;
 
 export function voiceMaxChars(id, language) {
@@ -2287,46 +2287,35 @@ export function voiceCanRead(id, language, length) {
   return length <= voiceMaxChars(id, language);
 }
 
-/* The Catalan voices, and Catalan is the whole of it.
+/* The Matxa voices are gone from this list, and the list is the whole of it.
 
-   Six MiniMax voices stood here for one release, spread across all three
-   languages on the strength of Catalan being in that model's supported list.
-   The phone's verdict was that they *"sound french or italian"*, which is
-   exactly what this file warned they might: a multilingual model listing
-   Catalan is not a model that speaks Catalan.
+   Six MiniMax voices stood here for one release and were reported as sounding
+   French or Italian. Six Matxa-TTS voices (Projecte AINA and the Barcelona
+   Supercomputing Center — a Catalan model and nothing else) replaced them,
+   were cut to three on the ear, and were lived with for a few releases. The
+   verdict that retired the last three was that *"they don't register any
+   punctuation"*: a comma, a full stop or a question mark changes nothing in
+   what comes out, and in an app whose drill is listen-then-say-it-back, a
+   model that reads *Vols un cafè?* as a statement is a model to copy the
+   wrong intonation from. The pitch plot on the score card compares exactly
+   that melody, so this was never cosmetic.
 
-   These are Matxa-TTS, from Projecte AINA and the Barcelona Supercomputing
-   Center — a Catalan model and nothing else, trained on Catalan recordings,
-   top of BSC's own Catalan naturalness benchmark ahead of far heavier
-   architectures. So they belong to `ca-ES` alone and are not spread across the
-   other two: a Catalan model cannot say Spanish, and offering it there would
-   be the same mistake one release later. Spanish and Italian are back to
-   Azure's voices, which is what they had before and what works.
+   The ids stay known to the Worker's own `MATXA_VOICES`, deliberately: an id
+   it does not know falls through to Replicate, so forgetting one there would
+   turn a chat saved with `say:ona` on it into a drawing model being asked to
+   speak. Nothing offers them any more, `load` repairs a saved one back to the
+   language's default (the path a retired Azure voice has always taken), and a
+   chat or an export that already carries one goes on working — the audio
+   cache keeps whatever was fetched in them, and anything not cached is
+   synthesised by the Worker as before. Nothing deployed: this is a client
+   list and the Worker is untouched.
 
-   Chosen by listening on the phone, not by measuring — and then listened to
-   again and cut from six to three. Èlia, Jan and the central male voice were
-   dropped on the phone's verdict; what is left is Ona, the central female and
-   Grau, which is two women and a man. With Guillermo below that is still a
-   voice of each gender on this list, which is what `partnerVoice` needs to
-   hand the rehearsal chat's other person a voice of the gender yours is not.
-
-   The three that went are still in the Worker's own `MATXA_VOICES`, and
-   deliberately so: an id it does not know falls through to Replicate, so
-   forgetting one there would turn a chat saved with `say:jan` on it into a
-   drawing model being asked to speak. Nothing offers them any more, `load`
-   repairs a saved one back to the default, and a chat that already carries
-   one goes on working. The names are the model's own — ona and grau are real
-   speakers in it — and the spelled-out one is the checkpoint's generic
-   female. */
-const MATXA_VOICES = [
-  { id: `${WORKER_VOICE}ona`, name: "Ona", gender: "Female", source: "Matxa" },
-  { id: `${WORKER_VOICE}central-female`, name: "Central", gender: "Female", source: "Matxa" },
-  { id: `${WORKER_VOICE}grau`, name: "Grau", gender: "Male", source: "Matxa" },
-];
+   `WORKER_VOICE_MAX` below is what still bounds one of those ids, since it
+   has no entry to read a source off. */
 
 /* ElevenLabs, and one voice of it.
 
-   Six Matxa voices shipped and were lived with, and the verdict was that Azure
+   The Matxa voices shipped and were lived with, and the verdict was that Azure
    was still better. This is the avenue the notes had named as the only one left
    with real upside, and it is here because it passed the same test on the same
    phone: six of them were listened to and exactly one was kept.
@@ -2338,9 +2327,9 @@ const MATXA_VOICES = [
 
    One voice, and that is not a problem the way it would have been: `voicesFor`
    offers whatever is reachable and `partnerVoice` picks a voice of the other
-   gender from the same list, so the rehearsal chat pairs Guillermo with Ona or
-   with one of Azure's women. A second ElevenLabs voice is one line here and a
-   voice id in the Worker. */
+   gender from the same list, so the rehearsal chat pairs Guillermo with one of
+   Azure's women. A second ElevenLabs voice is one line here and a voice id in
+   the Worker. */
 const ELEVEN_VOICES = [
   { id: `${WORKER_VOICE}guillermo`, name: "Guillermo", gender: "Male", source: "ElevenLabs" },
 ];
@@ -2354,7 +2343,6 @@ export const LANGUAGES = {
       { id: "ca-ES-EnricNeural", name: "Enric", gender: "Male" },
       { id: "ca-ES-AlbaNeural", name: "Alba", gender: "Female" },
       ...ELEVEN_VOICES,
-      ...MATXA_VOICES,
     ],
   },
   "es-ES": {
