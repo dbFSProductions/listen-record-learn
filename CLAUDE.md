@@ -4012,6 +4012,58 @@ review today* with no clause; and no console errors on any of it. Neither
 sister fork has the reader, the review or the Matxa voices; `.btn-hue` would
 port whole.
 
+#### A dropped socket is tried once more, and named for what it is
+
+Reported from the phone with a screenshot: Save and Test printing *Unable to
+contact server. StatusCode: 1006, wss://northeurope.tts.speech.microsoft.com/…
+Reason: undefined*, a couple of times in a morning, on 5G — and then
+*"the scoring of my recordings also fails"* while the ElevenLabs voice, which
+goes through the Worker over plain HTTPS, worked throughout. So the phone's
+internet was fine and the two things failing were the two things that open a
+websocket to Azure. Not this repo's fault and not the key's: **1006 is the
+socket going away with no close frame and no HTTP status**, which is a network
+or a service fault. A bad key is a 401 with a sentence attached, a spent quota
+a 403 or 429, and neither looks like this. The sandbox this was diagnosed
+from cannot reach Azure at all, so nothing here was tried against the real
+service — the fake SDK below is what stands in for it.
+
+- **`withOneRetry` in speech.js is the whole of the fix**: try, and on a
+  dropped socket only, wait `RETRY_WAIT_MS` (1.2 s) and try once more. One
+  drop on a mobile connection is very often a one-off — a handshake that fell
+  into a cell hand-off, a carrier NAT closing a port — and one retry catches
+  it; a second would only make a real outage take twice as long to report.
+  `droppedSocket` is the reader (1006, *Unable to contact server*, *Connection
+  was closed*), and anything else is thrown straight through, so a 401 is
+  still refused once and at once. The retried error is marked `retried`, so
+  the message can say both goes failed.
+- **The SDK's objects are single-use once closed, so the retry rebuilds.**
+  `synthesiseOnce` and `recogniseOnce` make a fresh synthesiser or recogniser
+  per go; the scorer applies its assessment through `recogniseOnce`'s
+  `prepare` so the second recogniser is assessed like the first. A cancelled
+  result is now thrown from inside `recogniseOnce` rather than read by the
+  caller, because a cancellation whose reason is a 1006 has to be the thing
+  the retry catches. Synthesis, scoring and the chat's transcription all go
+  through it; the Worker voices never did open a socket and are untouched.
+- **`describeAzureError` names a 1006 now**, and says it is the network or
+  Azure rather than the key, with Wi-Fi and a minute's wait as the two
+  things to try. It used to fall through to the raw SDK string, which reads
+  as a bug in the app. The `.notice.bad` on the drill card, Save and Test's
+  box and the scorer's line all print it.
+
+Worth asserting, headless with `window.SpeechSDK` replaced by a fake whose
+first go answers 1006 and whose second answers: `withOneRetry` recovers in
+two calls after the wait, throws a `retried` error after exactly two drops,
+does not retry a 401, and makes one call on success; `droppedSocket` reads
+1006 and *Connection was closed* and not 401 or 10060; `speech.synthesise`
+hands back the bytes after two `speakTextAsync` calls with both synthesisers
+closed; `scoring.score` returns the score after two `recognizeOnceAsync`
+calls with the assessment applied twice, whether the first go errored or
+came back Canceled with the 1006 in its details; `transcription.transcribe`
+returns the text after two; two drops on scoring return null with
+`lastError` reading *1006 … twice* and *not the key*; and a 401 on scoring
+returns null after one call with the key message. Both sister forks share
+speech.js's shape and would take this whole.
+
 #### Seven Listen buttons were passing an object where a locale goes
 
 Found by the mix, not by a report, and it long predates it. `renderQuick`,
@@ -5400,7 +5452,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v119 / `xerra-v119` — `js/version.js` first, `sw.js` second, as ever.
+- v120 / `xerra-v120` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
