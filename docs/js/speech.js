@@ -137,35 +137,9 @@ export const speech = {
 
   async synthesise(text, language, settings, voice = settings.azureVoice) {
     const SDK = await loadSDK();
-    const config = SDK.SpeechConfig.fromSubscription(
-      settings.azureKey.trim(),
-      settings.azureRegion.trim()
-    );
-    config.speechSynthesisVoiceName = voice;
-    config.speechSynthesisOutputFormat =
-      SDK.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3;
-
-    // A null audio config stops the SDK playing it through the speakers and
-    // hands us the bytes instead.
-    const synthesiser = new SDK.SpeechSynthesizer(config, null);
-
-    return new Promise((resolve, reject) => {
-      synthesiser.speakTextAsync(
-        text,
-        (result) => {
-          synthesiser.close();
-          if (result.reason === SDK.ResultReason.SynthesizingAudioCompleted && result.audioData?.byteLength) {
-            resolve(new Blob([result.audioData], { type: "audio/mpeg" }));
-          } else {
-            reject(new Error(result.errorDetails || "Azure returned no audio."));
-          }
-        },
-        (error) => {
-          synthesiser.close();
-          reject(new Error(error));
-        }
-      );
-    });
+    // A dropped socket is tried once more — see `withOneRetry`. A fresh
+    // synthesiser each time, since a closed one cannot be reused.
+    return withOneRetry(() => synthesiseOnce(SDK, text, settings, voice));
   },
 
   /* Warm the cache for a whole deck so a session runs with no signal.
@@ -339,44 +313,24 @@ export const scoring = {
       const wav = await toWav16k(recordingBlob);
       const file = new File([wav], "attempt.wav", { type: "audio/wav" });
 
-      const config = SDK.SpeechConfig.fromSubscription(
-        settings.azureKey.trim(),
-        settings.azureRegion.trim()
+      // One retry on a dropped socket — see `withOneRetry`. The recogniser is
+      // rebuilt inside `recogniseOnce`, since a closed one cannot be reused.
+      const result = await withOneRetry(() =>
+        recogniseOnce(SDK, settings, phrase.language, file, (recogniser) => {
+          const assessment = new SDK.PronunciationAssessmentConfig(
+            phrase.text,
+            SDK.PronunciationAssessmentGradingSystem.HundredMark,
+            SDK.PronunciationAssessmentGranularity.Phoneme,
+            true // enableMiscue — catches skipped and inserted words
+          );
+          assessment.applyTo(recogniser);
+        })
       );
-      config.speechRecognitionLanguage = phrase.language;
-
-      const audioConfig = SDK.AudioConfig.fromWavFileInput(file);
-      const recogniser = new SDK.SpeechRecognizer(config, audioConfig);
-
-      const assessment = new SDK.PronunciationAssessmentConfig(
-        phrase.text,
-        SDK.PronunciationAssessmentGradingSystem.HundredMark,
-        SDK.PronunciationAssessmentGranularity.Phoneme,
-        true // enableMiscue — catches skipped and inserted words
-      );
-      assessment.applyTo(recogniser);
-
-      const result = await new Promise((resolve, reject) => {
-        recogniser.recognizeOnceAsync(
-          (r) => {
-            recogniser.close();
-            resolve(r);
-          },
-          (error) => {
-            recogniser.close();
-            reject(new Error(error));
-          }
-        );
-      });
 
       if (result.reason === SDK.ResultReason.NoMatch) {
         this.lastError =
           "Azure couldn't make out any speech — try again, a bit closer to the mic.";
         return null;
-      }
-      if (result.reason === SDK.ResultReason.Canceled) {
-        const details = SDK.CancellationDetails.fromResult(result);
-        throw new Error(details.errorDetails || "Azure cancelled the request.");
       }
 
       const pa = SDK.PronunciationAssessmentResult.fromResult(result);
@@ -424,28 +378,10 @@ export const transcription = {
       const SDK = await loadSDK();
       const wav = await toWav16k(recordingBlob);
       const file = new File([wav], "turn.wav", { type: "audio/wav" });
-      const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
-      config.speechRecognitionLanguage = language;
-      const recogniser = new SDK.SpeechRecognizer(config, SDK.AudioConfig.fromWavFileInput(file));
-      const result = await new Promise((resolve, reject) => {
-        recogniser.recognizeOnceAsync(
-          (r) => {
-            recogniser.close();
-            resolve(r);
-          },
-          (error) => {
-            recogniser.close();
-            reject(new Error(error));
-          }
-        );
-      });
+      const result = await withOneRetry(() => recogniseOnce(SDK, settings, language, file));
       if (result.reason === SDK.ResultReason.NoMatch) {
         this.lastError = "Azure couldn't make out any speech — try again, a bit closer to the mic.";
         return null;
-      }
-      if (result.reason === SDK.ResultReason.Canceled) {
-        const details = SDK.CancellationDetails.fromResult(result);
-        throw new Error(details.errorDetails || "Azure cancelled the request.");
       }
       const text = (result.text || "").trim();
       if (!text) {
@@ -460,12 +396,112 @@ export const transcription = {
   },
 };
 
+/* One synthesis, on a fresh synthesiser. The SDK's objects are single-use once
+   closed, which is why the retry below rebuilds rather than re-asks. A null
+   audio config stops the SDK playing it through the speakers and hands us the
+   bytes instead. */
+function synthesiseOnce(SDK, text, settings, voice) {
+  const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
+  config.speechSynthesisVoiceName = voice;
+  config.speechSynthesisOutputFormat = SDK.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3;
+  const synthesiser = new SDK.SpeechSynthesizer(config, null);
+  return new Promise((resolve, reject) => {
+    synthesiser.speakTextAsync(
+      text,
+      (result) => {
+        synthesiser.close();
+        if (result.reason === SDK.ResultReason.SynthesizingAudioCompleted && result.audioData?.byteLength) {
+          resolve(new Blob([result.audioData], { type: "audio/mpeg" }));
+        } else {
+          reject(new Error(result.errorDetails || "Azure returned no audio."));
+        }
+      },
+      (error) => {
+        synthesiser.close();
+        reject(new Error(error));
+      }
+    );
+  });
+}
+
+/* One recognition of a WAV, on a fresh recogniser, with `prepare` given the
+   recogniser before it runs (the scorer applies its assessment there; the
+   chat's transcription applies nothing). A cancelled result is thrown from in
+   here rather than read by the caller, so that a cancellation whose reason is
+   a dropped socket is the thing the retry catches. */
+async function recogniseOnce(SDK, settings, language, file, prepare = () => {}) {
+  const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
+  config.speechRecognitionLanguage = language;
+  const recogniser = new SDK.SpeechRecognizer(config, SDK.AudioConfig.fromWavFileInput(file));
+  prepare(recogniser);
+  const result = await new Promise((resolve, reject) => {
+    recogniser.recognizeOnceAsync(
+      (r) => {
+        recogniser.close();
+        resolve(r);
+      },
+      (error) => {
+        recogniser.close();
+        reject(new Error(error));
+      }
+    );
+  });
+  if (result.reason === SDK.ResultReason.Canceled) {
+    const details = SDK.CancellationDetails.fromResult(result);
+    throw new Error(details.errorDetails || "Azure cancelled the request.");
+  }
+  return result;
+}
+
+/* A socket Azure never answered on. WebSocket close code 1006 is the socket
+   going away with no close frame and no HTTP status — "Unable to contact
+   server. StatusCode: 1006" in the SDK's words — which is a network or a
+   service fault and never the key: a bad key is a 401 with a sentence
+   attached. Reported from the phone on a 5G connection, on Save and Test and
+   on scoring alike, with the Worker's own voice working throughout, so the
+   fault was between the phone and Azure and not in either. */
+export function droppedSocket(error) {
+  return /\b1006\b|Unable to contact server|Connection was closed/i.test(String(error?.message ?? error ?? ""));
+}
+
+/* Try once, and on a dropped socket only, wait a moment and try once more.
+
+   One dropped socket used to cost the whole go — the recording you had just
+   made, scored by nobody, falling through to *Couldn't reach Azure* — and a
+   drop on a mobile connection is very often a one-off: the handshake that
+   fell into a cell hand-off, the carrier's NAT closing an idle port. One
+   retry catches that; a second would only make a real outage take twice as
+   long to report. Anything that is not a drop is thrown straight through, so
+   a bad key is still refused once and at once. The retried error is marked,
+   so the message can say both goes failed. */
+export const RETRY_WAIT_MS = 1200;
+
+export async function withOneRetry(attempt, { wait = RETRY_WAIT_MS, retryOn = droppedSocket } = {}) {
+  try {
+    return await attempt();
+  } catch (error) {
+    if (!retryOn(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    try {
+      return await attempt();
+    } catch (again) {
+      if (again && typeof again === "object") again.retried = true;
+      throw again;
+    }
+  }
+}
+
 function describeAzureError(error) {
   const message = String(error?.message ?? error ?? "");
   if (/401|403|Forbidden|Unauthorized/i.test(message)) {
     return "Azure rejected the key. Check the key, and that the region matches the resource.";
   }
   if (/429/i.test(message)) return "Azure rate limit reached. Wait a moment and try again.";
+  if (droppedSocket(error)) {
+    return `Azure dropped the connection before answering (1006)${
+      error?.retried ? ", twice" : ""
+    }. That is the network or Azure, not the key — try Wi-Fi, or try again in a minute.`;
+  }
   if (/network|fetch|Failed to fetch|ECONN/i.test(message)) {
     return "Couldn't reach Azure — check your connection.";
   }
