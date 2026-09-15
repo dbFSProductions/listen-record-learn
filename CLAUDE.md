@@ -4020,12 +4020,25 @@ Reason: undefined*, a couple of times in a morning, on 5G — and then
 *"the scoring of my recordings also fails"* while the ElevenLabs voice, which
 goes through the Worker over plain HTTPS, worked throughout. So the phone's
 internet was fine and the two things failing were the two things that open a
-websocket to Azure. Not this repo's fault and not the key's: **1006 is the
-socket going away with no close frame and no HTTP status**, which is a network
-or a service fault. A bad key is a 401 with a sentence attached, a spent quota
-a 403 or 429, and neither looks like this. The sandbox this was diagnosed
-from cannot reach Azure at all, so nothing here was tried against the real
-service — the fake SDK below is what stands in for it.
+websocket to Azure. Not this repo's fault and not a wrong key: **1006 is the
+socket going away with no close frame and no HTTP status**, and a bad key is
+a 401 with a sentence attached. The sandbox this was diagnosed from cannot
+reach Azure at all, so nothing here was tried against the real service — the
+fake SDK below is what stands in for it.
+
+**And the actual cause was the easiest answer: the Azure credit had run
+out.** The owner topped it up and everything came back. This note first said a
+spent quota "comes back as a 403 or 429, and neither looks like this", and
+that was wrong for Azure: a *rate* limit is a 429, but a resource its
+**spending cap** has switched off refuses the websocket handshake with no
+status at all, which is a 1006 and indistinguishable from a dropped
+connection. Two lessons worth keeping. **A 1006 on both text-to-speech and
+scoring at once, with everything else working, is the budget until proven
+otherwise** — check the Azure portal before the network. And the app's
+message now says so: `describeAzureError` names the budget first, then Wi-Fi,
+then a minute's wait, because a message that sends you to the ringer switch
+or the router when the answer is a credit card is the gear lesson again. The
+retry stays: a cap costs one extra go, and a real drop is saved by it.
 
 - **`withOneRetry` in speech.js is the whole of the fix**: try, and on a
   dropped socket only, wait `RETRY_WAIT_MS` (1.2 s) and try once more. One
@@ -4060,7 +4073,7 @@ closed; `scoring.score` returns the score after two `recognizeOnceAsync`
 calls with the assessment applied twice, whether the first go errored or
 came back Canceled with the 1006 in its details; `transcription.transcribe`
 returns the text after two; two drops on scoring return null with
-`lastError` reading *1006 … twice* and *not the key*; and a 401 on scoring
+`lastError` reading *1006 … twice* and naming the *budget*; and a 401 on scoring
 returns null after one call with the key message. Both sister forks share
 speech.js's shape and would take this whole.
 
@@ -5452,7 +5465,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v120 / `xerra-v120` — `js/version.js` first, `sw.js` second, as ever.
+- v121 / `xerra-v121` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
