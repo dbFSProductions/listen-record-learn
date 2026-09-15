@@ -455,11 +455,15 @@ async function recogniseOnce(SDK, settings, language, file, prepare = () => {}) 
 
 /* A socket Azure never answered on. WebSocket close code 1006 is the socket
    going away with no close frame and no HTTP status — "Unable to contact
-   server. StatusCode: 1006" in the SDK's words — which is a network or a
-   service fault and never the key: a bad key is a 401 with a sentence
-   attached. Reported from the phone on a 5G connection, on Save and Test and
-   on scoring alike, with the Worker's own voice working throughout, so the
-   fault was between the phone and Azure and not in either. */
+   server. StatusCode: 1006" in the SDK's words. A bad key is a 401 with a
+   sentence attached, so this is not a wrong key; but it is not only the
+   network either. Reported from the phone on 5G, on Save and Test and on
+   scoring alike, with the Worker's own voice working throughout — and the
+   cause turned out to be a spent Azure budget: a resource its spending cap
+   has switched off refuses the handshake with no status at all, which is
+   indistinguishable from a dropped connection. So the message names the
+   budget first. The retry still stands: a cap costs one extra go, a real
+   drop is saved by it. */
 export function droppedSocket(error) {
   return /\b1006\b|Unable to contact server|Connection was closed/i.test(String(error?.message ?? error ?? ""));
 }
@@ -500,7 +504,7 @@ function describeAzureError(error) {
   if (droppedSocket(error)) {
     return `Azure dropped the connection before answering (1006)${
       error?.retried ? ", twice" : ""
-    }. That is the network or Azure, not the key — try Wi-Fi, or try again in a minute.`;
+    }. That is not a wrong key. Check the Azure budget first — a resource its spending cap has switched off fails exactly like this — then Wi-Fi, then try again in a minute.`;
   }
   if (/network|fetch|Failed to fetch|ECONN/i.test(message)) {
     return "Couldn't reach Azure — check your connection.";
