@@ -1520,6 +1520,29 @@ canvas { width: 100%; display: block; }
 .chip.bad { background: color-mix(in srgb, var(--red) 24%, transparent); }
 .phoneme-box { background: var(--surface-2); border-radius: 10px; padding: 10px; margin-top: 9px; }
 
+/* Hear one word: a pill with a play glyph, beside the weakest word on the
+   score card and under a chip's sounds. Busy goes green like the chat's
+   play button, since several can sit on one card. */
+.word-say { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.say-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.say-word svg { width: 11px; height: 11px; fill: currentColor; }
+.say-word.busy { color: var(--green); border-color: var(--green); }
+.pitch-legend { display: inline-flex; gap: 12px; margin-left: 10px; text-transform: none; letter-spacing: 0; color: var(--text-2); }
+.pitch-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+
 /* Check this card: one run per press, newest on top, the number leading. */
 .check-run { border-top: 1px solid var(--line); padding: 10px 0 4px; margin-top: 10px; }
 .check-score { flex: none; min-width: 44px; font-size: 1.6rem; font-weight: 900; font-variant-numeric: tabular-nums; }
