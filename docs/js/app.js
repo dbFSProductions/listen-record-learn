@@ -7777,6 +7777,7 @@ function announceLevelUp(phrase) {
 function renderComparison(road = false) {
   const attempt = state.attempt;
   const timing = timingSummary();
+  const melody = melodySummary();
 
   const verdict = state.scoringNow
     ? `<p class="small muted"><span class="spinner"></span> Scoring…</p>`
@@ -7817,15 +7818,70 @@ function renderComparison(road = false) {
       <div class="wave-label" style="color:var(--you-ink);margin-top:12px">You</div>
       <canvas id="wave-you" height="56"></canvas>
       ${timing ? `<p class="tiny muted" style="margin:10px 0 0">${esc(timing)}</p>` : ""}
-      <div class="wave-label" style="margin-top:16px">Intonation</div>
+      <div class="wave-label" style="margin-top:16px">Intonation
+        <span class="pitch-legend"><span><i style="background:var(--accent)"></i>Model</span><span><i style="background:var(--you)"></i>You</span></span>
+      </div>
       <canvas id="pitch" height="130" style="margin-top:8px"></canvas>
+      ${melody ? `<p class="tiny" id="melody-note" style="margin:8px 0 0;font-weight:700">${esc(melody)}</p>` : ""}
       <p class="tiny muted" style="margin:8px 0 0">
-        Both lines are in semitones relative to each speaker's own median, so the
-        comparison is about melody rather than how high or low the voice sits.
-        Where your line goes flat and the model's rises or falls, that is the
-        word to say with more of a tune in it.
+        The tune of the phrase: green is the model's voice going up and down
+        through it, blue is yours. The dashed line is each speaker's own
+        middle, so a deep voice and a high one are compared on shape alone —
+        match them by shape, not position. To use it, play the model, hum its
+        line without the words, then say the phrase copying where it climbs
+        and where it drops. In Catalan a statement falls away at the end and a
+        yes/no question climbs; a blue line lying flat where the green one
+        moves is the usual English giveaway.
       </p>
     </details>`;
+}
+
+/* A verdict on the tune, the way `timingSummary` is one on the pace — because
+   *"I don't know what the intonation thing tells me about how to improve"*,
+   and two lines on a graph do not say. Two things are read off each contour,
+   in semitones relative to the speaker's own median as the plot draws them:
+   how much it moves (the spread between its 10th and 90th percentiles) and
+   which way it goes at the end (the last fifth of the voiced frames against
+   the fifth before). The first says whether you are flatter than the model,
+   which is the commonest fault; the second says whether the phrase ends the
+   way the model's does, which is the one place a wrong tune changes the
+   meaning — a statement said as a question. Null unless both clips have
+   enough voiced sound to say anything, and never a number: like the rest of
+   the audio page, this is a comparison, not a score. */
+function contourShape(contour) {
+  const voiced = relativeSemitones(contour ?? []).filter((v) => v != null);
+  if (voiced.length < 12) return null;
+  const sorted = [...voiced].sort((a, b) => a - b);
+  const at = (q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+  const fifth = Math.max(2, Math.floor(voiced.length / 5));
+  const mean = (xs) => xs.reduce((sum, v) => sum + v, 0) / xs.length;
+  const last = mean(voiced.slice(-fifth));
+  const before = mean(voiced.slice(-2 * fifth, -fifth));
+  const drift = last - before;
+  return {
+    range: at(0.9) - at(0.1),
+    end: drift > 1.5 ? "rises" : drift < -1.5 ? "falls" : "stays level",
+  };
+}
+
+function melodySummary() {
+  const model = contourShape(state.modelAnalysis?.pitch);
+  const you = contourShape(state.attemptAnalysis?.pitch);
+  if (!model || !you || model.range < 0.5) return null;
+  const ratio = you.range / model.range;
+  const movement =
+    ratio < 0.6
+      ? "Your line is flatter than the model's — let the voice rise and fall more."
+      : ratio > 1.6
+      ? "Your line moves more than the model's — it is more sing-song than it needs to be."
+      : "Your line rises and falls about as much as the model's.";
+  const ending =
+    model.end === you.end
+      ? ` Both ${model.end === "stays level" ? "stay level" : model.end.replace(/s$/, "")} at the end.`
+      : ` The model's voice ${model.end} at the end and yours ${you.end}${
+          model.end === "falls" ? " — let the last word drop" : model.end === "rises" ? " — lift the last word" : ""
+        }.`;
+  return movement + ending;
 }
 
 function timingSummary() {
@@ -7957,13 +8013,14 @@ function renderScore(attempt, bare = false) {
                 }.`
               : ""
           } Scored by ${esc(attempt.engine)}</p>
+          ${weakest.length ? wordSayRow(weakest.map((word) => word.word)) : ""}
         </div>
       </div>
 
       ${
         chips || sub
           ? `<details class="fold-details fold-details-inner" id="word-details" ${open ? "open" : ""}>
-               <summary><span class="fold-details-main">Word by word<span class="fold-details-sub">Tap a word for its sounds</span></span></summary>
+               <summary><span class="fold-details-main">Word by word<span class="fold-details-sub">Tap a word to hear it and see its sounds</span></span></summary>
                ${chips ? `<div class="chips" style="margin-top:10px">${chips}</div>` : ""}
                <div id="phoneme-detail"></div>
                ${attempt.transcript ? `<p class="tiny muted" style="margin-top:12px">Heard: ${esc(attempt.transcript)}</p>` : ""}
@@ -7972,6 +8029,49 @@ function renderScore(attempt, bare = false) {
           : ""
       }
     </div>`;
+}
+
+/* Hear one word on its own. Asked for from the phone: *"one word in the
+   sentence is marking me down so I just want to hear that word to get it
+   right next time."* Listen plays the whole phrase, and the word you need is
+   a fifth of a second somewhere inside it. So the weakest word gets a play
+   button beside its name on the score card, and every chip's sound box gets
+   one too, with Slow beside it — the same two speeds Listen offers.
+
+   The word is synthesised on its own, not cut out of the model clip: Azure's
+   word timings are for *your* recording, and the model's are not returned.
+   It is said in the card's own voice — `voiceFor(phrase)` is named
+   explicitly, because with the mix on a bare word would hash to a voice of
+   its own and the card would stop sounding like itself — and cached like any
+   other line, so a second tap costs nothing. A word said alone is its full
+   form: one that leans on its neighbour in the phrase (`Em` before `pot`,
+   where the m never gets its own release) will sound a touch fuller here
+   than in the sentence, which is a fair thing to copy from anyway. */
+function wordSayRow(words, { slow = false } = {}) {
+  const buttons = words
+    .map(
+      (word) =>
+        `<button class="say-word" data-say-word="${esc(word)}" aria-label="Hear ${esc(word)}">${PLAY_SVG}${esc(word)}</button>`
+    )
+    .join("");
+  const slowButton =
+    slow && words.length === 1
+      ? `<button class="say-word" data-say-word="${esc(words[0])}" data-rate="slow" aria-label="Hear ${esc(words[0])} slowly">${PLAY_SVG}Slow</button>`
+      : "";
+  return `<div class="word-say">${buttons}${slowButton}</div>`;
+}
+
+function wireWordSay(root) {
+  const phrase = currentPhrase();
+  if (!phrase) return;
+  root?.querySelectorAll("[data-say-word]").forEach((button) =>
+    button.addEventListener("click", () =>
+      sayAloud(button, button.dataset.sayWord, phrase.language, "Couldn't play that word.", {
+        voice: voiceFor(phrase, settings),
+        rate: button.dataset.rate === "slow" ? settings.slowRate : 1,
+      })
+    )
+  );
 }
 
 function wireComparison() {
@@ -7989,13 +8089,21 @@ function wireComparison() {
     });
   remember("compare-details", "drill:compare");
   remember("word-details", "drill:words");
+  wireWordSay(view);
 
   view.querySelectorAll("[data-word]").forEach((chip) =>
     chip.addEventListener("click", () => {
       const word = state.attempt.words[Number(chip.dataset.word)];
       const box = document.getElementById("phoneme-detail");
-      if (!word?.phonemes?.length) {
-        box.innerHTML = `<p class="tiny muted" style="margin-top:10px">No sound-level detail for this word.</p>`;
+      if (!word) return;
+      /* The play buttons are on the box whether or not Azure gave the word
+         any sounds: hearing it is the point of tapping it. */
+      const say = wordSayRow([word.word], { slow: true });
+      if (!word.phonemes?.length) {
+        box.innerHTML = `<div class="phoneme-box"><p class="tiny muted" style="margin:0">No sound-level detail for “${esc(
+          word.word
+        )}”.</p>${say}</div>`;
+        wireWordSay(box);
         return;
       }
       box.innerHTML = `
@@ -8009,7 +8117,9 @@ function wireComparison() {
                 )}">${p.score == null ? "" : Math.round(p.score)}</span></span>`
             )
             .join("")}
+          ${say}
         </div>`;
+      wireWordSay(box);
     })
   );
 }

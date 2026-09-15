@@ -2258,6 +2258,59 @@ and writes `drill:compare`, a chip opens its `.phoneme`s and writes
 `drill:words`, and on the next card Compare opens as remembered with the
 waveform drawn; road mode keeps `#play-you` and has neither fold.
 
+#### Hear the one word, and a plot that says what it means
+
+Two things asked together from the phone: *"one word in the sentence is
+marking me down so I just want to hear that word to get it right next time"*,
+and *"what does the intonation bit tell me? How can I use it to get better.
+The explanation makes little sense."*
+
+- **The weakest word gets a play button beside its name**, on the score card
+  where the number points at it, and every chip's sound box gets **Hear** and
+  **Slow** — the drill's two speeds, one word at a time. `wordSayRow` prints
+  them and `wireWordSay` plays them; the box is repainted on each chip tap, so
+  it is wired again each time. The word is *synthesised on its own*, not cut
+  out of the model clip: Azure's word timings describe your recording, and
+  the model's are never returned. It goes through `sayAloud` with
+  `voiceFor(phrase)` named explicitly — with the mix on, a bare word would
+  hash to a voice of its own and the card would stop sounding like itself —
+  and is cached like any line, so the second tap is free. A word said alone
+  is its full form; `Em` before `pot` sounds a touch fuller here than in the
+  sentence, which is a fair thing to copy from. A chip Azure gave no sounds
+  for still offers the two buttons: hearing it is the point of tapping it.
+  Road mode's bare card has none of this, on the far side of the reveal with
+  the chips. The fold's sub reads *Tap a word to hear it and see its sounds*.
+- **The intonation plot has a legend, a verdict and a note that says what to
+  do.** It had none of the first two, and green-against-blue meant nothing
+  without the wave labels above. `melodySummary` is `timingSummary`'s
+  counterpart for the tune: `contourShape` reads two things off each
+  contour in the same relative semitones the plot draws — how far it moves
+  (10th to 90th percentile) and which way its end goes (the last fifth of
+  the voiced frames against the fifth before, ±1.5 semitones) — and the line
+  under the plot says whether you are flatter than the model, and whether
+  the phrase ends the way the model's does, with *let the last word drop* or
+  *lift the last word* where they differ. Never a number: the audio page is
+  a comparison, not a score, and a number invented here would sit beside
+  real ones. Null unless both clips have twelve voiced frames and the model
+  moves at all. The note under it was cut to what a learner can act on —
+  which line is whose, why the dashed line is there, hum the model's tune
+  without the words, and the one Catalan fact that matters: statements fall
+  at the end, yes/no questions climb.
+
+Worth asserting, with `Recorder`, `analyse`, `scoring.score` and
+`speech.modelAudio` stubbed (22): no `[data-say-word]` before an attempt; a
+54 on the first word puts one button in `.score-head` carrying that word and
+no `[data-rate]`; tapping it makes one `modelAudio` call with the word alone
+and `voice` equal to `voiceFor(card)`; a chip's `#phoneme-detail` carries two
+`[data-say-word]`, Slow asks for the same word in the same voice and sets
+`playbackRate` 0.65, and a chip with no phonemes still offers both;
+`.pitch-legend` names Model and You; a flat take against a falling model
+reads *flatter* and *falls at the end and yours stays level — let the last
+word drop*, the same shape reads *about as much* and *Both fall at the end*;
+road mode has neither `[data-say-word]` nor `#melody-note`; and no console
+errors. Both would port to the forks whole — the drill's score card and the
+comparison are shared, and neither touches the Worker.
+
 ### Road mode: the drill with the reading taken off it
 
 The drill is mostly writing, and some of the practice this app gets happens
@@ -5465,7 +5518,7 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v121 / `xerra-v121` — `js/version.js` first, `sw.js` second, as ever.
+- v122 / `xerra-v122` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
