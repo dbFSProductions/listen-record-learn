@@ -162,11 +162,10 @@ and change it there.
 
 Two things to know before "fixing" it:
 
-- **`--teal` is the one colour the two forks don't share.** It is quiet mode's,
-  and quiet mode is Xerra-only; everything else in the palette is meant to stay
-  in step. `--pink` is also only here so far, but that one is a porting job not
-  yet done rather than a divergence — it is the feminine half of the keyword
-  pictures' gender cue, and Spanish nouns have genders too.
+- **`--teal` is in both palettes now.** It was the one colour the two forks
+  didn't share while quiet mode was Xerra-only; Deb-o-lingo has quiet mode and
+  the Review strip since its v52, both in teal, so everything in the palette
+  is meant to stay in step. `--pink` reached Deb-o-lingo with the gender cue.
 - **White on these fills does not clear 4.5:1**, and that is the accepted
   trade-off of the look, not an oversight. The `-ink` variants are the darkened
   versions, and they are what text on the page background uses.
@@ -2475,13 +2474,16 @@ answer into.
 - **The switch is teal**, the last strong colour in the palette not already
   doing a job in the drill. Purple was the near miss and had to be left alone:
   a purple Quiet pill beside a purple *Level 2* badge reads as the same thing,
-  which is exactly what it isn't. `--teal` is the one palette variable the two
-  forks don't share.
+  which is exactly what it isn't.
 
-Deb-o-lingo doesn't have this. It would port whole — the flag, the gates, the
-marking and the CSS are all drill-local, and the Worker is untouched — but
-`checkTyped`'s accent folding is doing Catalan-specific work (the interpunct)
-that Spanish has no use for.
+Deb-o-lingo has this now (its v52), ported whole — the flag, the gates, the
+marking and the CSS are all drill-local, and the Worker is untouched. Two
+things differ over there by design: it has no road mode, so `quietNow` is the
+bare setting with nothing to be exclusive with; and its `typedWords` does its
+own word-keying rather than starting from `normaliseSentence`, because that
+fork's `normaliseSentence` folds accents itself (it was written to dedupe
+Sobre mí cards) and would have hidden the *accents* verdict. `ñ` folds like an
+accent there, on the long-press argument. Keep the marking in step.
 
 ### A word, a sound and one ridiculous picture
 
@@ -4275,8 +4277,11 @@ said it should be rather than a counter bolted onto level two.
 Worth asserting: no strip and no node with no attempts; plant one good attempt
 three days old, one good today and one failed yesterday, and the strip reads
 *2 phrases due today*, the node counts 2, the strip drills `1/2` with the
-three-day-old card first and `#back` reading *‹ Home*. Neither sister fork has
-this; it would port whole, being two functions in store.js and two surfaces.
+three-day-old card first and `#back` reading *‹ Home*. Deb-o-lingo has it
+since its v52 — the same two functions in store.js, the strip under the parrot
+and a node in Mézclalo — with `REVIEW_CAP` at ten rather than twenty, because
+a lesson there is five cards; its review runs as a practice queue, so it ticks
+nothing. Mum-o-lingo has neither this nor quiet mode yet.
 
 ## The score is your weakest word
 
