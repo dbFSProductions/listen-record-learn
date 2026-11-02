@@ -5,8 +5,9 @@ import {
   RECALL_AFTER, deckLeaf, familyOpen, setFamilyOpen, attemptScore, ASPECTS, ASPECT_GROUPS, aspectOf, aspectChoices,
   GENDERS, genderOf, sectionOf, QUICK_DECK, myWordsDeck, defaultVoice, partnerVoice, deckFamily, progress,
   messages, messagesDeck, readingDeck, chats, chatsDeck, booksDeck, readingWordsDeck, REVIEW_DECK, feeds,
-  books, bookStore, voicesFor, voiceFor, voiceCanRead, voiceProvider,
+  books, bookStore, voicesFor, voiceFor, voiceCanRead, voiceProvider, stories,
 } from "./store.js";
+import { STORIES, storyById, storiesFor } from "./stories.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
 import { speech, browserSpeech, scoring, transcription } from "./speech.js";
@@ -95,6 +96,13 @@ const state = {
      from a book goes back to the book, the book back to the reader, so it
      sits after `message` in render() and is cleared with it. */
   book: null,
+
+  /* The hand-written story being read — see `openStory`. Null on the reader
+     and on every other page; while set it holds the story's id, the quiz
+     (which order the options were shuffled into and what was picked), and
+     the result once every question is answered. Behind the reader only, and
+     cleared by every way out of it, like `message`. */
+  story: null,
 
   /* Which tile you are behind: "decks", "grammar", "vocab", "phrases" (the
      lists), "quick", "xerrada", "reader" (the pages), or null for the tiles
@@ -1188,6 +1196,7 @@ function goHome() {
   state.book = null;
   state.bookId = null;
   state.bookPage = null;
+  state.story = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -1469,6 +1478,7 @@ function render() {
      Xerrada, a text open behind Real life or the reader, a book behind the
      reader. Whichever is open wins, and Back clears it. */
   else if (state.tab === "practise" && state.section === "xerrada" && state.chat) renderChat();
+  else if (state.tab === "practise" && state.section === "reader" && state.story) renderStory();
   else if (state.tab === "practise" && state.section === "reader" && state.bookPage) renderMessage();
   else if (state.tab === "practise" && (state.section === "quick" || state.section === "reader") && state.message) renderMessage();
   else if (state.tab === "practise" && state.section === "reader" && state.book) renderBook();
@@ -2943,6 +2953,12 @@ function renderMessage() {
      story brings its own questions instead. */
   const kind = item.kind || "message";
   const reading = kind !== "message";
+  /* The comprehension test — see paintQuiz. Offered on anything the reader
+     opens that has no questions of its own; `quiz` is this visit's shuffle
+     and picks. Declared up here because paintQuiz runs before the block that
+     explains it. */
+  const quizzable = reading && !(item.questions?.length);
+  let quiz = null;
   const heading = {
     message: ["Message", "Read it, keep the good bits, reply"],
     article: [item.title || "An article", `From ${item.source?.name || "Sàpiens"}`],
@@ -3024,6 +3040,7 @@ function renderMessage() {
       }
     </div>
     <div id="msg-gist-card"></div>
+    <div id="msg-quiz"></div>
     <div id="msg-reveal"></div>
     <div id="msg-questions"></div>
     <div id="msg-keep"></div>
@@ -3103,6 +3120,7 @@ function renderMessage() {
   );
 
   paintGist();
+  paintQuiz();
   paintReveal();
   paintQuestions();
   paintKeep();
@@ -3192,6 +3210,7 @@ function renderMessage() {
     saveText({ gist });
     document.querySelector(".msg-hint").textContent = "";
     paintGist();
+    paintQuiz();
     paintReveal();
     paintQuestions();
     paintKeep();
@@ -3199,6 +3218,138 @@ function renderMessage() {
     paintReply();
     paintAsk();
     document.getElementById("msg-reveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* The comprehension test on a page of a book — the hand-written stories'
+     questions, written by the Worker for a text nobody wrote questions for.
+     Asked for as "a comprehension test in questions for each page", and
+     offered on anything the reader opens that has no questions of its own
+     (a story the Worker wrote already carries three open ones).
+
+     It sits between the gist box and the English, and it is offered *before*
+     the reveal as well as after, on purpose: the questions are only a test
+     of the reading while the translation is still withheld, and the note
+     says so. Nothing stops you taking it afterwards, when it is a check
+     rather than a test, and the score is kept either way.
+
+     The questions ride with the gloss — `read.quiz`, in the gloss store for
+     an imported book and on the entry for anything else — because they cost
+     a call and the gloss is what is exported for being the thing that cost
+     money. The score is the page's own, beside its gist and its tap count,
+     and the page list prints it. The options are shuffled once per visit
+     (`quiz`, local to this render), and the pick is marked in place rather
+     than by a render, which would take the glosses off the screen. */
+  function paintQuiz() {
+    const box = document.getElementById("msg-quiz");
+    if (!box) return;
+    if (!quizzable) {
+      box.innerHTML = "";
+      return;
+    }
+    const questions = item.read?.quiz ?? [];
+    const what = kind === "book" ? "page" : "text";
+    if (!questions.length) {
+      if (!settings.hasAssistant) {
+        box.innerHTML = "";
+        return;
+      }
+      box.innerHTML = `
+        <div class="card quiz-offer">
+          <p class="small" style="margin:0 0 8px"><b>Check you followed it.</b> Three questions on this ${what}, in ${esc(
+            language.englishName
+          )} — best taken before you look at the English.</p>
+          <button class="btn btn-hue hue-purple" id="msg-quiz-go" style="width:100%">Test me on this ${what}</button>
+          <div class="notice bad" id="msg-quiz-error" hidden></div>
+        </div>`;
+      document.getElementById("msg-quiz-go").onclick = fetchQuiz;
+      return;
+    }
+    if (!quiz) quiz = quizSession(questions);
+    const done = quizDone(questions, quiz);
+    const score = quizScore(questions, quiz);
+    const best = item.score;
+    box.innerHTML = `
+      <div class="section-label">Check yourself</div>
+      ${
+        !done && best
+          ? `<p class="tiny muted" style="margin:-4px 4px 10px">Best so far ${best.best} of ${best.of}${
+              best.times > 1 ? `, over ${best.times} goes` : ""
+            }.</p>`
+          : ""
+      }
+      ${quizMarkup(questions, quiz, item.language)}
+      ${
+        done
+          ? quizResultCard(
+              score,
+              questions.length,
+              best && best.times > 1 ? (score >= best.best ? "Your best on this one so far." : `Best so far ${best.best} of ${best.of}.`) : "",
+              `<button class="btn" id="msg-quiz-again">Try again</button>`
+            )
+          : ""
+      }`;
+    wireQuiz(box, quiz, () => {
+      if (quizDone(questions, quiz)) {
+        const got = quizScore(questions, quiz);
+        saveText({
+          score: { best: Math.max(best?.best ?? 0, got), of: questions.length, times: (best?.times ?? 0) + 1 },
+        });
+      }
+      paintQuiz();
+    });
+    document.getElementById("msg-quiz-again")?.addEventListener("click", () => {
+      quiz = quizSession(questions);
+      paintQuiz();
+    });
+  }
+
+  async function fetchQuiz() {
+    const button = document.getElementById("msg-quiz-go");
+    const errorBox = document.getElementById("msg-quiz-error");
+    const label = button.textContent;
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> Writing the questions…`;
+    // Still the page that asked: a book page is compared by identity, since
+    // the next page of the same book is a different `state.bookPage`.
+    const still = () => (page ? state.bookPage === page : state.message === item.id);
+    try {
+      const result = await cardAssistant.quiz(
+        {
+          text: item.text,
+          languageCode: item.language,
+          languageName: language.englishName,
+          kind: kind === "book" ? "book" : "",
+          title: item.source?.name || item.title || "",
+        },
+        settings
+      );
+      const questions = (Array.isArray(result.questions) ? result.questions : []).filter(
+        (q) =>
+          q &&
+          typeof q.question === "string" &&
+          Array.isArray(q.options) &&
+          q.options.length >= 2 &&
+          Number.isInteger(q.answer) &&
+          q.answer >= 0 &&
+          q.answer < q.options.length
+      );
+      if (!questions.length) throw new Error("Nothing came back. Try again.");
+      const read = { ...(item.read ?? {}), quiz: questions };
+      item.read = read;
+      if (page) await bookStore.putGloss(page.hash, read);
+      else messages.update(item.id, { read });
+      if (!still()) return;
+      quiz = null;
+      paintQuiz();
+      document.getElementById("msg-quiz")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      if (!still() || !document.getElementById("msg-quiz-go")) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = label;
+    }
   }
 
   /* A story's questions, after the reveal: each in the language with its
@@ -3682,6 +3833,11 @@ function renderReader() {
       <p class="reader-now" id="reader-now"></p>
       <audio id="reader-audio" controls preload="none"></audio>
     </div>
+    <div class="section-label">Stories</div>
+    <p class="small muted" style="margin:-4px 4px 10px">Six to eight sentences from your own week, then questions in ${esc(
+      language.englishName
+    )}. The English waits until you have answered.</p>
+    ${storiesFold(settings.language)}
     <div class="section-label">Listen</div>
     <p class="small muted" style="margin:-4px 4px 10px">Play it here, on the walk. Open an episode to read its notes.</p>
     ${sourceFolds(listenSources(), READER_HUE.listen)}
@@ -3757,6 +3913,7 @@ function renderReader() {
   });
   wireBookCard();
   wireWiki();
+  wireStoryRows(view);
 
   paintBooks();
   paintRead();
@@ -4070,6 +4227,339 @@ function renderReader() {
       }
     }
   }
+}
+
+// ----------------------------------------------------------------- stories
+
+/* Hand-written stories with questions — `STORIES` in stories.js, ported from
+   Deb-o-lingo's Stories and written fresh for this learner. Six to eight
+   sentences from Fin's own week, then three or four multiple-choice questions
+   in Catalan. A story is reading, not speaking: nothing here records, scores
+   pronunciation or touches the attempts; what it keeps is the best score and
+   how many times it has been read, by id in `xerra.stories`.
+
+   It lives behind Listen & read rather than on a ninth tile — the grid is a
+   full two-by-four and a ninth square leaves a hole — as the first fold on
+   the page, since reading-with-questions is exactly what that page is for.
+   The page is laid out the way the message page is: the thing to read first,
+   then the questions, then the result, then the ask panel. The English is
+   held back until every question has been answered, because the questions
+   *are* the reading — shown up front they would be answered off the English —
+   and a tap on any line says it aloud, which is the help that isn't an
+   answer. Harder than Deb's by design: the question is in Catalan too, with
+   its English printed only once it has been answered.
+
+   Each option set is shuffled once when the story opens, so the right answer
+   isn't wherever stories.js happened to put it; a second read shuffles again.
+   A wrong pick costs nothing — the right one is lit and the question closes —
+   and the result is written once, when the last question is answered. The
+   quiz itself (`quizSession`, `quizMarkup`, `wireQuiz`) is shared with the
+   message page, where the Worker writes the questions for a page of a book. */
+const STORY_HUE = "red";
+
+function storiesFold(language) {
+  const list = storiesFor(language);
+  if (!list.length) return "";
+  const read = list.filter((story) => stories.isRead(story.id)).length;
+  const rows = list
+    .map((story, i) => {
+      const r = stories.results[story.id];
+      const full = r && r.best === r.of;
+      return `
+        <div class="row striped hue-${STORY_HUE} story-row">
+          <button class="row-open" data-open-story="${esc(story.id)}">
+            <span class="story-num">${i + 1}</span>
+            <span class="row-main">
+              <span class="row-title" lang="${esc(story.language)}">${esc(story.title)}</span>
+              <span class="row-sub">${esc(story.teaser)}</span>
+            </span>
+            ${r ? `<span class="story-best ${full ? "full" : ""}">${r.best}/${r.of}${full ? " ✓" : ""}</span>` : ""}
+            <span class="chev">›</span>
+          </button>
+        </div>`;
+    })
+    .join("");
+  return readerFold(
+    "stories",
+    "Stories",
+    read ? `${read} of ${list.length} read` : `${list.length} stories, easiest first`,
+    `<div class="rows rows-spaced">${rows}</div>`,
+    STORY_HUE
+  );
+}
+
+function wireStoryRows(root) {
+  root.querySelectorAll("[data-open-story]").forEach((button) =>
+    button.addEventListener("click", () => openStory(button.dataset.openStory))
+  );
+}
+
+function openStory(id) {
+  const story = storyById(id);
+  if (!story) return;
+  stopEverything();
+  state.tab = "practise";
+  state.section = "reader";
+  state.message = null;
+  state.book = null;
+  state.bookId = null;
+  state.bookPage = null;
+  state.story = { id, quiz: quizSession(story.questions), english: false, finishedAt: null, result: null };
+  render();
+}
+
+/* The quiz, shared by the stories and the message page. A session is which
+   order each question's options were shuffled into and what was picked;
+   nothing in it is persisted. */
+function quizSession(questions) {
+  return { order: questions.map((q) => shuffle(q.options.map((_, i) => i))), picks: {} };
+}
+
+function quizDone(questions, session) {
+  return questions.length > 0 && Object.keys(session.picks).length === questions.length;
+}
+
+function quizScore(questions, session) {
+  return questions.filter((q, i) => session.picks[i] === q.answer).length;
+}
+
+/* A question: the question in the language, the options stacked full width
+   (they are phrases, and a row of three would wrap on a phone), the English
+   of the question once it has been answered, and the verdict. The verdict
+   colours the card's edge rather than the options, and the right answer is
+   lit green whether or not it was the one picked. */
+function quizMarkup(questions, session, language) {
+  return questions
+    .map((q, qi) => {
+      const picked = session.picks[qi];
+      const open = picked == null;
+      return `
+        <div class="card story-q ${open ? "" : picked === q.answer ? "right" : "wrong"}" data-question="${qi}">
+          <p class="story-question" lang="${esc(language)}">${qi + 1}. ${esc(q.question)}</p>
+          ${!open && q.translation ? `<p class="tiny muted story-q-en">${esc(q.translation)}</p>` : ""}
+          <div class="story-options">
+            ${session.order[qi]
+              .map((oi) => {
+                const cls = open ? "" : oi === q.answer ? "is-right" : oi === picked ? "is-wrong" : "";
+                return `<button class="story-opt ${cls}" data-q="${qi}" data-o="${oi}" lang="${esc(language)}" ${
+                  open ? "" : "disabled"
+                }>${esc(q.options[oi])}</button>`;
+              })
+              .join("")}
+          </div>
+          ${
+            open
+              ? ""
+              : `<p class="story-verdict">${
+                  picked === q.answer
+                    ? "Això mateix!"
+                    : `Not quite — it's <strong lang="${esc(language)}">${esc(q.options[q.answer])}</strong>.`
+                }</p>`
+          }
+        </div>`;
+    })
+    .join("");
+}
+
+function wireQuiz(root, session, onPick) {
+  root.querySelectorAll(".story-opt:not([disabled])").forEach((button) =>
+    button.addEventListener("click", () => {
+      const qi = Number(button.dataset.q);
+      if (session.picks[qi] != null) return;
+      session.picks[qi] = Number(button.dataset.o);
+      onPick(qi);
+    })
+  );
+}
+
+function quizResultCard(score, total, note, buttons) {
+  const word = score === total ? "perfecte!" : score >= total - 1 ? "molt bé!" : "read it again, it'll come.";
+  return `
+    <div class="card story-result">
+      <h2>${score} of ${total} — ${word}</h2>
+      ${note ? `<p class="muted" style="margin:6px 0 12px">${esc(note)}</p>` : ""}
+      <div class="btn-row">${buttons}</div>
+    </div>`;
+}
+
+/* The story as the card the ask panel talks about: the lines as the text,
+   their English as the translation, and a situation saying what it is. */
+function storyAskContext(story) {
+  return {
+    languageCode: story.language,
+    languageName: LANGUAGES[story.language]?.englishName ?? story.language,
+    deck: readingDeck(story.language),
+    card: {
+      text: story.lines.map((line) => line.text).join("\n").slice(0, 1000),
+      translation: story.lines.map((line) => line.en).join("\n").slice(0, 1000),
+      situation: `A short story written for the learner to read — «${story.title}». The learner is reading it, not saying it, and may ask about any word or phrase in it.`,
+      usageNote: "",
+      focusNote: "",
+      replies: [],
+    },
+  };
+}
+
+function renderStory() {
+  const story = storyById(state.story?.id);
+  if (!story) {
+    state.story = null;
+    return render();
+  }
+  const session = state.story;
+  const list = storiesFor(story.language);
+  const at = list.indexOf(story);
+  const next = list[at + 1] ?? null;
+  const total = story.questions.length;
+  const language = LANGUAGES[story.language] ?? LANGUAGES[settings.language];
+  const whole = story.lines.map((line) => line.text).join(" ");
+  /* The voice, as on the message page: `Read it in`, offering only the
+     voices that can read a text this long. */
+  const offerVoice = (v) => voiceCanRead(v.id, story.language, whole.length);
+  const voice = readerVoiceNow();
+  const chosen = voice ?? settings.azureVoice;
+  const shown = offerVoice({ id: chosen })
+    ? chosen
+    : voicesFor(story.language).find((v) => voiceProvider(v.id) === "azure")?.id ?? chosen;
+  const voiceSelect = voiceField("story-voice", shown, "Read it in", offerVoice);
+  let askBuilt = false;
+
+  view.innerHTML = `
+    ${pageHead(
+      "reader",
+      story.title,
+      `Story ${at + 1} of ${list.length}`,
+      `<button class="link" id="story-back">‹ ${esc(READER_TITLE)}</button>`
+    )}
+    <div class="card story-card striped hue-${STORY_HUE}">
+      <p class="small muted msg-hint" id="story-hint">Tap a line to hear it. The questions are in ${esc(
+        language.englishName
+      )} too; the English of the story appears once you have answered them all.</p>
+      <ol class="story-lines">
+        ${story.lines
+          .map(
+            (line, i) => `
+          <li class="story-line">
+            <button class="reply-play" data-line="${i}" aria-label="Listen to this line">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <span class="story-main">
+              <span class="story-text" lang="${esc(story.language)}">${esc(line.text)}</span>
+              <span class="story-en" hidden>${esc(line.en)}</span>
+            </span>
+          </li>`
+          )
+          .join("")}
+      </ol>
+      <div class="btn-row msg-listen-row">
+        <button class="btn btn-primary" id="story-listen">Read it all to me</button>
+        <button class="btn" id="story-slow">Slow</button>
+        <button class="btn msg-stop" id="story-stop" hidden>■ Stop</button>
+      </div>
+      ${voiceSelect ? `<div class="msg-voice">${voiceSelect}</div>` : ""}
+      <div class="story-tools" id="story-tools" hidden>
+        <button class="link" id="story-english">Show the English</button>
+      </div>
+    </div>
+    <div class="section-label">Questions</div>
+    <div id="story-quiz"></div>
+    <div id="story-done"></div>
+    <div id="story-ask" hidden></div>`;
+
+  document.getElementById("story-back").onclick = () => {
+    stopEverything();
+    state.story = null;
+    render();
+  };
+  view.querySelectorAll("[data-line]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const line = story.lines[Number(button.dataset.line)];
+      if (line) sayAloud(button, line.text, story.language, "Couldn't play that line.", { voice: readerVoiceNow() });
+    })
+  );
+  /* The whole scene as one utterance, so the lines run on the way a voice
+     would read them, with the message page's Stop. Keyed on the joined
+     text, it is cached like any phrase. */
+  const readAloud = readAloudControls(
+    {
+      listen: document.getElementById("story-listen"),
+      slow: document.getElementById("story-slow"),
+      stop: document.getElementById("story-stop"),
+    },
+    () => whole,
+    story.language,
+    readerVoiceNow
+  );
+  document.getElementById("story-voice")?.addEventListener("change", (event) => {
+    settings.readerVoice = event.target.value;
+    settings.save();
+    readAloud.halt();
+  });
+  /* The English is flipped in place rather than by a render, so the ask
+     panel's conversation survives the toggle. */
+  document.getElementById("story-english").onclick = () => {
+    session.english = !session.english;
+    paintEnglish();
+  };
+
+  function paintEnglish() {
+    view.querySelectorAll(".story-en").forEach((el) => (el.hidden = !session.english));
+    document.getElementById("story-english").textContent = session.english ? "Hide the English" : "Show the English";
+  }
+
+  function paintQuiz() {
+    const done = quizDone(story.questions, session.quiz);
+    const score = quizScore(story.questions, session.quiz);
+    const quizBox = document.getElementById("story-quiz");
+    quizBox.innerHTML = quizMarkup(story.questions, session.quiz, story.language);
+    wireQuiz(quizBox, session.quiz, onPick);
+    const doneBox = document.getElementById("story-done");
+    doneBox.innerHTML = done
+      ? quizResultCard(
+          score,
+          total,
+          session.result?.improved && session.result.times > 1
+            ? "Your best on this one so far."
+            : session.result?.times > 1
+            ? `Best so far ${session.result.best} of ${session.result.of}.`
+            : "First read. The English is under the story now.",
+          `${next ? `<button class="btn btn-primary" data-open-story="${esc(next.id)}">Next story</button>` : ""}
+           <button class="btn ${next ? "" : "btn-primary"}" data-open-story="${esc(story.id)}">Read it again</button>`
+        )
+      : "";
+    wireStoryRows(doneBox);
+    document.getElementById("story-tools").hidden = !done;
+    if (done) document.getElementById("story-hint").textContent = "Tap a line to hear it.";
+    paintEnglish();
+    paintAsk(done);
+  }
+
+  function onPick() {
+    if (quizDone(story.questions, session.quiz) && !session.finishedAt) {
+      session.finishedAt = Date.now();
+      session.result = stories.record(story.id, quizScore(story.questions, session.quiz), total);
+    }
+    paintQuiz();
+    if (session.finishedAt) document.getElementById("story-done")?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  /* Ask about it, once the questions are closed — the message page's line,
+     for the message page's reason: the answer it fetches is built from the
+     story and its English, and would otherwise be the way round the test. */
+  function paintAsk(done) {
+    const box = document.getElementById("story-ask");
+    if (!done || !settings.hasAssistant) {
+      box.innerHTML = "";
+      box.hidden = true;
+      askBuilt = false;
+      return;
+    }
+    if (askBuilt) return;
+    askBuilt = true;
+    cardChatPanel(box, "Ask about a word or a phrase", () => storyAskContext(story));
+  }
+
+  paintQuiz();
 }
 
 // -------------------------------------------------------------- viquipèdia
@@ -4694,8 +5184,15 @@ function dropWordFromImported(book, key) {
    says which of the two happened. */
 function pageState(page) {
   if (!page) return "Not opened";
-  if (page.gist === null) return "Read, not summed up";
-  return `Read · ${page.taps ?? 0} looked up`;
+  if (page.gist === null) return `Read, not summed up${quizSuffix(page)}`;
+  return `Read · ${page.taps ?? 0} looked up${quizSuffix(page)}`;
+}
+
+/* The page's quiz score, if it has taken one — printed after its state in
+   both book lists, the current page included. */
+function quizSuffix(page) {
+  if (!page?.score) return "";
+  return ` · ${page.score.best}/${page.score.of}${page.score.best === page.score.of ? " ✓" : ""}`;
 }
 
 // ---------------------------------------------------------- imported books
@@ -4831,6 +5328,7 @@ async function openBookPage(bookId, index) {
       gist: saved.gist ?? null,
       taps: saved.taps ?? 0,
       looked: saved.looked ?? [],
+      score: saved.score ?? null,
     },
   };
   state.message = null;
@@ -4873,7 +5371,7 @@ function renderImportedBook() {
       ${book.hashes
         .map((hash, i) => {
           const page = book.pages?.[hash];
-          const sub = i === book.position ? "Where you are" : pageState(page);
+          const sub = i === book.position ? `Where you are${quizSuffix(page)}` : pageState(page);
           return `
         <div class="row striped hue-${READER_HUE.books}">
           <button class="row-open" data-ibook-page="${i}">
@@ -10702,6 +11200,7 @@ messages.load();
 chats.load();
 feeds.load();
 books.load();
+stories.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

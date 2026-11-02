@@ -23,6 +23,7 @@ const KEYS = {
   chats: "xerra.chats",
   feeds: "xerra.feeds",
   books: "xerra.books",
+  stories: "xerra.stories",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -1499,6 +1500,7 @@ export const library = {
         chats: chats.items,
         books: books.items,
         bookGlosses: await bookStore.allGlosses(),
+        stories: stories.results,
       },
       null,
       2
@@ -1526,6 +1528,8 @@ export const library = {
        an eviction finds them and calls the Worker for nothing. */
     books.replace(parsed.books);
     await bookStore.putGlosses(parsed.bookGlosses);
+    // Absent in a backup taken before the stories existed; not an error.
+    stories.replace(parsed.stories);
   },
 };
 
@@ -1901,6 +1905,62 @@ export const books = {
   replace(items) {
     this.items = Array.isArray(items) ? items.filter((b) => b && typeof b === "object" && b.id && typeof b.title === "string") : [];
     this.save();
+  },
+};
+
+// ------------------------------------------------------------------ stories
+
+/* How each hand-written story went: the best score, how many questions it
+   has, how many times it has been read and when. Keyed by story id the way
+   `progress` is keyed by lesson id — the stories themselves are code in
+   stories.js, so this is the one thing about them that is data. A story
+   counts as read once its questions have all been answered, whatever the
+   score; the best is what the list shows beside it. Ported from
+   Deb-o-lingo's `stories` store in the same shape. In export/import with
+   the phrases. */
+export const stories = {
+  results: {},
+
+  load() {
+    this.replace(readJSON(KEYS.stories, {}));
+  },
+
+  save() {
+    writeJSON(KEYS.stories, this.results);
+  },
+
+  /** Take a stored or imported shape, forgivingly — an older backup has none. */
+  replace(data) {
+    this.results = {};
+    const entries = data && typeof data === "object" ? data : {};
+    for (const [id, r] of Object.entries(entries)) {
+      if (!r || typeof r !== "object") continue;
+      this.results[id] = {
+        best: Number(r.best) || 0,
+        of: Number(r.of) || 0,
+        times: Number(r.times) || 0,
+        lastAt: typeof r.lastAt === "string" ? r.lastAt : null,
+      };
+    }
+    this.save();
+  },
+
+  isRead(id) {
+    return Boolean(this.results[id]);
+  },
+
+  /** Record a finished story. Returns the entry, with `improved` set when the
+      best moved, so the page can say so. */
+  record(id, score, of) {
+    const entry = this.results[id] ?? { best: 0, of, times: 0, lastAt: null };
+    const improved = entry.times === 0 || score > entry.best;
+    if (improved) entry.best = score;
+    entry.of = of;
+    entry.times += 1;
+    entry.lastAt = new Date().toISOString();
+    this.results[id] = entry;
+    this.save();
+    return { ...entry, improved };
   },
 };
 

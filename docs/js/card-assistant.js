@@ -173,6 +173,19 @@ export const cardAssistant = {
     });
   },
 
+  /* Three multiple-choice questions on a text the learner has just read — a
+     page of a book, an article — in the language, with the English of each
+     question and the right option's index. Its own endpoint rather than a
+     field on /message, for the reason replies are not on /complete-card:
+     the gloss is the big call, and this is a small one that fails on its
+     own. Deb-o-lingo and Mum-o-lingo have no client for it. */
+  quiz(payload, settings) {
+    return request("/quiz", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   /* One of the two feeds the reader page shows, parsed by the Worker from the
      broadcaster's RSS. No model behind it, but the same passcode. */
   feed(source, settings) {

@@ -388,6 +388,8 @@ p { margin: 0 0 10px; }
 .hue-blue   { --hue: var(--blue);   --hue-dark: var(--blue-dark);   --hue-ink: var(--phrases-ink);  --hue-on: #ffffff; }
 .hue-purple { --hue: var(--purple); --hue-dark: var(--purple-dark); --hue-ink: var(--purple-ink);   --hue-on: #ffffff; }
 .hue-orange { --hue: var(--orange); --hue-dark: var(--orange-dark); --hue-ink: var(--add-ink);      --hue-on: #ffffff; }
+/* Red is the stories' — the one strong colour no tile and no reader row wore. */
+.hue-red    { --hue: var(--red);    --hue-dark: var(--red-dark);    --hue-ink: var(--red-dark);     --hue-on: #ffffff; }
 .hue-gold   { --hue: var(--gold);   --hue-dark: var(--gold-dark);   --hue-ink: var(--amber);        --hue-on: #4b4b4b; }
 /* Teal is quiet mode's, and now two grammar shapes' as well — the pluperfect
    and "not yet", the two that stand off the main line. As a hue it never
@@ -2258,3 +2260,71 @@ input[type="checkbox"] { accent-color: var(--accent); }
 /* A label standing in for a file input's button, so importing looks like
    every other primary action rather than like a browser control. */
 #epub-pick-label { display: block; cursor: pointer; }
+
+/* ---------------------------------------------------------------- stories */
+
+/* The list: numbered rows in the stories' red, the best score at the end of
+   the row once there is one — a full score wears a tick, so "which are left"
+   can be read down the list. Ported from Deb-o-lingo. */
+.story-row .row-open { align-items: center; }
+.story-num {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--red) 16%, var(--surface));
+  color: var(--red-dark);
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+.story-best { flex: none; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.story-best.full { color: var(--green-dark); }
+
+/* The scene. Each line is a reply-shaped row — the same play button, the
+   Catalan, and the English under it once it's allowed out. */
+.story-card { padding: 14px 14px 12px; }
+.story-card .msg-hint { margin: 0 0 12px; }
+.story-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.story-line { display: flex; align-items: flex-start; gap: 12px; }
+.story-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.story-text { font-size: 1.12rem; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.story-en { font-size: 0.9rem; color: var(--text-2); font-weight: 600; }
+.story-en[hidden] { display: none; }
+.story-tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.story-tools[hidden] { display: none; }
+.story-tools .link { white-space: nowrap; }
+
+/* A question: the Catalan question, then the options stacked full width,
+   because they are phrases and a row of three would wrap on a phone. The
+   verdict colours the card's edge rather than the options, and the right
+   answer is lit green whether or not it was the one picked. The English of
+   the question is printed only once it has been answered. */
+.story-q { border-width: 2px; }
+.story-q.right { border-color: var(--green); }
+.story-q.wrong { border-color: var(--red); }
+.story-question { margin: 0 0 10px; font-weight: 800; }
+.story-q-en { margin: -6px 0 10px; }
+.story-options { display: grid; gap: 8px; }
+.story-opt {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.story-opt:active { transform: translateY(2px); border-bottom-width: 2px; }
+.story-opt[disabled] { cursor: default; opacity: 0.7; }
+.story-opt.is-right { opacity: 1; border-color: var(--green); background: color-mix(in srgb, var(--green) 14%, var(--surface)); color: var(--green-dark); }
+.story-opt.is-wrong { opacity: 1; border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); color: var(--red-dark); text-decoration: line-through; }
+.story-verdict { margin: 10px 0 0; font-size: 0.9rem; font-weight: 700; color: var(--text-2); }
+.story-result h2 { margin: 0; font-size: 1.2rem; }
+.story-result .btn-row { flex-direction: column; }
+.story-result .btn-row .btn { width: 100%; }
