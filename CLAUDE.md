@@ -1297,6 +1297,123 @@ the gist still on it. Neither sister fork has any of this; it would port
 whole — the Worker is untouched, `/message`'s `kind: "book"` being already
 there.
 
+### Stories, and a quiz on a page of a book
+
+Asked for as *"We recently added a stories game to Deb-o-lingo. I think I'd
+like to try it too in fin-o-lingo. Same type of thing but in Catalan and
+obviously harder"* — and then, once the questions had been asked, *"maybe we
+do something similar to the books I've started reading. A comprehension test
+in questions for each page or something."* Two things, sharing one quiz.
+
+- **The stories are hand-written, in `docs/js/stories.js`, and that file is
+  not generated.** Ten scenes from Fin's own week — the assaig, the market,
+  the neighbour on the third floor, the intercanvi, the rain, the band, the
+  library, a notice from the colla, the CAP, a year in Horta — six to eight
+  sentences each, easiest first, written out of the course's own vocabulary
+  so the cards are met again in sentences that aren't the card. Every tense
+  Grammar drills turns up, and the little words do real work. Harder than
+  Deb's on purpose: **the question is in Catalan too**, with its English
+  printed only once it has been answered; Deb's are asked in English because
+  for her the question must never be the obstacle. Not in SeedContent.swift:
+  the native app has no stories, and a generator for content it will never
+  show is a second pipeline for nothing. Ids are `conte-N`, stable like
+  phrase ids — append, never renumber — and each carries its `language`, so
+  a Spanish set is more entries rather than a second file.
+- **It lives behind Listen & read, as the first fold on the page**, not on a
+  ninth tile: the grid is a full two-by-four and a ninth square leaves a
+  hole, and reading-with-questions is exactly what that page is for.
+  `storiesFold` in app.js, red (`.hue-red` is new — the one strong colour no
+  tile and no reader row wore), shut by default like every fold there with
+  *N of 10 read* on its header. `state.story` is the story open behind the
+  reader, cleared by every way out like `message`; `openStory`,
+  `renderStory`, `storyAskContext`.
+- **The page is Deb's shape.** The lines, each with a play button, then
+  *Read it all to me* / Slow / Stop through `readAloudControls` with the
+  reader's *Read it in* select, then the questions, then the result, then
+  the ask panel. The English of the lines is held back until every question
+  is closed, because the questions *are* the reading. A wrong pick costs
+  nothing and closes the question with the right one lit; the result is
+  written once, when the last question closes; *Next story* and *Read it
+  again* reshuffle. The English is flipped in place rather than by a
+  render, so the ask panel's conversation survives the toggle. **Nothing is
+  filed as an attempt**, on quiet mode's argument; what is kept is `stories`
+  in store.js (`xerra.stories`: best, of, times, lastAt by id), in
+  export/import. There is no study clock over here, so Deb's "a story counts
+  as study time" has no counterpart.
+- **The quiz is one component, shared.** `quizSession` (the shuffle and the
+  picks, never persisted), `quizMarkup`, `wireQuiz`, `quizResultCard` in
+  app.js, and the `.story-*` CSS. The message page uses the same four for a
+  page of a book.
+- **`/quiz` on the Worker writes the questions for a text nobody wrote any
+  for.** Three multiple-choice questions in the language, each with the
+  English of the question and three options; the answer is asked for as
+  the option's own text rather than an index — a number is the easiest
+  thing for a model to be off by one on — and matched here, exactly first
+  and then with case, accents and punctuation folded (`cleanQuizQuestion`).
+  A question with two options or an answer not among them is dropped, and
+  a text yielding nothing is a 502 rather than an empty list. Its own
+  endpoint rather than a field on `/message`, on the argument `/replies`
+  won: the gloss is already the biggest structured output this Worker
+  makes, and the questions are a smaller job that fails on its own. Card
+  budget, quality chain, the same caps as `/message` (`BOOK_CHARS` for a
+  book page). Additive — `card-test.mjs` with `BEFORE` set is still
+  byte-identical, and the sister apps have no client for it.
+  `worker/tools/quiz-test.mjs` drives it stubbed.
+- **On the message page it is offered on anything the reader opens that has
+  no questions of its own** — a page of a book, imported or pasted, an
+  article, an episode's notes; a story the Worker wrote already carries
+  three open ones, and a message somebody sent is not reading practice.
+  `paintQuiz` / `fetchQuiz` inside `renderMessage`. It sits between the
+  gist box and the English, and **it is offered before the reveal as well
+  as after, on purpose**: the questions are only a test while the
+  translation is still withheld, and the note says so; afterwards it is a
+  check, and the score is kept either way. The questions ride with the
+  gloss — `read.quiz`, in the gloss store under the page's hash for an
+  imported book and on the entry for anything else — because they cost a
+  call and the gloss is what is exported for being the thing that cost
+  money; the score is the page's own (`score: { best, of, times }` beside
+  its gist and tap count), and both book page lists print it through
+  `quizSuffix`, the current page included. Nothing is fetched until *Test
+  me on this page* is pressed, and the page is compared by identity on the
+  way back — the next page of the same book is a different `state.bookPage`.
+
+Worth asserting, headless (the session scratchpad script runs 71): the
+stories fold is the first `[data-fold-card]` on the reader, shut, reading
+*10 stories, easiest first*, and opens to ten `.story-row`s in `.hue-red`
+with no `.story-best`; a story opens headed with its title, backing to
+*‹ Listen & read*, with one `.story-line` and one `[data-line]` per
+sentence, every `.story-en` hidden, `#story-tools` hidden, `#story-listen`,
+`#story-slow` and a hidden `#story-stop`, three `.story-q`s and nine
+`.story-opt`s all `lang="ca-ES"`, the question text Catalan, no
+`.story-q-en`, no `.story-result`; a right pick paints `.story-q.right` with
+`.is-right`, disables the three, prints the `.story-q-en` and *Això mateix!*;
+a wrong one paints `.wrong`, `.is-wrong` on the picked, `.is-right` on the
+right and a verdict naming it; the result appears only on the third,
+reading *2 of 3 — molt bé!* and *First read*, with *Next story* and *Read it
+again*, `#story-tools` shown and the English still hidden until
+`#story-english`; `xerra.stories` holds `best: 2, of: 3, times: 1` and
+`xerra.attempts` is still empty; *Next story* opens *Al mercat* with four
+questions; back lands on the reader with the fold open and *1 of 10 read*
+and the row reading *2/3*; a full second read reads *3 of 3 — perfecte!*
+and *Your best*, moves `best` to 3 and `times` to 2, and the row wears
+*3/3 ✓*; the last story offers only *Read it again*; export carries
+`stories`. For the quiz, with `/message` and `/quiz` routed: a pasted page
+shows `#msg-quiz-go` reading *Test me on this page* before the reveal,
+between `#msg-gist-card` and `#msg-reveal`, with no call until pressed; one
+press makes one `/quiz` call carrying `text`, `kind: "book"`, the title and
+the language and paints three `.story-q`s in Catalan with the English still
+withheld; answering writes `read.quiz` and `score` onto the entry,
+`#msg-quiz-again` reopens them saying *Best so far 2 of 3*, a second go
+moves `best`; the reveal keeps the quiz; on an imported book planted through
+`bookStore.putPages` the offer stands on a glossed page, a 503 lands in
+`#msg-quiz-error` with the button back, the next press carries the book's
+title, the questions land in the gloss store under the page's hash and the
+score on the book's page record, Next offers a fresh quiz and Back finds the
+old one with no call, the page list prints *3/3 ✓*, and export carries the
+quiz with the glosses; a Worker story and a received message offer no
+`#msg-quiz-go`. Deb-o-lingo has the stories (its own, in Spanish, on a tile)
+and not the page quiz; the quiz would port whole with the reader.
+
 ### Seventeen focusNotes were wrong, and one of them was on the screen
 
 Reported from the phone as *"I think some of the listen for bits are wrong"*,
@@ -5523,7 +5640,14 @@ the parser losing a block to a formatting change.
   Condicional · M'agradaria / Si tingués, Subjuntiu · Vull que / No crec que /
   Quan arribi / Tot junt, and their Spanish twins under Futuro, Condicional
   and Subjuntivo.
-- v122 / `xerra-v122` — `js/version.js` first, `sw.js` second, as ever.
+- **Stories** — ten hand-written Catalan scenes with multiple-choice
+  questions in Catalan, the first fold behind Listen & read, scored in
+  `xerra.stories`; and **a quiz on a page** — the same questions written by
+  the Worker's `/quiz` for a page of a book or anything else the reader
+  opens, kept with the gloss and scored per page. See *Stories, and a quiz
+  on a page of a book*. `docs/js/stories.js`, `renderStory` and `paintQuiz`
+  in app.js, `stories` in store.js, `worker/tools/quiz-test.mjs`.
+- v123 / `xerra-v123` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

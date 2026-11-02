@@ -6,7 +6,7 @@
 
 // Bumped with VERSION in js/version.js — Settings shows the two side by side,
 // so forgetting one of them shows up as two different numbers on screen.
-const VERSION = "xerra-v122";
+const VERSION = "xerra-v123";
 const SHELL = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const SHELL = [
   "./js/card-assistant.js",
   "./js/speech.js",
   "./js/content.js",
+  "./js/stories.js",
   "./vendor/fonts/nunito-latin.woff2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
