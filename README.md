@@ -263,8 +263,16 @@ worth having — theirs, or yours as it should have been — is one tap from a
 card in the **Xerrades** deck, and the chats are kept so you can read back
 what you got wrong before the next one.
 
+**Streak** — ten minutes a day keeps it going, and the minutes can come from
+any section: a drill, a chat, a story, a message or a page of a book, the
+About me interview. The flame beside the gear is the run in days; the strip
+under it is today's minutes and the week's dots, and either opens the page
+with the details. The clock only runs while the app is on the screen and you
+are touching it, so a page left open doesn't count. Miss a day and the run
+starts again from zero; your best is kept.
+
 **Settings** — language, Azure credentials and voice, slow-playback speed,
-level-2 recall, road mode, audio prefetch and cache, and a **Version** panel showing what's
+level-2 recall, road mode, the streak, audio prefetch and cache, and a **Version** panel showing what's
 *running* against what's *installed*. Those two differ for exactly as long as it
 takes you to reload after a deploy, which is the difference between "the fix
 isn't working" and "the phone hasn't caught up yet".
