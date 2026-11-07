@@ -168,6 +168,7 @@ body {
    its row wore there (memory's colour, and the input that feeds it), Xerrada
    the green of the speaking half of the app. */
 .sec-reader  { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
+.sec-streak  { --sec: var(--orange); --sec-dark: var(--orange-dark); --sec-on: #ffffff; --sec-ink: var(--add-ink);      --sec-soft: color-mix(in srgb, var(--orange) 16%, transparent); }
 .sec-xerrada { --sec: var(--green);  --sec-dark: var(--green-dark);  --sec-on: #ffffff; --sec-ink: var(--practise-ink); --sec-soft: color-mix(in srgb, var(--green) 16%, transparent); }
 
 h1 { font-size: 1.6rem; font-weight: 800; margin: 6px 0 16px; letter-spacing: -0.02em; }
@@ -271,6 +272,94 @@ p { margin: 0 0 10px; }
 /* The gear on the page ground, where a translucent white disc would vanish. */
 .home-head .head-gear { margin: 0; width: 34px; height: 34px; background: var(--line); color: var(--text-2); }
 .home-head .head-gear svg { width: 19px; height: 19px; }
+
+/* The flame beside the gear: the run in days on a tinted pill, the same
+   height as the gear's disc. Orange and lit while the run is alive, grey on
+   the page ground once it has gone out, so the header says "alive or not"
+   at a glance and leaves "is today done" to the strip. */
+.head-tools { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.head-flame {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 34px;
+  padding: 0 10px 0 7px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--line);
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 900;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.head-flame svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.head-flame.lit { background: color-mix(in srgb, var(--orange) 18%, var(--surface)); color: var(--add-ink); }
+.head-flame.lit svg { fill: var(--orange); stroke: var(--orange); }
+.head-flame:active { transform: translateY(2px); }
+
+/* The streak strip on the home page: the week's dots, today's minutes and
+   the run, on a white card with the flame's orange down its side — the Review
+   strip under it is the filled one, and two filled slabs over eight filled
+   squares would be a lot of slab. Opens the Streak page. */
+.streak-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: -2px 0 12px;
+  padding: 10px 14px 10px 12px;
+  border: 2px solid var(--line);
+  border-left: 6px solid var(--orange);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.streak-strip:active { background: var(--surface-2); }
+.streak-main { flex: 1; min-width: 0; display: grid; }
+.streak-title { font-weight: 900; font-size: 1rem; }
+.streak-sub { font-size: 0.8rem; font-weight: 700; color: var(--text-2); }
+.streak-go { font-weight: 900; font-size: 0.85rem; white-space: nowrap; color: var(--add-ink); }
+
+/* Seven dots, Monday first. Done is a filled orange disc; today an orange
+   ring; a day still to come a faint ring; a day missed a grey dot. With
+   labels (on the Streak page) they grow and carry the weekday initial. */
+.week-dots { display: inline-flex; gap: 5px; flex: none; }
+.day-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: transparent;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--text-3);
+}
+.day-dot.done { background: var(--orange); border-color: var(--orange); color: #fff; }
+.day-dot.today { border-color: var(--orange); color: var(--add-ink); }
+.day-dot.missed { background: var(--line); border-color: var(--line); }
+.day-dot.future { opacity: 0.6; }
+.week-dots.labelled { gap: 8px; margin: 2px 0 10px; }
+.week-dots.labelled .day-dot { width: 34px; height: 34px; border-width: 3px; }
+
+/* The Streak page: a big flame and the run, then today's minutes as a bar. */
+.streak-hero { display: flex; align-items: center; gap: 14px; }
+.streak-flame svg { width: 56px; height: 56px; display: block; fill: none; stroke: var(--text-3); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.streak-hero.lit .streak-flame svg { fill: var(--orange); stroke: var(--orange-dark); }
+.streak-hero-main { display: grid; gap: 2px; min-width: 0; }
+.streak-headline { font-weight: 900; font-size: 1.45rem; line-height: 1.15; }
+.streak-best { font-weight: 700; font-size: 0.85rem; }
+.streak-best strong { color: var(--text); }
+.streak-today { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.streak-minutes { font-weight: 800; }
+.streak-minutes strong { font-size: 1.4rem; font-weight: 900; }
+.streak-bar { height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.streak-bar span { display: block; height: 100%; background: var(--orange); border-radius: 6px; transition: width 0.3s; }
 
 /* Quick's answer. The phrase is the biggest thing on the page because it is
    the only thing you came for, and Listen is full width under it — this is a

@@ -24,6 +24,7 @@ const KEYS = {
   feeds: "xerra.feeds",
   books: "xerra.books",
   stories: "xerra.stories",
+  streak: "xerra.streak",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -1501,6 +1502,7 @@ export const library = {
         books: books.items,
         bookGlosses: await bookStore.allGlosses(),
         stories: stories.results,
+        streak: streak.data,
       },
       null,
       2
@@ -1530,6 +1532,8 @@ export const library = {
     await bookStore.putGlosses(parsed.bookGlosses);
     // Absent in a backup taken before the stories existed; not an error.
     stories.replace(parsed.stories);
+    // Absent in a backup taken before the streak existed; not an error.
+    streak.replace(parsed.streak);
   },
 };
 
@@ -1964,10 +1968,148 @@ export const stories = {
   },
 };
 
+// ------------------------------------------------------------------- streak
+
+/* Ten minutes a day, and the days in a row you have managed it.
+
+   Asked for as *"the concept of streaks to encourage me to do at least 10
+   (maybe 15) minutes a day. The time can be made up of using any of the
+   sections."* Ported from Deb-o-lingo's study clock, with the shape chosen
+   here: a plain run of consecutive days (the Duolingo flame) rather than her
+   six-days-wins-the-week challenge, because that is what was picked.
+
+   One thing is written as it happens — `study`, seconds of study per local
+   day, ticked by app.js while an active page is on screen and the phone is
+   being touched. Whether a day counts and how long the run is are *computed*
+   from it, never stored, for `reviewOf`'s reason: a stored verdict drifts
+   from the facts it was made from. `best` is the one exception, because the
+   days it was read from are let go after a year and a best run is a thing to
+   be beaten for longer than that.
+
+   Days are local calendar days. A run is alive on a day the target is not yet
+   met if yesterday counted — the flame does not go out at midnight, it goes
+   out at the end of the first day you skip — so `current` reports the run
+   ending today or yesterday, and `todayDone` says which. */
+
+export const DAY_DONE_SECONDS = 10 * 60;
+export const WEEK_STARTS = 1; // Monday, as Date#getDay counts
+const STUDY_KEEP_DAYS = 400;
+
+/** A local calendar day as YYYY-MM-DD. */
+export function localDay(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** A YYYY-MM-DD shifted by n local days. */
+export function dayPlus(day, n) {
+  const [y, m, d] = day.split("-").map(Number);
+  return localDay(new Date(y, m - 1, d + n));
+}
+
+/** The Monday (see WEEK_STARTS) on or before a day. */
+export function weekStart(day) {
+  const [y, m, d] = day.split("-").map(Number);
+  const weekday = new Date(y, m - 1, d).getDay();
+  return dayPlus(day, -((weekday - WEEK_STARTS + 7) % 7));
+}
+
+export const streak = {
+  study: {},
+  best: 0,
+  /* The day the counting started: the first day this ran, or the day a
+     backup without one is restored. The page says so, which is what stops a
+     fresh install reading as a year of missed days. */
+  since: null,
+
+  load() {
+    this.replace(readJSON(KEYS.streak, {}));
+  },
+
+  save() {
+    writeJSON(KEYS.streak, this.data);
+  },
+
+  get data() {
+    return { study: this.study, best: this.best, since: this.since };
+  },
+
+  /** Take a stored or imported shape, forgivingly — an older backup has none. */
+  replace(data) {
+    const entries = data && typeof data === "object" ? data : {};
+    const today = localDay();
+    this.since = typeof entries.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(entries.since) ? entries.since : today;
+    this.study = {};
+    const study = entries.study && typeof entries.study === "object" ? entries.study : {};
+    for (const [day, seconds] of Object.entries(study)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+      const n = Number(seconds);
+      if (n > 0) this.study[day] = n;
+    }
+    // The stored best, or the longest run in the days we still have —
+    // whichever is longer — so a backup never reads lower than its own days.
+    this.best = Math.max(Number(entries.best) || 0, this.longestRun());
+    this.save();
+  },
+
+  /** Seconds of study on a day (today by default). Old days are let go. */
+  addStudy(seconds, day = localDay()) {
+    this.study[day] = (this.study[day] ?? 0) + seconds;
+    const oldest = dayPlus(day, -STUDY_KEEP_DAYS);
+    for (const key of Object.keys(this.study)) if (key < oldest) delete this.study[key];
+    if (this.dayDone(day)) this.best = Math.max(this.best, this.runEnding(day));
+    this.save();
+  },
+
+  secondsOn(day) {
+    return this.study[day] ?? 0;
+  },
+
+  dayDone(day) {
+    return this.secondsOn(day) >= DAY_DONE_SECONDS;
+  },
+
+  /** How many consecutive counted days end on `day`, inclusive. */
+  runEnding(day) {
+    let n = 0;
+    for (let d = day; this.dayDone(d); d = dayPlus(d, -1)) n += 1;
+    return n;
+  },
+
+  longestRun() {
+    let best = 0;
+    for (const day of Object.keys(this.study)) {
+      if (this.dayDone(day) && !this.dayDone(dayPlus(day, 1))) best = Math.max(best, this.runEnding(day));
+    }
+    return best;
+  },
+
+  /** The run as it stands on a day: its length, whether that day has counted
+      yet, and whether the run is still alive (today or yesterday counted). */
+  current(day = localDay()) {
+    const todayDone = this.dayDone(day);
+    const end = todayDone ? day : this.dayDone(dayPlus(day, -1)) ? dayPlus(day, -1) : null;
+    const days = end ? this.runEnding(end) : 0;
+    return { days, todayDone, alive: Boolean(end), best: this.best };
+  },
+
+  /** The week a day falls in: its seven days and whether each counted.
+      `today` is passed in so the page can say which dot is now. */
+  weekOf(day = localDay()) {
+    const start = weekStart(day);
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const id = dayPlus(start, i);
+      return { day: id, seconds: this.secondsOn(id), done: this.dayDone(id), today: id === day, future: id > day };
+    });
+    return { start, days, done: days.filter((d) => d.done).length };
+  },
+};
+
 // ----------------------------------------------------------------- progress
 
 /* Which lessons on the Practice path have been finished, and the best average
-   each has scored. Ported from Deb-o-lingo, minus the streak: this app has no
+   each has scored. Ported from Deb-o-lingo, minus her lesson streak (the
+   ten-minutes-a-day one is `streak`, above): this app has no
    6:30 coffee to keep, and a flame nobody asked for is a nag.
 
    A lesson is five cards of a deck in order, and its id is the deck's name
