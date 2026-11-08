@@ -644,6 +644,13 @@ there.**
   refused, and bytes labelled as something they are not are a rejected request
   rather than a blurry one, so `blob.type` is read off what comes back.
 
+- **Switched off for now, on request** (*"Just take out the feature for
+  now"*), one release after the JPEG fix below, which could not be checked
+  on the phone from here. The button, the file input and the note are gone
+  from the Real life page; `readShots`, `transcriptOf`, `shrinkImage` and
+  the Worker's `/screenshot` all stay, and the comment where the wiring was
+  in `renderQuick` has the lines to put back. The headless assertions below
+  that name `#msg-shot` do not hold while it is off.
 - **Safari cannot write WebP, and the fallback was a 1.4MB PNG.** Reported
   from the phone as *"Upload a screenshot of a message doesn't seem to
   work"*, and the client half was fine in Chromium: the picker, the shrink,
@@ -5745,7 +5752,7 @@ the parser losing a block to a formatting change.
   on a page of a book*. `docs/js/stories.js`, `renderStory` and `paintQuiz`
   in app.js, `stories` in store.js, `worker/tools/quiz-test.mjs`.
 - **A streak**: ten minutes a day on any active page keeps a run of days going — `streak` in store.js, `studyTick`, `flameButton`, `streakStrip` and `renderStreak` in app.js. See *The streak*.
-- v126 / `xerra-v126` — `js/version.js` first, `sw.js` second, as ever.
+- v127 / `xerra-v127` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

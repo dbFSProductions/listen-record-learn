@@ -2565,9 +2565,7 @@ function renderQuick() {
         ? `<div class="card quick-message-card">
              <label class="field"><span>Got a message? Paste it here.</span>
                <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
-             <input type="file" id="msg-shot-file" accept="image/*" multiple hidden>
-             <button class="btn btn-hue hue-orange" id="msg-shot" style="width:100%">Upload a screenshot</button>
-             <div class="notice" id="msg-shot-note" hidden></div>
+             <!-- Upload a screenshot is switched off for now — see readShots. -->
              <p class="small muted" style="margin:10px 0">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
              <div class="notice bad" id="msg-error" hidden></div>
@@ -2579,19 +2577,23 @@ function renderQuick() {
 
   document.getElementById("quick-go")?.addEventListener("click", ask);
   document.getElementById("msg-go")?.addEventListener("click", readMessage);
-  /* The picker is the control; the button is only what opens it. A bare file
-     input styled to look like a button is the other way of doing this and it
-     is the one that goes wrong on iOS, where the native control draws its own
-     "Choose File" label at its own size whatever the CSS says. */
-  const shotFile = document.getElementById("msg-shot-file");
-  document.getElementById("msg-shot")?.addEventListener("click", () => shotFile.click());
-  shotFile?.addEventListener("change", () => {
-    const files = [...shotFile.files];
-    // Cleared straight away, so that picking the same screenshot twice —
-    // which is what a retry after a bad read looks like — fires change again.
-    shotFile.value = "";
-    if (files.length) readShots(files);
-  });
+  /* Upload a screenshot is switched off for now, on request, after it was
+     reported as not working on the phone and could not be checked against a
+     real Gemini key from here. Everything behind it stays — `readShots`
+     below, `transcriptOf`, `shrinkImage`, the Worker's /screenshot — so
+     putting it back is the three lines of markup above the Read it button
+     and this wiring:
+
+       const shotFile = document.getElementById("msg-shot-file");
+       document.getElementById("msg-shot")?.addEventListener("click", () => shotFile.click());
+       shotFile?.addEventListener("change", () => {
+         const files = [...shotFile.files];
+         shotFile.value = "";   // so the same screenshot can be picked twice
+         if (files.length) readShots(files);
+       });
+
+     The picker is the control and the button only opens it: a file input
+     styled as a button is the way that goes wrong on iOS. */
   paintAnswer();
   paintRecent();
   paintMessages();
