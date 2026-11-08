@@ -236,14 +236,16 @@ const SECTION_PREFIX = "section:";
    round. `REVIEW_DECK` in store.js is the one value; the prefix is refused
    wholesale so nothing else can be named into that space either. */
 const REVIEW_PREFIX = "review:";
-/* A review session is finishable or it is not done: the twenty most overdue
+/* A review session is finishable or it is not done: the ten most overdue
    cards, and the rest come round tomorrow. It was thirty, and the strip on
    the home page printed the *whole* backlog beside it — sixty, ninety —
    which was reported as too many to get through in a day. It was; nobody
    was ever asked to. The number a session drills and the number the strip
    and the path node print are the same one now, and the backlog is said
-   under it rather than as the headline. */
-const REVIEW_CAP = 20;
+   under it rather than as the headline. Twenty was the next number, and
+   was reported as still too many; ten is Deb-o-lingo's, and the two are in
+   step on it now. */
+const REVIEW_CAP = 10;
 
 /* What today's review is: the session's cards, and how many are waiting
    behind them. One reader for the strip, the node and the queue, so the
@@ -1961,7 +1963,7 @@ function renderPractice(section = null) {
     if (!session) return "";
     /* The headline is the session — what Start actually starts — and the
        backlog is a quieter clause after it. "90 phrases due today" over a
-       button that drills twenty was the number the phone reported as too
+       button that drills a session was the number the phone reported as too
        many, and it was never the number being asked of anyone. */
     return `
       <button class="due-strip" data-review="1">
