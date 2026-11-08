@@ -1131,7 +1131,18 @@ async function shrinkImage(blob, max = 512, type = "image/webp", quality = 0.82)
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close?.();
-    const shrunk = await new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+    const encode = (as) => new Promise((resolve) => canvas.toBlob(resolve, as, quality));
+    let shrunk = await encode(type);
+    /* Safari cannot encode WebP, and a canvas asked for it hands back a PNG
+       without saying so. At 1600px a PNG of a chat screenshot — bubbles over
+       WhatsApp's doodle wallpaper — is about 1.4MB of base64, which is the
+       Worker's per-picture cap and a slow upload on mobile data, against a
+       quarter of a megabyte as WebP; four of them are refused before they
+       are sent. So a lossy type that came back as something else is encoded
+       again as JPEG, which every browser can write, and the caller still
+       reads `blob.type` off what it gets. Reported from the phone as the
+       screenshot upload not working. */
+    if (shrunk && type !== "image/png" && shrunk.type !== type) shrunk = (await encode("image/jpeg")) ?? shrunk;
     return shrunk ?? blob;
   } catch {
     return blob;

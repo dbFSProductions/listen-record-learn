@@ -644,6 +644,29 @@ there.**
   refused, and bytes labelled as something they are not are a rejected request
   rather than a blurry one, so `blob.type` is read off what comes back.
 
+- **Safari cannot write WebP, and the fallback was a 1.4MB PNG.** Reported
+  from the phone as *"Upload a screenshot of a message doesn't seem to
+  work"*, and the client half was fine in Chromium: the picker, the shrink,
+  the request, all of it. What Chromium does not show is Safari's
+  `canvas.toBlob`, which hands back a PNG when asked for `image/webp`
+  without saying so — and at `SHOT_PX` a PNG of bubbles over WhatsApp's
+  doodle wallpaper measured 1.37MB of base64 in a Safari-simulated run,
+  against 235KB as WebP. That sits on the Worker's `SHOT_BASE64_MAX`
+  (1.5MB), so a slightly busier screenshot is a 413, two are a slow upload
+  on mobile data, and four are refused by the client's own cap before they
+  go. `shrinkImage` now re-encodes as JPEG when a lossy type came back as
+  something else — JPEG is the one lossy type every browser writes — and
+  the same screenshot goes as 261KB. The drawings go through the same
+  function and get JPEG rather than PNG on Safari too, which is smaller
+  and was always the intent of "WebP where the browser will encode it".
+  Simulate Safari in Chromium by patching `toBlob` to answer `image/png`
+  for `image/webp`; Playwright's WebKit is not installed here and the
+  download host is not reachable. **A refused Gemini request now says why**:
+  `callModel` used to turn every 4xx into *Gemini couldn't answer. Try
+  again shortly*, which hid the one line that names a malformed request —
+  the exact failure the probe below exists for. It prints Google's own
+  text now, trimmed, for every endpoint.
+
 **The one thing here that has never met a real server, and the caveat to
 believe rather than merely write down.** The multimodal request shape — `input`
 as a list of parts, the image as `{ type: "image", data, mime_type }` — was
@@ -5722,7 +5745,7 @@ the parser losing a block to a formatting change.
   on a page of a book*. `docs/js/stories.js`, `renderStory` and `paintQuiz`
   in app.js, `stories` in store.js, `worker/tools/quiz-test.mjs`.
 - **A streak**: ten minutes a day on any active page keeps a run of days going — `streak` in store.js, `studyTick`, `flameButton`, `streakStrip` and `renderStreak` in app.js. See *The streak*.
-- v125 / `xerra-v125` — `js/version.js` first, `sw.js` second, as ever.
+- v126 / `xerra-v126` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
