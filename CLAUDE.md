@@ -4132,7 +4132,7 @@ keyed off the voice entry's own `source`:
   and voice for ever after. The cap is a ceiling on one request, not a budget.
   Matxa is free and cannot do it; Azure is bought by the month and can.
 
-#### The Matxa voices are gone, and the review is twenty a day
+#### The Matxa voices are gone, and the review is twenty a day (ten, since)
 
 Four things reported together from the phone, and none of them a bug.
 
@@ -4151,7 +4151,9 @@ Four things reported together from the phone, and none of them a bug.
   `VOICE_MAX_CHARS` lost its Matxa key. Nothing else about the second voice
   source changed: `say:` and `voiceProvider` are the prefix and the reader
   still, and the mix now draws from four voices rather than seven.
-- **Review is twenty, and the strip says twenty.** `REVIEW_CAP` was thirty
+- **Review is twenty, and the strip says twenty.** (Since cut to **ten**,
+  on *"20 is too many"* — the same number Deb-o-lingo uses, and the two
+  are in step on it now.) `REVIEW_CAP` was thirty
   and the queue honoured it — but the strip on the home page and the node on
   the path both printed `library.due().length`, the *whole* backlog, so the
   phone read *90 phrases due today* over a button that was going to drill
@@ -4381,10 +4383,11 @@ said it should be rather than a counter bolted onto level two.
 - **`review:due` is the fifth string in deck-key space** (`REVIEW_DECK` in
   store.js), after `*`, `★`, `family:` and `section:`; `deckNameProblem`
   refuses the `review:` prefix and `queueFor` drills `library.due()` — most
-  overdue first — capped at `REVIEW_CAP` (20; it was 30), so a session is
+  overdue first — capped at `REVIEW_CAP` (10; it was 30, then 20), so a session is
   finishable and the rest come round tomorrow. The strip and the path node
   print that same session count, with the backlog as a quieter clause —
-  see *The Matxa voices are gone, and the review is twenty a day*.
+  see *The Matxa voices are gone, and the review is twenty a day*; twenty
+  was then reported as still too many, and it is ten.
 - **Two surfaces, both absent when nothing is due.** `.due-strip` under the
   language line on the home page (*Review · 2 phrases due today · Start ›*),
   and a Review node first in the path's Everything unit. Purple, because
@@ -4396,8 +4399,8 @@ three days old, one good today and one failed yesterday, and the strip reads
 *2 phrases due today*, the node counts 2, the strip drills `1/2` with the
 three-day-old card first and `#back` reading *‹ Home*. Deb-o-lingo has it
 since its v52 — the same two functions in store.js, the strip under the parrot
-and a node in Mézclalo — with `REVIEW_CAP` at ten rather than twenty, because
-a lesson there is five cards; its review runs as a practice queue, so it ticks
+and a node in Mézclalo — with `REVIEW_CAP` at ten, which this app matches
+now; its review runs as a practice queue, so it ticks
 nothing. Mum-o-lingo has neither this nor quiet mode yet.
 
 ## The streak: ten minutes a day, any section
@@ -5719,7 +5722,7 @@ the parser losing a block to a formatting change.
   on a page of a book*. `docs/js/stories.js`, `renderStory` and `paintQuiz`
   in app.js, `stories` in store.js, `worker/tools/quiz-test.mjs`.
 - **A streak**: ten minutes a day on any active page keeps a run of days going — `streak` in store.js, `studyTick`, `flameButton`, `streakStrip` and `renderStreak` in app.js. See *The streak*.
-- v124 / `xerra-v124` — `js/version.js` first, `sw.js` second, as ever.
+- v125 / `xerra-v125` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
