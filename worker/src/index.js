@@ -1217,8 +1217,16 @@ async function callModel(
        those means the small model was refused first and the chain had already
        walked on. */
     if (response.status === 429) throw new TransientError(model, 429, detail);
+    /* A 4xx that is not a missing model or a quota is Gemini refusing *this
+       request* — a malformed body, an unsupported part, a payload it will not
+       take — and the fix is in here, not on the phone. The message used to be
+       a bare "try again shortly", which hid exactly the detail that says what
+       to fix: the screenshot route's multimodal request was written from the
+       docs and never answered by a real server, so the one line Gemini gives
+       back is the whole of the evidence. It is Google's own text, trimmed. */
     if (response.status < 500) {
-      throw new PublicError("Gemini couldn't answer. Try again shortly.", 502);
+      const why = String(detail).replace(/\s+/g, " ").trim().slice(0, 220);
+      throw new PublicError(`Gemini refused the request (${response.status}): ${why}`, 502);
     }
     if (attempt < ATTEMPTS_PER_MODEL && timeLeft(deadline) > 5_000) {
       await backoff(attempt, response.headers.get("Retry-After"), deadline);
