@@ -908,6 +908,7 @@ export const audioStore = {
   putRecording: (key, blob) => idbPut(STORE_RECORDINGS, key, blob),
   getRecording: (key) => idbGet(STORE_RECORDINGS, key),
   deleteRecording: (key) => idbDelete(STORE_RECORDINGS, key),
+  recordingKeys: () => idbKeys(STORE_RECORDINGS),
   clearModelCache: () => idbClear(STORE_MODEL),
   modelKeys: () => idbKeys(STORE_MODEL),
 
