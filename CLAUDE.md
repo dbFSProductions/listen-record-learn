@@ -75,6 +75,7 @@ Xerra/                The original SwiftUI app. Not shipped; it is the source
                       of truth for seed content (Content/SeedContent.swift).
 tools/gen-content.py  SeedContent.swift → docs/js/content.js.
 tools/checks/         Headless checks (Playwright). run.sh runs them all.
+tools/split-app/      The script that split app.js, and how to reuse it in a fork.
 notes/                Why things are the way they are. Indexed below.
 ```
 
@@ -261,7 +262,9 @@ To test the Worker's promise that the sister apps' prompts are unchanged:
 Changes are made here first and ported afterwards. They share this Worker,
 `audio.js`, and the shape of `speech.js`, `store.js` and `card-assistant.js`;
 their `app.js` is still one file and has long since diverged. This session can
-only reach this repo. See `notes/project.md`.
+only reach this repo. See `notes/project.md`. The v130 module split has not
+been done in them; `tools/split-app/PORTING.md` is how, with the tool that did
+it here.
 
 ---
 
