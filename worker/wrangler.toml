@@ -108,7 +108,7 @@ REPLICATE_VOICE_MODEL = "minimax/speech-02-hd"
 # Replicate 422s on a field the model does not declare. text, voice_id,
 # language_boost and speed are built per request and are not settable here.
 REPLICATE_VOICE_INPUT = '{"sample_rate":32000,"bitrate":128000,"channel":"mono","english_normalization":false}'
-ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8765,http://localhost:8765"
+ALLOWED_ORIGINS = "https://dbfsproductions.github.io,http://127.0.0.1:8791,http://localhost:8791,http://127.0.0.1:8765,http://localhost:8765"
 
 [[ratelimits]]
 name = "AI_RATE_LIMITER"
