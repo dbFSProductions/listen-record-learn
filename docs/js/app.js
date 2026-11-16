@@ -11,7 +11,7 @@ import {
 import { STORIES, storyById, storiesFor } from "./stories.js";
 import { readEpub, chunkChapters, pageHash } from "./epub.js";
 import { Recorder, Player, analyse, relativeSemitones, resample } from "./audio.js";
-import { speech, browserSpeech, scoring, transcription } from "./speech.js";
+import { speech, browserSpeech, scoring, transcription, LISTEN_MAX_SECONDS } from "./speech.js";
 import { cardAssistant } from "./card-assistant.js";
 import { VERSION } from "./version.js";
 import { preloadPDF, buildPrintPDF, deliverPDF } from "./print-pdf.js";
@@ -1101,6 +1101,12 @@ const SHOT_UPLOAD_MAX = 5_500_000;
    unlabelled lines are the other person by elimination. Inventing a "Them" to
    put opposite "You" would be putting a word into the reading that was never
    in the message, which is the one thing this page does not do. */
+/* Audio into the message box: how many files one pick reads, and how much
+   text one reading takes — the Worker's own MESSAGE_CHARS, said here so the
+   page can warn rather than gloss two thirds of a transcript in silence. */
+const AUDIO_FILES_MAX = 4;
+const MESSAGE_MAX_CHARS = 2500;
+
 function transcriptOf(turns) {
   return turns
     .map((turn) => {
@@ -2563,8 +2569,18 @@ function renderQuick() {
     ${
       settings.hasAssistant
         ? `<div class="card quick-message-card">
-             <label class="field"><span>Got a message? Paste it here.</span>
+             <label class="field"><span>Got a message? Paste it here${settings.hasAzure ? " — or let the app listen" : ""}.</span>
                <textarea id="msg-text" lang="${esc(settings.language)}" rows="3" autocapitalize="none"></textarea></label>
+             ${
+               settings.hasAzure
+                 ? `<div class="btn-row msg-audio-row">
+                      <button class="btn btn-hue hue-orange" id="msg-record" aria-pressed="false">● Record</button>
+                      <button class="btn" id="msg-audio">Upload a voice note</button>
+                      <input type="file" id="msg-audio-file" accept="audio/*,video/mp4,.opus,.ogg,.oga,.m4a,.mp3,.wav,.aac,.caf,.amr" multiple hidden>
+                    </div>
+                    <p class="small muted" id="msg-audio-note" style="margin:10px 0 0" hidden></p>`
+                 : `<p class="small muted" style="margin:10px 0 0">With an Azure key in <button class="link" id="open-settings-notice">Settings</button> this box can also write down a voice note or somebody talking.</p>`
+             }
              <!-- Upload a screenshot is switched off for now — see readShots. -->
              <p class="small muted" style="margin:10px 0">You read it first, with a tap on any word you are stuck on. The English comes after you have said what you think it says.</p>
              <button class="btn btn-primary" id="msg-go" style="width:100%">Read it</button>
@@ -2577,6 +2593,15 @@ function renderQuick() {
 
   document.getElementById("quick-go")?.addEventListener("click", ask);
   document.getElementById("msg-go")?.addEventListener("click", readMessage);
+  document.getElementById("msg-record")?.addEventListener("click", toggleListen);
+  const audioFile = document.getElementById("msg-audio-file");
+  // The picker is the control and the button only opens it, as with the EPUB.
+  document.getElementById("msg-audio")?.addEventListener("click", () => audioFile.click());
+  audioFile?.addEventListener("change", () => {
+    const files = [...audioFile.files];
+    audioFile.value = ""; // so the same note can be picked twice
+    if (files.length) writeDown(files.slice(0, AUDIO_FILES_MAX), files.length > AUDIO_FILES_MAX);
+  });
   /* Upload a screenshot is switched off for now, on request, after it was
      reported as not working on the phone and could not be checked against a
      real Gemini key from here. Everything behind it stays — `readShots`
@@ -2719,6 +2744,110 @@ function renderQuick() {
         button.textContent = "Upload a screenshot";
       }
     }
+  }
+
+  /* Audio in, text out. A voice note, or somebody talking across the table,
+     written down into the paste box by Azure — and that is all it does, on
+     the screenshot's argument: a misheard word is fixed before the gloss is
+     spent on it, and the button that finishes the job is the Read it that was
+     already there. Nothing is saved by the transcription. The box fills as
+     each sentence lands, so a long note is visibly on its way; a second go
+     replaces the box, since a second go is almost always a retry. Several
+     notes picked at once are read in the order given, a paragraph apart. */
+  let writing = false;
+
+  async function writeDown(clips, tooMany = false) {
+    const field = document.getElementById("msg-text");
+    const note = document.getElementById("msg-audio-note");
+    const errorBox = document.getElementById("msg-error");
+    const buttons = [document.getElementById("msg-record"), document.getElementById("msg-audio")];
+    if (writing) return;
+    writing = true;
+    errorBox.hidden = true;
+    buttons.forEach((button) => (button.disabled = true));
+    note.hidden = false;
+    note.innerHTML = `<span class="spinner"></span> Writing it down…`;
+    const done = [];
+    let clipped = false;
+    try {
+      for (const clip of clips) {
+        const head = done.join("\n\n");
+        const heard = await transcription.listen(clip, settings.language, settings, (soFar) => {
+          if (field.isConnected) field.value = [head, soFar].filter(Boolean).join("\n\n");
+        });
+        if (!field.isConnected) return;
+        if (!heard) throw new Error(transcription.lastError || "Nothing could be made out.");
+        done.push(heard.text);
+        clipped = clipped || heard.clipped;
+      }
+      field.value = done.join("\n\n");
+      const words = field.value.split(/\s+/).filter(Boolean).length;
+      note.innerHTML = `${esc(`Wrote down ${words} word${words === 1 ? "" : "s"}.`)} Fix anything misheard, then <b>Read it</b>.${
+        clipped ? `<br>Only the first ${LISTEN_MAX_SECONDS / 60} minutes of a clip are written down.` : ""
+      }${tooMany ? `<br>Only the first ${AUDIO_FILES_MAX} files were read.` : ""}${
+        field.value.length > MESSAGE_MAX_CHARS
+          ? `<br>That is more than one reading takes — the words after the first ${MESSAGE_MAX_CHARS} characters won't be glossed. Trim it, or read it in two goes.`
+          : ""
+      }`;
+    } catch (error) {
+      if (!field.isConnected) return;
+      // Whatever was heard before it failed stays in the box.
+      note.hidden = true;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      writing = false;
+      if (field.isConnected) buttons.forEach((button) => (button.disabled = false));
+    }
+  }
+
+  /* Record: tap, let them talk, tap again. The drill's recorder, so leaving
+     the page cancels it through `stopEverything` like any other recording. */
+  async function toggleListen() {
+    const button = document.getElementById("msg-record");
+    const note = document.getElementById("msg-audio-note");
+    if (recorder.isRecording) {
+      clearInterval(state.levelTimer);
+      state.levelTimer = null;
+      button.classList.remove("recording");
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = "● Record";
+      const result = await recorder.stop();
+      if (!note.isConnected) return;
+      if (!result) {
+        note.textContent = "Too short — try again.";
+        return;
+      }
+      writeDown([result.blob]);
+      return;
+    }
+    if (writing) return;
+    stopEverything();
+    recorder = new Recorder();
+    try {
+      await recorder.start();
+    } catch (error) {
+      toast(
+        String(error?.name) === "NotAllowedError"
+          ? "Microphone blocked. Allow it in Safari's site settings."
+          : "Couldn't start recording."
+      );
+      return;
+    }
+    document.getElementById("msg-error").hidden = true;
+    button.classList.add("recording");
+    button.setAttribute("aria-pressed", "true");
+    note.hidden = false;
+    const listening = () => {
+      if (!button.isConnected) return;
+      const seconds = Math.floor(recorder.elapsed());
+      button.textContent = `■ Stop · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      // Past the cap there is nothing more to gain by letting it run.
+      if (seconds >= LISTEN_MAX_SECONDS) toggleListen();
+    };
+    note.textContent = "Listening… Hold the phone near whoever is talking, and tap Stop when they have finished.";
+    listening();
+    state.levelTimer = setInterval(listening, 250);
   }
 
   /* The message goes to the assistant and comes back read — glossed, translated,

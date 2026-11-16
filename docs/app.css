@@ -710,6 +710,17 @@ button { font: inherit; }
 }
 .btn-hue:active { box-shadow: none; }
 
+/* Record and Upload a voice note, under the message box. Recording, the
+   button is the red a record button is everywhere else in the app. */
+.msg-audio-row { margin-top: 10px; }
+.msg-audio-row [hidden] { display: none; }
+.btn.recording {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+  box-shadow: 0 4px 0 var(--red-dark);
+}
+
 
 .link { background: none; border: 0; color: var(--phrases-ink); font-weight: 800; cursor: pointer; padding: 6px; }
 /* A destructive link asks for `.btn-danger` in its class list, but that rule is

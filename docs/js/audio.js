@@ -664,6 +664,19 @@ export async function toWav16k(blob) {
   return encodeWav(padEnds(resampled, target), target);
 }
 
+/* The same WAV for a clip of any length, held to `maxSeconds`: what a voice
+   note or a minute of somebody talking is turned into before Azure writes it
+   down. It says how long the clip was and whether the end was left off, so
+   the page can say so rather than quietly transcribing two thirds of it. */
+export async function toWav16kClip(blob, maxSeconds) {
+  const { samples, sampleRate } = await monoSamples(blob);
+  const seconds = samples.length / sampleRate;
+  const keep = Math.min(samples.length, Math.round(maxSeconds * sampleRate));
+  const target = 16000;
+  const resampled = resampleTo(keep < samples.length ? samples.subarray(0, keep) : samples, sampleRate, target);
+  return { wav: encodeWav(padEnds(resampled, target), target), seconds, clipped: keep < samples.length };
+}
+
 /* A quarter of a second of silence at each end of what Azure is given.
 
    A recogniser decides where speech starts before it decides what it is, and

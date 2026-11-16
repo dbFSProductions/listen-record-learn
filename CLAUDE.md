@@ -723,6 +723,49 @@ It would port whole to both forks — the Worker is additive, and the client is
 one button, `transcriptOf` and a shrink — the moment either grows the message
 reader it does not have yet.
 
+### Audio in, text out: a voice note, or somebody talking, into the box
+
+Asked for as *"I need to be able to do Audio in text out"*, a release after
+Upload a screenshot was switched off — and it is that feature's argument with
+a different way in. Under the paste box on Real life: **Record** (tap, let
+them talk, tap Stop) and **Upload a voice note** (up to four audio files, read
+in the order picked). Either way Azure writes the Catalan down **into the
+paste box and does nothing else**: a misheard word is fixed before the gloss
+is spent on it, nothing is saved, a second go replaces the box, and *Read it*
+is the button that was already there.
+
+- **`transcription.listen` in speech.js is continuous recognition**, where
+  `transcribe` is `recognizeOnceAsync` and stops at the first pause — right
+  for a line said into the chat, wrong for a voice note. `recogniseAll` runs
+  until the file ends (the SDK cancels with EndOfStream, then stops the
+  session; whichever lands first settles it), an error cancellation rejects so
+  `withOneRetry` and `describeAzureError` read it as they read everything
+  else, and `onText` fills the box sentence by sentence while it runs.
+- **Azure and not the Worker**, on the screenshot's lesson: this path has a
+  client that has met the real service for a year, where a Gemini audio
+  request would be a second shape written from documentation. So it needs the
+  Azure key, and without one the card says so with a link to Settings.
+- **`joinSegments` makes the paragraphs**: a gap of more than 1.5 s between
+  two of Azure's results is a new paragraph, which is what `glossedParagraphs`
+  splits on. Several files are a blank line apart.
+- **`LISTEN_MAX_SECONDS` is 180**, sized to `/message`'s 2500 characters at
+  about fifteen a second; `toWav16kClip` in audio.js cuts there and says so,
+  the recording stops itself there, and a transcript still over
+  `MESSAGE_MAX_CHARS` is warned about rather than glossed two-thirds in
+  silence. `toWav16kClip` is additive in the file the forks share.
+- **Not tried against real Azure or on the phone** — there is no key here.
+  Driven headless with `window.SpeechSDK` faked (27 assertions): no buttons
+  without a key; `#msg-record` and `#msg-audio` between `#msg-text` and
+  `#msg-go` with `#msg-audio-file` and `#msg-audio-note` hidden; one WAV makes
+  one recognition in `ca-ES` on a padded 16 kHz file, fills the box with the
+  paragraph break where the gap was, makes no Worker call and saves nothing;
+  two files join; a 1006 is retried once, a 401 is not; silence and a file
+  that is not audio each land in `#msg-error`; Record reads *■ Stop · 0:01*,
+  writes down on the second tap, and leaving mid-recording cancels it. The
+  two things only the phone can say: whether iOS decodes a WhatsApp `.opus`
+  (`decodeAudioData`; the error names the formats if not) and how well the
+  microphone hears a person across a table with gain control off.
+
 ### Xerrada: having the conversation before you have it
 
 **The tile says Chat.** Reported from the phone as simply wanting the word
@@ -5752,7 +5795,10 @@ the parser losing a block to a formatting change.
   on a page of a book*. `docs/js/stories.js`, `renderStory` and `paintQuiz`
   in app.js, `stories` in store.js, `worker/tools/quiz-test.mjs`.
 - **A streak**: ten minutes a day on any active page keeps a run of days going — `streak` in store.js, `studyTick`, `flameButton`, `streakStrip` and `renderStreak` in app.js. See *The streak*.
-- v127 / `xerra-v127` — `js/version.js` first, `sw.js` second, as ever.
+- **Audio in, text out**: Record, or Upload a voice note, under the Real life
+  message box — Azure writes it down into the box (`transcription.listen`,
+  `writeDown` / `toggleListen` in app.js). See the section of that name.
+- v128 / `xerra-v128` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.
