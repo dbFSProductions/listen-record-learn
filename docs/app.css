@@ -2259,6 +2259,17 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .reader-now { margin: 0 0 8px; font-weight: 800; overflow-wrap: anywhere; }
 .reader-player audio, .msg-audio audio { width: 100%; display: block; }
 .msg-audio { border-left: 4px solid var(--purple); }
+
+/* A voice note's own audio, over its transcript — and the transcript held
+   back until it is asked for. */
+.msg-note audio { width: 100%; display: block; }
+.msg-note audio + audio { margin-top: 8px; }
+.msg-note-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.message-card.ears-only .msg-text,
+.message-card.ears-only .msg-hint,
+.message-card.ears-only .msg-listen-row,
+.message-card.ears-only .msg-voice,
+.message-card.ears-only .msg-voice + p { display: none; }
 .msg-source { margin: 10px 0 0; }
 .msg-source .link { padding: 0; }
 .ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }

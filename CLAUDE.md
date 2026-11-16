@@ -766,6 +766,39 @@ is the button that was already there.
   (`decodeAudioData`; the error names the formats if not) and how well the
   microphone hears a person across a table with gain control off.
 
+#### A voice note keeps its voice, and is heard before it is read
+
+Asked for the same day: *"I have been sent an audio message, and I would like
+to be able to use it as a learning experience as well as understand it."*
+Writing it down answered *understand*; it also threw the audio away, and the
+only Listen on the page was Enric reading the transcript — not the person who
+said it, at the speed they said it, which is the listening practice.
+
+- **The audio rides with the message.** `heardClips` in `renderQuick` holds
+  what the box was last filled from; *Read it* stores it through
+  `keepNoteAudio` in the recordings store under `msg:<id>:<n>` and writes
+  `clips` on the message. No new IndexedDB store, so no `DB_VERSION` bump.
+  Emptying the box lets go of it — what is typed next is another message.
+  Blobs, so not in the export; `dropNoteAudio` on *Forget*, and a sweep in
+  `keepNoteAudio` drops audio whose message fell off the sixty-message cap.
+- **The page opens on the voice and the box, with the words one tap away.**
+  `earsOnly` (`clips > 0`, not revealed, no `wordsShown`) hides the
+  transcript, its hint and the synthesised Listen behind *Show the words*;
+  the gist box stands, so you can say what you caught by ear alone, and the
+  reveal brings the words up with the English. It is the level-two gate once
+  more: the transcript is the answer to a listening question. After that the
+  page is the message page unchanged — glosses, keep, reply, Ask.
+- **`#msg-note` is the file as it was sent** in the browser's own player, one
+  per clip, with *Slower* (0.75×, pitch kept). Evicted audio reads as a plain
+  message (`clips` back to 0).
+- Headless, 21 assertions (`/message` stubbed, fake SDK): a pasted message has
+  no `#msg-note`; two files give two players whose duration is the file's,
+  `.msg-text` and the Listen row `display: none`, the gist box present, no
+  English; *Slower* sets 0.75; *Show the words* shows four `.msg-word`s and is
+  remembered across a reload with no second call; answering by ear reveals the
+  words; Forget drops that message's blobs only; a note transcribed then
+  replaced by typed text carries no audio; cleared storage reads as text.
+
 ### Xerrada: having the conversation before you have it
 
 **The tile says Chat.** Reported from the phone as simply wanting the word
@@ -5798,7 +5831,7 @@ the parser losing a block to a formatting change.
 - **Audio in, text out**: Record, or Upload a voice note, under the Real life
   message box — Azure writes it down into the box (`transcription.listen`,
   `writeDown` / `toggleListen` in app.js). See the section of that name.
-- v128 / `xerra-v128` — `js/version.js` first, `sw.js` second, as ever.
+- v129 / `xerra-v129` — `js/version.js` first, `sw.js` second, as ever.
 - v0.1, the pronunciation core. Spaced repetition is built now (Review); a
   dictation drill is half-built as quiet mode's Listen-then-write; shadowing
   along with continuous speech is the pronunciation technique still missing.

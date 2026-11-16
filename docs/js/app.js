@@ -2755,6 +2755,13 @@ function renderQuick() {
      replaces the box, since a second go is almost always a retry. Several
      notes picked at once are read in the order given, a paragraph apart. */
   let writing = false;
+  /* The audio the box was last filled from, kept until Read it so it can ride
+     with the message — see `noteKey`. Emptying the box lets go of it: what is
+     typed there next is a different message. */
+  let heardClips = null;
+  document.getElementById("msg-text")?.addEventListener("input", (event) => {
+    if (!event.target.value.trim()) heardClips = null;
+  });
 
   async function writeDown(clips, tooMany = false) {
     const field = document.getElementById("msg-text");
@@ -2763,6 +2770,7 @@ function renderQuick() {
     const buttons = [document.getElementById("msg-record"), document.getElementById("msg-audio")];
     if (writing) return;
     writing = true;
+    heardClips = null;
     errorBox.hidden = true;
     buttons.forEach((button) => (button.disabled = true));
     note.hidden = false;
@@ -2781,6 +2789,7 @@ function renderQuick() {
         clipped = clipped || heard.clipped;
       }
       field.value = done.join("\n\n");
+      heardClips = clips;
       const words = field.value.split(/\s+/).filter(Boolean).length;
       note.innerHTML = `${esc(`Wrote down ${words} word${words === 1 ? "" : "s"}.`)} Fix anything misheard, then <b>Read it</b>.${
         clipped ? `<br>Only the first ${LISTEN_MAX_SECONDS / 60} minutes of a clip are written down.` : ""
@@ -2882,6 +2891,7 @@ function renderQuick() {
           keep: Array.isArray(read.keep) ? read.keep : [],
         },
       });
+      if (heardClips) messages.update(item.id, { clips: await keepNoteAudio(item.id, heardClips) });
       state.message = item.id;
       render();
     } catch (error) {
@@ -3242,7 +3252,44 @@ function messageAskContext(item) {
    — Missatges, Llibres or Lectures (`keepFromMessage` picks) — an
    ordinary deck like Quick's, and the message itself stays in `messages` with
    your reading and your reply on it. */
+/* A voice note keeps its voice. The audio a message was written down from is
+   stored beside the recordings, under the message's id, so the page can play
+   the person who actually said it — which is the listening practice a
+   synthesised reading of the transcript is not. Blobs, so not in the export,
+   like every other recording; `clips` on the message is how many there are,
+   and a message whose audio has been evicted simply reads as text.
+
+   The sweep is what stands in for a delete hook on the sixty-message cap:
+   audio whose message has gone is dropped the next time any is kept. */
+const noteKey = (id, index) => `msg:${id}:${index}`;
+
+async function keepNoteAudio(id, clips) {
+  let kept = 0;
+  try {
+    for (const clip of clips) await audioStore.putRecording(noteKey(id, kept++), clip);
+    for (const key of await audioStore.recordingKeys()) {
+      const owner = /^msg:([^:]+):/.exec(String(key))?.[1];
+      if (owner && !messages.find(owner)) await audioStore.deleteRecording(key);
+    }
+  } catch {
+    /* Storage that will not take it costs the audio, not the message. */
+  }
+  return kept;
+}
+
+async function dropNoteAudio(item) {
+  try {
+    for (let index = 0; index < (item.clips || 0); index++) await audioStore.deleteRecording(noteKey(item.id, index));
+  } catch {
+    /* Nothing to tidy. */
+  }
+}
+
+let noteUrls = [];
+
 function renderMessage() {
+  noteUrls.forEach((url) => URL.revokeObjectURL(url));
+  noteUrls = [];
   /* A text on this page comes from one of two places, and everything below
      is written against whichever it is rather than being duplicated.
 
@@ -3274,6 +3321,12 @@ function renderMessage() {
   };
   const language = LANGUAGES[item.language] ?? LANGUAGES[settings.language];
   const revealed = item.gist !== null;
+  /* A message that came in as audio is listened to before it is read: the
+     words are one tap away, and until that tap — or until you have said what
+     you caught — the page is the voice and the box. The transcript is the
+     level-two answer to a listening question. */
+  const voiceNote = !page && item.clips > 0;
+  const earsOnly = voiceNote && !revealed && !item.wordsShown;
   const segments = glossSegments(item.text, item.read?.glossary, item.language);
   const opened = new Set();
   // Whether the ask panel has been built for this render — see paintAsk.
@@ -3341,7 +3394,14 @@ function renderMessage() {
            </div>`
         : ""
     }
-    <div class="card message-card striped hue-${reading ? "purple" : "orange"}">
+    ${voiceNote ? `<div class="card msg-note striped hue-orange" id="msg-note"></div>` : ""}
+    <div class="card message-card striped hue-${reading ? "purple" : "orange"}${earsOnly ? " ears-only" : ""}">
+      ${
+        earsOnly
+          ? `<p class="small muted" style="margin:0 0 10px">Listen first, as often as you like. Say what you caught in the box below — or bring the words up when you need them.</p>
+             <button class="btn" id="msg-show-words" style="width:100%">Show the words</button>`
+          : ""
+      }
       <div class="msg-text" lang="${esc(item.language)}">${glossedParagraphs(segments)}</div>
       <p class="small muted msg-hint">${
         revealed
@@ -3397,6 +3457,55 @@ function renderMessage() {
     state.bookPage = null;
     render();
   };
+  /* The voice note itself: the file as it was sent, in the browser's own
+     player, with a slower speed beside it — pitch is kept, so it is the same
+     voice with more room between the words. Read out of IndexedDB after the
+     page is up; if the audio has gone, the message becomes plain text again. */
+  async function paintNote() {
+    const box = document.getElementById("msg-note");
+    const blobs = [];
+    try {
+      for (let index = 0; index < item.clips; index++) {
+        const blob = await audioStore.getRecording(noteKey(item.id, index));
+        if (blob) blobs.push(blob);
+      }
+    } catch {
+      /* Read as none. */
+    }
+    if (!box.isConnected) return;
+    if (!blobs.length) {
+      saveText({ clips: 0 });
+      render();
+      return;
+    }
+    noteUrls = blobs.map((blob) => URL.createObjectURL(blob));
+    box.innerHTML = `
+      ${noteUrls.map((url) => `<audio controls preload="metadata" src="${url}"></audio>`).join("")}
+      <div class="msg-note-foot">
+        <span class="tiny muted">${blobs.length === 1 ? "The message as it was sent." : "The messages as they were sent."}</span>
+        <button class="xat-tool" id="msg-note-slow" aria-pressed="false">Slower</button>
+      </div>`;
+    const players = [...box.querySelectorAll("audio")];
+    // One at a time, and never over the synthesised reading.
+    players.forEach((audio) =>
+      audio.addEventListener("play", () => {
+        readAloud.halt();
+        players.forEach((other) => other !== audio && other.pause());
+      })
+    );
+    const slow = document.getElementById("msg-note-slow");
+    slow.addEventListener("click", () => {
+      const on = slow.getAttribute("aria-pressed") !== "true";
+      slow.setAttribute("aria-pressed", String(on));
+      slow.textContent = on ? "Slower ✓" : "Slower";
+      players.forEach((audio) => {
+        audio.preservesPitch = true;
+        audio.playbackRate = on ? 0.75 : 1;
+        audio.defaultPlaybackRate = on ? 0.75 : 1;
+      });
+    });
+  }
+
   /* The text read aloud, in the reader voice, at the drill's two speeds, with
      a Stop — a page of a book is a minute of audio and the only way to stop
      it was to leave. It is the input, not the answer, so it is offered before
@@ -3423,8 +3532,14 @@ function renderMessage() {
     // A reading under way is in the old voice; the next Listen is in the new one.
     readAloud.halt();
   });
+  document.getElementById("msg-show-words")?.addEventListener("click", () => {
+    saveText({ wordsShown: true });
+    render();
+  });
+  if (voiceNote) paintNote();
   if (document.getElementById("msg-forget")) document.getElementById("msg-forget").onclick = () => {
     stopEverything();
+    dropNoteAudio(item);
     messages.remove(item.id);
     state.message = null;
     render();
@@ -3542,6 +3657,10 @@ function renderMessage() {
   function reveal(gist) {
     saveText({ gist });
     document.querySelector(".msg-hint").textContent = "";
+    // A voice note answered by ear: the words come up with the English.
+    document.querySelector(".message-card")?.classList.remove("ears-only");
+    document.getElementById("msg-show-words")?.previousElementSibling?.remove();
+    document.getElementById("msg-show-words")?.remove();
     paintGist();
     paintQuiz();
     paintReveal();
