@@ -1,7 +1,7 @@
 // Xerra — the entry point: boot, the render dispatcher and the one delegated listener on the view.
 
 import {
-  library, settings, aboutMe, aiLog, progress, messages, chats, feeds, books, stories, streak,
+  library, settings, aboutMe, aiLog, progress, messages, chats, feeds, books, stories, streak, matchTally,
 } from "./store.js";
 import { autosizeAll, state, stopEverything, toggleFold, view } from "./core.js";
 import { renderAbout } from "./about.js";
@@ -18,6 +18,7 @@ import { drawCanvases } from "./score.js";
 import { renderSettings } from "./settings.js";
 import { renderStory } from "./story-page.js";
 import { openStreak, renderStreak } from "./streak.js";
+import { renderMatch, startMatch } from "./match.js";
 
 // ---------------------------------------------------------------- going home
 
@@ -42,6 +43,7 @@ export function goHome() {
   state.bookId = null;
   state.bookPage = null;
   state.story = null;
+  state.match = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -59,6 +61,7 @@ export function goHome() {
 view.addEventListener("click", (event) => {
   if (event.target.closest("[data-go-home]")) return goHome();
   if (event.target.closest("[data-open-streak]")) return openStreak();
+  if (event.target.closest("[data-open-match]")) return startMatch();
   const fold = event.target.closest("[data-fold-card]");
   if (fold) return toggleFold(fold);
   if (event.target.closest("#open-settings, #open-settings-notice")) {
@@ -104,6 +107,7 @@ export function render() {
      Xerrada, a text open behind Real life or the reader, a book behind the
      reader. Whichever is open wins, and Back clears it. */
   else if (state.tab === "practise" && state.section === "streak") renderStreak();
+  else if (state.tab === "practise" && state.section === "match") renderMatch();
   else if (state.tab === "practise" && state.section === "xerrada" && state.chat) renderChat();
   else if (state.tab === "practise" && state.section === "reader" && state.story) renderStory();
   else if (state.tab === "practise" && state.section === "reader" && state.bookPage) renderMessage();
@@ -133,6 +137,7 @@ feeds.load();
 books.load();
 stories.load();
 streak.load();
+matchTally.load();
 state.showTranslation = settings.showTranslationUpFront;
 render();
 

@@ -168,6 +168,7 @@ body {
    its row wore there (memory's colour, and the input that feeds it), Xerrada
    the green of the speaking half of the app. */
 .sec-reader  { --sec: var(--purple); --sec-dark: var(--purple-dark); --sec-on: #ffffff; --sec-ink: var(--purple-ink);   --sec-soft: color-mix(in srgb, var(--purple) 16%, transparent); }
+.sec-match   { --sec: var(--gold);   --sec-dark: var(--gold-dark);   --sec-on: #4b4b4b; --sec-ink: var(--amber);        --sec-soft: color-mix(in srgb, var(--gold) 20%, transparent); }
 .sec-streak  { --sec: var(--orange); --sec-dark: var(--orange-dark); --sec-on: #ffffff; --sec-ink: var(--add-ink);      --sec-soft: color-mix(in srgb, var(--orange) 16%, transparent); }
 .sec-xerrada { --sec: var(--green);  --sec-dark: var(--green-dark);  --sec-on: #ffffff; --sec-ink: var(--practise-ink); --sec-soft: color-mix(in srgb, var(--green) 16%, transparent); }
 
@@ -2207,6 +2208,87 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .due-sub { font-size: 0.8rem; font-weight: 700; opacity: 0.92; }
 .due-go { font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 .node svg { width: 28px; height: 28px; }
+
+/* ------------------------------------------------------------------ match */
+
+.match-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  color: var(--text-2);
+  margin: 0 2px 12px;
+}
+.match-clock { font-variant-numeric: tabular-nums; font-weight: 900; color: var(--amber); }
+.match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.match-col { display: grid; gap: 10px; align-content: start; }
+.match-card {
+  min-height: 64px;
+  padding: 10px 10px;
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: transform 0.06s, background 0.15s, border-color 0.15s;
+}
+.match-card:active { transform: translateY(2px); border-bottom-width: 2px; }
+.match-card.picked { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--surface)); }
+.match-card.matched {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 16%, var(--surface));
+  color: var(--text-3);
+  cursor: default;
+}
+/* The English half of a pair is done; the half in the language stays a Listen
+   button, and wears a small speaker to say so. */
+.match-card.matched[data-side="english"] { pointer-events: none; }
+.match-card.matched[data-side="target"] { cursor: pointer; color: var(--text-2); }
+.match-card.matched[data-side="target"]::after { content: " 🔊"; font-size: 0.8em; }
+.match-card.matched[data-side="target"].busy { border-color: var(--green-dark); }
+.match-card.miss { animation: match-shake 0.4s; border-color: var(--red); }
+@keyframes match-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.match-result { margin-top: 16px; }
+.match-result h2 { color: var(--green-dark); }
+
+/* Match's strip on the home page: the streak strip's shape with a gold
+   stripe. Its own rule for `hidden`-safety is not needed — it is printed or
+   it is not. */
+.match-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: -2px 0 14px;
+  padding: 10px 14px 10px 12px;
+  border: 2px solid var(--line);
+  border-left: 6px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.match-strip:active { background: var(--surface-2); }
+.match-strip-mark svg { width: 26px; height: 26px; display: block; fill: none; stroke: var(--amber); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.match-strip-go { font-weight: 900; font-size: 0.85rem; white-space: nowrap; color: var(--amber); }
+
+/* An answer card in Review: the reply is the question, with its play button. */
+.task-reply { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.task-reply .reply-main { display: grid; gap: 4px; }
+.task-hint { margin-top: 6px; }
 
 /* ------------------------------------------------------------ xerrada tools */
 

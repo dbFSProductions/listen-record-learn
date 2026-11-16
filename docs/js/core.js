@@ -160,6 +160,24 @@ export const state = {
      is offered as a hint rather than shown, and reaching for it is not
      peeking. See `drillPicture`. */
   pictured: false,
+
+  /* Review asks a card back a different way each time it comes round — see
+     `reviewTask` in drill.js. `task` is which way this card is being asked:
+     null (as its level has it), "echo" (by ear, no text) or "answer" (one of
+     its replies is the prompt, `taskReply`). `taskHint` is the English, asked
+     for on an answer card. `lastTask` is the previous card's, so two in a row
+     are not asked the same way; `levelTwo` is what the card had earned before
+     a task was laid over it. All per card and reset by loadPhrase, and none
+     of it is written anywhere. */
+  task: null,
+  taskReply: null,
+  taskHint: false,
+  lastTask: undefined,
+  levelTwo: false,
+
+  /* A round of Match — see `startMatch` in match.js. Null outside the game. */
+  match: null,
+  matchTimer: null,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -498,6 +516,8 @@ export function stopEverything() {
   if (state.recorder.isRecording) state.recorder.cancel();
   clearInterval(state.levelTimer);
   state.levelTimer = null;
+  clearInterval(state.matchTimer);
+  state.matchTimer = null;
 }
 
 // ------------------------------------------------------------------ render
@@ -546,6 +566,10 @@ export const SECTIONS = {
   /* Two speech bubbles: the rehearsal chat. */
   xerrada: {
     mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M19 9h1a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v3l-4-3h-3"/></svg>`,
+  },
+  /* Two cards, one of them picked: Match. */
+  match: {
+    mark: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/><path d="M15.5 12l1.6 1.6 2.6-3"/></svg>`,
   },
   /* A flame: the streak. */
   streak: {

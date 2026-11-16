@@ -36,6 +36,8 @@ for (const type of ["pointerdown", "keydown", "touchstart"]) {
 function studying() {
   if (state.tab !== "practise") return false;
   if (state.celebration) return false;
+  // A round of Match counts while it is still going, not once it is won.
+  if (state.section === "match") return Boolean(state.match) && !state.match.finishedAt;
   if (state.deck) return true;
   if (state.about) return true;
   if (state.section === "xerrada" && state.chat) return true;
