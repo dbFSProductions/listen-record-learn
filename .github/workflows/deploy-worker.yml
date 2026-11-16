@@ -18,6 +18,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Stubbed tests, no keys and no network. A failure stops the deploy, so
+      # a broken Worker never reaches the three apps that share it.
+      - name: Worker tests
+        run: sh worker/tools/run-tests.sh
       - name: Deploy with wrangler
         uses: cloudflare/wrangler-action@v3
         with:
