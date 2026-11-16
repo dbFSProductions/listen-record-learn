@@ -20,7 +20,7 @@
 
 import { audioStore, voiceFor, voiceMaxChars, voiceProvider, workerVoiceName, LANGUAGES } from "./store.js";
 import { cardAssistant } from "./card-assistant.js";
-import { toWav16k } from "./audio.js";
+import { toWav16k, toWav16kClip } from "./audio.js";
 
 let sdkPromise = null;
 
@@ -395,6 +395,122 @@ export const transcription = {
     }
   },
 };
+
+/* The most audio one go will write down. The message reader takes 2500
+   characters and Catalan runs at about fifteen a second, so three minutes is
+   roughly a full box; a longer clip is cut there and the page says so. */
+export const LISTEN_MAX_SECONDS = 180;
+
+/* Audio in, text out: a whole clip written down, however many sentences it
+   holds. `transcribe` above is one utterance — `recognizeOnceAsync` stops at
+   the first pause, which is right for a line said into the chat and wrong for
+   a voice note. This runs the recogniser continuously until the file ends.
+
+   Resolves with `{ text, seconds, clipped }`, or null with `lastError` set.
+   `onText` is handed the transcript so far as each sentence lands, so the box
+   can fill while a long note is still being read. */
+transcription.listen = async function (audioBlob, language, settings, onText) {
+  this.lastError = null;
+  if (!settings.hasAzure) {
+    this.lastError = "Writing down audio needs an Azure key — add one in Settings.";
+    return null;
+  }
+  let clip;
+  try {
+    clip = await toWav16kClip(audioBlob, LISTEN_MAX_SECONDS);
+  } catch {
+    this.lastError = "That file couldn't be opened as audio. A voice note saved as .m4a, .mp3, .wav or .opus should work.";
+    return null;
+  }
+  try {
+    const SDK = await loadSDK();
+    const file = new File([clip.wav], "clip.wav", { type: "audio/wav" });
+    const segments = await withOneRetry(() =>
+      recogniseAll(SDK, settings, language, file, (soFar) => onText?.(joinSegments(soFar)))
+    );
+    const text = joinSegments(segments);
+    if (!text) {
+      this.lastError = "Azure couldn't make out any speech in that.";
+      return null;
+    }
+    return { text, seconds: clip.seconds, clipped: clip.clipped };
+  } catch (error) {
+    this.lastError = describeAzureError(error);
+    return null;
+  }
+};
+
+/* Sentences into paragraphs. Azure hands back one result per stretch of
+   speech with where it started and how long it ran, in 100-nanosecond ticks;
+   a gap of more than a second and a half between two of them is the speaker
+   stopping to think, or the next voice note, and reads as a new paragraph —
+   which is what the reading page splits on. Without timings it is one block. */
+const PARAGRAPH_GAP = 1.5 * 1e7;
+
+export function joinSegments(segments) {
+  let text = "";
+  let lastEnd = null;
+  for (const segment of segments) {
+    if (!segment.text) continue;
+    const gap = lastEnd != null && Number.isFinite(segment.offset) ? segment.offset - lastEnd : 0;
+    text += text ? (gap > PARAGRAPH_GAP ? "\n\n" : " ") : "";
+    text += segment.text;
+    lastEnd = Number.isFinite(segment.offset) && Number.isFinite(segment.duration) ? segment.offset + segment.duration : null;
+  }
+  return text;
+}
+
+/* Continuous recognition over one WAV, on a fresh recogniser. It ends when
+   the file does: the SDK cancels with EndOfStream and then stops the session,
+   and whichever arrives first settles it. A cancellation that is an error —
+   a refused key, a dropped socket — rejects, so `withOneRetry` and
+   `describeAzureError` read it exactly as they read the one-shot path. */
+function recogniseAll(SDK, settings, language, file, onSegments) {
+  const config = SDK.SpeechConfig.fromSubscription(settings.azureKey.trim(), settings.azureRegion.trim());
+  config.speechRecognitionLanguage = language;
+  const recogniser = new SDK.SpeechRecognizer(config, SDK.AudioConfig.fromWavFileInput(file));
+  return new Promise((resolve, reject) => {
+    const segments = [];
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      const done = () => {
+        try {
+          recogniser.close();
+        } catch {
+          /* Already closed. */
+        }
+        if (error) reject(error);
+        else resolve(segments);
+      };
+      try {
+        recogniser.stopContinuousRecognitionAsync(done, done);
+      } catch {
+        done();
+      }
+    };
+    recogniser.recognized = (_, event) => {
+      const result = event?.result;
+      const text = (result?.text || "").trim();
+      if (result?.reason !== SDK.ResultReason.RecognizedSpeech || !text) return;
+      segments.push({ text, offset: Number(result.offset), duration: Number(result.duration) });
+      onSegments?.(segments);
+    };
+    recogniser.canceled = (_, event) => {
+      if (event?.reason === SDK.CancellationReason.Error) {
+        finish(new Error(event.errorDetails || "Azure cancelled the request."));
+      } else {
+        finish();
+      }
+    };
+    recogniser.sessionStopped = () => finish();
+    recogniser.startContinuousRecognitionAsync(
+      () => {},
+      (error) => finish(new Error(error))
+    );
+  });
+}
 
 /* One synthesis, on a fresh synthesiser. The SDK's objects are single-use once
    closed, which is why the retry below rebuilds rather than re-asks. A null
