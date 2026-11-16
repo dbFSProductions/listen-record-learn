@@ -522,3 +522,53 @@ at the chip that earned it.
 Deb-o-lingo scores Spanish through the same Azure call and is **now in step**:
 same `attemptScore`, same fallbacks, same three constants (its `PASS_GREAT` and
 `PASS_OK` are this file's `GOOD` and `OK`). Keep them that way.
+
+## Review asks a card three ways (v131)
+
+Reported as *"can Xerra be more interesting, I quickly get bored of the same
+revisions"*. The cards have to come back — that is what Review is — but until
+now it asked the same thing of them every time: read it, hear it, say it. So
+the task varies and the card does not.
+
+- **`reviewTask` in drill.js picks one of up to three ways** for each card of
+  a Review session, at random, leaving out the way the previous card was
+  asked: as its level has it (read aloud at level one, from the English at
+  level two), **by ear** (`"echo"` — no phrase and no English on the card,
+  Listen and Slow stay, say back what you heard), or **from a reply**
+  (`"answer"` — one of the card's *You might hear back* lines is printed as
+  the question: somebody answers you with this, what had you said?).
+- **Every way ends in a spoken, scored attempt, filed as it always was.**
+  `mode` is `"listen"` for an echo and `"recall"` / `"recall-shown"` for an
+  answer, so `goodAttempts`, `recallReady` and `reviewOf` read the same
+  history they did before. Nothing is persisted and nothing changes a card's
+  level; `state.levelTwo` remembers what the card had earned so
+  `announceLevelUp` does not mistake a task for a change of level.
+- **Both tasks pick their side of the gate.** By ear is `echoing`, a third
+  flag beside `asking` and `typing` and read with them as `questioned`: the
+  phrase, the tip, the situation, the replies, the kept notes, the card check
+  and the ask box all wait. Unlike `asking` it keeps Listen, because the
+  audio is the prompt rather than the answer. An answer card *is* `asking` —
+  `state.recall` is set for it — and only what is printed as the question
+  changes, so everything level two withholds is withheld.
+- **The English is a hint on an answer card, not the question.** A reply
+  alone can be ambiguous (*Igualment!* answers a dozen lines), so *Hint: what
+  you meant, in English* is one tap away and is not peeking. Show me is
+  level two's and is.
+- **By ear is one tap from the text.** *Show the phrase* turns the card back
+  into one you read aloud; it is a task, not a wall.
+- **Only in Review.** A lesson on the path is where a card is met, and
+  meeting it by ear would be a different lesson. Not in road mode (already by
+  ear) or quiet mode (already a written question), and switching either on or
+  off mid-card takes the task off through `dropTask` — a card cannot be asked
+  two ways at once. An answer card needs replies on the card and level two
+  switched on; nothing is fetched to make one possible.
+- **There is no switch.** Review has none either. If one of the ways turns
+  out to be a nuisance, the list in `reviewTask` is the place to take it out.
+- The reply prompt is slightly backwards on purpose: a reply is what is said
+  *after* your line, so it is a cue from the far side of the exchange. Options
+  not built, in case this is not enough: a fresh sentence around a due phrase
+  (needs a Worker endpoint and a decision on whether a variation counts for
+  the original card), and Review held as a conversation in Chat.
+
+Asserted in `tools/checks/review-tasks.js`, with `Math.random` steered.
+Deb-o-lingo has Review and could take this whole; Mum-o-lingo has no Review.

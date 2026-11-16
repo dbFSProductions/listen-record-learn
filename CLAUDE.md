@@ -105,6 +105,7 @@ one module per page. Older notes that say "in app.js" mean one of these.
 | `chat.js` | Chat (key `xerrada`): scenes, starter, the conversation. |
 | `about.js` | About me: the interview and the cards it writes. |
 | `streak.js` | The study clock, flame, strip and streak page. |
+| `match.js` | Match, the pairs game behind the strip on the home page. |
 | `deck-manager.js` | Settings → Decks, and the print page. |
 | `settings.js` | Settings and its panels. |
 | `store.js` | All persisted data and its rules: `library`, `settings`, `messages`, `chats`, `books`, `streak`, `LANGUAGES`, `ASPECTS`, voices, review, IndexedDB. |
@@ -129,7 +130,7 @@ To find where something lives: `grep -n "function name" docs/js/*.js`.
   call `render()`.
 - **`state.section`** is which tile you are behind (`null` is the home tiles;
   keys are `decks`, `vocab`, `quick`, `grammar`, `reader`, `xerrada`,
-  `phrases`, `streak`). `state.deck` set means the drill is showing.
+  `phrases`, `streak`, `match`). `state.deck` set means the drill is showing.
   `state.message`, `state.chat`, `state.story`, `state.book`,
   `state.bookPage`, `state.about` are pages open behind a tile.
 - **Tile titles are not keys.** *Practice* is key `decks`, *Real life* is
@@ -201,9 +202,13 @@ Each has a full argument in `notes/`. Do not reverse one without reading it.
 
 - **The score is the weakest word in the attempt**, not any Azure aggregate
   (`attemptScore` in `store.js`). `notes/drill.md`.
-- **Only spoken attempts count.** Nothing typed in quiet mode, and no practice
-  go in the chat, is filed as an attempt. Level two (four good goes) and
+- **Only spoken attempts count.** Nothing typed in quiet mode, no practice
+  go in the chat and no round of Match is filed as an attempt. Level two (four good goes) and
   Review (spaced repetition read off the attempts) depend on it.
+- **Review varies the task, never the card's level.** A due card is asked as
+  its level has it, by ear, or from one of its replies (`reviewTask` in
+  `drill.js`); every way ends in a spoken attempt filed as it always was.
+  Only in Review, and not in road or quiet mode. `notes/drill.md`.
 - **The answer is withheld until you commit**: the phrase at level two, the
   sentence behind the grammar gate, the English of a message, the transcript
   of a voice note.
@@ -241,6 +246,8 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
   every change — a missing import shows up here.
 - `drill.js` records with a fake microphone and is scored by a fake Azure.
 - `voice-note.js` covers audio in, text out.
+- `review-tasks.js` steers `Math.random` to ask a due card each of Review's
+  three ways; `match.js` plays two rounds of Match.
 - `lib.js` has the helpers: `open()` (a fresh phone-sized page, service worker
   blocked, settings seeded), `stubWorker()` (answer the card assistant),
   `fakeAzure` (a stand-in Speech SDK), `toneWav()`, `tally()`.
@@ -302,10 +309,10 @@ state below changed, update this one.
 
 ## State
 
-- **v130 / `xerra-v130`** — `js/version.js` first, `sw.js` second.
+- **v131 / `xerra-v131`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
-  Chat, About me, All Phrases; plus the Review strip, the streak, search, and
-  the gear to Settings.
+  Chat, About me, All Phrases; plus the Review strip, the Match strip, the
+  streak, search, and the gear to Settings.
 - 467 seed phrases: 354 Catalan in thirty-six decks, 113 Spanish in fourteen.
   Italian starts empty.
 - Azure (key on the phone) does voices, scoring and transcription. The Worker
@@ -314,6 +321,9 @@ state below changed, update this one.
   into modules, the switched-off screenshot upload removed (app and Worker),
   checks moved into `tools/checks/`, Worker tests run before each deploy, and
   these notes reorganised.
+- v131 added two things against boredom in revision: Review asks each card
+  one of three ways, and Match was ported from Deb-o-lingo (without her
+  prizes).
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

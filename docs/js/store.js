@@ -25,6 +25,7 @@ const KEYS = {
   books: "xerra.books",
   stories: "xerra.stories",
   streak: "xerra.streak",
+  match: "xerra.match",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -1504,6 +1505,7 @@ export const library = {
         bookGlosses: await bookStore.allGlosses(),
         stories: stories.results,
         streak: streak.data,
+        match: matchTally.data,
       },
       null,
       2
@@ -1535,6 +1537,8 @@ export const library = {
     stories.replace(parsed.stories);
     // Absent in a backup taken before the streak existed; not an error.
     streak.replace(parsed.streak);
+    // Absent in a backup taken before Match existed; not an error.
+    matchTally.replace(parsed.match);
   },
 };
 
@@ -2103,6 +2107,57 @@ export const streak = {
       return { day: id, seconds: this.secondsOn(id), done: this.dayDone(id), today: id === day, future: id > day };
     });
     return { start, days, done: days.filter((d) => d.done).length };
+  },
+};
+
+// -------------------------------------------------------------------- match
+
+/* The matching game's lifetime tallies — see match.js. Pairs matched is the
+   number the page shows; rounds, clean rounds and the best clean time are
+   kept to be beaten. Nothing is won with any of it: Deb-o-lingo hangs medals
+   on these numbers and this app does not. Rides in export/import. */
+export const matchTally = {
+  total: 0,
+  rounds: 0,
+  perfect: 0,
+  bestTime: null,
+
+  load() {
+    this.replace(readJSON(KEYS.match, {}));
+  },
+
+  save() {
+    writeJSON(KEYS.match, this.data);
+  },
+
+  get data() {
+    return { total: this.total, rounds: this.rounds, perfect: this.perfect, bestTime: this.bestTime };
+  },
+
+  /** Take a stored or imported shape, forgivingly — an older backup has none. */
+  replace(data) {
+    const d = data && typeof data === "object" ? data : {};
+    this.total = Math.max(0, Number(d.total) || 0);
+    this.rounds = Math.max(0, Number(d.rounds) || 0);
+    this.perfect = Math.max(0, Number(d.perfect) || 0);
+    this.bestTime = typeof d.bestTime === "number" && d.bestTime > 0 ? d.bestTime : null;
+    this.save();
+  },
+
+  /** One pair matched. */
+  recordPair() {
+    this.total += 1;
+    this.save();
+  },
+
+  /** A round finished: a clean one counts, and may be the fastest yet. */
+  recordRound({ misses, seconds }) {
+    this.rounds += 1;
+    if (misses === 0) {
+      this.perfect += 1;
+      if (this.bestTime == null || seconds < this.bestTime) this.bestTime = seconds;
+    }
+    this.save();
   },
 };
 

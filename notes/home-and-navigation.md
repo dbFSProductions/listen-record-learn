@@ -470,3 +470,33 @@ whose link reads *‹ Home* and whose count reads *3 matches*, with no `.tile` o
 screen; `[data-search-clear]` puts the tiles back and empties `#search`; inside
 `[data-section="phrases"]` the link reads *‹ All Phrases* and clearing it brings
 the deck rows back; and a query matching nothing still carries the link.
+
+## Match, and its strip on the home page (v131)
+
+Ported from Deb-o-lingo in the same piece of work as Review's three tasks,
+as the other answer to *"I quickly get bored of the same revisions"*: Review
+asks you to say a card, Match only to know it.
+
+- **A strip, not a ninth tile.** Eight squares fill their grid and a ninth
+  would hang off the end. `matchStrip` in practice.js prints it under the
+  streak and Review strips: white with a gold stripe, the streak strip's
+  shape, so the page keeps one filled slab — Review's, the one asking
+  something of you today. Always shown where the language has two cards to
+  pair; it carries `data-open-match`, handled by the delegated listener in
+  app.js.
+- **`state.section === "match"`** is the page, like the streak's, with
+  `state.match` the round in play. `goHome` clears it and `stopEverything`
+  stops its clock.
+- **It is a game and not a drill.** No attempt is written, so a round moves
+  neither level two nor the review schedule. It does count as study time
+  while a round is still going (`studying` in streak.js), as it does in
+  Deb-o-lingo.
+- **Her medals did not come with it.** This app has a streak, not prizes.
+  The tallies did — pairs, rounds, clean rounds, best clean time — in
+  `matchTally` in store.js (`xerra.match`), and they ride in export/import.
+- **The pool is the current language's drillable cards**, six pairs a round,
+  never two with the same phrase or the same English. A pair is said aloud
+  as it lands only where the card's own voice can really speak, and a
+  matched card in the language is a Listen button from then on.
+
+Asserted in `tools/checks/match.js`.

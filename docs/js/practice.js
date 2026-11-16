@@ -2,7 +2,7 @@
 
 import {
   library, settings, LANGUAGES, ABOUT_DECK, deckLeaf, familyOpen, setFamilyOpen, attemptScore, sectionOf,
-  QUICK_DECK, deckFamily, progress, messages, chats, REVIEW_DECK,
+  QUICK_DECK, deckFamily, progress, messages, chats, REVIEW_DECK, matchTally,
 } from "./store.js";
 import {
   CLOCK_SVG, FAMILY_PREFIX, FAVOURITES_DECK, REVIEW_CAP, SECTIONS, SECTION_PREFIX, TILES, TILE_BY_KEY,
@@ -15,6 +15,7 @@ import { loadPhrase } from "./drill.js";
 import { isMessage } from "./message.js";
 import { editPhrase, showPhrase } from "./phrase.js";
 import { flameButton, streakStrip } from "./streak.js";
+import { matchLanguageName, matchPool } from "./match.js";
 
 // ---------------------------------------------------------------- practice
 
@@ -248,7 +249,8 @@ export function renderPractice(section = null) {
          library.drillable(settings.language).length
        } phrases ready</p>
        ${streakStrip()}
-       ${dueStrip()}`;
+       ${dueStrip()}
+       ${matchStrip()}`;
 
   /* On the tiles the search box goes *under* them: the four squares are what
      the tab is for, and a box above them would push them down the page and read
@@ -311,6 +313,27 @@ export function renderPractice(section = null) {
           }</span>
         </span>
         <span class="due-go">Start ›</span>
+      </button>`;
+  }
+
+  /* Match's way in. A strip rather than a ninth square: eight tiles fill
+     their grid and a ninth would hang off the end of it. White with a gold
+     stripe, the streak strip's shape, so the page keeps one filled slab —
+     Review's, which is the one asking something of you today. Left out in a
+     language with too few cards to deal a round. */
+  function matchStrip() {
+    if (matchPool().length < 2) return "";
+    const total = matchTally.total;
+    return `
+      <button class="match-strip" data-open-match="1" aria-label="Match">
+        <span class="match-strip-mark" aria-hidden="true">${SECTIONS.match.mark}</span>
+        <span class="streak-main">
+          <span class="streak-title">Match</span>
+          <span class="streak-sub">Pair the ${esc(matchLanguageName())} with the English${
+            total ? ` · ${total} matched` : ""
+          }</span>
+        </span>
+        <span class="match-strip-go">Play ›</span>
       </button>`;
   }
 
