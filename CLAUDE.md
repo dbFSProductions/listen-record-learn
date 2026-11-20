@@ -309,7 +309,7 @@ state below changed, update this one.
 
 ## State
 
-- **v131 / `xerra-v131`** — `js/version.js` first, `sw.js` second.
+- **v132 / `xerra-v132`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -324,6 +324,8 @@ state below changed, update this one.
 - v131 added two things against boredom in revision: Review asks each card
   one of three ways, and Match was ported from Deb-o-lingo (without her
   prizes).
+- v132: Match has Read / Listen and says a card when picked; the service
+  worker precaches `?v=VERSION` past stale copies.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

@@ -2121,6 +2121,10 @@ export const matchTally = {
   rounds: 0,
   perfect: 0,
   bestTime: null,
+  /* The best clean Listen round, kept apart: a round you only hear is not
+     the same race as one you read, so it gets its own best. `bestTime` stays
+     the reading one, which is every round before Listen existed. */
+  bestListen: null,
 
   load() {
     this.replace(readJSON(KEYS.match, {}));
@@ -2131,7 +2135,7 @@ export const matchTally = {
   },
 
   get data() {
-    return { total: this.total, rounds: this.rounds, perfect: this.perfect, bestTime: this.bestTime };
+    return { total: this.total, rounds: this.rounds, perfect: this.perfect, bestTime: this.bestTime, bestListen: this.bestListen };
   },
 
   /** Take a stored or imported shape, forgivingly — an older backup has none. */
@@ -2141,6 +2145,7 @@ export const matchTally = {
     this.rounds = Math.max(0, Number(d.rounds) || 0);
     this.perfect = Math.max(0, Number(d.perfect) || 0);
     this.bestTime = typeof d.bestTime === "number" && d.bestTime > 0 ? d.bestTime : null;
+    this.bestListen = typeof d.bestListen === "number" && d.bestListen > 0 ? d.bestListen : null;
     this.save();
   },
 
@@ -2151,11 +2156,12 @@ export const matchTally = {
   },
 
   /** A round finished: a clean one counts, and may be the fastest yet. */
-  recordRound({ misses, seconds }) {
+  recordRound({ misses, seconds, listen = false }) {
     this.rounds += 1;
     if (misses === 0) {
       this.perfect += 1;
-      if (this.bestTime == null || seconds < this.bestTime) this.bestTime = seconds;
+      const key = listen ? "bestListen" : "bestTime";
+      if (this[key] == null || seconds < this[key]) this[key] = seconds;
     }
     this.save();
   },
@@ -2262,6 +2268,8 @@ const DEFAULT_SETTINGS = {
      where you are, not a decision about this sentence. The two are mutually
      exclusive — see `quietNow` in app.js, which is what actually enforces it. */
   quietMode: false,
+  // Match: read the cards, or hear them only. See `startMatch` in match.js.
+  matchListen: false,
   /* Dot or line: on a card that carries a shape, the drill asks you to name it
      before it will show you the sentence. Only the past-tense decks carry one,
      so this switch does nothing at all to the rest of the library — it is here
