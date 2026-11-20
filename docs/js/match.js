@@ -54,6 +54,10 @@ export function startMatch() {
   }
   state.match = {
     pairs,
+    /* Listen: the cards in the language are speakers until matched. Only when
+       every card dealt has a voice that can really speak — a silent speaker
+       is a card you cannot play. Otherwise the round is read. */
+    listen: Boolean(settings.matchListen) && settings.hasAzure && pairs.every((p) => canSpeak(voiceFor(p, settings))),
     right: shuffle([...pairs]),
     picked: null,
     matched: new Set(),
@@ -69,23 +73,52 @@ export function renderMatch() {
   const game = state.match;
   if (!game) return goHome();
   const language = matchLanguageName();
-  const card = (side, p) =>
-    `<button class="match-card ${game.matched.has(p.id) ? "matched" : ""}" data-side="${side}" data-id="${esc(p.id)}"
-             lang="${side === "target" ? esc(p.language) : "en"}">${esc(side === "target" ? p.text : p.translation)}</button>`;
+  const card = (side, p, i) => {
+    const matched = game.matched.has(p.id);
+    const hidden = side === "target" && game.listen && !matched;
+    return `<button class="match-card ${matched ? "matched" : ""} ${hidden ? "match-listen" : ""}" data-side="${side}"
+             data-id="${esc(p.id)}" lang="${side === "target" ? esc(p.language) : "en"}"
+             ${hidden ? `aria-label="${esc(language)} card ${i + 1} — tap to hear it"` : ""}>${
+               hidden ? `<span aria-hidden="true">🔊</span>` : esc(side === "target" ? p.text : p.translation)
+             }</button>`;
+  };
+  const canListen = settings.hasAzure;
+  const option = (value, on, label, disabled = false) =>
+    `<button class="match-option" data-match-listen="${value}" aria-pressed="${on}" ${disabled ? "disabled" : ""}>${label}</button>`;
 
   view.innerHTML = `
     ${pageHead("match", "Match", `${game.pairs.length} pairs a round`, homeLink())}
-    <p class="muted section-intro">Tap a ${esc(language)} card, then its English. Tap a matched ${esc(language)} card to hear it again.</p>
+    <div class="match-options">
+      <div class="match-choice" role="group" aria-label="${esc(language)} cards">
+        ${option("0", !game.listen, "Read")}
+        ${option("1", game.listen, "Listen", !canListen)}
+      </div>
+    </div>
+    <p class="muted section-intro">${
+      game.listen
+        ? `Tap a speaker to hear the ${esc(language)}, then tap its English. The words show once you've matched them.`
+        : `Tap a ${esc(language)} card to hear it, then tap its English. Tap a matched card to hear it again.`
+    }${canListen ? "" : " <em>Listen</em> needs the Azure key in Settings."}</p>
     <div class="match-bar">
       <span><strong id="match-count">${game.matched.size}</strong> of ${game.pairs.length}</span>
       <span id="match-clock" class="match-clock">0:00</span>
       <span>total <strong id="match-total">${matchTally.total}</strong></span>
     </div>
     <div class="match-grid">
-      <div class="match-col">${game.pairs.map((p) => card("target", p)).join("")}</div>
-      <div class="match-col">${game.right.map((p) => card("english", p)).join("")}</div>
+      <div class="match-col">${game.pairs.map((p, i) => card("target", p, i)).join("")}</div>
+      <div class="match-col">${game.right.map((p, i) => card("english", p, i)).join("")}</div>
     </div>
     <div id="match-done"></div>`;
+
+  /* A change deals a fresh round: one that changed shape halfway would have
+     no honest time. */
+  view.querySelector(".match-options").addEventListener("click", (event) => {
+    const button = event.target.closest(".match-option");
+    if (!button || button.disabled || button.getAttribute("aria-pressed") === "true") return;
+    settings.matchListen = button.dataset.matchListen === "1";
+    settings.save();
+    startMatch();
+  });
 
   view.querySelector(".match-grid").addEventListener("click", (event) => {
     const button = event.target.closest(".match-card");
@@ -132,6 +165,16 @@ function pickMatch(button) {
   if (game.finishedAt) return;
   const picked = game.picked;
 
+  /* A card in the language says itself when it is picked, in Read as in
+     Listen, and again when its pair lands. In Listen a second tap says it
+     again and keeps it picked — hearing it again is the game there; in Read
+     a second tap unpicks it quietly. Only where its voice can really speak,
+     as on a match: the browser voice on iOS fails silently, and its toast
+     would fire on every tap. */
+  const again = picked?.side === "target" && picked.id === id && side === "target";
+  if (side === "target" && canSpeak(voiceFor(phrase, settings)) && (game.listen || !again)) sayPair(button, phrase, "");
+  if (game.listen && again) return;
+
   // Same side: a second tap on the same card unpicks it, any other switches.
   if (!picked || picked.side === side) {
     picked?.button.classList.remove("picked");
@@ -149,6 +192,10 @@ function pickMatch(button) {
   if (picked.id === id) {
     const targetButton = side === "target" ? button : picked.button;
     for (const b of [picked.button, button]) b.classList.add("matched");
+    if (game.listen) {
+      targetButton.classList.remove("match-listen");
+      targetButton.textContent = phrase.text;
+    }
     game.matched.add(id);
     matchTally.recordPair();
     const count = document.getElementById("match-count");
@@ -158,8 +205,10 @@ function pickMatch(button) {
     /* Hear it as it lands — the pair is a card, and a card is for saying.
        Only where the card's voice can really speak: the browser voice on iOS
        fails silently, and the toast that names that failure would fire on
-       every pair. */
-    if (canSpeak(voiceFor(phrase, settings))) sayPair(targetButton, phrase, "");
+       every pair. Not when it is still being said from the tap that picked
+     it: `sayAloud` stops the player before its busy guard, so a second call
+     would only cut the line off. */
+    if (canSpeak(voiceFor(phrase, settings)) && targetButton.dataset.busy !== "1") sayPair(targetButton, phrase, "");
     targetButton.setAttribute("aria-label", `${targetButton.textContent} — tap to hear it again`);
     if (game.matched.size === game.pairs.length) finishMatch();
   } else {
@@ -179,8 +228,9 @@ function finishMatch() {
   const seconds = Math.round((game.finishedAt - game.startedAt) / 1000);
   /* Was this the best clean round? Asked before the tally takes it, so a
      round that only equals the best is not announced as one. */
-  game.best = game.misses === 0 && (matchTally.bestTime == null || seconds < matchTally.bestTime);
-  matchTally.recordRound({ misses: game.misses, seconds });
+  const previous = game.listen ? matchTally.bestListen : matchTally.bestTime;
+  game.best = game.misses === 0 && (previous == null || seconds < previous);
+  matchTally.recordRound({ misses: game.misses, seconds, listen: game.listen });
   clearInterval(state.matchTimer);
   state.matchTimer = null;
   paintMatchClock();
@@ -193,7 +243,8 @@ function paintMatchDone() {
   if (!game?.finishedAt || !host) return;
   const seconds = Math.round((game.finishedAt - game.startedAt) / 1000);
   const clean = game.misses === 0;
-  const best = matchTally.bestTime;
+  const best = game.listen ? matchTally.bestListen : matchTally.bestTime;
+  const kind = game.listen ? "listening round" : "round";
   const total = matchTally.total;
   host.innerHTML = `
     <div class="card match-result">
@@ -203,7 +254,7 @@ function paintMatchDone() {
           : `Done — ${game.misses} miss${game.misses === 1 ? "" : "es"}.`
       }</h2>
       <p class="muted" style="margin:6px 0 12px">${seconds}s${
-        game.best ? " — your best clean round" : best != null ? ` · best clean round ${best}s` : ""
+        game.best ? ` — your best clean ${kind}` : best != null ? ` · best clean ${kind} ${best}s` : ""
       }. ${total} pair${total === 1 ? "" : "s"} matched all told.</p>
       <div class="btn-row">
         <button class="btn btn-primary" id="match-again">Another round</button>

@@ -500,3 +500,33 @@ asks you to say a card, Match only to know it.
   matched card in the language is a Listen button from then on.
 
 Asserted in `tools/checks/match.js`.
+
+### Read or Listen, and said on the pick (v132)
+
+Ported from Deb-o-lingo (her v64–v65), asked for in the same breath as the
+fix there: *"add the listen read options to xerra. Once again, always have it
+say the line."* Her 6 / 8 / 10 pairs did not come with it — not asked for.
+
+- **A Read / Listen pill above the round**, kept in `settings.matchListen`.
+  Changing it deals a fresh round. In Listen the cards in the language are
+  speakers with no writing until matched; tap one to hear it, then find its
+  English.
+- **A card in the language is said when picked and again when matched**, in
+  both modes, wherever its voice can really speak (`canSpeak(voiceFor(…))`).
+  Not again on the match if it is still being said from the pick, because
+  `sayAloud` stops the player before its busy guard and would cut it off. In
+  Listen a second tap says it again and keeps it picked; in Read it unpicks
+  quietly.
+- **Listen needs the Azure key**, and every card dealt must be able to speak.
+  Without the key the option is disabled with one line saying why, and a
+  saved Listen deals a read round. The Worker voices alone don't qualify: the
+  button says Azure, and the round follows the button.
+- **Its own best**: `matchTally.bestListen`, beside `bestTime`, which stays the
+  reading one. Additive, so an older backup imports as it did.
+- **The service worker precaches `url?v=VERSION`** and every lookup uses
+  `ignoreSearch`. Deb-o-lingo's v64 reached her phone as new scripts beside an
+  old stylesheet, which `cache: "reload"` alone had not prevented; the query
+  means nothing between the phone and Pages can answer with an older copy.
+
+Asserted in `tools/checks/match-listen.js` against a fake Azure that writes
+down what it was asked to say.

@@ -6,7 +6,7 @@
 
 // Bumped with VERSION in js/version.js — Settings shows the two side by side,
 // so forgetting one of them shows up as two different numbers on screen.
-const VERSION = "xerra-v131";
+const VERSION = "xerra-v132";
 const SHELL = [
   "./",
   "./index.html",
@@ -56,7 +56,12 @@ const SHELL = [
    next to the old app.js — and cache-first then served that mix for good,
    which is the one way this app has actually broken on deploy. `reload`
    bypasses the HTTP cache, so a version's cache is all of one version. */
-const fromNetwork = (url) => new Request(url, { cache: "reload" });
+/* And past every cache between here and Pages, too: the URL carries the
+   version, so nothing in between can answer with a copy from before this
+   deploy. Deb-o-lingo's v64 reached a phone as new scripts beside an old
+   stylesheet, which `reload` alone did not prevent. The cache stores each
+   file under that URL, so every lookup below uses `ignoreSearch`. */
+const fromNetwork = (url) => new Request(`${url}?v=${VERSION}`, { cache: "reload" });
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -98,7 +103,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
+        .catch(() => caches.match(request, { ignoreSearch: true }).then((cached) => cached || caches.match("./index.html", { ignoreSearch: true })))
     );
     return;
   }
@@ -106,7 +111,7 @@ self.addEventListener("fetch", (event) => {
   // Everything else cache-first, then network, refreshing the cache as we go.
   // Suits a static app shell that changes only when it's redeployed.
   event.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request, { ignoreSearch: true }).then((cached) => {
       const network = fetch(request)
         .then((response) => {
           if (response.ok) {
