@@ -262,10 +262,27 @@ export const REVIEW_CAP = 10;
    the top-up keeps a session fresh, it does not invent one. */
 export function reviewToday() {
   const due = library.due(settings.language);
-  if (!due.length) return { due, cards: [], session: 0, dueIn: 0, fresh: 0, rest: 0 };
+  /* Cards queued first (a new seed deck asked to open Review) count as
+     something to do, so they bring the strip even when nothing is due. */
+  const queued = library.firstCards(settings.language).slice(0, REVIEW_CAP);
+  const empty = { due, cards: [], session: 0, first: 0, firstDeck: null, dueIn: 0, fresh: 0, rest: 0 };
+  if (!due.length && !queued.length) return empty;
   const cards = library.reviewSession(settings.language, REVIEW_CAP);
-  const dueIn = Math.min(due.length, REVIEW_CAP);
-  return { due, cards, session: cards.length, dueIn, fresh: cards.length - dueIn, rest: Math.max(0, due.length - REVIEW_CAP) };
+  const queuedIds = new Set(queued.map((p) => p.id));
+  const dueLeft = due.filter((p) => !queuedIds.has(p.id));
+  const first = queued.length;
+  const dueIn = Math.min(dueLeft.length, REVIEW_CAP - first);
+  const decks = [...new Set(queued.map((p) => p.deck))];
+  return {
+    due,
+    cards,
+    session: cards.length,
+    first,
+    firstDeck: decks.length === 1 ? decks[0] : null,
+    dueIn,
+    fresh: cards.length - first - dueIn,
+    rest: Math.max(0, dueLeft.length - dueIn),
+  };
 }
 
 /* A deck name is a string on a phrase and a key in a list, and the app already

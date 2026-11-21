@@ -684,3 +684,39 @@ Asserted in `tools/checks/review-fresh.js`:
 
 `review-tasks.js` now puts every other card aside so its three-card
 steering holds.
+
+## Queued first: a new deck can open Review (v136)
+
+Asked with the Nadal deck: *"add them in a deck. And start review with 10
+of them"*. A new card otherwise reaches Review only as the random top-up,
+which would take weeks to get round ten particular cards.
+
+- **`SEED_REVIEW_FIRST` in store.js** is a set of seed texts. When
+  `installNewSeedContent` installs one of them as a newcomer, its id goes on
+  `library.first` (`xerra.reviewFirst`). That only happens once, on arrival,
+  and **only on a phone that already had seed content**: on a first install
+  everything is new and Review starts the ordinary way (and the other checks,
+  which start fresh, see no queue).
+- **`reviewSession` takes queued cards first**, ahead of anything due, in the
+  order queued, then due, met and fresh as before. Saying a card
+  (`recordAttempt`) takes it out of the queue. A queued card shown and not
+  said is put aside like any Review card and comes back to the front of the
+  queue after three days.
+- **The strip shows with nothing due** if cards are queued: *10 new from
+  Nadal*, or *8 new from Nadal + 2 due today · 10 more waiting*.
+  `reviewToday()` returns `first` and `firstDeck` for it.
+- **"Ten different ones" now puts aside the session the strip offers**
+  (`reviewToday().cards`), not the first ten due. These were the same set
+  until queued cards could come before the due ones. It is hidden when
+  nothing is due: queued cards alone are the session that was asked for, and
+  putting them aside would leave nothing to start. Left as it was: with ten
+  or fewer due and nothing queued, the link still puts them all aside and
+  the next session can be empty (v135 behaviour, not reported).
+- In export/import as `reviewFirst`.
+
+Asserted in `tools/checks/review-first.js`: a first install queues nothing;
+on an older phone the ten arrive queued, in order, with no cards due, and the
+strip and Start agree; a second load queues nothing more; a card said leaves
+the queue and a card shown and not said is put aside; the queue survives a
+backup; there is no *Ten different ones* over queued cards alone, and with
+cards due it skips the queued ones.

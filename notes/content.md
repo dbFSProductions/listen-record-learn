@@ -192,3 +192,24 @@ plus a `flag` the web app has no use for. It can't be deployed, but it is the
 reference implementation — keep the list in step.
 
 ---
+
+### Nadal (v136)
+
+Asked for in late November: *"As Christmas approaches, everyone talks about
+it and I need some stock phrases"*, with the owner's own version of the
+standard conversation (plans, parents coming from London until Reis, wife
+working in Glasgow, the cold, *and you?*, the tió in the park). **Nadal** is
+twenty-five cards: those ten in natural Catalan, then what you'll hear back
+(*Anem al poble*, *Ens quedem aquí*), the goodbyes (*Bones festes*, *Que vagi
+molt bé*, *Bona entrada d'any*, *Igualment*) and some local colour (Sant
+Esteve and canelons, *Per Nadal, cada ovella al seu corral*, *cagar el tió*,
+els Pastorets). An everyday deck, last in `catalanStarterDecks`.
+
+- *venen*, not *vénen*: the 2016 reform dropped the accent, and the usage
+  note says so, because the old spelling is still everywhere.
+- The notes follow the app's own rules: *tant* and *punt*, *molt*, *Igualment*
+  lose their t; infinitives (*quedar*, *buscar*, *cagar*) and *dinar* drop
+  their r, which comes back before a pronoun (*quedar-me*); *-s* before a
+  vowel is a z.
+- The ten conversation cards are also queued to open Review. See *Queued
+  first* in `notes/drill.md`.

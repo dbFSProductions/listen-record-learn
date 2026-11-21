@@ -13,7 +13,7 @@ enum SeedContent {
     static var catalanStarterDecks: [Phrase] {
         sounds + greetings + cafe + tapes + market + work
             + castells + segon + pinya + arribada + ordres
-            + catalanWords + intercanvi
+            + catalanWords + intercanvi + nadal
     }
 
     /// Spanish, and the only seed content that isn't Catalan. Six decks that
@@ -4112,6 +4112,192 @@ enum SeedContent {
             deck: "Intercanvi",
             focusNote: "fə u-NANY kə ə-PRENG kə-tə-LÀ: any ends on the ny of 'canyon', and aprenc on ng plus k.",
             usageNote: "Fa + time + que + present is how Catalan says 'have been doing for'. Swap un any for sis mesos or dos anys."
+        ),
+    ]
+
+    // MARK: - Nadal
+
+
+    /// Christmas small talk, for the weeks when everyone asks what you're doing.
+    /// Ten lines of the standard conversation — plans, family coming, going
+    /// away, and you? — then what you'll hear back, the goodbyes, and a
+    /// little local colour (Sant Esteve, the tió, the Pastorets). An everyday
+    /// deck, last in `catalanStarterDecks` so the path's colours don't move.
+    static let nadal: [Phrase] = [
+        Phrase(
+            text: "Tens algun pla per Nadal?",
+            translation: "Do you have any plans for Christmas?",
+            deck: "Nadal",
+            focusNote: "TENZ əl-GUN PLA pər nə-DAL: the s of tens turns to z before the vowel, and Nadal is nə-DAL, the first a a schwa and the stress on the end.",
+            situation: "The opener everyone uses from late November.",
+            usageNote: "Per Nadal, never a Nadal: Catalan says per for a festival, like per Reis and per Sant Joan."
+        ),
+        Phrase(
+            text: "Els meus pares venen de Londres per Nadal i es queden fins a Reis.",
+            translation: "My parents are coming from London for Christmas and staying until Kings' Day.",
+            deck: "Nadal",
+            focusNote: "əlz MEUS PA-rəs BE-nən … FINZ ə REIS: the v of venen is a b, fins a runs together with a z, and Reis is one syllable rhyming with 'race'.",
+            usageNote: "Reis is 6 January, when the presents come. Venen is written without its old accent since the 2016 spelling reform."
+        ),
+        Phrase(
+            text: "La meva dona treballa a Glasgow.",
+            translation: "My wife is working in Glasgow.",
+            deck: "Nadal",
+            focusNote: "lə ME-bə DO-nə trə-BA-λə: meva has a b for its v, both a's at the ends are schwas, and treballa has the ll of 'million'."
+        ),
+        Phrase(
+            text: "Així que hi aniré per Nadal.",
+            translation: "So I'll go there for Christmas.",
+            deck: "Nadal",
+            focusNote: "ə-SHI kə i ə-ni-RÉ: així has the sh of 'shoe', hi is a bare i, and aniré lands on its last syllable.",
+            usageNote: "Hi is 'there' — Glasgow. Catalan keeps it even when the place was named a moment ago."
+        ),
+        Phrase(
+            text: "Hi farà un fred que pela.",
+            translation: "It's going to be freezing.",
+            deck: "Nadal",
+            focusNote: "i fə-RA un FRET kə PE-lə: the d of fred comes out as a t, and pela ends in a schwa.",
+            usageNote: "Literally 'a cold that peels'. The everyday way to say bitterly cold."
+        ),
+        Phrase(
+            text: "Tant de bo em pogués quedar aquí.",
+            translation: "I wish I could stay here.",
+            deck: "Nadal",
+            focusNote: "TAN də BO əm pu-GÉS kə-DA ə-KÍ: tant loses its t before de, the o of pogués is a u, and quedar drops its r.",
+            usageNote: "Tant de bo takes the subjunctive. M'agradaria quedar-me aquí is the softer way."
+        ),
+        Phrase(
+            text: "I tu, quins plans tens?",
+            translation: "And you, what are your plans?",
+            deck: "Nadal",
+            focusNote: "i TU KINS PLANS TENS: qu before i is a plain k with no w, and all three last words end on a hard s.",
+            usageNote: "Or just I tu, què? — and you?"
+        ),
+        Phrase(
+            text: "Què fas per Nadal?",
+            translation: "What are you doing for Christmas?",
+            deck: "Nadal",
+            focusNote: "kè FAS pər nə-DAL: què has an open è, and per is a quick pər.",
+            usageNote: "Què faràs per Nadal? is the same with the future."
+        ),
+        Phrase(
+            text: "Et quedes a Barcelona?",
+            translation: "Are you staying in Barcelona?",
+            deck: "Nadal",
+            focusNote: "ət KE-dəz ə bər-sə-LO-nə: quedes runs into a with a z, and Barcelona has three schwas round the stressed lo."
+        ),
+        Phrase(
+            text: "El que més m'agrada d'aquestes dates és quan les famílies van a buscar el tió al parc.",
+            translation: "My favourite thing at this time of year is when families go looking for the tió in the park.",
+            deck: "Nadal",
+            focusNote: "mə-GRA-də … bus-KA əl ti-Ó əl PARK: buscar drops its r, tió is two syllables with the stress on the ó, and parc ends on a k.",
+            situation: "Your line about Barcelona at Christmas.",
+            usageNote: "The tió is the log that the children feed and then beat on Christmas Eve until it 'poops' presents."
+        ),
+        Phrase(
+            text: "Ja ho tens tot a punt?",
+            translation: "Have you got everything ready?",
+            deck: "Nadal",
+            focusNote: "JA u TENS TO-tə PUN: ja has the soft j of 'measure', tot a runs together, and punt loses its t.",
+            usageNote: "A punt is 'ready'. You'll hear it every day in December."
+        ),
+        Phrase(
+            text: "Ja tens els regals?",
+            translation: "Have you got your presents yet?",
+            deck: "Nadal",
+            focusNote: "JA TEN-zəlz rrə-GALS: tens els runs together with a z, and regals starts with a rolled r."
+        ),
+        Phrase(
+            text: "Anem al poble, a casa dels meus sogres.",
+            translation: "We're going to the village, to my in-laws'.",
+            deck: "Nadal",
+            focusNote: "ə-NEM əl PO-blə … dəlz MEUS SO-grəs: poble ends in a schwa, and dels meus runs together with a z.",
+            situation: "An answer you'll hear back.",
+            usageNote: "El poble is wherever the family comes from — half of Barcelona leaves for one at Christmas."
+        ),
+        Phrase(
+            text: "Ens quedem aquí, tranquil·lets.",
+            translation: "We're staying here, nice and quiet.",
+            deck: "Nadal",
+            focusNote: "əns kə-DE-mə-KÍ trən-kil-LETS: quedem aquí runs together, and the l·l of tranquil·lets is a long double l.",
+            situation: "An answer you'll hear back."
+        ),
+        Phrase(
+            text: "Fem el dinar de Nadal a casa.",
+            translation: "We're doing Christmas lunch at home.",
+            deck: "Nadal",
+            focusNote: "FE-məl di-NA də nə-DAL: fem el runs together, and dinar drops its r.",
+            usageNote: "The big meal is lunch on the 25th, not dinner."
+        ),
+        Phrase(
+            text: "I per Sant Esteve, canelons!",
+            translation: "And on St Stephen's Day, canelons!",
+            deck: "Nadal",
+            focusNote: "SAN-təs-TE-bə kə-nə-LONS: the t of Sant comes back before Esteve, and the v of Esteve is a b.",
+            usageNote: "26 December is a holiday here, and canelons made from the Christmas leftovers are the meal. Locals will enjoy you knowing it."
+        ),
+        Phrase(
+            text: "Bon Nadal!",
+            translation: "Happy Christmas!",
+            deck: "Nadal",
+            focusNote: "BON nə-DAL: the first a of Nadal is a schwa, and the l at the end is dark, like 'full'."
+        ),
+        Phrase(
+            text: "Bones festes!",
+            translation: "Happy holidays!",
+            deck: "Nadal",
+            focusNote: "BO-nəs FES-təs: both words end on a schwa and a hard s.",
+            usageNote: "The goodbye for the whole season, Christmas to Reis."
+        ),
+        Phrase(
+            text: "Que vagi molt bé!",
+            translation: "Hope it goes well!",
+            deck: "Nadal",
+            focusNote: "kə BA-ʒi MOL BÉ: vagi has a b for its v and the soft j of 'measure' for its g, and molt loses its t.",
+            usageNote: "What people say as you leave for the holidays."
+        ),
+        Phrase(
+            text: "Bona entrada d'any!",
+            translation: "Happy New Year!",
+            deck: "Nadal",
+            focusNote: "BO-nən-TRA-də DANY: bona entrada runs together as one word, and any ends on the ny of 'canyon'.",
+            usageNote: "Said before New Year. After it, it's Bon any!"
+        ),
+        Phrase(
+            text: "Igualment!",
+            translation: "Same to you!",
+            deck: "Nadal",
+            focusNote: "i-gwəl-MÉN: the ua is one gliding syllable, and igualment loses its final t.",
+            usageNote: "The answer to every Bon Nadal and Bones festes."
+        ),
+        Phrase(
+            text: "Per Nadal, cada ovella al seu corral.",
+            translation: "At Christmas, every sheep to its own fold.",
+            deck: "Nadal",
+            focusNote: "KA-də u-BE-λə əl SEU ku-RRAL: the o of ovella is a u, its ll is the ll of 'million', and corral has a rolled rr.",
+            usageNote: "A proverb about going home for Christmas. Yours is Glasgow."
+        ),
+        Phrase(
+            text: "Ja heu fet cagar el tió?",
+            translation: "Have you made the tió poop yet?",
+            deck: "Nadal",
+            focusNote: "JA EU FET kə-GA əl ti-Ó: heu is one syllable, cagar drops its r, and tió is two syllables.",
+            situation: "To anyone with children.",
+            usageNote: "Cagar el tió is what everyone calls it, children included. Nobody is shocked."
+        ),
+        Phrase(
+            text: "Aneu a veure els Pastorets?",
+            translation: "Are you going to see the Pastorets?",
+            deck: "Nadal",
+            focusNote: "ə-NEU ə BEU-rə əls pəs-tu-RETS: veure has a b for its v and eu as one glide, and Pastorets turns its o into a u.",
+            usageNote: "Els Pastorets is the traditional Christmas play, put on in theatres and church halls all over Catalonia."
+        ),
+        Phrase(
+            text: "M'agradaria quedar-me aquí.",
+            translation: "I'd like to stay here.",
+            deck: "Nadal",
+            focusNote: "mə-grə-də-RI-ə kə-DAR-mə ə-KÍ: the r of quedar comes back before -me, and every unstressed a of agradaria is a schwa.",
+            usageNote: "The softer twin of Tant de bo em pogués quedar aquí."
         ),
     ]
 }
