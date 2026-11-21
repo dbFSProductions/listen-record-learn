@@ -449,6 +449,35 @@ export function renderDrill() {
      the sentence, the Listen buttons, the record circle — either answers the
      question or invites you to skip it. The topbar stays so you can still
      leave, star the card, or drop into road mode from inside the question. */
+  /* Next sits under the score, above the reference material, and that is
+     the whole answer to "I still have to scroll past them to get to Next".
+     The situation, the replies, the kept notes and the ask box are
+     reference — good, and reported as good — but on a card you have just
+     said the next thing you want is the next card.
+
+     Since v137 it sits between the score card and Compare, not after
+     Compare: Compare remembers being open, and open it is two waveforms and
+     a pitch plot, so Next was a long scroll down on every card after.
+     Reported as *"I'm sure at some point we put the next button above the
+     compare section"*. Before an attempt and in road mode (no Compare) it
+     stays where it was. */
+  const nextUnderScore = Boolean(attempt) && !road;
+  const nextRow = `
+    <div class="btn-row drill-next" style="margin:18px 0 ${nextUnderScore ? "14px" : "0"}">
+      ${
+        // History is a sheet full of small print, so road mode leaves it out
+        // and Next takes the whole width — a bigger target for a moving thumb.
+        road ? "" : `<button class="btn" id="history">History</button>`
+      }
+      ${
+        // The last phrase used to leave a greyed-out Next sitting there looking
+        // broken. It's the way back to the list instead.
+        state.index >= state.queue.length - 1
+          ? `<button class="btn btn-primary" id="done">Done ✓</button>`
+          : `<button class="btn btn-primary" id="next">Next ›</button>`
+      }
+    </div>`;
+
   const body = gating ? aspectGateBody(phrase) : `
     ${
       echoing
@@ -588,7 +617,7 @@ export function renderDrill() {
     </div>`
     }
 
-    <div id="comparison">${attempt ? renderComparison(road) : ""}</div>
+    <div id="comparison">${attempt ? renderComparison(road, nextUnderScore ? nextRow : "") : ""}</div>
 
     ${
       /* The way out, for the card you have just failed twice and want to look
@@ -602,29 +631,7 @@ export function renderDrill() {
         : ""
     }
 
-    ${
-      /* Next sits under the score, above the reference material, and that is
-         the whole answer to "I still have to scroll past them to get to
-         Next". The situation, the replies, the kept notes and the ask box
-         are reference — good, and reported as good — but on a card you have
-         just said well the next thing you want is the next card, and the
-         way to it should not be under three cards of reading. */
-      ""
-    }
-    <div class="btn-row drill-next" style="margin-top:18px">
-      ${
-        // History is a sheet full of small print, so road mode leaves it out
-        // and Next takes the whole width — a bigger target for a moving thumb.
-        road ? "" : `<button class="btn" id="history">History</button>`
-      }
-      ${
-        // The last phrase used to leave a greyed-out Next sitting there looking
-        // broken. It's the way back to the list instead.
-        state.index >= state.queue.length - 1
-          ? `<button class="btn btn-primary" id="done">Done ✓</button>`
-          : `<button class="btn btn-primary" id="next">Next ›</button>`
-      }
-    </div>
+    ${nextUnderScore ? "" : nextRow}
 
     ${road ? "" : drillContext(phrase, questioned)}
     ${road ? "" : drillReplies(phrase, questioned)}
