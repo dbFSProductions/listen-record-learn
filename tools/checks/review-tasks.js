@@ -40,6 +40,11 @@ const { ok, done } = tally("review-tasks");
     const three = phrases.filter((p) => p.language === "ca-ES" && p.text && p.translation && p.deck === "Salutacions").slice(0, 3);
     three[0].replies = [{ text: "Igualment!", translation: "Likewise!" }];
     localStorage.setItem("xerra.phrases", JSON.stringify(phrases));
+    // Every other card is put aside, so the session is these three and
+    // nothing tops it up: the steering below counts on three.
+    const later = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    localStorage.setItem("xerra.reviewAside", JSON.stringify(Object.fromEntries(
+      phrases.filter((p) => !three.includes(p)).map((p) => [p.id, later]))));
     const day = 86400000;
     localStorage.setItem("xerra.attempts", JSON.stringify(three.map((p, i) => ({
       id: `seed-${i}`, phraseID: p.id, recordedAt: new Date(Date.now() - (9 - i) * day).toISOString(),
@@ -50,6 +55,14 @@ const { ok, done } = tally("review-tasks");
   await page.reload();
   await page.waitForSelector("[data-review]");
   ok(/3 phrases to review today/.test(await page.textContent("[data-review]")), "three cards are due");
+  /* The third card will be shown and not said, which puts it aside; this
+     takes it back out and repaints home, so it can be asked again. */
+  const unaside = () => page.evaluate(async (id) => {
+    const { library } = await import("/js/store.js");
+    delete library.aside[id];
+    library.saveAside();
+    (await import("/js/app.js")).render();
+  }, cards[2].id);
 
   // Card one, asked from its reply. The session is shuffled first; two calls
   // of 0.99 leave three cards where they were, oldest first.
@@ -94,6 +107,9 @@ const { ok, done } = tally("review-tasks");
 
   // By ear is one tap from the text, and road or quiet mode takes a task off.
   await page.click("#back");
+  await page.waitForSelector(".tile");
+  ok(!(await page.$("[data-review]")), "shown and not said, the third card is put aside: nothing is due");
+  await unaside();
   await page.waitForSelector("[data-review]");
   await steer(0.5);
   await page.click("[data-review]");
@@ -103,11 +119,15 @@ const { ok, done } = tally("review-tasks");
   // One card is left due and it has no replies, so the ways alternate: the
   // same way is never asked twice running.
   await page.click("#back");
+  await page.waitForSelector(".tile");
+  await unaside();
   await page.waitForSelector("[data-review]");
   await page.click("[data-review]");
   await page.waitForSelector(".drill-text:not(.recall-prompt)");
   ok(!(await page.$(".level-badge")), "the same way is not asked twice running");
   await page.click("#back");
+  await page.waitForSelector(".tile");
+  await unaside();
   await page.waitForSelector("[data-review]");
   await page.click("[data-review]");
   await page.waitForSelector("#echo-show");

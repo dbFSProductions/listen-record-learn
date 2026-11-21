@@ -71,7 +71,9 @@ const { ok, done } = tally("review-ladder");
     }));
     const chosen = new Set(phrases.slice(0, 10).map((p) => p.id));
     const runs = [];
+    library.aside = {};
     for (let n = 0; n < 6; n += 1) {
+      library.aside = {}; // starting a session puts its first card aside
       startDeck(REVIEW_DECK);
       runs.push(state.queue.map((p) => p.id));
     }
@@ -86,6 +88,7 @@ const { ok, done } = tally("review-ladder");
      until tomorrow. */
   const morning = await page.evaluate(async () => {
     const { library, settings } = await import("/js/store.js");
+    library.aside = {};
     const phrase = library.drillable(settings.language)[0];
     const at = (daysAgo, h, m) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); d.setHours(h, m, 0, 0); return d; };
     const plant = (when) => {

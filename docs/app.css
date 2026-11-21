@@ -2207,6 +2207,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .due-title { font-weight: 900; font-size: 1.02rem; }
 .due-sub { font-size: 0.8rem; font-weight: 700; opacity: 0.92; }
 .due-go { font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
+/* Under the strip: put today's due cards aside and start ten others. */
+.due-fresh { display: block; width: fit-content; margin: -8px 0 14px auto; font-size: 0.85rem; }
 .node svg { width: 28px; height: 28px; }
 
 /* ------------------------------------------------------------------ match */

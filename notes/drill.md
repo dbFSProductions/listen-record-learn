@@ -628,3 +628,59 @@ strip's "today", the streak's `localDay`) already counted in days.
 Asserted at the end of `tools/checks/review-ladder.js`: a good go at 06:40
 yesterday is due at 06:30 today and from midnight; one at 06:40 today is not
 due again today. Same change in Deb-o-lingo at its v67.
+
+## Never the same ten twice running (v135)
+
+Reported straight after a session: *"I just finished a review of 10 phrases
+and it wants me to do them again. And still on the same … sentences. I'm
+sooooo bored of these 10 phrases!! Can we start afresh with ten different
+phrases."*
+
+Reproduced headless: a session gone through in quiet mode, or with Next,
+files no attempt (rightly: only spoken attempts count), so all ten were
+still due the moment it ended and the strip offered the same ten again. A
+session recorded through cleared them. Separately, Review only ever drew on
+due cards, so a short list of cards that kept being missed was the whole of
+Review for weeks.
+
+- **A card shown in Review is put aside until it is said.** `loadPhrase`
+  calls `library.setAside([id])` on every Review card;
+  `library.recordAttempt` takes it back out. What stays aside is what was
+  looked at and not spoken, and it comes back in `REVIEW_ASIDE_DAYS` (three)
+  days. Nothing is filed for it, so level two and `reviewOf` are untouched.
+  `library.aside` is phrase id → the local day it may come back. It is
+  stored (`xerra.reviewAside`), because it is something you did rather than
+  something the attempts say; expired entries are dropped on load. It is in
+  export/import.
+- **A session is topped up to ten** (`library.reviewSession`). It holds:
+  - the most overdue cards, as before;
+  - then cards already met but not yet due, soonest first, none said today;
+  - then cards never tried, at random.
+
+  The whole session is then shuffled. Cards put aside are left out of all
+  three. Fresh cards are filed like any other Review attempt, which is how a
+  new card joins the ladder.
+- **The strip is still absent when nothing is due.** The top-up keeps a
+  session fresh; it does not invent a session. With a top-up the strip reads
+  *3 due today + 7 fresh*. `reviewToday()` returns the session's `cards`,
+  which `queueFor(REVIEW_DECK)` shuffles, so the strip and the session agree.
+- **"Bored of these? Ten different ones ›"** sits under the strip. It puts
+  today's due cards (the ten a session would take) aside and starts the
+  topped-up session. It is the "start afresh" that was asked for, and it
+  stays as a way out whenever the due set is stale.
+- The first card of a session is put aside as soon as it is shown, even if
+  you leave at once. That is the price of covering every way out of the
+  drill (Next, Done, back, closing the app) with one line.
+
+Asserted in `tools/checks/review-fresh.js`:
+- a session typed and skipped through is not due again, and is back in
+  three days;
+- the next session is ten different cards;
+- recording takes a card back out;
+- the top-up order is due, then met, then new;
+- *Ten different ones* starts a session with none of the ten that were due;
+- with nothing due there is no strip;
+- put-aside cards survive export and import.
+
+`review-tasks.js` now puts every other card aside so its three-card
+steering holds.

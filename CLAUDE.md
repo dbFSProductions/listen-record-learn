@@ -207,6 +207,8 @@ Each has a full argument in `notes/`. Do not reverse one without reading it.
   Review (spaced repetition read off the attempts) depend on it.
 - **A miss steps a card back, it does not reset it**, and a card missed
   three days running rests a week. `notes/drill.md`.
+- **Review never deals the same ten twice running**: a card shown and not
+  said is put aside three days, and a session is topped up to ten.
 - **Review varies the task, never the card's level.** A due card is asked as
   its level has it, by ear, or from one of its replies (`reviewTask` in
   `drill.js`); every way ends in a spoken attempt filed as it always was.
@@ -251,7 +253,8 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
-  step back, rest, and the shuffled session.
+  step back, rest, and the shuffled session. `review-fresh.js`: put aside,
+  the top-up, and *Ten different ones*.
 - `lib.js` has the helpers: `open()` (a fresh phone-sized page, service worker
   blocked, settings seeded), `stubWorker()` (answer the card assistant),
   `fakeAzure` (a stand-in Speech SDK), `toneWav()`, `tally()`.
@@ -313,7 +316,7 @@ state below changed, update this one.
 
 ## State
 
-- **v134 / `xerra-v134`** — `js/version.js` first, `sw.js` second.
+- **v135 / `xerra-v135`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -335,6 +338,9 @@ state below changed, update this one.
   shuffled (`reviewOf` in `store.js`, `queueFor` in `practice.js`).
 - v134: reviews fall due by calendar day (midnight of the last attempt's
   day plus the interval), not to the minute.
+- v135: a card shown in Review and not said (quiet mode, Next) is put aside
+  three days instead of staying due; a session is topped up to ten with
+  met, then new cards; *Ten different ones* under the strip starts afresh.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.
