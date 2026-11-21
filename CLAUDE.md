@@ -313,7 +313,7 @@ state below changed, update this one.
 
 ## State
 
-- **v133 / `xerra-v133`** — `js/version.js` first, `sw.js` second.
+- **v134 / `xerra-v134`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -333,6 +333,8 @@ state below changed, update this one.
 - v133: in Review a miss steps a card back two rungs rather than to one
   day, a card missed three days running rests a week, and the session is
   shuffled (`reviewOf` in `store.js`, `queueFor` in `practice.js`).
+- v134: reviews fall due by calendar day (midnight of the last attempt's
+  day plus the interval), not to the minute.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

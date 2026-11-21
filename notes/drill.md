@@ -600,10 +600,31 @@ same most-overdue-first order each morning.
 - **The session is shuffled.** `queueFor(REVIEW_DECK)` still takes the
   `REVIEW_CAP` most overdue (`library.due` is unchanged), then shuffles
   them. `review-tasks.js` steers the shuffle to identity with two 0.99s.
-- **Not done, on purpose:** due-by-calendar-day (a card said at 06:40 is due
-  at 06:40, not at midnight). It makes cards come round more reliably, which
-  was more of what was being avoided; revisit if early sessions miss cards.
+- **Not done at v133, on purpose:** due-by-calendar-day. Done at v134, below.
 
 Asserted in `tools/checks/review-ladder.js`, which plants histories and reads
 `reviewOf` back, and starts six sessions over twelve due cards. Same change
 in Deb-o-lingo at its v66.
+
+## Due by calendar day (v134)
+
+`reviewOf` set `dueAt` to the last attempt's timestamp plus the interval in
+milliseconds, so a card said well at 06:40 was due at 06:40 the next day. A
+session at 06:30 found it ten minutes short; the strip read nothing due and
+the card waited a whole extra day. The count also crept up mid-session as
+the clock passed yesterday's timestamps. Everything else in the app (the
+strip's "today", the streak's `localDay`) already counted in days.
+
+- **`dueAt` is local midnight of the last attempt's day plus `interval`
+  days**, built with `setHours(0…)` and `setDate`, so a clock change cannot
+  shift it by an hour. `DAY_MS` went with it.
+- **Ties are broken by `last`**: cards from the same day are due at the same
+  instant, and the older go is chosen first for the capped session (which is
+  then shuffled anyway).
+- Held back at v133 because it brings cards round more reliably, which was
+  the thing being avoided. Asked for once step-back, resting and the shuffle
+  were in. Nothing stored; no migration.
+
+Asserted at the end of `tools/checks/review-ladder.js`: a good go at 06:40
+yesterday is due at 06:30 today and from midnight; one at 06:40 today is not
+due again today. Same change in Deb-o-lingo at its v67.
