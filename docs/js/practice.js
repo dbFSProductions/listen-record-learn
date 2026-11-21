@@ -284,6 +284,11 @@ export function renderPractice(section = null) {
   // The review strip sits outside the list, so it is wired here rather than
   // in wire(); it starts the same queue the Review node on the path does.
   view.querySelector("[data-review]")?.addEventListener("click", () => startDeck(REVIEW_DECK));
+  // Bored of these: put today's due cards aside and start ten others.
+  view.querySelector("[data-review-fresh]")?.addEventListener("click", () => {
+    library.setAside(reviewToday().due.slice(0, REVIEW_CAP).map((p) => p.id));
+    startDeck(REVIEW_DECK);
+  });
   paint();
 
   /* Spaced repetition's one visible surface on the home page: how many
@@ -297,7 +302,7 @@ export function renderPractice(section = null) {
      only strong colour in the palette that no tile wears; it is quiet mode's
      elsewhere, and the two never share a screen. */
   function dueStrip() {
-    const { session, rest } = reviewToday();
+    const { session, dueIn, fresh, rest } = reviewToday();
     if (!session) return "";
     /* The headline is the session — what Start actually starts — and the
        backlog is a quieter clause after it. "90 phrases due today" over a
@@ -308,12 +313,15 @@ export function renderPractice(section = null) {
         <span class="due-mark" aria-hidden="true">${CLOCK_SVG}</span>
         <span class="due-main">
           <span class="due-title">Review</span>
-          <span class="due-sub">${session} phrase${session === 1 ? "" : "s"} to review today${
-            rest ? ` · ${rest} more waiting` : ""
-          }</span>
+          <span class="due-sub">${
+            fresh
+              ? `${dueIn} due today + ${fresh} fresh`
+              : `${session} phrase${session === 1 ? "" : "s"} to review today`
+          }${rest ? ` · ${rest} more waiting` : ""}</span>
         </span>
         <span class="due-go">Start ›</span>
-      </button>`;
+      </button>
+      <button class="link due-fresh" data-review-fresh="1">Bored of these? Ten different ones ›</button>`;
   }
 
   /* Match's way in. A strip rather than a ninth square: eight tiles fill
@@ -894,7 +902,7 @@ function queueFor(deck) {
   // What is due for review: the most overdue are the ones chosen (see
   // `library.due`), then shuffled, so a session does not open on the same
   // cards in the same order every morning.
-  if (deck === REVIEW_DECK) return shuffle(library.due(settings.language).slice(0, REVIEW_CAP));
+  if (deck === REVIEW_DECK) return shuffle([...reviewToday().cards]);
   // A family header drills everything under it, shuffled — the castells decks
   // are one rehearsal, not five separate ones. The prefix matters: "Castells"
   // is both a family and a deck in it.

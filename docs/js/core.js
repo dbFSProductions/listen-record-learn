@@ -254,12 +254,18 @@ const REVIEW_PREFIX = "review:";
    step on it now. */
 export const REVIEW_CAP = 10;
 
-/* What today's review is: the session's cards, and how many are waiting
-   behind them. One reader for the strip, the node and the queue, so the
-   three can never disagree about what "Start" starts. */
+/* What today's review is: the session's cards, how many of them are due
+   and how many are fresh ones topping it up to ten (see
+   `library.reviewSession`), and how many due are waiting behind them. One
+   reader for the strip, the node and the queue, so the three can never
+   disagree about what "Start" starts. Nothing at all when nothing is due:
+   the top-up keeps a session fresh, it does not invent one. */
 export function reviewToday() {
   const due = library.due(settings.language);
-  return { due, session: Math.min(due.length, REVIEW_CAP), rest: Math.max(0, due.length - REVIEW_CAP) };
+  if (!due.length) return { due, cards: [], session: 0, dueIn: 0, fresh: 0, rest: 0 };
+  const cards = library.reviewSession(settings.language, REVIEW_CAP);
+  const dueIn = Math.min(due.length, REVIEW_CAP);
+  return { due, cards, session: cards.length, dueIn, fresh: cards.length - dueIn, rest: Math.max(0, due.length - REVIEW_CAP) };
 }
 
 /* A deck name is a string on a phrase and a key in a list, and the app already

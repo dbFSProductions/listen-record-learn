@@ -313,6 +313,11 @@ export async function loadPhrase() {
   state.taskHint = false;
   const task = phrase ? reviewTask(phrase) : null;
   if (phrase) state.lastTask = task;
+  /* Shown in Review is put aside until it is said: recording takes it back
+     out (`recordAttempt`), so what stays aside is a card typed in quiet mode
+     or passed with Next — which used to stay due and fill the next session
+     with the same ten. See `library.aside`. */
+  if (phrase && state.deck === REVIEW_DECK) library.setAside([phrase.id]);
   if (task === "echo") {
     state.task = "echo";
     state.recall = false;
