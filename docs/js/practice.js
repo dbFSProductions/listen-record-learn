@@ -5,7 +5,7 @@ import {
   QUICK_DECK, deckFamily, progress, messages, chats, REVIEW_DECK, matchTally,
 } from "./store.js";
 import {
-  CLOCK_SVG, FAMILY_PREFIX, FAVOURITES_DECK, REVIEW_CAP, SECTIONS, SECTION_PREFIX, TILES, TILE_BY_KEY,
+  CLOCK_SVG, FAMILY_PREFIX, FAVOURITES_DECK, SECTIONS, SECTION_PREFIX, TILES, TILE_BY_KEY,
   esc, gearButton, homeLink, pageHead, reviewToday, scoreColour, sectionAddButton, starButton, state,
   stopEverything, view,
 } from "./core.js";
@@ -284,9 +284,11 @@ export function renderPractice(section = null) {
   // The review strip sits outside the list, so it is wired here rather than
   // in wire(); it starts the same queue the Review node on the path does.
   view.querySelector("[data-review]")?.addEventListener("click", () => startDeck(REVIEW_DECK));
-  // Bored of these: put today's due cards aside and start ten others.
+  /* Bored of these: put the session the strip offers aside and start ten
+     others. Was today's first ten due, which was the same set until cards
+     could be queued ahead of them. */
   view.querySelector("[data-review-fresh]")?.addEventListener("click", () => {
-    library.setAside(reviewToday().due.slice(0, REVIEW_CAP).map((p) => p.id));
+    library.setAside(reviewToday().cards.map((p) => p.id));
     startDeck(REVIEW_DECK);
   });
   paint();
@@ -302,8 +304,12 @@ export function renderPractice(section = null) {
      only strong colour in the palette that no tile wears; it is quiet mode's
      elsewhere, and the two never share a screen. */
   function dueStrip() {
-    const { session, dueIn, fresh, rest } = reviewToday();
+    const { session, first, firstDeck, dueIn, fresh, rest } = reviewToday();
     if (!session) return "";
+    const parts = [];
+    if (first) parts.push(`${first} new${firstDeck ? ` from ${esc(firstDeck)}` : ""}`);
+    if (dueIn) parts.push(`${dueIn} due today`);
+    if (fresh) parts.push(`${fresh} fresh`);
     /* The headline is the session — what Start actually starts — and the
        backlog is a quieter clause after it. "90 phrases due today" over a
        button that drills a session was the number the phone reported as too
@@ -314,14 +320,21 @@ export function renderPractice(section = null) {
         <span class="due-main">
           <span class="due-title">Review</span>
           <span class="due-sub">${
-            fresh
-              ? `${dueIn} due today + ${fresh} fresh`
+            first || fresh
+              ? parts.join(" + ")
               : `${session} phrase${session === 1 ? "" : "s"} to review today`
           }${rest ? ` · ${rest} more waiting` : ""}</span>
         </span>
         <span class="due-go">Start ›</span>
       </button>
-      <button class="link due-fresh" data-review-fresh="1">Bored of these? Ten different ones ›</button>`;
+      ${
+        /* Only when something is due: a strip of queued cards alone is the
+           session that was asked for, and putting them aside would leave
+           nothing to start. */
+        dueIn
+          ? `<button class="link due-fresh" data-review-fresh="1">Bored of these? Ten different ones ›</button>`
+          : ""
+      }`;
   }
 
   /* Match's way in. A strip rather than a ninth square: eight tiles fill

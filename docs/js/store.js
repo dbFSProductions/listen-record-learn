@@ -27,6 +27,7 @@ const KEYS = {
   streak: "xerra.streak",
   match: "xerra.match",
   reviewAside: "xerra.reviewAside",
+  reviewFirst: "xerra.reviewFirst",
 };
 
 /* Level two. A phrase is read aloud until it has been said well four times;
@@ -185,6 +186,25 @@ const SEED_RETIRED = new Set([
    generator only ever sees the content that is there now, so it cannot know
    what a note used to say. The way to build an entry is to take the old string
    out of git. */
+/* Seed cards that open the next Review session when they first arrive on the
+   phone. Asked for with the Nadal deck: *"add them in a deck, and start
+   review with ten of them"* — new cards otherwise only reach Review as the
+   random top-up, one or two at a time. Matched by text, and only at the
+   moment `installNewSeedContent` installs the card, so it happens once: a
+   card already on the phone, or one deleted, is never queued again. */
+const SEED_REVIEW_FIRST = new Set([
+  "Tens algun pla per Nadal?",
+  "Els meus pares venen de Londres per Nadal i es queden fins a Reis.",
+  "La meva dona treballa a Glasgow.",
+  "Així que hi aniré per Nadal.",
+  "Hi farà un fred que pela.",
+  "Tant de bo em pogués quedar aquí.",
+  "I tu, quins plans tens?",
+  "Què fas per Nadal?",
+  "Et quedes a Barcelona?",
+  "El que més m'agrada d'aquestes dates és quan les famílies van a buscar el tió al parc.",
+]);
+
 const SEED_NOTE_FIXES = new Map([
   ["On em poso?", "Three quick syllables, rising at the end. Unstressed o in 'poso' rises toward u."],
   ["Aquesta setmana", "Four vowels, three of them schwa: 'əˈkɛstə səˈmanə'. Only the stressed ones keep their colour."],
@@ -1088,6 +1108,7 @@ export const library = {
     this.attempts = readJSON(KEYS.attempts, []);
     this.loadAside(readJSON(KEYS.reviewAside, {}));
     customDecks.load();
+    this.loadFirst(readJSON(KEYS.reviewFirst, []));
     this.installNewSeedContent();
   },
 
@@ -1192,6 +1213,15 @@ export const library = {
     if (!newcomers.length && !replacedPhrase && !retired && !backfilled) return;
     if (newcomers.length) {
       this.phrases.push(...newcomers);
+      /* Only on a phone that already had seed content: on a first install
+         everything is new and Review starts the ordinary way. */
+      const queued = seeded.size
+        ? newcomers.filter((p) => SEED_REVIEW_FIRST.has(p.text)).map((p) => p.id)
+        : [];
+      if (queued.length) {
+        this.first.push(...queued);
+        this.saveFirst();
+      }
       writeJSON(KEYS.seeded, [...seeded, ...SEED_PHRASES.map((p) => p.text)]);
     }
     this.savePhrases();
@@ -1508,10 +1538,12 @@ export const library = {
      what is due was, for weeks, the same handful. Cards put aside are left
      out of all three. The caller shuffles. */
   reviewSession(language, cap, now = Date.now()) {
-    const due = this.due(language, now);
-    const session = due.slice(0, cap);
-    if (session.length >= cap) return session;
     const today = localDay(new Date(now));
+    const queued = this.firstCards(language, today).slice(0, cap);
+    const queuedIds = new Set(queued.map((p) => p.id));
+    const due = this.due(language, now).filter((p) => !queuedIds.has(p.id));
+    const session = [...queued, ...due].slice(0, cap);
+    if (session.length >= cap) return session;
     const midnight = new Date(now);
     midnight.setHours(0, 0, 0, 0);
     const taken = new Set(session.map((p) => p.id));
@@ -1563,10 +1595,38 @@ export const library = {
     this.saveAside();
   },
 
+  /* Queued first: phrase ids that open the next Review session ahead of
+     anything due (see SEED_REVIEW_FIRST). A card leaves the queue when it is
+     said; one shown and not said is put aside like any Review card, and
+     comes back at the front when the three days are up. Stored, and in
+     export/import, like `aside`. */
+  first: [],
+
+  loadFirst(data) {
+    this.first = Array.isArray(data) ? data.filter((id) => typeof id === "string") : [];
+    this.saveFirst();
+  },
+
+  saveFirst() {
+    writeJSON(KEYS.reviewFirst, this.first);
+  },
+
+  /** The queued-first cards Review can take today, in the order queued. */
+  firstCards(language, today = localDay()) {
+    const byId = new Map(this.drillable(language).map((p) => [p.id, p]));
+    return this.first
+      .map((id) => byId.get(id))
+      .filter((p) => p && !this.isAside(p.id, today));
+  },
+
   recordAttempt(attempt) {
     if (this.aside[attempt.phraseID]) {
       delete this.aside[attempt.phraseID];
       this.saveAside();
+    }
+    if (this.first.includes(attempt.phraseID)) {
+      this.first = this.first.filter((id) => id !== attempt.phraseID);
+      this.saveFirst();
     }
     this.attempts.push(attempt);
     this.saveAttempts();
@@ -1614,6 +1674,7 @@ export const library = {
         streak: streak.data,
         match: matchTally.data,
         reviewAside: this.aside,
+        reviewFirst: this.first,
       },
       null,
       2
@@ -1649,6 +1710,8 @@ export const library = {
     matchTally.replace(parsed.match);
     // Absent in a backup taken before cards could be put aside; not an error.
     this.loadAside(parsed.reviewAside);
+    // Absent in a backup taken before cards could be queued first.
+    this.loadFirst(parsed.reviewFirst);
   },
 };
 

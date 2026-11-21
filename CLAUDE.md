@@ -252,6 +252,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `voice-note.js` covers audio in, text out.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
+- `review-first.js`: seed cards queued to open Review.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
   step back, rest, and the shuffled session. `review-fresh.js`: put aside,
   the top-up, and *Ten different ones*.
@@ -316,11 +317,11 @@ state below changed, update this one.
 
 ## State
 
-- **v135 / `xerra-v135`** — `js/version.js` first, `sw.js` second.
+- **v136 / `xerra-v136`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
-- 467 seed phrases: 354 Catalan in thirty-six decks, 113 Spanish in fourteen.
+- 492 seed phrases: 379 Catalan in thirty-seven decks, 113 Spanish in fourteen.
   Italian starts empty.
 - Azure (key on the phone) does voices, scoring and transcription. The Worker
   does every AI call, feeds, and the ElevenLabs voice (Guillermo).
@@ -341,6 +342,9 @@ state below changed, update this one.
 - v135: a card shown in Review and not said (quiet mode, Next) is put aside
   three days instead of staying due; a session is topped up to ten with
   met, then new cards; *Ten different ones* under the strip starts afresh.
+- v136: the Nadal deck (25 Christmas small-talk cards). Seed cards listed
+  in `SEED_REVIEW_FIRST` are queued to open Review when they arrive on an
+  existing phone (`library.first`); ten of Nadal's are.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.
