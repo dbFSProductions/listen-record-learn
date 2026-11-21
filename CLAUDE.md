@@ -317,7 +317,7 @@ state below changed, update this one.
 
 ## State
 
-- **v136 / `xerra-v136`** — `js/version.js` first, `sw.js` second.
+- **v137 / `xerra-v137`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -345,6 +345,8 @@ state below changed, update this one.
 - v136: the Nadal deck (25 Christmas small-talk cards). Seed cards listed
   in `SEED_REVIEW_FIRST` are queued to open Review when they arrive on an
   existing phone (`library.first`); ten of Nadal's are.
+- v137: after an attempt, Next and History sit between the score card and
+  Compare, not below Compare.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

@@ -37,6 +37,11 @@ const { ok, done } = tally("drill");
   ok((await page.textContent(".dial-value")).trim() === "95", "the dial is the weakest word");
   ok((await page.$("#word-details")) && (await page.$("#compare-details")), "Word by word and Compare are offered");
   ok(await page.$eval("#compare-details", (d) => !d.open), "Compare is shut by default");
+  ok(await page.evaluate(() => {
+    const before = (a, b) => Boolean(document.querySelector(a).compareDocumentPosition(document.querySelector(b)) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return before(".dial-value", "#next") && before("#next", "#compare-details") && before("#history", "#compare-details");
+  }), "Next and History sit between the score and Compare");
+  ok((await page.$$("#next")).length === 1, "and only once");
   await page.click("#compare-details summary");
   ok(await page.$("#play-you"), "Play what you said is inside Compare");
   await page.click("#word-details summary");

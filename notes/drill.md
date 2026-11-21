@@ -720,3 +720,23 @@ strip and Start agree; a second load queues nothing more; a card said leaves
 the queue and a card shown and not said is put aside; the queue survives a
 backup; there is no *Ten different ones* over queued cards alone, and with
 cards due it skips the queued ones.
+
+## Next above Compare (v137)
+
+Reported from the phone: *"I'm sure at some point we put the next button
+above the compare section. So I didn't have to scroll all the way to the
+bottom."* We had put it above the *reference cards*, but still after
+Compare. Compare remembers being open (`drill:compare`), and open it is two
+waveforms and a pitch plot. Headless at phone size, Next was about 1,500px
+down an 844px screen after an attempt with Compare open.
+
+- **The Next / History row now sits between the score card and Compare**
+  whenever there is a score and the drill is not in road mode.
+  `renderDrill` builds the row once (`nextRow`) and hands it to
+  `renderComparison(road, nextRow)`, which puts it after the verdict.
+  Before an attempt, and in road mode (no Compare), it stays where it was.
+- Still one `#next` on the page; the listeners are unchanged.
+
+Asserted in `tools/checks/drill.js`: after an attempt `.dial-value`,
+`#next` and `#compare-details` come in that order, `#history` comes before
+Compare, and there is one `#next`.

@@ -22,7 +22,7 @@ import { sayAloud } from "./voices.js";
    canvases draw when it opens (`prepare` returns null at zero width, so a
    draw into a shut fold is a no-op, and the toggle redraws). Slow stays
    beside Listen: it costs no scrolling there. */
-export function renderComparison(road = false) {
+export function renderComparison(road = false, nextRow = "") {
   const attempt = state.attempt;
   const timing = timingSummary();
   const melody = melodySummary();
@@ -55,6 +55,9 @@ export function renderComparison(road = false) {
     <hr style="border:0;border-top:2px solid var(--line);margin:20px 0">
 
     ${verdict}
+
+    ${/* Next and History, between the score and Compare (see renderDrill). */ ""}
+    ${nextRow}
 
     <details class="card fold-details" id="compare-details" ${open ? "open" : ""}>
       <summary><span class="fold-details-main">Compare<span class="fold-details-sub">Your recording, the waveforms, the intonation</span></span></summary>
