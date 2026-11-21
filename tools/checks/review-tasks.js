@@ -51,8 +51,9 @@ const { ok, done } = tally("review-tasks");
   await page.waitForSelector("[data-review]");
   ok(/3 phrases to review today/.test(await page.textContent("[data-review]")), "three cards are due");
 
-  // Card one, asked from its reply.
-  await steer(0.99, 0);
+  // Card one, asked from its reply. The session is shuffled first; two calls
+  // of 0.99 leave three cards where they were, oldest first.
+  await steer(0.99, 0.99, 0.99, 0);
   await page.click("[data-review]");
   await page.waitForSelector(".level-badge");
   ok(/what did you say/.test(await page.textContent(".level-badge")), "answer: the badge says which task");
