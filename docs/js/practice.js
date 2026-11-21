@@ -891,8 +891,10 @@ function phraseRow(phrase) {
 function queueFor(deck) {
   if (deck === "*") return shuffle([...library.drillable(settings.language)]);
   if (deck === FAVOURITES_DECK) return starred();
-  // What is due for review, most overdue first — see `library.due`.
-  if (deck === REVIEW_DECK) return library.due(settings.language).slice(0, REVIEW_CAP);
+  // What is due for review: the most overdue are the ones chosen (see
+  // `library.due`), then shuffled, so a session does not open on the same
+  // cards in the same order every morning.
+  if (deck === REVIEW_DECK) return shuffle(library.due(settings.language).slice(0, REVIEW_CAP));
   // A family header drills everything under it, shuffled — the castells decks
   // are one rehearsal, not five separate ones. The prefix matters: "Castells"
   // is both a family and a deck in it.

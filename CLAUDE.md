@@ -205,6 +205,8 @@ Each has a full argument in `notes/`. Do not reverse one without reading it.
 - **Only spoken attempts count.** Nothing typed in quiet mode, no practice
   go in the chat and no round of Match is filed as an attempt. Level two (four good goes) and
   Review (spaced repetition read off the attempts) depend on it.
+- **A miss steps a card back, it does not reset it**, and a card missed
+  three days running rests a week. `notes/drill.md`.
 - **Review varies the task, never the card's level.** A due card is asked as
   its level has it, by ear, or from one of its replies (`reviewTask` in
   `drill.js`); every way ends in a spoken attempt filed as it always was.
@@ -248,6 +250,8 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `voice-note.js` covers audio in, text out.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
+- `review-ladder.js` plants attempt histories and reads `reviewOf` back:
+  step back, rest, and the shuffled session.
 - `lib.js` has the helpers: `open()` (a fresh phone-sized page, service worker
   blocked, settings seeded), `stubWorker()` (answer the card assistant),
   `fakeAzure` (a stand-in Speech SDK), `toneWav()`, `tally()`.
@@ -309,7 +313,7 @@ state below changed, update this one.
 
 ## State
 
-- **v132 / `xerra-v132`** — `js/version.js` first, `sw.js` second.
+- **v133 / `xerra-v133`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -326,6 +330,9 @@ state below changed, update this one.
   prizes).
 - v132: Match has Read / Listen and says a card when picked; the service
   worker precaches `?v=VERSION` past stale copies.
+- v133: in Review a miss steps a card back two rungs rather than to one
+  day, a card missed three days running rests a week, and the session is
+  shuffled (`reviewOf` in `store.js`, `queueFor` in `practice.js`).
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

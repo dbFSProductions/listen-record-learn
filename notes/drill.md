@@ -572,3 +572,38 @@ the task varies and the card does not.
 
 Asserted in `tools/checks/review-tasks.js`, with `Math.random` steered.
 Deb-o-lingo has Review and could take this whole; Mum-o-lingo has no Review.
+
+## A miss steps back, a stuck card rests, a session is shuffled (v133)
+
+Still reported after v131: *"I find the reviews too repetitive, I feel like
+I'm always doing the same things, I get bored and so avoid doing the
+reviews."* Varying the task was half of it. The other half was which cards
+came back: a miss reset a card to one day, and the score is the weakest
+word, so a card with one stubborn sound failed every time and came back
+every day. A handful of those filled most of a ten-card session, in the
+same most-overdue-first order each morning.
+
+- **`reviewOf` reads the history a day at a time, oldest first.** A day
+  with no miss in it climbs one rung of `REVIEW_DAYS`; a day with any miss
+  in it steps back `REVIEW_STEP_BACK` (two) rungs — sixteen days back to
+  four, not to one. Three bad goes in one sitting are one bad day, as four
+  good goes were already one good day. The rung is capped at the top of the
+  ladder, so a card said well for months still drops when it is missed.
+- **A card missed on `REVIEW_REST_AFTER` (three) days running is rested**
+  `REVIEW_REST_DAYS` (seven) days instead of tomorrow; `resting` is on the
+  returned review. A good day ends the run. Daily repetition is not what
+  fixes a card by then, and it is the main source of sameness.
+- **A card never missed is scheduled exactly as before** — the rung is the
+  count of good days, which is what the old trailing streak was. Cards with
+  a miss in their past come round later than they did, so the first Review
+  after v133 is shorter, not longer. Nothing is stored; no migration.
+- **The session is shuffled.** `queueFor(REVIEW_DECK)` still takes the
+  `REVIEW_CAP` most overdue (`library.due` is unchanged), then shuffles
+  them. `review-tasks.js` steers the shuffle to identity with two 0.99s.
+- **Not done, on purpose:** due-by-calendar-day (a card said at 06:40 is due
+  at 06:40, not at midnight). It makes cards come round more reliably, which
+  was more of what was being avoided; revisit if early sessions miss cards.
+
+Asserted in `tools/checks/review-ladder.js`, which plants histories and reads
+`reviewOf` back, and starts six sessions over twelve due cards. Same change
+in Deb-o-lingo at its v66.
