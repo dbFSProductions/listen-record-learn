@@ -19,6 +19,7 @@ import { renderSettings } from "./settings.js";
 import { renderStory } from "./story-page.js";
 import { openStreak, renderStreak } from "./streak.js";
 import { renderMatch, startMatch } from "./match.js";
+import { renderBuild } from "./build.js";
 
 // ---------------------------------------------------------------- going home
 
@@ -44,6 +45,7 @@ export function goHome() {
   state.bookPage = null;
   state.story = null;
   state.match = null;
+  state.build = null;
   state.addKind = null;
   state.search = "";
   state.decksOpen = false;
@@ -110,6 +112,9 @@ export function render() {
   else if (state.tab === "practise" && state.section === "match") renderMatch();
   else if (state.tab === "practise" && state.section === "xerrada" && state.chat) renderChat();
   else if (state.tab === "practise" && state.section === "reader" && state.story) renderStory();
+  /* Build sits over the book page it was opened from, which stays in state
+     behind it: leaving the game is clearing `state.build`. */
+  else if (state.tab === "practise" && state.section === "reader" && state.build) renderBuild();
   else if (state.tab === "practise" && state.section === "reader" && state.bookPage) renderMessage();
   else if (state.tab === "practise" && (state.section === "quick" || state.section === "reader") && state.message) renderMessage();
   else if (state.tab === "practise" && state.section === "reader" && state.book) renderBook();

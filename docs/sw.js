@@ -6,7 +6,7 @@
 
 // Bumped with VERSION in js/version.js — Settings shows the two side by side,
 // so forgetting one of them shows up as two different numbers on screen.
-const VERSION = "xerra-v137";
+const VERSION = "xerra-v138";
 const SHELL = [
   "./",
   "./index.html",
@@ -26,6 +26,7 @@ const SHELL = [
   "./js/drill.js",
   "./js/epub.js",
   "./js/match.js",
+  "./js/build.js",
   "./js/message.js",
   "./js/phrase.js",
   "./js/pictures.js",
