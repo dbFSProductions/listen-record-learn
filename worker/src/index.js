@@ -321,7 +321,10 @@ const BOOK_BUILD_SCHEMA = {
               additionalProperties: false,
               properties: {
                 text: { type: "string" },
-                kind: { type: "string", enum: BUILD_KINDS },
+                /* A plain string, not an `enum`: no schema here had used one
+                   against the live model, and cleanBuildItem maps anything
+                   unknown to "word" anyway. */
+                kind: { type: "string", description: `One of: ${BUILD_KINDS.join(", ")}.` },
                 why: { type: "string", description: "One short English line on why it is wrong here." },
               },
               required: ["text", "kind", "why"],
