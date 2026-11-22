@@ -178,6 +178,10 @@ export const state = {
   /* A round of Match — see `startMatch` in match.js. Null outside the game. */
   match: null,
   matchTimer: null,
+
+  /* A round of Build over the book page open behind it — see `startBuild`
+     in build.js. Null outside the game. */
+  build: null,
 };
 
 // ------------------------------------------------------------------ helpers

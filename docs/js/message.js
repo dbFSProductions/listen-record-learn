@@ -12,6 +12,7 @@ import { openBookPage, trimWord } from "./books.js";
 import { foldAccents } from "./drill.js";
 import { READER_HUE } from "./reader.js";
 import { replyKept } from "./replies.js";
+import { bookBuildItems, startBuild } from "./build.js";
 import { quizDone, quizMarkup, quizResultCard, quizScore, quizSession, wireQuiz } from "./story-page.js";
 import { readAloudControls, readerVoiceNow, sayAloud, voiceField } from "./voices.js";
 
@@ -377,6 +378,7 @@ export function renderMessage() {
         : ""
     }
     ${voiceNote ? `<div class="card msg-note striped hue-orange" id="msg-note"></div>` : ""}
+    <div id="msg-build"></div>
     <div class="card message-card striped hue-${reading ? "purple" : "orange"}${earsOnly ? " ears-only" : ""}">
       ${
         earsOnly
@@ -550,6 +552,7 @@ export function renderMessage() {
   );
 
   paintGist();
+  paintBuildOffer();
   paintQuiz();
   paintReveal();
   paintQuestions();
@@ -735,6 +738,58 @@ export function renderMessage() {
       quiz = quizSession(questions);
       paintQuiz();
     });
+  }
+
+  /* Build, as a warm-up for a page of a book — see build.js. Above the text,
+     because it is meant to come first: put a few of the page's sentences
+     together, then read the page they are in. After the gist it is still
+     offered, smaller in its claim, as practice on a page already read. The
+     sentences cost one call the first time and ride on the gloss after. */
+  function paintBuildOffer() {
+    const box = document.getElementById("msg-build");
+    if (!box) return;
+    const cached = item.read?.build?.length ?? 0;
+    if (kind !== "book" || (!cached && !settings.hasAssistant)) {
+      box.innerHTML = "";
+      return;
+    }
+    const first = item.gist === null;
+    box.innerHTML = `
+      <div class="card build-warm striped hue-purple">
+        <p class="small">${
+          first
+            ? "<b>Warm up first.</b> Build a few of this page's sentences from their pieces, then read it — they'll be familiar when you get there."
+            : "<b>Build this page.</b> Its sentences, put back together from their pieces."
+        }</p>
+        <button class="btn btn-hue hue-purple" id="msg-build-go" style="width:100%">${
+          cached ? `Build ${cached} sentences` : "Build sentences from this page"
+        }</button>
+        <div class="notice bad" id="msg-build-error" hidden></div>
+      </div>`;
+    document.getElementById("msg-build-go").onclick = goBuild;
+  }
+
+  async function goBuild() {
+    const button = document.getElementById("msg-build-go");
+    const errorBox = document.getElementById("msg-build-error");
+    const label = button.textContent;
+    const still = () => (page ? state.bookPage === page : state.message === item.id);
+    errorBox.hidden = true;
+    if (!item.read?.build?.length) {
+      button.disabled = true;
+      button.innerHTML = `<span class="spinner"></span> Choosing sentences…`;
+    }
+    try {
+      await bookBuildItems(item, page);
+      if (!still()) return;
+      startBuild(item);
+    } catch (error) {
+      if (!still() || !document.getElementById("msg-build-go")) return;
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = label;
+    }
   }
 
   async function fetchQuiz() {

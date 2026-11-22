@@ -136,3 +136,11 @@ streaming would turn "wait, then text appears" into "text appears immediately".
 It does not reduce total time, only felt time — and the catch is that once the
 first byte is sent you cannot cleanly fall back to another model, so the
 fallback would have to be restricted to failures before the first chunk.
+
+### `/book-build` (v138)
+
+Sentences from a page of a book for Build, Xerra only: the quiz's request
+shape, the batch timeout, and the answer sanitised sentence by sentence
+(chunks must fold back into the sentence, decoys must not be one of its
+chunks). Additive; no other route or prompt changed. Reasoning in
+`notes/reader-and-books.md`.

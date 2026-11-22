@@ -169,6 +169,16 @@ export const cardAssistant = {
     });
   },
 
+  /* Six to eight sentences from a page of a book, cut into chunks with
+     decoys, for Build before reading the page. Its own endpoint on the
+     quiz's argument; the app caches the answer on the page's gloss. */
+  bookBuild(payload, settings) {
+    return request("/book-build", settings, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   /* One of the two feeds the reader page shows, parsed by the Worker from the
      broadcaster's RSS. No model behind it, but the same passcode. */
   feed(source, settings) {

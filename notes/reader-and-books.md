@@ -560,3 +560,58 @@ and leaves `taps` alone, and *Forget this book* takes two taps, drops its
 pages from `xerra.messages` and leaves the cards. On the Worker,
 `feed-test.mjs` holds the note shaping and `card-test.mjs` with `BEFORE` set
 is still byte-identical, so the sister apps are untouched.
+
+### Build over a page of a book (v138)
+
+Asked for as *"add the sentence builder section from deb-o-lingo to xerra but
+drawing material from the book. The idea being to make reading the book
+easier after I've done exercises"*, with the first five pages of *Un estiu a
+Horta* already in the reader. Talked through with an advisor model first.
+
+- **The sentences come from the Worker, once per page.** The book is only
+  on the phone, so nothing could be hand-written as Deb's frames are; and the
+  gloss has word glosses and a whole-page translation, nothing sentence by
+  sentence, so the app could not cut sentences or choose decoys on its own.
+  `/book-build` takes the page (the quiz's request shape, `validateQuiz`) and
+  returns six to eight of its sentences with their English, the chunks and
+  two decoys each, every decoy with a `kind` (article, verb, pronoun,
+  preposition, word) and a one-line `why`. The answer is cached as
+  `read.build` beside `read.quiz` — on the gloss for an imported book, on the
+  entry for a pasted page — so it costs one call per page ever and goes out
+  with the export like the gloss does.
+- **The Worker checks the tiles, not the app.** `cleanBuildItem` drops any
+  sentence whose chunks do not fold back into it (`foldBuild`: case,
+  punctuation, curly apostrophes and the space after an apostrophe folded;
+  hyphens and the middle dot kept). An unsolvable round is worse than a short
+  one. Fewer than three playable sentences is a 502. The prompt keeps elided
+  forms and hyphenated clitics on their word (*l'home*, *d'Horta*,
+  *dóna-me-la*), and asks for decoys that are the real confusions — *el
+  home*, *anava* for *va anar*, *els* for *li*.
+- **The game is Deb's, the hints are not.** `build.js` keeps her tap-to-place,
+  the marks, Show me after two misses and tiles said on placement (Azure only,
+  in Azure's voice). Her hints were all about el and la, written in the app;
+  here the hint for a stray decoy is the Worker's `why`, verb before article
+  before pronoun when several are on the line. The third decoy is a chunk
+  from another sentence on the page, as Deb's is another frame's opening, and
+  its hint says so. No tally, no attempt written: it is study time because the
+  page is still open behind it.
+- **It sits above the text, and it gives some English away on purpose.** The
+  card reads *Warm up first* until the gist is written, then *Build this
+  page*. Its English for six-odd sentences comes before the gist box; that is
+  what a warm-up is, and the page's own translation stays withheld. `state.build`
+  sits over the page in `render()`; leaving is clearing it, and the result
+  screen's main button is *Read the page*.
+- **Purple, not Deb's pink**: pink is a feminine noun in this app.
+- Not built: a Build strip on the home page pointing at the next unread page,
+  a lifetime tally, other accepted word orders (only the page's own is right).
+
+`tools/checks/book-build.js`: a pasted page shows the warm-up above the text
+and fetches nothing; one tap makes one `/book-build` call with the page, the
+language and the title; the head names the book and page; every answer chunk
+is in the tray with three decoys at most and no punctuation; a stray decoy is
+marked out and the hint is its `why`, and moving a tile clears the marks; a
+wrong order says so; Show me gives the sentence with its punctuation and the
+note; the result counts misses; *Read the page* goes back, the card reads
+*Build 3 sentences*, and a second round makes no call; the sentences are on
+the stored entry; and the hint ladder through `makeRound` / `hintFor`.
+`worker/tools/book-build-test.mjs` covers the fold and the sanitising.

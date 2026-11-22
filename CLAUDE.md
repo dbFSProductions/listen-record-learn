@@ -106,6 +106,7 @@ one module per page. Older notes that say "in app.js" mean one of these.
 | `about.js` | About me: the interview and the cards it writes. |
 | `streak.js` | The study clock, flame, strip and streak page. |
 | `match.js` | Match, the pairs game behind the strip on the home page. |
+| `build.js` | Build over a page of a book: its sentences from `/book-build`, put back together before reading. |
 | `deck-manager.js` | Settings → Decks, and the print page. |
 | `settings.js` | Settings and its panels. |
 | `store.js` | All persisted data and its rules: `library`, `settings`, `messages`, `chats`, `books`, `streak`, `LANGUAGES`, `ASPECTS`, voices, review, IndexedDB. |
@@ -253,6 +254,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
 - `review-first.js`: seed cards queued to open Review.
+- `book-build.js`: Build over a pasted book page, against a stubbed Worker.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
   step back, rest, and the shuffled session. `review-fresh.js`: put aside,
   the top-up, and *Ten different ones*.
@@ -317,7 +319,7 @@ state below changed, update this one.
 
 ## State
 
-- **v137 / `xerra-v137`** — `js/version.js` first, `sw.js` second.
+- **v138 / `xerra-v138`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -347,6 +349,9 @@ state below changed, update this one.
   existing phone (`library.first`); ten of Nadal's are.
 - v137: after an attempt, Next and History sit between the score card and
   Compare, not below Compare.
+- v138: Build, ported from Deb-o-lingo, over a page of a book — a warm-up
+  card above the text; the page's sentences come from `/book-build` once and
+  are cached on its gloss. `notes/reader-and-books.md`.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.
