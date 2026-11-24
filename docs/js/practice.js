@@ -284,13 +284,6 @@ export function renderPractice(section = null) {
   // The review strip sits outside the list, so it is wired here rather than
   // in wire(); it starts the same queue the Review node on the path does.
   view.querySelector("[data-review]")?.addEventListener("click", () => startDeck(REVIEW_DECK));
-  /* Bored of these: put the session the strip offers aside and start ten
-     others. Was today's first ten due, which was the same set until cards
-     could be queued ahead of them. */
-  view.querySelector("[data-review-fresh]")?.addEventListener("click", () => {
-    library.setAside(reviewToday().cards.map((p) => p.id));
-    startDeck(REVIEW_DECK);
-  });
   paint();
 
   /* Spaced repetition's one visible surface on the home page: how many
@@ -304,7 +297,25 @@ export function renderPractice(section = null) {
      only strong colour in the palette that no tile wears; it is quiet mode's
      elsewhere, and the two never share a screen. */
   function dueStrip() {
-    const { session, first, firstDeck, dueIn, fresh, rest } = reviewToday();
+    const { session, first, firstDeck, dueIn, fresh, rest, done } = reviewToday();
+    /* The day's ten are done: say so, in the quiet white-and-stripe shape
+       rather than the filled slab, because it is no longer asking anything.
+       The backlog is still said, and Start still deals ten more for a day
+       with time to spare — but as an offer, not as what is owed. Reported:
+       *"I do my 10 for the day and it simply tells me I have 10 more and
+       80 waiting."* */
+    if (done) {
+      const more = session ? ` · ${dueIn + rest ? `${dueIn + rest} more waiting` : "more to practise"}` : "";
+      const inner = `
+          <span class="due-mark" aria-hidden="true">${CLOCK_SVG}</span>
+          <span class="due-main">
+            <span class="due-title">Review done for today ✓</span>
+            <span class="due-sub">Ten done${more}</span>
+          </span>`;
+      return session
+        ? `<button class="due-strip done" data-review="1">${inner}<span class="due-go">Ten more ›</span></button>`
+        : `<div class="due-strip done">${inner}</div>`;
+    }
     if (!session) return "";
     const parts = [];
     if (first) parts.push(`${first} new${firstDeck ? ` from ${esc(firstDeck)}` : ""}`);
@@ -326,15 +337,7 @@ export function renderPractice(section = null) {
           }${rest ? ` · ${rest} more waiting` : ""}</span>
         </span>
         <span class="due-go">Start ›</span>
-      </button>
-      ${
-        /* Only when something is due: a strip of queued cards alone is the
-           session that was asked for, and putting them aside would leave
-           nothing to start. */
-        dueIn
-          ? `<button class="link due-fresh" data-review-fresh="1">Bored of these? Ten different ones ›</button>`
-          : ""
-      }`;
+      </button>`;
   }
 
   /* Match's way in. A strip rather than a ninth square: eight tiles fill

@@ -269,18 +269,26 @@ export function reviewToday() {
   /* Cards queued first (a new seed deck asked to open Review) count as
      something to do, so they bring the strip even when nothing is due. */
   const queued = library.firstCards(settings.language).slice(0, REVIEW_CAP);
-  const empty = { due, cards: [], session: 0, first: 0, firstDeck: null, dueIn: 0, fresh: 0, rest: 0 };
+  /* The day's review is ten. Cards already done in Review today come off
+     it, so a second visit offers what is left of the ten, and once all ten
+     are done the strip says so (`done`) and Start offers ten more. */
+  const doneToday = library.reviewedToday(settings.language);
+  const done = doneToday >= REVIEW_CAP;
+  const cap = done ? REVIEW_CAP : REVIEW_CAP - doneToday;
+  const empty = { due, cards: [], session: 0, first: 0, firstDeck: null, dueIn: 0, fresh: 0, rest: 0, doneToday, done };
   if (!due.length && !queued.length) return empty;
-  const cards = library.reviewSession(settings.language, REVIEW_CAP);
-  const queuedIds = new Set(queued.map((p) => p.id));
+  const cards = library.reviewSession(settings.language, cap);
+  const queuedIds = new Set(queued.slice(0, cap).map((p) => p.id));
   const dueLeft = due.filter((p) => !queuedIds.has(p.id));
-  const first = queued.length;
-  const dueIn = Math.min(dueLeft.length, REVIEW_CAP - first);
-  const decks = [...new Set(queued.map((p) => p.deck))];
+  const first = Math.min(queued.length, cap);
+  const dueIn = Math.min(dueLeft.length, cap - first);
+  const decks = [...new Set(queued.slice(0, cap).map((p) => p.deck))];
   return {
     due,
     cards,
     session: cards.length,
+    doneToday,
+    done,
     first,
     firstDeck: decks.length === 1 ? decks[0] : null,
     dueIn,

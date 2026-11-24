@@ -1566,8 +1566,7 @@ export const library = {
      shown and taken back out when it is said, so the only cards left aside
      are the ones looked at and not spoken — typed in quiet mode, or passed
      with Next. Before this, those were never filed, stayed due, and the
-     next session was the same ten again. "Ten different ones" on the strip
-     puts a whole session aside the same way. Stored, because it is a thing
+     next session was the same ten again. Stored, because it is a thing
      you did rather than something read off the attempts; in export/import. */
   aside: {},
 
@@ -1593,6 +1592,27 @@ export const library = {
     const until = dayPlus(localDay(), days);
     for (const id of phraseIDs) this.aside[id] = until;
     this.saveAside();
+  },
+
+  /* The cards done in Review today: said in a Review session (the attempt
+     carries `review: true`), or shown there and passed — which is what a
+     card put aside today is. "Done" is these reaching REVIEW_CAP, so the
+     strip can say the day's review is finished rather than offering another
+     ten from a backlog of eighty, which was the report: *"I do my 10 for the
+     day and it simply tells me I have 10 more and 80 waiting."* Read off what
+     is already stored; nothing new to keep or export. */
+  reviewedToday(language, now = Date.now()) {
+    const today = localDay(new Date(now));
+    const asideToday = dayPlus(today, REVIEW_ASIDE_DAYS);
+    const ids = new Set(this.drillable(language).map((p) => p.id));
+    const done = new Set();
+    for (const a of this.attempts) {
+      if (a.review && ids.has(a.phraseID) && localDay(new Date(a.recordedAt)) === today) done.add(a.phraseID);
+    }
+    for (const [id, day] of Object.entries(this.aside)) {
+      if (day === asideToday && ids.has(id)) done.add(id);
+    }
+    return done.size;
   },
 
   /* Queued first: phrase ids that open the next Review session ahead of

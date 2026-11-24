@@ -70,7 +70,8 @@ const { ok, done } = tally("review-first");
   // Nine still queued, but the card shown when Start was pressed is put
   // aside (the v135 rule), so eight can be taken today.
   ok((await info()).firstTexts.length === 8, "the card shown and not said is put aside, queue or not");
-  ok(/8 new from Nadal \+ 2 fresh/.test(strip2), `the strip: eight queued, two fresh ("${strip2}")`);
+  // The card shown and passed counts as one of today's ten, so nine are left.
+  ok(/8 new from Nadal \+ 1 fresh/.test(strip2), `the strip: eight queued, one fresh, nine in all ("${strip2}")`);
 
   // Export and import keep the queue.
   const json = await lib(({ library }) => library.exportJSON());
@@ -78,26 +79,16 @@ const { ok, done } = tally("review-first");
   await lib(({ library }, text) => library.importJSON(text), json);
   ok((await info()).first.length === 9, "the queue survives export and import");
 
-  // A strip of queued cards alone has no "Ten different ones": putting the
-  // session that was asked for aside would leave nothing to start.
-  await lib(async () => (await import("/js/app.js")).render());
-  ok(!(await page.$("[data-review-fresh]")), "no Ten different ones over queued cards alone");
-
-  // With cards due as well, it puts the queued ones aside too.
-  const dueIds = await lib(async ({ library, settings }) => {
+  // With cards due as well, the queued ones still come first.
+  await lib(async ({ library, settings }) => {
     const old = library.drillable(settings.language).filter((p) => p.deck !== "Nadal").slice(0, 12);
     old.forEach((p, i) => library.attempts.push({ id: `d-${i}`, phraseID: p.id, recordedAt: new Date(Date.now() - (20 - i) * 86400000).toISOString(), duration: 1, mode: "listen", overall: 90, words: [], engine: "Fake" }));
     library.saveAttempts();
     (await import("/js/app.js")).render();
-    return old.map((p) => p.id);
   });
   const strip3 = (await page.textContent("[data-review]")).replace(/\s+/g, " ").trim();
-  ok(/8 new from Nadal \+ 2 due today · 10 more waiting/.test(strip3), `queued and due together ("${strip3}")`);
-  await page.click("[data-review-fresh]");
-  await page.waitForSelector(".progress-pill");
-  const fresh = await lib(({ core }) => core.state.queue.map((p) => p.id));
-  ok(fresh.length === 10 && fresh.every((id) => !g.first.includes(id)), "Ten different ones: none of the queued");
-  ok(fresh.every((id) => dueIds.slice(2).includes(id)), "it is the ten due that were waiting");
+  ok(/8 new from Nadal \+ 1 due today · 11 more waiting/.test(strip3), `queued and due together ("${strip3}")`);
+  ok(!(await page.$("[data-review-fresh]")), "no Ten different ones link any more");
 
   await done(browser, errors);
 })();

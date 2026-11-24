@@ -1,8 +1,9 @@
 // Review never deals the same ten twice running. A card shown in Review and
 // not said (typed in quiet mode, or passed with Next) is put aside for three
 // days; saying it takes it back out. A session short of ten is topped up with
-// cards already met, then new ones. "Ten different ones" puts today's due
-// cards aside and starts a fresh session. Set SHOTS to keep a screenshot.
+// cards already met, then new ones. The day's review is ten: done in Review
+// today comes off it, and at ten the strip says so. Set SHOTS to keep a
+// screenshot.
 const { open, stubWorker, fakeAzure, tally } = require("./lib.js");
 const { ok, done } = tally("review-fresh");
 
@@ -26,7 +27,7 @@ const { ok, done } = tally("review-fresh");
     const dueCards = cards.slice(0, due);
     const metCards = cards.slice(due, due + met);
     library.attempts = [
-      ...dueCards.map((p, i) => attempt(p, 20 - i, i)),
+      ...dueCards.map((p, i) => attempt(p, 30 - i, i)),
       // Three good days running, the last yesterday: four days out.
       ...metCards.flatMap((p, i) => [attempt(p, 3, `${i}a`), attempt(p, 2, `${i}b`), attempt(p, 1, `${i}c`)]),
     ];
@@ -64,10 +65,12 @@ const { ok, done } = tally("review-fresh");
 
   await page.waitForSelector(".tile");
 
-  // 1. Twelve due. A session typed and skipped through does not come back.
-  let g = await plant(12, 0);
+  // 1. Twenty-two due. A session typed and skipped through does not come back,
+  // and once ten are done the strip says the day's review is done.
+  let g = await plant(22, 0);
   await page.waitForSelector("[data-review]");
-  ok(/10 phrases to review today · 2 more waiting/.test(await page.textContent("[data-review]")), "twelve due: ten in the session, two waiting");
+  ok(/10 phrases to review today · 12 more waiting/.test(await page.textContent("[data-review]")), "twenty-two due: ten in the session, twelve waiting");
+  ok(!(await page.$("[data-review-fresh]")), "no Ten different ones link");
   await page.click("[data-review]");
   const first = await passThrough();
   ok(first.length === 10, "the session was ten cards");
@@ -75,17 +78,38 @@ const { ok, done } = tally("review-fresh");
   ok(first.every((id) => !still.includes(id)), "none of the ten typed or skipped is still due");
   ok((await dueNow(3)).filter((id) => first.includes(id)).length === 10, "they are back in three days");
   await page.waitForSelector("[data-review]");
-  ok(/2 due today \+ 8 fresh/.test(await page.textContent("[data-review]")), "the strip: the two waiting, topped up with eight fresh");
+  const doneText = (await page.textContent("[data-review]")).replace(/\s+/g, " ").trim();
+  ok(/Review done for today/.test(doneText) && /12 more waiting/.test(doneText), `ten done: the strip says so ("${doneText}")`);
+  ok(await page.$(".due-strip.done"), "in the quiet done shape");
+  await shot("review-done-strip");
   await page.click("[data-review]");
   const second = await queue();
-  ok(second.length === 10 && second.every((id) => !first.includes(id)), "the next session is ten different cards");
-  ok(g.due.slice(10).every((id) => second.includes(id)), "and the two still due are in it");
+  ok(second.length === 10 && second.every((id) => !first.includes(id)), "Ten more deals ten different cards");
+  ok(second.every((id) => g.due.slice(10).includes(id)), "from the ones still due");
   await home();
+
+  // 1b. Part of the day's ten done: what is left of it is offered.
+  g = await plant(12, 0);
+  await page.evaluate(async ([ids, other]) => {
+    const { library } = await import("/js/store.js");
+    ids.forEach((id, i) => library.recordAttempt({ id: `r-${i}`, phraseID: id, recordedAt: new Date().toISOString(), duration: 1, mode: "listen", review: true, overall: 90, words: [], engine: "Fake" }));
+    // Said today outside Review: not part of the ten.
+    library.recordAttempt({ id: "r-x", phraseID: other, recordedAt: new Date().toISOString(), duration: 1, mode: "listen", overall: 90, words: [], engine: "Fake" });
+    (await import("/js/app.js")).render();
+  }, [g.due.slice(0, 4), g.due[5]]);
+  await page.waitForSelector("[data-review]");
+  ok(/6 phrases to review today · 1 more waiting/.test(await page.textContent("[data-review]")), "four done in Review: six left of the ten");
+  ok(await page.evaluate(async () => { const { library, settings } = await import("/js/store.js"); return library.reviewedToday(settings.language); }) === 4,
+    "an attempt outside Review is not counted");
 
   // 2. A card said in Review is taken back out of the pile put aside.
   g = await plant(3, 0);
+  /* Asked the plain way, not by ear: Review picks the way at random, and an
+     echo card's Record was missed about half the time. */
+  await page.evaluate(() => { window.__random = Math.random; Math.random = () => 0; });
   await page.click("[data-review]");
   await page.waitForTimeout(1200);
+  await page.evaluate(() => { Math.random = window.__random; });
   const said = await page.evaluate(async () => (await import("/js/drill.js")).currentPhrase().id);
   ok(await page.evaluate(async (id) => (await import("/js/store.js")).library.isAside(id), said), "a card is put aside when it is shown");
   if (await page.$("#echo-show")) await page.click("#echo-show");
@@ -109,22 +133,9 @@ const { ok, done } = tally("review-fresh");
   ok(g.met.every((id) => top.slice(3, 8).includes(id)), "then the five already met");
   ok(top.slice(8).every((id) => !g.due.includes(id) && !g.met.includes(id)), "then two never tried");
 
-  // 4. Ten different ones: today's due set aside, a fresh session started.
-  g = await plant(12, 4);
-  await page.waitForSelector("[data-review-fresh]");
-  await shot("review-fresh-strip");
-  await page.click("[data-review-fresh]");
-  await page.waitForSelector(".progress-pill");
-  const fresh = await queue();
-  ok(fresh.length === 10, "Ten different ones: ten cards");
-  ok(fresh.every((id) => !g.due.slice(0, 10).includes(id)), "none of the ten that were due");
-  ok(g.due.slice(10).every((id) => fresh.includes(id)) && g.met.every((id) => fresh.includes(id)),
-    "the two still due and the four met are in it");
-  await home();
-
   // 5. Nothing due, no strip: the top-up keeps a session fresh, it does not invent one.
   await plant(0, 4);
-  ok(!(await page.$("[data-review]")) && !(await page.$("[data-review-fresh]")), "nothing due: no strip and no link");
+  ok(!(await page.$("[data-review]")), "nothing due and nothing done: no strip");
 
   // 6. What is put aside rides in a backup.
   const round = await page.evaluate(async () => {
