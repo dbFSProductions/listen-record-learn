@@ -319,7 +319,7 @@ state below changed, update this one.
 
 ## State
 
-- **v138 / `xerra-v138`** — `js/version.js` first, `sw.js` second.
+- **v139 / `xerra-v139`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -343,7 +343,7 @@ state below changed, update this one.
   day plus the interval), not to the minute.
 - v135: a card shown in Review and not said (quiet mode, Next) is put aside
   three days instead of staying due; a session is topped up to ten with
-  met, then new cards; *Ten different ones* under the strip starts afresh.
+  met, then new cards.
 - v136: the Nadal deck (25 Christmas small-talk cards). Seed cards listed
   in `SEED_REVIEW_FIRST` are queued to open Review when they arrive on an
   existing phone (`library.first`); ten of Nadal's are.
@@ -352,6 +352,9 @@ state below changed, update this one.
 - v138: Build, ported from Deb-o-lingo, over a page of a book — a warm-up
   card above the text; the page's sentences come from `/book-build` once and
   are cached on its gloss. `notes/reader-and-books.md`.
+- v139: *Ten different ones* removed. The day's review is ten; cards done
+  in Review today come off it, and at ten the strip says *Review done for
+  today* (`library.reviewedToday`). `notes/drill.md`.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

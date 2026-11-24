@@ -740,3 +740,34 @@ down an 844px screen after an attempt with Compare open.
 Asserted in `tools/checks/drill.js`: after an attempt `.dial-value`,
 `#next` and `#compare-details` come in that order, `#history` comes before
 Compare, and there is one `#next`.
+
+## The day's ten, and saying when they are done (v139)
+
+Reported: *"We can probably remove the 'bored of these' function on the
+review tile. Now it's working better only a few repeat. But can it say if
+I've done the review for the day? I do my 10 for the day and it simply tells
+me I have 10 more and 80 waiting."*
+
+- **"Bored of these? Ten different ones" is gone.** Put-aside (v135) and the
+  gentler miss rule (v133) did what it was a stopgap for.
+- **The day's review is ten** (`REVIEW_CAP`). `library.reviewedToday(language)`
+  counts the cards done in Review today: those said there — an attempt made
+  while `state.deck === REVIEW_DECK` carries `review: true` — and those shown
+  there and passed, which are exactly the cards put aside today (their return
+  day is today + `REVIEW_ASIDE_DAYS`). Read off what is already stored, so
+  nothing new to persist or export. Attempts from before v139 carry no flag,
+  so on the day this lands only cards done after the update count.
+- **`reviewToday()` takes them off the ten.** Four done, a second visit
+  offers six. At ten it returns `done`, and the strip turns to the quiet
+  white-with-teal-stripe shape (the streak strip's), reading *Review done for
+  today ✓ · Ten done · 80 more waiting*, with *Ten more ›* still dealing a
+  full session for a day with time to spare. When done and nothing is left
+  to deal, it is a plain line, not a button.
+- Attempts said outside Review (a deck, the path) do not count toward the
+  ten, though they still move the card's ladder as before.
+
+Asserted in `tools/checks/review-fresh.js`: no *Ten different ones* link;
+ten typed and skipped through make the strip say done, in the `.done` shape,
+with the backlog; *Ten more* deals ten others still due; four said in Review
+leave six; an attempt outside Review is not counted. `review-first.js`: the
+card shown and passed counts as one of the ten.

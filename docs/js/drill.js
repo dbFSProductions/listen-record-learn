@@ -1395,6 +1395,9 @@ async function handleRecording({ blob, duration }) {
     // How it was drilled. Older attempts carry no mode; they were all read off
     // the screen, which is what "listen" means.
     mode: !wasAsked ? "listen" : peeked ? "recall-shown" : "recall",
+    // Said in a Review session: what counts toward the day's ten
+    // (`library.reviewedToday`). Absent everywhere else, and on older attempts.
+    ...(state.deck === REVIEW_DECK ? { review: true } : {}),
     overall: null,
     accuracy: null,
     fluency: null,
