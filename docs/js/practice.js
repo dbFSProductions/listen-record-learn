@@ -300,17 +300,18 @@ export function renderPractice(section = null) {
     const { session, first, firstDeck, dueIn, fresh, rest, done } = reviewToday();
     /* The day's ten are done: say so, in the quiet white-and-stripe shape
        rather than the filled slab, because it is no longer asking anything.
-       The backlog is still said, and Start still deals ten more for a day
-       with time to spare — but as an offer, not as what is owed. Reported:
-       *"I do my 10 for the day and it simply tells me I have 10 more and
-       80 waiting."* */
+       Start still deals ten more for a day with time to spare — but as an
+       offer, not as what is owed. Reported: *"I do my 10 for the day and it
+       simply tells me I have 10 more and 80 waiting."* The backlog is not
+       said once the ten are done (v140): it is not a number anyone is meant
+       to clear, and next to "done" it read as the day not being done. Before
+       the ten it is still the quiet clause after the session. */
     if (done) {
-      const more = session ? ` · ${dueIn + rest ? `${dueIn + rest} more waiting` : "more to practise"}` : "";
       const inner = `
           <span class="due-mark" aria-hidden="true">${CLOCK_SVG}</span>
           <span class="due-main">
             <span class="due-title">Review done for today ✓</span>
-            <span class="due-sub">Ten done${more}</span>
+            <span class="due-sub">Ten done${session ? " · more if you like" : ""}</span>
           </span>`;
       return session
         ? `<button class="due-strip done" data-review="1">${inner}<span class="due-go">Ten more ›</span></button>`
@@ -454,7 +455,7 @@ export function renderPractice(section = null) {
       })
       .join("");
     const favourites = starred();
-    const { session: due } = reviewToday();
+    const { session: due, done: reviewDone } = reviewToday();
     const mix = `
       <section class="unit">
         <div class="unit-banner" style="--unit:var(--blue);--unit-dark:var(--blue-dark)">
@@ -469,10 +470,14 @@ export function renderPractice(section = null) {
                is due, like the strip on the home page. */
             due
               ? `<div class="node-slot" style="--offset:${favourites.length ? 1 : 0}">
-                   <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--teal);--node-dark:var(--teal-dark)" aria-label="Review what is due">
+                   <button class="node open" data-deck="${REVIEW_DECK}" style="--node:var(--teal);--node-dark:var(--teal-dark)" aria-label="${reviewDone ? "Review ten more" : "Review what is due"}">
                      ${CLOCK_SVG}
                    </button>
-                   <div class="node-title">Review · <strong>${due}</strong> today</div>
+                   <div class="node-title">${
+                     /* Says what the home strip says: once the day's ten are
+                        done the node is an offer of ten more, not a count owed. */
+                     reviewDone ? "Review · done ✓" : `Review · <strong>${due}</strong> today`
+                   }</div>
                  </div>`
               : ""
           }
