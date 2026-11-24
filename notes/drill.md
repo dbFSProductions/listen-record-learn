@@ -771,3 +771,31 @@ ten typed and skipped through make the strip say done, in the `.done` shape,
 with the backlog; *Ten more* deals ten others still due; four said in Review
 leave six; an attempt outside Review is not counted. `review-first.js`: the
 card shown and passed counts as one of the ten.
+
+## No backlog count once the ten are done (v140)
+
+Asked next: *"Why do I still have 82 waiting for review?"* The backlog is
+every card whose day has come, and with ten a day it does not shrink when
+more than ten fall due daily — every card met anywhere joins the ladder, the
+first rungs are one, two and four days, and a miss steps back two. Three
+answers were weighed: raise the cap (ruled out — twenty was already reported
+as too many), stretch the first rungs (reverses the v133/v134 ladder on a
+guess, with no data from the phone on where the inflow comes from), or stop
+showing the number once the day's ten are done. The last was chosen: the
+schedule is unchanged, nothing is lost, and "done ✓ · 82 waiting" read as
+the day not being done.
+
+- The done strip reads *Review done for today ✓ · Ten done · more if you
+  like*, with *Ten more ›*. No count.
+- The Review node on the Practice path agrees: *Review · done ✓*
+  rather than *Review · 10 today* (the session size goes back to ten once
+  done, which the node was printing).
+- Before the ten are done, "· N more waiting" is still said after the
+  session, as since v135.
+
+If the backlog itself needs answering, the measured way is a Settings export:
+count, per day, cards falling due from first meetings on the path against
+cards falling due after a miss.
+
+Asserted in `tools/checks/review-fresh.js`: the done strip has no count and
+still has *Ten more*; the path node says done.

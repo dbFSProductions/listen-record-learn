@@ -257,7 +257,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `book-build.js`: Build over a pasted book page, against a stubbed Worker.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
   step back, rest, and the shuffled session. `review-fresh.js`: put aside,
-  the top-up, and *Ten different ones*.
+  the top-up, the day's ten and *Review done for today*.
 - `lib.js` has the helpers: `open()` (a fresh phone-sized page, service worker
   blocked, settings seeded), `stubWorker()` (answer the card assistant),
   `fakeAzure` (a stand-in Speech SDK), `toneWav()`, `tally()`.
@@ -319,7 +319,7 @@ state below changed, update this one.
 
 ## State
 
-- **v139 / `xerra-v139`** — `js/version.js` first, `sw.js` second.
+- **v140 / `xerra-v140`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -355,6 +355,8 @@ state below changed, update this one.
 - v139: *Ten different ones* removed. The day's review is ten; cards done
   in Review today come off it, and at ten the strip says *Review done for
   today* (`library.reviewedToday`). `notes/drill.md`.
+- v140: once the ten are done, neither the strip nor the path's Review
+  node gives the backlog count.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

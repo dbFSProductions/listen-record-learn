@@ -79,9 +79,19 @@ const { ok, done } = tally("review-fresh");
   ok((await dueNow(3)).filter((id) => first.includes(id)).length === 10, "they are back in three days");
   await page.waitForSelector("[data-review]");
   const doneText = (await page.textContent("[data-review]")).replace(/\s+/g, " ").trim();
-  ok(/Review done for today/.test(doneText) && /12 more waiting/.test(doneText), `ten done: the strip says so ("${doneText}")`);
-  ok(await page.$(".due-strip.done"), "in the quiet done shape");
+  ok(/Review done for today/.test(doneText) && !/waiting/.test(doneText) && !/\d\d/.test(doneText),
+    `ten done: the strip says so, with no backlog count ("${doneText}")`);
+  ok(await page.$(".due-strip.done") && /Ten more/.test(doneText), "in the quiet done shape, Ten more still there");
   await shot("review-done-strip");
+  // The Practice path's Review node agrees with the strip.
+  await page.click('.tile[data-section="decks"]');
+  await page.waitForSelector(`[data-deck="review:due"]`);
+  const nodeText = (await page.textContent(`.node-slot:has([data-deck="review:due"]) .node-title`)).trim();
+  ok(/done ✓/.test(nodeText) && !/10/.test(nodeText), `the path node says done too ("${nodeText}")`);
+  await page.$eval(`[data-deck="review:due"]`, (el) => el.scrollIntoView({ block: "center" }));
+  await shot("review-done-node");
+  await page.click("[data-go-home]");
+  await page.waitForSelector("[data-review]");
   await page.click("[data-review]");
   const second = await queue();
   ok(second.length === 10 && second.every((id) => !first.includes(id)), "Ten more deals ten different cards");
