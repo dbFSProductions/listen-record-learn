@@ -254,6 +254,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
 - `review-first.js`: seed cards queued to open Review.
+- `phone-voice.js`: the phone voice marker, offline and with a clip.
 - `vocab-basics.js`: the days, months and numbers decks arrive and are queued.
 - `book-build.js`: Build over a pasted book page, against a stubbed Worker.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
@@ -320,7 +321,7 @@ state below changed, update this one.
 
 ## State
 
-- **v141 / `xerra-v141`** — `js/version.js` first, `sw.js` second.
+- **v142 / `xerra-v142`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
@@ -361,6 +362,8 @@ state below changed, update this one.
 - v141: days, months and numbers — five more Paraules decks (48 cards,
   focusNotes, no mnemonics); ten queued to open Review.
   `notes/vocab-pictures.md`.
+- v142: when Listen will be the phone's own voice (no key, no connection),
+  the drill's Listen button says *phone voice*; read-alouds toast it.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.

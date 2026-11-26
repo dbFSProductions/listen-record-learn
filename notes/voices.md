@@ -511,3 +511,24 @@ three Azure voices and Guillermo and no Matxa, 1600 offers Azure's three alone,
 and a page read with Guillermo picked records `say:guillermo`. On the Worker,
 `speak-test.mjs` holds `ona` at 601 refused and `guillermo` at 1200 through and
 1501 refused.
+
+### The phone voice says so (v142)
+
+*"It struggles to say dissabte and diumenge"* turned out to be the phone's
+own voice: Azure couldn't be reached, no clip came back, and Listen fell
+through to `speechSynthesis`, which is poor at Catalan and indistinguishable
+from the app getting the word wrong. The red notice under the buttons gave
+the Azure error but never said *which voice you were about to hear*.
+
+- **The drill's Listen button carries it**: a second line, *phone voice*,
+  whenever there is no clip and the browser has a voice for the language
+  (`phoneVoice` in `renderDrill`). On the button, because the notice under
+  it had been there all along and was not read. The error notice now leads
+  with *Phone voice — not one to copy.*
+- **Elsewhere, a toast** (`phoneVoiceToast` in `voices.js`) from `sayAloud`
+  and `readAloudControls` when they fall back — the reading page, Real
+  life, the chat's lines read back through them.
+- Not touched: the chat's own fallback in `chat.js` and Match, which call
+  `browserSpeech` directly.
+- Checked by `tools/checks/phone-voice.js`, with a stubbed `speechSynthesis`
+  (headless Chromium has no voices) and a fake Azure that fails, then works.
