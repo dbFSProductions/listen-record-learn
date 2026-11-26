@@ -254,6 +254,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
 - `review-first.js`: seed cards queued to open Review.
+- `vocab-basics.js`: the days, months and numbers decks arrive and are queued.
 - `book-build.js`: Build over a pasted book page, against a stubbed Worker.
 - `review-ladder.js` plants attempt histories and reads `reviewOf` back:
   step back, rest, and the shuffled session. `review-fresh.js`: put aside,
@@ -319,11 +320,11 @@ state below changed, update this one.
 
 ## State
 
-- **v140 / `xerra-v140`** — `js/version.js` first, `sw.js` second.
+- **v141 / `xerra-v141`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
-- 492 seed phrases: 379 Catalan in thirty-seven decks, 113 Spanish in fourteen.
+- 540 seed phrases: 427 Catalan in forty-two decks, 113 Spanish in fourteen.
   Italian starts empty.
 - Azure (key on the phone) does voices, scoring and transcription. The Worker
   does every AI call, feeds, and the ElevenLabs voice (Guillermo).
@@ -357,6 +358,9 @@ state below changed, update this one.
   today* (`library.reviewedToday`). `notes/drill.md`.
 - v140: once the ten are done, neither the strip nor the path's Review
   node gives the backlog count.
+- v141: days, months and numbers — five more Paraules decks (48 cards,
+  focusNotes, no mnemonics); ten queued to open Review.
+  `notes/vocab-pictures.md`.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.
