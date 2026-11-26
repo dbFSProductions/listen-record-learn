@@ -368,6 +368,11 @@ export function renderDrill() {
   }
 
   const hasModel = Boolean(state.modelBlob);
+  /* Listen is about to use the phone's own voice: no clip came back, from no
+     key or from no connection. That voice is poor at Catalan — it was taken
+     for the app mangling *dissabte* and *diumenge* — so the button says so
+     rather than leaving it to a notice under it that is easy not to read. */
+  const phoneVoice = !hasModel && !state.loadingModel && browserSpeech.available(phrase.language);
   const attempt = state.attempt;
   const language = LANGUAGES[phrase.language]?.englishName ?? "the language";
   /* Road mode: the same drill with everything you cannot use without looking
@@ -566,7 +571,7 @@ export function renderDrill() {
       asking
         ? `<button class="btn" id="show-me" style="width:100%">Show me</button>`
         : `<div class="btn-row">
-             <button class="btn btn-primary" id="listen">Listen</button>
+             <button class="btn btn-primary${phoneVoice ? " btn-tagged" : ""}" id="listen">Listen${phoneVoice ? `<span class="phone-voice-tag">phone voice</span>` : ""}</button>
              <button class="btn" id="slow">Slow</button>
            </div>${
              /* By ear is a task, not a wall: the phrase is one tap away, and
@@ -582,7 +587,9 @@ export function renderDrill() {
         : state.loadingModel
         ? `<p class="small muted" style="margin-top:10px"><span class="spinner"></span> Generating audio…</p>`
         : !hasModel && canSpeak() && speech.lastError
-        ? `<div class="notice bad" style="margin-top:10px">${esc(speech.lastError)}</div>`
+        ? `<div class="notice bad" style="margin-top:10px">${
+            phoneVoice ? "<strong>Phone voice</strong> — not one to copy. " : ""
+          }${esc(speech.lastError)}</div>`
         : !hasModel
         ? `<div class="notice" style="margin-top:10px">${
             /* Quiet mode never records, so there is nothing for Azure to

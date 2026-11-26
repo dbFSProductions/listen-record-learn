@@ -681,6 +681,9 @@ button { font: inherit; }
 
 .btn-row { display: flex; gap: 9px; }
 .btn-row .btn { flex: 1; }
+/* Listen, when it will be the phone's own voice: a second line in the button. */
+.btn-tagged { flex-direction: column; gap: 0; padding-top: 8px; padding-bottom: 8px; }
+.phone-voice-tag { display: block; margin-top: 2px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; opacity: 0.85; }
 .btn-danger { color: var(--red); }
 
 /* The one button that actually destroys something on the next tap wears the

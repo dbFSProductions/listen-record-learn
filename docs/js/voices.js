@@ -25,14 +25,23 @@ export async function sayAloud(button, text, language, failed = "Couldn't play t
     const blob = await speech.modelAudio({ text, language, voice, fast }, settings);
     // `rate` is the drill's Slow, for a page of a book or a story read aloud.
     if (blob) await player.play(blob, { rate });
-    else if (browserSpeech.available(language)) browserSpeech.speak(text, language, { rate, onSilent: noVoice });
-    else noVoice();
+    else if (browserSpeech.available(language)) {
+      phoneVoiceToast();
+      browserSpeech.speak(text, language, { rate, onSilent: noVoice });
+    } else noVoice();
   } catch {
     toast(failed);
   } finally {
     button.dataset.busy = "0";
     button.classList.remove("busy");
   }
+}
+
+/* Said whenever a read-aloud falls through to the phone's own voice, which
+   is poor at Catalan: without it, a dropped connection sounds like the app
+   mispronouncing the word. The drill marks its Listen button instead. */
+export function phoneVoiceToast() {
+  toast("Phone voice — not one to copy.");
 }
 
 /* The voice a text on the message page is read in: `settings.readerVoice`
@@ -96,6 +105,7 @@ export function readAloudControls({ listen, slow, stop }, textOf, language, voic
         // before there was an element to stop, so stop the one there is now.
         if (!still()) player.stop();
       } else if (browserSpeech.available(language)) {
+        phoneVoiceToast();
         browserSpeech.speak(text, language, {
           rate,
           onSilent: () => {
