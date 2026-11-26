@@ -203,6 +203,18 @@ const SEED_REVIEW_FIRST = new Set([
   "Què fas per Nadal?",
   "Et quedes a Barcelona?",
   "El que més m'agrada d'aquestes dates és quan les famílies van a buscar el tió al parc.",
+  /* Days, months and numbers (v141): *"my pronunciation isn't too good on
+     some of them"*. The ten whose spelling misleads most. */
+  "dimarts",
+  "dijous",
+  "dissabte",
+  "diumenge",
+  "gener",
+  "juny",
+  "octubre",
+  "quatre",
+  "vuit",
+  "dotze",
 ]);
 
 const SEED_NOTE_FIXES = new Map([

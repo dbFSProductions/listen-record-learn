@@ -3691,6 +3691,8 @@ enum SeedContent {
     static var catalanWords: [Phrase] {
         wordsTable + wordsStreet + wordsEveryDay
             + wordsQuestions + wordsClock + wordsAway
+            + wordsDays + wordsMonths
+            + wordsNumbersOne + wordsNumbersTeens + wordsNumbersTens
     }
 
     static let wordsTable: [Phrase] = [
@@ -3998,6 +4000,309 @@ enum SeedContent {
             focusNote: "One syllable: 'clow', rhyming with 'cow'. The au is never the 'aw' of English 'claw'.",
             sounds: "CLOW ('clown', no n)",
             picture: "A clown holds your front-door key between his teeth and says 'clow!' every time you reach for it."
+        ),
+    ]
+
+    // MARK: - Days, months and numbers
+    //
+    // Words you say every day and are never taught to say well. No mnemonic:
+    // these are learnt by heart already, and the focusNote is the point.
+    static let wordsDays: [Phrase] = [
+        Phrase(
+            text: "dilluns",
+            translation: "Monday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-LLUNS. The ll is the palatal one of 'million', never the y of 'yes', and the u is a pure oo."
+        ),
+        Phrase(
+            text: "dimarts",
+            translation: "Tuesday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-MARS. The t is silent between the r and the s, so the word ends 'mars', with a single tapped r."
+        ),
+        Phrase(
+            text: "dimecres",
+            translation: "Wednesday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-ME-krəs. Open e in the middle, as in 'bed', and a schwa at the end — not 'cray'."
+        ),
+        Phrase(
+            text: "dijous",
+            translation: "Thursday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-ZHOWS. The j is the soft zh of 'measure', and 'ous' is one syllable on an open o."
+        ),
+        Phrase(
+            text: "divendres",
+            translation: "Friday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-BEN-drəs. The v is said as a b, the stressed e is open, and the last e is a schwa."
+        ),
+        Phrase(
+            text: "dissabte",
+            translation: "Saturday",
+            deck: "Paraules · Els dies",
+            focusNote: "di-SAP-tə. The double s is a hissed s, and the b turns into a p before the t."
+        ),
+        Phrase(
+            text: "diumenge",
+            translation: "Sunday",
+            deck: "Paraules · Els dies",
+            focusNote: "diu-MEN-zhə. 'diu' runs together as one glide, the e is open, and the g is the zh of 'measure'."
+        ),
+    ]
+    static let wordsMonths: [Phrase] = [
+        Phrase(
+            text: "gener",
+            translation: "January",
+            deck: "Paraules · Els mesos",
+            focusNote: "zhə-NE. Soft zh of 'measure', a schwa, and the final r is silent: the word ends on a closed e."
+        ),
+        Phrase(
+            text: "febrer",
+            translation: "February",
+            deck: "Paraules · Els mesos",
+            focusNote: "fə-BRE. Schwa first, a soft b, and the final r is silent."
+        ),
+        Phrase(
+            text: "març",
+            translation: "March",
+            deck: "Paraules · Els mesos",
+            focusNote: "One syllable, MARS. The ç is an s and the r is a single tap."
+        ),
+        Phrase(
+            text: "abril",
+            translation: "April",
+            deck: "Paraules · Els mesos",
+            focusNote: "ə-BRIL. Schwa at the front, stress on the i, and a dark l as in 'full'."
+        ),
+        Phrase(
+            text: "maig",
+            translation: "May",
+            deck: "Paraules · Els mesos",
+            focusNote: "One syllable, MATCH: the ig at the end is 'tch', just as in 'vaig'."
+        ),
+        Phrase(
+            text: "juny",
+            translation: "June",
+            deck: "Paraules · Els mesos",
+            focusNote: "One syllable, ZHOONY. The ny is a Spanish ñ — the tongue stays on the roof of the mouth at the end."
+        ),
+        Phrase(
+            text: "juliol",
+            translation: "July",
+            deck: "Paraules · Els mesos",
+            focusNote: "zhu-li-OL, stress at the end on an open o. The first u stays a u."
+        ),
+        Phrase(
+            text: "agost",
+            translation: "August",
+            deck: "Paraules · Els mesos",
+            focusNote: "ə-GOS. Schwa first, a soft g, and the final t is silent after the s."
+        ),
+        Phrase(
+            text: "setembre",
+            translation: "September",
+            deck: "Paraules · Els mesos",
+            focusNote: "sə-TEM-brə. Schwa, open e carrying the stress, schwa. Three syllables."
+        ),
+        Phrase(
+            text: "octubre",
+            translation: "October",
+            deck: "Paraules · Els mesos",
+            focusNote: "uk-TU-brə. The unstressed o is said as u, so it starts 'ook'."
+        ),
+        Phrase(
+            text: "novembre",
+            translation: "November",
+            deck: "Paraules · Els mesos",
+            focusNote: "nu-BEM-brə. Unstressed o rises to u, the v is a b, and the e is open."
+        ),
+        Phrase(
+            text: "desembre",
+            translation: "December",
+            deck: "Paraules · Els mesos",
+            focusNote: "də-ZEM-brə. The s between vowels buzzes as a z; schwa, open e, schwa."
+        ),
+    ]
+    static let wordsNumbersOne: [Phrase] = [
+        Phrase(
+            text: "u",
+            translation: "one",
+            deck: "Paraules · Números 1–10",
+            focusNote: "Just the vowel: oo. That is u when counting; in front of a noun it is un — un cafè."
+        ),
+        Phrase(
+            text: "dos",
+            translation: "two",
+            deck: "Paraules · Números 1–10",
+            focusNote: "One syllable, DOS, on a closed o. In front of a feminine noun it becomes dues — dues cerveses."
+        ),
+        Phrase(
+            text: "tres",
+            translation: "three",
+            deck: "Paraules · Números 1–10",
+            focusNote: "TRES, open e as in 'dress', with a single tapped r."
+        ),
+        Phrase(
+            text: "quatre",
+            translation: "four",
+            deck: "Paraules · Números 1–10",
+            focusNote: "KWA-trə. Two syllables: qu is 'kw' and the final e is a schwa."
+        ),
+        Phrase(
+            text: "cinc",
+            translation: "five",
+            deck: "Paraules · Números 1–10",
+            focusNote: "SINK. The first c is an s. Before a consonant the final k usually goes: cinc minuts is 'sing minuts'."
+        ),
+        Phrase(
+            text: "sis",
+            translation: "six",
+            deck: "Paraules · Números 1–10",
+            focusNote: "SEES, both s's hissed. Before a vowel the last one buzzes: sis anys is 'si-zanys'."
+        ),
+        Phrase(
+            text: "set",
+            translation: "seven",
+            deck: "Paraules · Números 1–10",
+            focusNote: "SET, open e as in 'bed', and the final t is said."
+        ),
+        Phrase(
+            text: "vuit",
+            translation: "eight",
+            deck: "Paraules · Números 1–10",
+            focusNote: "BUIT. The v is a b, 'ui' is one glide, and the final t is said."
+        ),
+        Phrase(
+            text: "nou",
+            translation: "nine",
+            deck: "Paraules · Números 1–10",
+            focusNote: "One syllable on an open o, close to English 'now'."
+        ),
+        Phrase(
+            text: "deu",
+            translation: "ten",
+            deck: "Paraules · Números 1–10",
+            focusNote: "One syllable: open e running into u, 'DEH-oo' said as one."
+        ),
+    ]
+    static let wordsNumbersTeens: [Phrase] = [
+        Phrase(
+            text: "onze",
+            translation: "eleven",
+            deck: "Paraules · Números 11–20",
+            focusNote: "ON-zə. Closed o, a buzzing z, and a schwa at the end."
+        ),
+        Phrase(
+            text: "dotze",
+            translation: "twelve",
+            deck: "Paraules · Números 11–20",
+            focusNote: "DOD-zə. The tz is a buzzing dz, as in 'adze', not a ts."
+        ),
+        Phrase(
+            text: "tretze",
+            translation: "thirteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "TRED-zə. Open e, and the tz is a buzzing dz."
+        ),
+        Phrase(
+            text: "catorze",
+            translation: "fourteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "kə-TOR-zə. Schwa first, closed o, a tapped r and a buzzing z."
+        ),
+        Phrase(
+            text: "quinze",
+            translation: "fifteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "KIN-zə. Before i, qu is a plain k — no w."
+        ),
+        Phrase(
+            text: "setze",
+            translation: "sixteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "SED-zə. Open e, and the tz is a buzzing dz."
+        ),
+        Phrase(
+            text: "disset",
+            translation: "seventeen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "di-SET, stress at the end, open e, final t said. It is 'ten-seven'."
+        ),
+        Phrase(
+            text: "divuit",
+            translation: "eighteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "di-BUIT. The v is a b, 'ui' is one glide, final t said."
+        ),
+        Phrase(
+            text: "dinou",
+            translation: "nineteen",
+            deck: "Paraules · Números 11–20",
+            focusNote: "di-NOU, stress at the end on an open o."
+        ),
+        Phrase(
+            text: "vint",
+            translation: "twenty",
+            deck: "Paraules · Números 11–20",
+            focusNote: "BIN. The v is a b and the t is silent after the n — it comes back in vint-i-u, bin-ti-U."
+        ),
+    ]
+    static let wordsNumbersTens: [Phrase] = [
+        Phrase(
+            text: "trenta",
+            translation: "thirty",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "TREN-tə. Open e, and the t is said here because a vowel follows it."
+        ),
+        Phrase(
+            text: "quaranta",
+            translation: "forty",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "kwə-RAN-tə. The first a is a schwa: only the stressed a keeps its colour."
+        ),
+        Phrase(
+            text: "cinquanta",
+            translation: "fifty",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "sing-KWAN-tə. The n before qu is 'ng'."
+        ),
+        Phrase(
+            text: "seixanta",
+            translation: "sixty",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "sə-SHAN-tə. The ix is 'sh' and the i only spells it — no 'ay'."
+        ),
+        Phrase(
+            text: "setanta",
+            translation: "seventy",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "sə-TAN-tə. Schwa, stressed a, schwa."
+        ),
+        Phrase(
+            text: "vuitanta",
+            translation: "eighty",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "bui-TAN-tə. The v is a b and 'ui' is one glide."
+        ),
+        Phrase(
+            text: "noranta",
+            translation: "ninety",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "nu-RAN-tə. The unstressed o rises to u."
+        ),
+        Phrase(
+            text: "cent",
+            translation: "a hundred",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "SEN. The t is silent after the n. Two hundred is dos-cents."
+        ),
+        Phrase(
+            text: "mil",
+            translation: "a thousand",
+            deck: "Paraules · Números 30–1000",
+            focusNote: "MEEL, one syllable, dark l. It never takes a plural: dos mil."
         ),
     ]
 

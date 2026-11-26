@@ -189,3 +189,30 @@ worth taking over, since a scene that doesn't click is the same failure in
 Spanish. The
 one real divergence is where the cards live, which is the deck-versus-path
 difference the rest of this file already has.
+
+### Days, months and numbers (v141)
+
+Asked for as *"basic things in vocab like days of the week, months and
+numbers … my pronunciation isn't too good on some of them"*. Five more
+Paraules decks: **Els dies** (7), **Els mesos** (12), **Números 1–10**,
+**Números 11–20** (10 each) and **Números 30–1000** (the tens, cent, mil —
+9). Forty-eight cards, bare words with no article.
+
+- **No mnemonics.** These are words already known by meaning; what is wrong
+  is the mouth, so the `focusNote` does all the work and `picture` is left
+  empty. *Invent a picture for me* still works on any of them.
+- The notes name the traps a reader of the spelling falls into: the silent
+  t of *dimarts*, *agost*, *vint*, *cent*; the silent r of *gener*,
+  *febrer*; *maig* as "match"; *tz* as a buzzing dz in *dotze*, *tretze*,
+  *setze*; unstressed o as u in *octubre*, *novembre*, *noranta*; v as b.
+- The tens deck is named *Números 30–1000* rather than *Les desenes* only
+  so the deck list, which sorts alphabetically, keeps the three together.
+- Ten of them (*dimarts, dijous, dissabte, diumenge, gener, juny, octubre,
+  quatre, vuit, dotze*) are in `SEED_REVIEW_FIRST`, so they open the next
+  Review on the phone, as Nadal's did.
+- The question that prompted it — *do vocab words come up in practice or
+  review?* — has the answer: **Review, yes** (it draws on every drillable
+  card, so Paraules cards are due like any other); **the Practice path,
+  no** (`practiceUnits` only builds units from decks whose section is
+  `decks`). The Vocab tile and its *Shuffle all of Vocab* are the way in.
+- Checked by `tools/checks/vocab-basics.js`.
