@@ -38,6 +38,14 @@ enum Aspect: String, Codable, CaseIterable, Hashable {
     case ho
     case el
     case li
+    // How much — one scale, least to most. Catalan-only.
+    case gens
+    case gaire
+    case unaMica
+    case bastant
+    case forca
+    case molt
+    case moltissim
 }
 
 /// Which gender a noun is, and therefore which colour its keyword picture

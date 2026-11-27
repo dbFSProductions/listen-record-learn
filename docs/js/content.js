@@ -2205,6 +2205,270 @@ export const SEED_PHRASES = [
     "standsFor": "a la plaça"
   },
   {
+    "text": "M'agrada bastant.",
+    "translation": "I quite like it.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "bəs-TAN: the first a is a schwa and the final t is silent.",
+    "aspect": "bastant",
+    "aspectNote": "'Quite' is bastant: fairly, more than a little."
+  },
+  {
+    "text": "No m'agrada gens.",
+    "translation": "I don't like it at all.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "gens is one syllable, ZHENS, open e. 'm'agrada' is mə-GRA-də: schwa, a soft g, a soft d, and a schwa to finish.",
+    "aspect": "gens",
+    "aspectNote": "'At all' is gens, and gens needs the no in front."
+  },
+  {
+    "text": "M'agrada molt.",
+    "translation": "I like it a lot.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "MOL: the t is silent after the l, and the l is dark.",
+    "aspect": "molt",
+    "aspectNote": "'A lot' is molt."
+  },
+  {
+    "text": "T'agrada molt el vermut?",
+    "translation": "Do you like vermouth a lot?",
+    "deck": "Quant · M'agrada",
+    "focusNote": "tə-GRA-də ... bər-MUT: the v of vermut is a b, and its final t is said.",
+    "aspect": "molt",
+    "aspectNote": "'A lot' is molt."
+  },
+  {
+    "text": "No m'agrada gaire.",
+    "translation": "I don't like it much.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "GAI-rə: one glide and a schwa, never 'GAY-ray'. 'm'agrada' is mə-GRA-də: schwa, a soft g, a soft d, and a schwa to finish.",
+    "aspect": "gaire",
+    "aspectNote": "'Not much' is gaire. It only lives in negatives: no … gaire."
+  },
+  {
+    "text": "No m'agrada gens el soroll.",
+    "translation": "I don't like noise at all.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "su-ROLL: the o before the stress rises to u, and the ll is the palatal one.",
+    "aspect": "gens",
+    "aspectNote": "'At all' is gens, behind no."
+  },
+  {
+    "text": "M'agrada moltíssim.",
+    "translation": "I really love it.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "mul-TI-sim: the o rises to u, and the t comes back.",
+    "aspect": "moltissim",
+    "aspectNote": "'Really love it' is the top rung, moltíssim."
+  },
+  {
+    "text": "M'agrada una mica.",
+    "translation": "I like it a little.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "U-nə MI-kə: both final a's are schwas.",
+    "aspect": "unaMica",
+    "aspectNote": "'A little' is una mica, the low rung that still says yes."
+  },
+  {
+    "text": "M'agraden moltíssim els castells.",
+    "translation": "I really love the castells.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "mul-TI-sim əls kəs-TELLS: the ll is palatal and the s after it is crisp.",
+    "aspect": "moltissim",
+    "aspectNote": "'Really love' is moltíssim, the top of the scale."
+  },
+  {
+    "text": "M'agrada força.",
+    "translation": "I like it a fair bit.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "FOR-sə: open o, a tapped r, the ç an s, a schwa to end.",
+    "aspect": "forca",
+    "aspectNote": "'A fair bit' is força, a notch above bastant and very Catalan."
+  },
+  {
+    "text": "Ens agrada força aquest barri.",
+    "translation": "We like this neighbourhood a fair bit.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "ən-zə-GRA-də: the s of ens buzzes into the vowel. ə-KES BA-ri: before a consonant aquest drops its t.",
+    "aspect": "forca",
+    "aspectNote": "'A fair bit' is força."
+  },
+  {
+    "text": "No m'agraden gaire les festes.",
+    "translation": "I don't like parties much.",
+    "deck": "Quant · M'agrada",
+    "focusNote": "mə-GRA-dən: plural because festes is. GAI-rə, then FES-təs.",
+    "aspect": "gaire",
+    "aspectNote": "'Not much' is gaire, behind no; m'agraden because the festes are plural."
+  },
+  {
+    "text": "Hi ha bastant gent avui.",
+    "translation": "There are quite a few people today.",
+    "deck": "Quant · De o no",
+    "focusNote": "bəs-TAN ZHEN ə-BUI: the t of bastant is silent, and avui's v is a b.",
+    "aspect": "bastant",
+    "aspectNote": "'Quite a few' is bastant, and bastant goes straight onto the noun with no de."
+  },
+  {
+    "text": "No tinc gens de temps.",
+    "translation": "I've got no time at all.",
+    "deck": "Quant · De o no",
+    "focusNote": "TING ZHENS də TEMS: the c of tinc fades before the g, and the p of temps is silent.",
+    "aspect": "gens",
+    "aspectNote": "'No … at all' is gens, and gens takes de before the noun."
+  },
+  {
+    "text": "Hi havia moltíssima gent.",
+    "translation": "There were loads and loads of people.",
+    "deck": "Quant · De o no",
+    "focusNote": "mul-TI-si-mə ZHEN: moltíssima agrees with gent, which is feminine.",
+    "aspect": "moltissim",
+    "aspectNote": "'Loads and loads' is moltíssim, here moltíssima to agree with gent."
+  },
+  {
+    "text": "Una mica de sucre, si us plau.",
+    "translation": "A little sugar, please.",
+    "deck": "Quant · De o no",
+    "focusNote": "U-nə MI-kə də SU-krə: three schwas, and 'si us plau' runs as 'sius PLAU'.",
+    "aspect": "unaMica",
+    "aspectNote": "'A little' is una mica, and una mica takes de."
+  },
+  {
+    "text": "No queda gens de llet.",
+    "translation": "There's no milk left at all.",
+    "deck": "Quant · De o no",
+    "focusNote": "KE-də ZHENS də LLET: the ll is palatal and the final t is said.",
+    "aspect": "gens",
+    "aspectNote": "'No … at all' is gens de, behind no."
+  },
+  {
+    "text": "Tinc força feina aquesta setmana.",
+    "translation": "I've got a fair bit of work this week.",
+    "deck": "Quant · De o no",
+    "focusNote": "FOR-sə FEI-nə: open o, and ei is one glide. sən-MA-nə: the t of setmana turns into an n.",
+    "aspect": "forca",
+    "aspectNote": "'A fair bit' is força, straight onto the noun, no de."
+  },
+  {
+    "text": "No hi ha gaire gent.",
+    "translation": "There aren't many people.",
+    "deck": "Quant · De o no",
+    "focusNote": "GAI-rə ZHEN: the t of gent is silent.",
+    "aspect": "gaire",
+    "aspectNote": "'Not many' is gaire, behind no, with no de."
+  },
+  {
+    "text": "Necessito bastant temps.",
+    "translation": "I need quite a lot of time.",
+    "deck": "Quant · De o no",
+    "focusNote": "nə-sə-SI-tu: two schwas, and the final o is a u. bəs-TAN TEMS.",
+    "aspect": "bastant",
+    "aspectNote": "'Quite a lot' is bastant, with no de."
+  },
+  {
+    "text": "Hi ha molt de soroll.",
+    "translation": "There's a lot of noise.",
+    "deck": "Quant · De o no",
+    "focusNote": "MOL də su-ROLL: the t of molt is silent, and the l runs into de.",
+    "aspect": "molt",
+    "aspectNote": "'A lot of' is molt de before a noun you can't count, like soroll or temps."
+  },
+  {
+    "text": "Vols una mica de pa?",
+    "translation": "Do you want a little bread?",
+    "deck": "Quant · De o no",
+    "focusNote": "BOLS U-nə MI-kə də PA: the v of vols is a b.",
+    "aspect": "unaMica",
+    "aspectNote": "'A little' is una mica de."
+  },
+  {
+    "text": "Parles força bé el català.",
+    "translation": "You speak Catalan pretty well.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "PAR-ləs FOR-sə BE əl kə-tə-LA: three schwas in a row in català.",
+    "aspect": "forca",
+    "aspectNote": "'Pretty well' is força bé, a notch over bastant."
+  },
+  {
+    "text": "Avui fa molt de fred.",
+    "translation": "It's very cold today.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "FA MOL də FRET: the final d of fred is said as a t.",
+    "aspect": "molt",
+    "aspectNote": "'Very cold' is molt de fred: fred is a noun here, so molt de."
+  },
+  {
+    "text": "Tinc moltíssima gana.",
+    "translation": "I'm absolutely starving.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "mul-TI-si-mə GA-nə: gana is feminine, so the scale word agrees.",
+    "aspect": "moltissim",
+    "aspectNote": "'Absolutely' is the top rung, moltíssima because gana is feminine."
+  },
+  {
+    "text": "Estic una mica cansat.",
+    "translation": "I'm a bit tired.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "əs-TI-GU-nə MI-kə kən-SAT: the c of estic turns to a g running into una, and the t of cansat is said.",
+    "aspect": "unaMica",
+    "aspectNote": "'A bit' is una mica, and before an adjective there's no de."
+  },
+  {
+    "text": "Ho trobo una mica car.",
+    "translation": "I find it a bit pricey.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "u TRO-bu: ho is said u, and the final o of trobo is a u too.",
+    "aspect": "unaMica",
+    "aspectNote": "'A bit' is una mica, with no de before an adjective."
+  },
+  {
+    "text": "No tinc gaire gana.",
+    "translation": "I'm not very hungry.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "GAI-rə GA-nə: two schwas at the ends.",
+    "aspect": "gaire",
+    "aspectNote": "'Not very' is gaire, behind no."
+  },
+  {
+    "text": "No fa gens de calor.",
+    "translation": "It isn't hot at all.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "kə-LO: the final r is silent, as in most -or words.",
+    "aspect": "gens",
+    "aspectNote": "'At all' is gens de, behind no."
+  },
+  {
+    "text": "Estic bastant bé.",
+    "translation": "I'm quite well.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "bəs-TAM BE: the n of bastant turns to m before the b.",
+    "aspect": "bastant",
+    "aspectNote": "'Quite' is bastant."
+  },
+  {
+    "text": "No és gaire car.",
+    "translation": "It's not very expensive.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "NO ES GAI-rə KAR: the final r of car is said.",
+    "aspect": "gaire",
+    "aspectNote": "'Not very' is gaire, behind no."
+  },
+  {
+    "text": "M'ha agradat moltíssim.",
+    "translation": "I absolutely loved it.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "mə-grə-DAT: the two a's of m'ha agradat run together, and the final t is said.",
+    "aspect": "moltissim",
+    "aspectNote": "'Absolutely loved' is moltíssim."
+  },
+  {
+    "text": "És força lluny.",
+    "translation": "It's pretty far.",
+    "deck": "Quant · Tot junt",
+    "focusNote": "FOR-sə LLUNY: palatal ll at the start, ny at the end.",
+    "aspect": "forca",
+    "aspectNote": "'Pretty far' is força lluny."
+  },
+  {
     "text": "Antes trabajaba desde casa.",
     "translation": "I used to work from home.",
     "deck": "Pasado · La línea",

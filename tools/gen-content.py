@@ -23,6 +23,7 @@ ASPECTS = {
     "will", "would", "now",                                  # ahead of now
     "fact", "wish", "doubt", "notYet",                       # the mood
     "hi", "en", "ho", "el", "li",                            # the little words
+    "gens", "gaire", "unaMica", "bastant", "forca", "molt", "moltissim",  # how much
 }
 # Blue or pink on the object the word names. Written through as the one-letter
 # key `genderOf` in docs/js/store.js reads, and written at all only on the cards

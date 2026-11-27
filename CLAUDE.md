@@ -254,6 +254,7 @@ dependency); `run.sh` sets `NODE_PATH` to the global npm root.
 - `review-tasks.js` steers `Math.random` to ask a due card each of Review's
   three ways; `match.js` plays two rounds of Match.
 - `review-first.js`: seed cards queued to open Review.
+- `quant.js`: the how-much gate — the ladder, near and far verdicts.
 - `phone-voice.js`: the phone voice marker, offline and with a clip.
 - `vocab-basics.js`: the days, months and numbers decks arrive and are queued.
 - `book-build.js`: Build over a pasted book page, against a stubbed Worker.
@@ -297,7 +298,7 @@ as it was written at the time, newest additions at the end.
 | `notes/project.md` | The `main` rule, the two apps, forks, palette, versions, storage — the long form of this file. |
 | `notes/home-and-navigation.md` | Tiles, the Practice path, colours, page heads, search, Settings' gear. |
 | `notes/drill.md` | The drill card, road mode, quiet mode, replies, ask panel, level two, Review, scoring. |
-| `notes/grammar.md` | The shape gate: past, future, conditional, subjunctive, pronouns. |
+| `notes/grammar.md` | The shape gate: past, future, conditional, subjunctive, pronouns, how much. |
 | `notes/vocab-pictures.md` | Paraules, mnemonics, drawings, gender colours. |
 | `notes/decks.md` | Deck rows, families, the deck manager, the deck field, printing. |
 | `notes/add-and-edit.md` | Add a phrase / word, the review step, the editor, deleting. |
@@ -321,11 +322,11 @@ state below changed, update this one.
 
 ## State
 
-- **v142 / `xerra-v142`** — `js/version.js` first, `sw.js` second.
+- **v143 / `xerra-v143`** — `js/version.js` first, `sw.js` second.
 - Home is eight tiles: Practice, Vocab, Real life, Grammar, Listen & read,
   Chat, About me, All Phrases; plus the Review strip, the Match strip, the
   streak, search, and the gear to Settings.
-- 540 seed phrases: 427 Catalan in forty-two decks, 113 Spanish in fourteen.
+- 573 seed phrases: 460 Catalan in forty-five decks, 113 Spanish in fourteen.
   Italian starts empty.
 - Azure (key on the phone) does voices, scoring and transcription. The Worker
   does every AI call, feeds, and the ElevenLabs voice (Guillermo).
@@ -364,6 +365,8 @@ state below changed, update this one.
   `notes/vocab-pictures.md`.
 - v142: when Listen will be the phone's own voice (no key, no connection),
   the drill's Listen button says *phone voice*; read-alouds toast it.
+- v143: Quant, the how-much scale (gens … moltíssim) on the Grammar gate —
+  three decks, 33 cards, one rung off is near. `notes/grammar.md`.
 - Not built: shadowing along with continuous speech. Known small issue: a tap
   on Record in the drill before the model audio has finished loading is lost
   to the re-render that follows.
