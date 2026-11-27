@@ -1025,9 +1025,16 @@ function aspectVerdict(shape, choice, asking) {
      another is the mood right and the reason wrong — which is most of what
      the deck exists to teach, so it earns its own verdict rather than a plain
      red: the form you would have said is the right form. */
-  const near = !right && Boolean(shape.sub && picked?.sub);
+  const nearSub = !right && Boolean(shape.sub && picked?.sub);
+  /* On the how-much scale, one rung off is close rather than wrong —
+     bastant against força is a line native speakers draw differently. */
+  const nearRung =
+    !right && shape.group === "scale" && picked?.group === "scale" && Math.abs(shape.rank - picked.rank) === 1;
+  const near = nearSub || nearRung;
   const verdict = right
     ? `Yes — ${esc(theirs)}`
+    : nearRung
+    ? `One rung off — ${esc(theirs)}, not ${esc(mine)}`
     : near
     ? `Subjunctive, yes — but ${esc(theirs)}, not ${esc(mine)}`
     : `Not quite — ${esc(theirs)}, not ${esc(mine)}`;

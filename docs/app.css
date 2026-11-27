@@ -1358,6 +1358,7 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 }
 
 .aspect-choice-body, .aspect-verdict-body { display: block; min-width: 0; }
+.scale-mark { display: block; margin: 0 auto; }
 .aspect-gloss {
   display: block;
   color: var(--text-2);

@@ -384,3 +384,35 @@ does it before the sentence shows.
   lo/la/le and neither hi nor en, so the sentences could not be twins and
   the pairing would lose its point. The Spanish Grammar tile still counts
   113; the Catalan one counts 145.
+
+### How much: Quant (v143)
+
+Asked for with the scale written out — *No m'agrada gens* up to *M'agrada
+moltíssim* — and the rule that the ones measuring an amount take de (*gens
+de, una mica de, molt de*) and bastant does not. A sixth family under
+Grammar, on the gate: the English says how much, you pick the rung, then the
+sentence shows.
+
+- **Seven shapes in a `scale` group, every one `base`.** `gens`, `gaire`,
+  `unaMica`, `bastant`, `forca`, `molt`, `moltissim`, in that order, each
+  with a `rank`. All base because the ladder is the question: Pronoms'
+  deck-only offer would, in Review, give a lone Quant card one button that
+  answers itself. The question is *How much?*
+- **The mark is the ladder** (`scaleMark` in `store.js`): seven rising bars,
+  this rung's and those below it filled. The hues run red to purple up the
+  scale. Each button's term is just *rung n of 7*; the endings line carries
+  the examples and the de rule.
+- **One rung off is near**, not wrong: *One rung off — força, not bastant*.
+  Bastant against força, molt against moltíssim, are lines speakers draw
+  differently; a pick two rungs off is *Not quite*.
+- **Three decks, 33 cards**: `Quant · M'agrada` (the seven, plus
+  m'agraden / t'agrada / ens agrada), `De o no` (amounts: gens de temps, una
+  mica de sucre, molt de soroll against bastant gent, força feina, gaire
+  gent) and `Tot junt` (fa molt de fred, estic una mica cansat, tinc
+  moltíssima gana). Written in mixed order: decks drill in source order,
+  and a ladder dealt in sequence answers itself.
+- **molt de** only before nouns you can't count (temps, soroll, fred); with
+  people and with gana it agrees instead (*molta gent, moltíssima gana*),
+  and the notes say so. Catalan-only, like Pronoms.
+- Ten (the seven of m'agrada and three de-rule cards) are in
+  `SEED_REVIEW_FIRST`. Checked by `tools/checks/quant.js`.

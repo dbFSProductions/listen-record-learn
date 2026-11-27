@@ -215,6 +215,18 @@ const SEED_REVIEW_FIRST = new Set([
   "quatre",
   "vuit",
   "dotze",
+  /* Quant (v143), asked for with the scale; the seven rungs of m'agrada and
+     three where the de rule bites. */
+  "No m'agrada gens.",
+  "No m'agrada gaire.",
+  "M'agrada una mica.",
+  "M'agrada bastant.",
+  "M'agrada força.",
+  "M'agrada molt.",
+  "M'agrada moltíssim.",
+  "No tinc gens de temps.",
+  "Una mica de sucre, si us plau.",
+  "Hi ha bastant gent avui.",
 ]);
 
 const SEED_NOTE_FIXES = new Map([
@@ -248,6 +260,17 @@ export const MY_PHRASES = "My phrases";
    up and export exactly like every other card, and no part of the app has to
    learn about them. Only the row that leads to it is special. */
 export const ABOUT_DECK = "About me";
+
+
+/* A rung's mark: seven bars rising left to right, the bars up to this rung
+   filled and the rest faint, so the buttons read as one ladder. */
+function scaleMark(rank) {
+  const bars = Array.from({ length: 7 }, (_, i) => {
+    const h = 4 + i * 3;
+    return `<rect x="${i * 9}" y="${24 - h}" width="6" height="${h}" rx="1.5" fill="currentColor" opacity="${i <= rank ? 1 : 0.2}"/>`;
+  }).join("");
+  return `<svg class="scale-mark" viewBox="0 0 60 24" width="60" height="24" aria-hidden="true">${bars}</svg>`;
+}
 
 /* The shape a past sentence has: a dot is an event in a time-boxed past, a
    line is a stretch of past time with no box round it, plenty of sentences are
@@ -577,6 +600,92 @@ export const ASPECTS = {
     term: "li · els · indirect object",
     endings: { "ca-ES": "a la Marta → li dic · als castellers → els dic · trucar, agradar, dir take li" },
   },
+  /* How much: one scale, least to most — gens, gaire, una mica, bastant,
+     força, molt, moltíssim. Asked for with the scale written out, from "No
+     m'agrada gens" to "M'agrada moltíssim". The English says how much and
+     you pick the rung before the sentence shows. Every rung is `base`, so
+     the whole ladder is on offer on every card — in Review, with one Quant
+     card in the queue, a deck-only offer would be one button answering
+     itself. `rank` is the rung, and a pick one rung off is a near miss
+     (bastant or força is the fuzzy line the ladder is for). The mark is the
+     ladder itself with this rung's bar filled. Catalan-only. */
+  gens: {
+    hue: "red",
+    group: "scale",
+    rank: 0,
+    mark: scaleMark(0),
+    label: "Gens",
+    gloss: "not at all — only ever with no",
+    term: "rung 1 of 7",
+    endings: { "ca-ES": "no m'agrada gens · no tinc gens de temps" },
+    base: true,
+  },
+  gaire: {
+    hue: "orange",
+    group: "scale",
+    rank: 1,
+    mark: scaleMark(1),
+    label: "Gaire",
+    gloss: "not much, not very — only ever with no",
+    term: "rung 2 of 7",
+    endings: { "ca-ES": "no m'agrada gaire · no hi ha gaire gent" },
+    base: true,
+  },
+  unaMica: {
+    hue: "gold",
+    group: "scale",
+    rank: 2,
+    mark: scaleMark(2),
+    label: "Una mica",
+    gloss: "a little, a bit",
+    term: "rung 3 of 7",
+    endings: { "ca-ES": "m'agrada una mica · una mica de sucre" },
+    base: true,
+  },
+  bastant: {
+    hue: "green",
+    group: "scale",
+    rank: 3,
+    mark: scaleMark(3),
+    label: "Bastant",
+    gloss: "quite, fairly",
+    term: "rung 4 of 7",
+    endings: { "ca-ES": "m'agrada bastant · bastant gent, no de" },
+    base: true,
+  },
+  forca: {
+    hue: "teal",
+    group: "scale",
+    rank: 4,
+    mark: scaleMark(4),
+    label: "Força",
+    gloss: "a fair bit, pretty — a notch above bastant",
+    term: "rung 5 of 7",
+    endings: { "ca-ES": "m'agrada força · força feina, no de" },
+    base: true,
+  },
+  molt: {
+    hue: "blue",
+    group: "scale",
+    rank: 5,
+    mark: scaleMark(5),
+    label: "Molt",
+    gloss: "a lot, very",
+    term: "rung 6 of 7",
+    endings: { "ca-ES": "m'agrada molt · molt de soroll · molta gent" },
+    base: true,
+  },
+  moltissim: {
+    hue: "purple",
+    group: "scale",
+    rank: 6,
+    mark: scaleMark(6),
+    label: "Moltíssim",
+    gloss: "really, hugely — the top",
+    term: "rung 7 of 7",
+    endings: { "ca-ES": "m'agrada moltíssim · moltíssima gent" },
+    base: true,
+  },
 };
 
 /* The question each group asks, in the words the gate prints. `question` is
@@ -599,6 +708,10 @@ export const ASPECT_GROUPS = {
   mood: {
     question: "Fact, wish, doubt — or not yet?",
     prompt: "Decide how you hold it first. The sentence comes after.",
+  },
+  scale: {
+    question: "How much?",
+    prompt: "Decide where on the scale it sits. The sentence comes after.",
   },
   pronoun: {
     question: "Which little word?",
@@ -795,7 +908,7 @@ export function readingWordsDeck(language) {
    deck shown behind two tiles is a card in two places. Claiming the family here
    is what takes it out of the Decks count and the Decks list at once. */
 const SECTION_FAMILIES = {
-  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo", "Pronoms"],
+  grammar: ["Passat", "Pasado", "Futur", "Futuro", "Condicional", "Subjuntiu", "Subjuntivo", "Pronoms", "Quant"],
   vocab: Object.values(VOCAB_FAMILY),
   about: [ABOUT_DECK],
 };
